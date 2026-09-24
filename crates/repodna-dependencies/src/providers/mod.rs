@@ -1,12 +1,13 @@
 //! Built-in ecosystem providers.
 
 pub mod cargo;
+pub mod npm;
 
 use crate::model::{EcosystemProvider, FileMatch};
 
 /// Every built-in provider.
 pub fn builtin_providers() -> Vec<Box<dyn EcosystemProvider>> {
-    vec![Box::new(cargo::Cargo)]
+    vec![Box::new(cargo::Cargo), Box::new(npm::Npm)]
 }
 
 /// Finds the provider that handles `path`.
