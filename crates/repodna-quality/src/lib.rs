@@ -6,6 +6,7 @@
 //! measured, which threshold was crossed, and what the measurement cannot see.
 
 pub mod complexity;
+pub mod duplication;
 pub mod tokens;
 
 pub use tokens::TokenStream;
