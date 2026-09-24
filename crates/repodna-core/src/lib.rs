@@ -12,6 +12,7 @@ pub mod confidence;
 pub mod error;
 pub mod evidence;
 pub mod finding;
+pub mod glob;
 pub mod hash;
 pub mod metric;
 pub mod model;
