@@ -14,6 +14,7 @@ pub mod evidence;
 pub mod finding;
 pub mod hash;
 pub mod metric;
+pub mod model;
 pub mod paths;
 pub mod severity;
 pub mod time;
