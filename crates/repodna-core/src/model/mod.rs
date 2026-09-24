@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 pub mod architecture;
 pub mod dependencies;
 pub mod evolution;
+pub mod fingerprint;
 pub mod git;
 pub mod insights;
 pub mod languages;
