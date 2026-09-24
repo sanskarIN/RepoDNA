@@ -9,6 +9,7 @@ pub mod epochs;
 pub mod events;
 pub mod recent;
 pub mod snapshots;
+pub mod story;
 
 #[cfg(test)]
 pub(crate) mod testutil;
