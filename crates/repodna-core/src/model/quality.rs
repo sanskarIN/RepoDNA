@@ -122,7 +122,9 @@ pub struct DuplicateCluster {
     pub lines: u32,
     /// Language identifier.
     pub language: String,
-    /// Every occurrence of the block.
+    /// Total number of occurrences of the block.
+    pub occurrence_count: u32,
+    /// Occurrences of the block, in path order (capped; see `occurrenceCount`).
     pub occurrences: Vec<CodeLocation>,
 }
 
