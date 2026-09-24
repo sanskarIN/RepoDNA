@@ -16,6 +16,7 @@ pub mod git;
 pub mod identity;
 pub mod insights;
 pub mod languages;
+pub mod metadata;
 pub mod metrics;
 pub mod project;
 pub mod quality;
