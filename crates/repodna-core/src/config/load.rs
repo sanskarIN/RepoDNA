@@ -33,7 +33,9 @@ pub struct ConfigLoader {
 pub struct LoadedConfig {
     /// The merged configuration.
     pub config: Config,
-    /// Layers that contributed, in order (e.g. `defaults`, `user: …`, `project: repodna.toml`).
+    /// Layers that contributed, in order (e.g. `defaults`, `user: config.toml`,
+    /// `project: repodna.toml`). Only file names are recorded, never directories, because
+    /// sources are stored in artifacts that may be shared.
     pub sources: Vec<String>,
     /// Settings that were ignored, with the reason.
     pub warnings: Vec<String>,
@@ -77,7 +79,7 @@ impl ConfigLoader {
                 &mut ignore_patterns,
                 "user configuration",
             );
-            sources.push(format!("user: {}", path.display()));
+            sources.push(format!("user: {}", file_label(path)));
         }
 
         if let Some(path) = &self.explicit {
@@ -96,7 +98,7 @@ impl ConfigLoader {
                 &mut ignore_patterns,
                 &origin,
             );
-            sources.push(format!("explicit: {}", path.display()));
+            sources.push(format!("explicit: {}", file_label(path)));
         }
 
         if self.include_project
@@ -251,7 +253,10 @@ mod tests {
         let loaded = loader.load().unwrap();
         assert_eq!(loaded.config.analysis.profile, AnalysisProfile::Deep);
         assert_eq!(loaded.config.thresholds.large_file_lines, 900);
-        assert_eq!(loaded.sources.len(), 3);
+        assert_eq!(
+            loaded.sources,
+            vec!["defaults", "user: user.toml", "project: repodna.toml"]
+        );
     }
 
     #[test]
