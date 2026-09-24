@@ -7,6 +7,7 @@
 //! [`RepositoryDna`]: repodna_core::model::artifact::RepositoryDna
 
 pub mod charts;
+pub mod facts;
 pub mod fonts;
 pub mod palette;
 pub mod privacy;
