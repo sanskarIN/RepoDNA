@@ -46,15 +46,20 @@ pub fn run_git_stage(
     cancel: &CancellationToken,
 ) -> Result<GitStage, GitError> {
     let state = read_state(git, root, cancel)?;
-    let history = read_history(
-        git,
-        root,
-        LogOptions {
-            max_commits: config.analysis.max_commits,
-            detect_renames: true,
-        },
-        cancel,
-    )?;
+    // A repository without commits has no HEAD to read history from.
+    let history = if state.head.is_some() {
+        read_history(
+            git,
+            root,
+            LogOptions {
+                max_commits: config.analysis.max_commits,
+                detect_renames: true,
+            },
+            cancel,
+        )?
+    } else {
+        History::default()
+    };
     let thresholds = &config.thresholds;
     let mut report = aggregate(
         &history,
@@ -169,5 +174,27 @@ mod tests {
         );
         assert_eq!(stage.remotes[0].url, "https://github.com/acme/widget.git");
         assert_eq!(stage.remotes[0].provider, "github");
+    }
+
+    #[test]
+    fn handles_repositories_without_commits() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("README.md", "# New\n");
+        let git = GitRunner::detect().unwrap();
+        let stage = run_git_stage(
+            &git,
+            repo.path(),
+            &BTreeSet::new(),
+            &Config::default(),
+            Timestamp::from_ymd(2024, 3, 1).unwrap(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert_eq!(stage.report.commit_count, 0);
+        assert!(stage.report.head.is_none());
+        assert_eq!(stage.report.notes.len(), 1);
     }
 }
