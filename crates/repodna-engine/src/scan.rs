@@ -53,6 +53,9 @@ pub trait AnalysisCache: Send + Sync + fmt::Debug {
 
     /// Stores analyses computed during the file pass.
     fn put(&self, entries: &[(String, &FileAnalysis)]);
+
+    /// Called once when the file pass is complete, for bookkeeping such as eviction.
+    fn finish(&self) {}
 }
 
 /// A fingerprint of a language definition, part of every cache key for that language.
@@ -449,6 +452,9 @@ pub fn scan_files(
             done: result.files.len(),
             total,
         });
+    }
+    if let Some(cache) = options.cache {
+        cache.finish();
     }
     Ok(result)
 }
