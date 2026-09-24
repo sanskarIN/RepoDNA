@@ -13,6 +13,7 @@ pub mod dependencies;
 pub mod evolution;
 pub mod fingerprint;
 pub mod git;
+pub mod identity;
 pub mod insights;
 pub mod languages;
 pub mod metrics;
