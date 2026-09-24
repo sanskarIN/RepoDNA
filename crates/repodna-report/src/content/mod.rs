@@ -2,6 +2,7 @@
 
 mod code;
 mod overview;
+mod project;
 
 use repodna_core::confidence::Confidence;
 use repodna_core::model::SectionStatus;
@@ -79,6 +80,10 @@ pub fn section(dna: &RepositoryDna, section: Section, options: ContentOptions) -
         Section::Hotspots => code::hotspots(&mut blocks, dna, options),
         Section::Complexity => code::complexity(&mut blocks, dna, options),
         Section::Duplication => code::duplication(&mut blocks, dna),
+        Section::Tests => project::tests(&mut blocks, dna),
+        Section::Build => project::build(&mut blocks, dna),
+        Section::Documentation => project::documentation(&mut blocks, dna),
+        Section::Security => project::security(&mut blocks, dna),
         _ => {}
     }
     blocks

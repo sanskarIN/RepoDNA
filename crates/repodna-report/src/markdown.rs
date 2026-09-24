@@ -148,6 +148,13 @@ pub fn render(blocks: &Blocks) -> String {
             // Charts are visual only; the accompanying tables carry the values.
             Block::Figure { .. } => {}
             Block::Finding(f) => finding(&mut out, f),
+            Block::Preformatted(text) => {
+                let mut fence = "```".to_owned();
+                while text.contains(fence.as_str()) {
+                    fence.push('`');
+                }
+                out.push_str(&format!("{fence}text\n{}\n{fence}\n\n", text.trim_end()));
+            }
         }
     }
     out
@@ -182,7 +189,9 @@ mod tests {
         blocks.table(t);
         blocks.stats(vec![("Files".into(), "12".into())]);
         blocks.figure(Some("<svg/>".into()), "chart");
+        blocks.0.push(Block::Preformatted("ok\n```inner```".into()));
         let markdown = render(&blocks);
+        assert!(markdown.contains("````text\nok\n```inner```\n````"));
         assert!(markdown.starts_with("## Languages\n\n"));
         assert!(
             markdown.contains(

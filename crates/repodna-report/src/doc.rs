@@ -111,6 +111,8 @@ pub enum Block {
     },
     /// A full finding.
     Finding(Box<Finding>),
+    /// Preformatted text such as command output.
+    Preformatted(String),
 }
 
 /// A report section's blocks.
