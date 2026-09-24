@@ -14,6 +14,7 @@
 
 pub mod context;
 pub mod error;
+pub mod prompt;
 pub mod task;
 pub mod text;
 
@@ -22,4 +23,5 @@ mod testing;
 
 pub use context::{Context, ContextOptions, EvidenceItem, EvidenceKind, select_context};
 pub use error::AiError;
+pub use prompt::{PROMPT_VERSION, Prompt, build_prompt};
 pub use task::AiTask;
