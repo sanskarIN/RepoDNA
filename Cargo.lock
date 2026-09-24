@@ -423,6 +423,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "repodna-evolution"
+version = "1.0.0"
+dependencies = [
+ "repodna-core",
+ "repodna-discovery",
+ "repodna-git",
+ "repodna-parser",
+ "repodna-project",
+]
+
+[[package]]
 name = "repodna-git"
 version = "1.0.0"
 dependencies = [
