@@ -8,6 +8,7 @@
 pub mod complexity;
 pub mod deadcode;
 pub mod duplication;
+pub mod hotspots;
 pub mod markers;
 pub mod similarity;
 pub mod tokens;
