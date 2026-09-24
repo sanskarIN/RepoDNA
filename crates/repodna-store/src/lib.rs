@@ -13,6 +13,10 @@
 pub mod error;
 pub mod paths;
 pub mod schema;
+pub mod store;
 
 pub use error::StoreError;
 pub use paths::{StorePaths, config_file, data_home};
+pub use store::{
+    FindingChanges, RepositoryLocation, RepositoryRecord, ScanRecord, Store, StoredFinding,
+};
