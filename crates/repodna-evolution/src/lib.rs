@@ -5,6 +5,7 @@
 //! interpretations that are labeled as such; nothing is inferred about people.
 
 pub mod epochs;
+pub mod events;
 pub mod snapshots;
 
 #[cfg(test)]
