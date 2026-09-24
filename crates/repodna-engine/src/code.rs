@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
+use repodna_architecture::entrypoints::detect_entrypoints;
 use repodna_architecture::{ArchitectureInput, ArchitectureOutput, SourceFile};
 use repodna_core::cancel::{CancellationToken, Cancelled};
 use repodna_core::config::{Config, Stage, StageSet};
@@ -9,7 +10,7 @@ use repodna_core::finding::Finding;
 use repodna_core::hash::sha256;
 use repodna_core::model::git::{GitReport, Hotspot};
 use repodna_core::model::security::SecurityReport;
-use repodna_core::model::structure::FileCategory;
+use repodna_core::model::structure::{Entrypoint, FileCategory};
 use repodna_core::time::Timestamp;
 use repodna_dependencies::DependencyAnalysis;
 use repodna_project::{ProjectFile, ProjectInput, ProjectOutput};
@@ -36,15 +37,9 @@ pub fn declared_dependencies(dependencies: &DependencyAnalysis) -> Vec<(String, 
         .collect()
 }
 
-/// Runs architecture analysis over the scanned files.
-pub fn run_architecture(
-    scan: &ScanResult,
-    dependencies: &DependencyAnalysis,
-    config: &Config,
-    cancel: &CancellationToken,
-) -> Result<ArchitectureOutput, Cancelled> {
-    let files: Vec<SourceFile<'_>> = scan
-        .files
+/// The scanned files as architecture inputs, in scan order.
+pub fn source_files(scan: &ScanResult) -> Vec<SourceFile<'_>> {
+    scan.files
         .iter()
         .map(|file| SourceFile {
             path: &file.record.path,
@@ -54,7 +49,22 @@ pub fn run_architecture(
             test: file.record.category == FileCategory::Test,
             analysis: file.analysis.as_ref(),
         })
-        .collect();
+        .collect()
+}
+
+/// Detects entrypoints without running the rest of the architecture analysis.
+pub fn entrypoints(scan: &ScanResult, dependencies: &DependencyAnalysis) -> Vec<Entrypoint> {
+    detect_entrypoints(&source_files(scan), &dependencies.entrypoints)
+}
+
+/// Runs architecture analysis over the scanned files.
+pub fn run_architecture(
+    scan: &ScanResult,
+    dependencies: &DependencyAnalysis,
+    config: &Config,
+    cancel: &CancellationToken,
+) -> Result<ArchitectureOutput, Cancelled> {
+    let files = source_files(scan);
     let declared = declared_dependencies(dependencies);
     repodna_architecture::analyze(
         &ArchitectureInput {
