@@ -106,11 +106,15 @@ pub(super) fn tests(blocks: &mut Blocks, dna: &RepositoryDna) {
     }
     blocks.stats(vec![
         ("Test files".to_owned(), thousands(report.test_files)),
+        (
+            "Source files with inline tests".to_owned(),
+            thousands(report.inline_test_files),
+        ),
         ("Test code lines".to_owned(), thousands(report.test_lines)),
         ("Source files".to_owned(), thousands(report.source_files)),
         ("Test code ratio".to_owned(), percent(report.test_ratio)),
     ]);
-    if report.test_files == 0 {
+    if report.test_files == 0 && report.inline_test_files == 0 {
         blocks.text(
             "No test files were detected by path, file-name conventions, or inline test modules.",
         );

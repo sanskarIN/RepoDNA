@@ -128,8 +128,9 @@ pub fn evaluate(
     values.push((
         "Tests detected".to_owned(),
         if dna.tests.status.has_results() {
-            if dna.tests.test_files > 0 {
-                format!("yes ({} files)", thousands(dna.tests.test_files))
+            let with_tests = dna.tests.test_files + dna.tests.inline_test_files;
+            if with_tests > 0 {
+                format!("yes ({} files)", thousands(with_tests))
             } else {
                 "no".to_owned()
             }

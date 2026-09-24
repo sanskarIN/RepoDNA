@@ -49,7 +49,8 @@ pub struct Facts {
     pub architecture: Option<String>,
     /// Activity level, when history was analyzed.
     pub activity: Option<String>,
-    /// Test files, when tests were analyzed.
+    /// Files with tests (test files and source files with inline tests), when tests were
+    /// analyzed.
     pub test_files: Option<u64>,
     /// DNA hash.
     pub dna_hash: String,
@@ -160,7 +161,7 @@ pub fn facts(dna: &RepositoryDna) -> Facts {
             .tests
             .status
             .has_results()
-            .then_some(dna.tests.test_files),
+            .then_some(dna.tests.test_files + dna.tests.inline_test_files),
         dna_hash: dna.fingerprint.dna_hash.clone(),
         generated: dna.analysis_metadata.generated_at,
         revision: dna
