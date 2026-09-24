@@ -7,6 +7,7 @@
 
 pub mod ci;
 pub mod commands;
+pub mod environment;
 pub mod tools;
 
 use repodna_core::model::structure::FileCategory;
