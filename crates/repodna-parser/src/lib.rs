@@ -8,6 +8,8 @@
 //! [`ParserCapability`](repodna_core::model::languages::ParserCapability) so results are
 //! always labeled with the depth of analysis behind them.
 
+pub mod scanner;
 pub mod spec;
 
+pub use scanner::{LineKind, ScannedFile, ScannedLine, scan};
 pub use spec::LanguageSpec;
