@@ -1,5 +1,6 @@
 //! Report content: every section of the full report as document blocks.
 
+mod code;
 mod overview;
 
 use repodna_core::confidence::Confidence;
@@ -73,6 +74,11 @@ pub fn section(dna: &RepositoryDna, section: Section, options: ContentOptions) -
         Section::Identity => overview::identity(&mut blocks, dna),
         Section::Languages => overview::languages(&mut blocks, dna, options),
         Section::Structure => overview::structure(&mut blocks, dna, options),
+        Section::Architecture => code::architecture(&mut blocks, dna, options),
+        Section::Dependencies => code::dependencies(&mut blocks, dna),
+        Section::Hotspots => code::hotspots(&mut blocks, dna, options),
+        Section::Complexity => code::complexity(&mut blocks, dna, options),
+        Section::Duplication => code::duplication(&mut blocks, dna),
         _ => {}
     }
     blocks
