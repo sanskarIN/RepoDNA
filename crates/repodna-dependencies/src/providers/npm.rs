@@ -1,6 +1,7 @@
 //! JavaScript / npm: `package.json`, `pnpm-workspace.yaml`, and npm, Yarn, and pnpm lockfiles.
 
 use repodna_core::model::dependencies::{DependencyScope, ManifestKind};
+use repodna_core::model::structure::EntrypointKind;
 use serde_json::Value;
 
 use crate::model::{
@@ -85,6 +86,31 @@ impl Npm {
                 .filter_map(Value::as_str)
                 .map(str::to_owned)
                 .collect();
+        }
+        for field in ["main", "module", "browser"] {
+            if let Some(entry) = json.get(field).and_then(Value::as_str) {
+                manifest.entrypoints.push((
+                    entry.trim_start_matches("./").to_owned(),
+                    EntrypointKind::Library,
+                ));
+            }
+        }
+        match json.get("bin") {
+            Some(Value::String(entry)) => {
+                manifest.entrypoints.push((
+                    entry.trim_start_matches("./").to_owned(),
+                    EntrypointKind::Cli,
+                ));
+            }
+            Some(Value::Object(entries)) => {
+                for entry in entries.values().filter_map(Value::as_str) {
+                    manifest.entrypoints.push((
+                        entry.trim_start_matches("./").to_owned(),
+                        EntrypointKind::Cli,
+                    ));
+                }
+            }
+            _ => {}
         }
         if let Some(node) = json
             .get("engines")
@@ -259,6 +285,8 @@ mod tests {
   "workspaces": ["packages/*"],
   "engines": { "node": ">=20" },
   "packageManager": "pnpm@9.1.0+sha256.abc",
+  "main": "./dist/index.js",
+  "bin": { "acme": "bin/acme.js" },
   "dependencies": { "react": "^19.0.0", "shared": "workspace:*", "local": "file:../local", "fork": "github:acme/fork" },
   "devDependencies": { "vitest": "^5.0.0" },
   "peerDependencies": { "react-dom": "*" },
@@ -268,6 +296,13 @@ mod tests {
             .unwrap();
         assert_eq!(manifest.package_name.as_deref(), Some("@acme/web"));
         assert_eq!(manifest.workspace_members, vec!["packages/*"]);
+        assert_eq!(
+            manifest.entrypoints,
+            vec![
+                ("dist/index.js".to_owned(), EntrypointKind::Library),
+                ("bin/acme.js".to_owned(), EntrypointKind::Cli)
+            ]
+        );
         assert!(
             manifest
                 .requirements

@@ -11,6 +11,8 @@ pub mod model;
 pub mod providers;
 pub mod yaml;
 
-pub use aggregate::{DependencyAnalysis, DependencyFile, analyze, is_dependency_file};
+pub use aggregate::{
+    DeclaredEntrypoint, DependencyAnalysis, DependencyFile, analyze, is_dependency_file,
+};
 pub use model::{DeclaredDependency, EcosystemProvider, FileMatch, ParsedLockfile, ParsedManifest};
 pub use providers::builtin_providers;

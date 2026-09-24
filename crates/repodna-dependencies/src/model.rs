@@ -1,6 +1,7 @@
 //! Intermediate results produced by ecosystem providers.
 
 use repodna_core::model::dependencies::{DependencyScope, ManifestKind};
+use repodna_core::model::structure::EntrypointKind;
 
 /// A dependency declared in a manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,6 +56,8 @@ pub struct ParsedManifest {
     pub workspace_tool: Option<String>,
     /// Toolchain or runtime requirements, e.g. `("Go", "1.22")`.
     pub requirements: Vec<(String, String)>,
+    /// Entrypoints declared by the manifest, as paths relative to the manifest's directory.
+    pub entrypoints: Vec<(String, EntrypointKind)>,
     /// `true` when some entries could not be interpreted.
     pub partial: bool,
 }

@@ -1,6 +1,7 @@
 //! Rust / Cargo: `Cargo.toml` and `Cargo.lock`.
 
 use repodna_core::model::dependencies::{DependencyScope, ManifestKind};
+use repodna_core::model::structure::EntrypointKind;
 
 use crate::model::{
     DeclaredDependency, EcosystemProvider, FileMatch, ParsedLockfile, ParsedManifest, file_name,
@@ -91,6 +92,24 @@ impl EcosystemProvider for Cargo {
             }
         }
         collect(&table, &mut manifest);
+        if let Some(path) = table
+            .get("lib")
+            .and_then(|lib| lib.get("path"))
+            .and_then(toml::Value::as_str)
+        {
+            manifest
+                .entrypoints
+                .push((path.to_owned(), EntrypointKind::Library));
+        }
+        if let Some(bins) = table.get("bin").and_then(toml::Value::as_array) {
+            for bin in bins {
+                if let Some(path) = bin.get("path").and_then(toml::Value::as_str) {
+                    manifest
+                        .entrypoints
+                        .push((path.to_owned(), EntrypointKind::Binary));
+                }
+            }
+        }
         if let Some(targets) = table.get("target").and_then(toml::Value::as_table) {
             for target in targets.values().filter_map(toml::Value::as_table) {
                 collect(target, &mut manifest);
@@ -171,11 +190,19 @@ cc = "1"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
+
+[[bin]]
+name = "demo-cli"
+path = "src/bin/cli.rs"
 "#,
             )
             .unwrap();
         assert_eq!(manifest.package_name.as_deref(), Some("demo"));
         assert_eq!(manifest.requirements, vec![("Rust".into(), "1.80".into())]);
+        assert_eq!(
+            manifest.entrypoints,
+            vec![("src/bin/cli.rs".to_owned(), EntrypointKind::Binary)]
+        );
         let find = |name: &str| {
             manifest
                 .dependencies

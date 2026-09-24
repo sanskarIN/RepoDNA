@@ -9,6 +9,7 @@ use repodna_core::model::dependencies::{
     EcosystemSummary, LockfileRecord, ManifestKind, ManifestRecord, ParseStatus,
 };
 use repodna_core::model::project::{EnvironmentRequirement, RequirementKind};
+use repodna_core::model::structure::EntrypointKind;
 use repodna_core::paths;
 
 use crate::model::{EcosystemProvider, ParsedLockfile, ParsedManifest};
@@ -21,6 +22,17 @@ pub struct DependencyFile<'a> {
     pub path: &'a str,
     /// File content.
     pub content: &'a str,
+}
+
+/// An entrypoint declared in a manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredEntrypoint {
+    /// Manifest that declares it.
+    pub manifest: String,
+    /// Repository-relative path of the entrypoint.
+    pub path: String,
+    /// Kind of entrypoint.
+    pub kind: EntrypointKind,
 }
 
 /// Everything learned from manifests and lockfiles.
@@ -37,6 +49,8 @@ pub struct DependencyAnalysis {
     pub requirements: Vec<EnvironmentRequirement>,
     /// Package descriptions as `(manifest path, description)`.
     pub descriptions: Vec<(String, String)>,
+    /// Entrypoints declared by manifests.
+    pub entrypoints: Vec<DeclaredEntrypoint>,
 }
 
 /// Maximum duplicate-version entries reported.
@@ -136,6 +150,15 @@ pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
                 .is_none_or(|current| paths::depth(item.path) < paths::depth(&current.manifest));
             if replace {
                 analysis.workspace = Some(candidate);
+            }
+        }
+        for (relative, kind) in &manifest.entrypoints {
+            if let Some(path) = paths::join(paths::parent(item.path), relative) {
+                analysis.entrypoints.push(DeclaredEntrypoint {
+                    manifest: item.path.to_owned(),
+                    path,
+                    kind: *kind,
+                });
             }
         }
         for (name, version) in &manifest.requirements {
