@@ -8,6 +8,7 @@
 //! crates and produce the types defined here, which keeps the model stable, easy to
 //! serialize, and independent from any user interface.
 
+pub mod cancel;
 pub mod confidence;
 pub mod config;
 pub mod error;
@@ -23,6 +24,7 @@ pub mod schema;
 pub mod severity;
 pub mod time;
 
+pub use cancel::{CancellationToken, Cancelled};
 pub use confidence::Confidence;
 pub use error::{CoreError, Result};
 pub use evidence::Evidence;
