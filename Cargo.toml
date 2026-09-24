@@ -18,6 +18,7 @@ publish = false
 # Internal crates
 repodna-core = { path = "crates/repodna-core", version = "1.0.0" }
 repodna-parser = { path = "crates/repodna-parser", version = "1.0.0" }
+repodna-discovery = { path = "crates/repodna-discovery", version = "1.0.0" }
 
 # Serialization and configuration
 serde = { version = "1.0.229", features = ["derive"] }
@@ -34,6 +35,12 @@ sha2 = "0.11.0"
 
 # Text processing
 regex = "1.13.1"
+
+# File system and archives
+ignore = "0.4.33"
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
+tar = "0.4.46"
+flate2 = "1.1.10"
 
 # Testing
 tempfile = "3.27.0"
