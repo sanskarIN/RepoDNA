@@ -7,6 +7,8 @@
 //! says so explicitly.
 
 pub mod model;
+pub mod providers;
 pub mod yaml;
 
 pub use model::{DeclaredDependency, EcosystemProvider, FileMatch, ParsedLockfile, ParsedManifest};
+pub use providers::builtin_providers;
