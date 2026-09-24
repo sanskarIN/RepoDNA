@@ -222,9 +222,31 @@ pub static SECRET_RULES: LazyLock<Vec<SecretRule>> = LazyLock::new(|| {
     ]
 });
 
+/// Whole values commonly used as stand-ins in documentation and tests.
+const PLACEHOLDER_VALUES: &[&str] = &[
+    "pass", "password", "passwd", "pwd", "secret", "token", "test", "foo", "bar", "baz",
+];
+
+/// Host names reserved for documentation and testing (RFC 2606 and RFC 6761); credentials
+/// for them cannot be real.
+fn is_reserved_host(host: &str) -> bool {
+    let host = host.to_ascii_lowercase();
+    let host = host.split([':', '/']).next().unwrap_or_default();
+    ["example.com", "example.org", "example.net"]
+        .iter()
+        .any(|domain| host == *domain || host.ends_with(&format!(".{domain}")))
+        || [".example", ".test", ".invalid"]
+            .iter()
+            .any(|suffix| host.ends_with(suffix))
+        || ["example", "test", "invalid"].contains(&host)
+}
+
 /// Values that are obviously placeholders rather than credentials.
 fn is_placeholder(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
+    if PLACEHOLDER_VALUES.contains(&lower.as_str()) {
+        return true;
+    }
     const FRAGMENTS: &[&str] = &[
         "example",
         "changeme",
@@ -367,6 +389,13 @@ pub fn find_secrets(path: &str, text: &str) -> Vec<PendingSecret> {
                     value
                 };
                 if rule.id != "private-key" && is_placeholder(value) {
+                    continue;
+                }
+                if rule.id == "url-credentials"
+                    && let Some(whole) = captures.get(0)
+                    && let Some((_, host)) = whole.as_str().rsplit_once('@')
+                    && is_reserved_host(host)
+                {
                     continue;
                 }
                 if let Check::Entropy(minimum) = rule.check
@@ -529,6 +558,26 @@ mod tests {
         assert_eq!(found[0].confidence, Confidence::Low);
         let url = fake(&["postgres://admin:", "S3cr3tP4ss", "@db.internal/app"]);
         assert_eq!(scan("src/db.py", &url)[0].rule, "url-credentials");
+    }
+
+    #[test]
+    fn skips_documentation_urls_and_placeholder_passwords() {
+        let text = [
+            "https://user:pass@github.com/acme/widget.git",
+            "scheme://user:password@host",
+            &fake(&["https://bob:", "pa55word", "@example.com/repo.git"]),
+            &fake(&["https://bob:", "pa55word", "@git.example.org/repo.git"]),
+            &fake(&["https://bob:", "pa55word", "@ci.test/repo.git"]),
+        ]
+        .join("\n");
+        assert!(
+            scan("src/url.rs", &text).is_empty(),
+            "{:?}",
+            scan("src/url.rs", &text)
+        );
+        assert!(is_reserved_host("Example.COM:8080/path"));
+        assert!(!is_reserved_host("example.com.evil.io"));
+        assert!(!is_reserved_host("localhost"));
     }
 
     #[test]
