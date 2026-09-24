@@ -19,6 +19,8 @@ publish = false
 repodna-core = { path = "crates/repodna-core", version = "1.0.0" }
 repodna-parser = { path = "crates/repodna-parser", version = "1.0.0" }
 repodna-discovery = { path = "crates/repodna-discovery", version = "1.0.0" }
+repodna-git = { path = "crates/repodna-git", version = "1.0.0" }
+repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration
 serde = { version = "1.0.229", features = ["derive"] }
