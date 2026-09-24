@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 use repodna_core::confidence::Confidence;
-use repodna_core::hash::{hmac_sha256, stable_id, to_hex};
+use repodna_core::hash::{hmac_sha256, sha256, stable_id, to_hex};
 use repodna_core::model::security::SecretCandidate;
 
 use crate::is_sample_path;
@@ -299,50 +299,84 @@ impl SecretScanner {
         Self { key }
     }
 
-    fn fingerprint(&self, rule: &str, value: &str) -> String {
-        let mut message = Vec::with_capacity(rule.len() + value.len() + 1);
-        message.extend_from_slice(rule.as_bytes());
-        message.push(0);
-        message.extend_from_slice(value.as_bytes());
-        to_hex(&hmac_sha256(&self.key, &message)[..6])
+    /// Scans the text of one file and fingerprints the matches with this scanner's key.
+    pub fn scan(&self, path: &str, text: &str) -> Vec<SecretCandidate> {
+        find_secrets(path, text)
+            .into_iter()
+            .map(|pending| pending.finalize(&self.key))
+            .collect()
+    }
+}
+
+/// A secret candidate whose fingerprint is computed once the scan key is known.
+///
+/// Only a SHA-256 digest of the rule and value is kept until then, never the value itself,
+/// so callers can derive the key from the whole scanned content first.
+#[derive(Debug, Clone)]
+pub struct PendingSecret {
+    candidate: SecretCandidate,
+    digest: [u8; 32],
+}
+
+impl PendingSecret {
+    /// The candidate, with an empty fingerprint.
+    pub fn candidate(&self) -> &SecretCandidate {
+        &self.candidate
     }
 
-    /// Scans the text of one file.
-    pub fn scan(&self, path: &str, text: &str) -> Vec<SecretCandidate> {
-        let sample = is_sample_path(path);
-        let lines: Vec<&str> = text.lines().collect();
-        let mut candidates = Vec::new();
-        for (index, full_line) in lines.iter().enumerate() {
-            let line = truncate_bytes(full_line, MAX_LINE_BYTES);
-            let lowered = line.to_ascii_lowercase();
-            for rule in SECRET_RULES.iter() {
-                if !rule
-                    .keywords
-                    .iter()
-                    .any(|keyword| lowered.contains(keyword))
+    /// Completes the candidate with a fingerprint keyed by `key`.
+    pub fn finalize(mut self, key: &[u8; 32]) -> SecretCandidate {
+        self.candidate.fingerprint = to_hex(&hmac_sha256(key, &self.digest)[..6]);
+        self.candidate
+    }
+}
+
+fn value_digest(rule: &str, value: &str) -> [u8; 32] {
+    let mut message = Vec::with_capacity(rule.len() + value.len() + 1);
+    message.extend_from_slice(rule.as_bytes());
+    message.push(0);
+    message.extend_from_slice(value.as_bytes());
+    sha256(&message)
+}
+
+/// Finds secret candidates in the text of one file; fingerprints are completed later with
+/// [`PendingSecret::finalize`].
+pub fn find_secrets(path: &str, text: &str) -> Vec<PendingSecret> {
+    let sample = is_sample_path(path);
+    let lines: Vec<&str> = text.lines().collect();
+    let mut found: Vec<PendingSecret> = Vec::new();
+    for (index, full_line) in lines.iter().enumerate() {
+        let line = truncate_bytes(full_line, MAX_LINE_BYTES);
+        let lowered = line.to_ascii_lowercase();
+        for rule in SECRET_RULES.iter() {
+            if !rule
+                .keywords
+                .iter()
+                .any(|keyword| lowered.contains(keyword))
+            {
+                continue;
+            }
+            for captures in rule.pattern.captures_iter(line) {
+                let Some(value) = captures.get(1).map(|m| m.as_str()) else {
+                    continue;
+                };
+                let value = if rule.id == "private-key" {
+                    // The key material, not the header, identifies a key.
+                    &private_key_body(&lines, index)
+                } else {
+                    value
+                };
+                if rule.id != "private-key" && is_placeholder(value) {
+                    continue;
+                }
+                if let Check::Entropy(minimum) = rule.check
+                    && shannon_entropy(value) < minimum
                 {
                     continue;
                 }
-                for captures in rule.pattern.captures_iter(line) {
-                    let Some(value) = captures.get(1).map(|m| m.as_str()) else {
-                        continue;
-                    };
-                    let value = if rule.id == "private-key" {
-                        // The key material, not the header, identifies a key.
-                        &private_key_body(&lines, index)
-                    } else {
-                        value
-                    };
-                    if rule.id != "private-key" && is_placeholder(value) {
-                        continue;
-                    }
-                    if let Check::Entropy(minimum) = rule.check
-                        && shannon_entropy(value) < minimum
-                    {
-                        continue;
-                    }
-                    let line_number = u32::try_from(index + 1).unwrap_or(u32::MAX);
-                    candidates.push(SecretCandidate {
+                let line_number = u32::try_from(index + 1).unwrap_or(u32::MAX);
+                found.push(PendingSecret {
+                    candidate: SecretCandidate {
                         id: stable_id(&[rule.id, path, &line_number.to_string()]),
                         rule: rule.id.to_owned(),
                         description: rule.description.to_owned(),
@@ -353,20 +387,23 @@ impl SecretScanner {
                         } else {
                             rule.confidence
                         },
-                        fingerprint: self.fingerprint(rule.id, value),
+                        fingerprint: String::new(),
                         in_test_or_example: sample,
-                    });
-                    if candidates.len() >= MAX_PER_FILE {
-                        return candidates;
-                    }
+                    },
+                    digest: value_digest(rule.id, value),
+                });
+                if found.len() >= MAX_PER_FILE {
+                    return found;
                 }
             }
         }
-        // One location can match several rules (a token that is also a generic secret);
-        // keep the most specific, which comes first in rule order.
-        candidates.dedup_by(|b, a| a.line == b.line && b.rule == "generic-secret");
-        candidates
     }
+    // One location can match several rules (a token that is also a generic secret);
+    // keep the most specific, which comes first in rule order.
+    found.dedup_by(|b, a| {
+        a.candidate.line == b.candidate.line && b.candidate.rule == "generic-secret"
+    });
+    found
 }
 
 /// The body of a private key block starting at `start` (up to 64 lines).
@@ -447,6 +484,16 @@ mod tests {
         assert_ne!(found[0].fingerprint, found[2].fingerprint);
         let rekeyed = SecretScanner::new([8; 32]).scan("src/notify.py", &text);
         assert_ne!(found[0].fingerprint, rekeyed[0].fingerprint);
+    }
+
+    #[test]
+    fn deferred_fingerprints_match_immediate_ones() {
+        let value = fake(&["xo", "xb-", "1234567890-abcdefghij"]);
+        let text = format!("a={value}\n");
+        let pending = find_secrets("src/a.py", &text);
+        assert!(pending[0].candidate().fingerprint.is_empty());
+        let finalized = pending[0].clone().finalize(&[7; 32]);
+        assert_eq!(finalized, scan("src/a.py", &text)[0]);
     }
 
     #[test]
