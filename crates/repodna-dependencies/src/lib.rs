@@ -6,9 +6,11 @@
 //! Vulnerability data is out of scope unless an advisory provider is added, and the report
 //! says so explicitly.
 
+pub mod aggregate;
 pub mod model;
 pub mod providers;
 pub mod yaml;
 
+pub use aggregate::{DependencyAnalysis, DependencyFile, analyze, is_dependency_file};
 pub use model::{DeclaredDependency, EcosystemProvider, FileMatch, ParsedLockfile, ParsedManifest};
 pub use providers::builtin_providers;
