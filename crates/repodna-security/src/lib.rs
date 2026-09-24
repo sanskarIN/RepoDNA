@@ -10,8 +10,10 @@
 //! identical values can be recognized within one scan without being revealed or guessed
 //! from a shared report.
 
+pub mod patterns;
 pub mod secrets;
 
+pub use patterns::{PATTERN_RULES, PatternRule, scan_patterns};
 pub use secrets::{SECRET_RULES, SecretRule, SecretScanner};
 
 use repodna_core::paths;
