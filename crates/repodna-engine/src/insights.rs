@@ -228,6 +228,12 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     let tests = &dna.tests;
     let frameworks: Vec<String> = tests.frameworks.iter().map(|f| f.name.clone()).collect();
     let mut text = format!("{} test files", tests.test_files);
+    if tests.inline_test_files > 0 {
+        text.push_str(&format!(
+            " and {} source files with inline tests",
+            tests.inline_test_files
+        ));
+    }
     if !frameworks.is_empty() {
         text.push_str(&format!(" using {}", list(&frameworks)));
     }
@@ -383,7 +389,14 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
     if !tests.is_empty() {
         steps.push(GuideStep {
             title: "Run the tests".to_owned(),
-            description: format!("{} test files were found.", dna.tests.test_files),
+            description: if dna.tests.inline_test_files > 0 {
+                format!(
+                    "{} test files and {} source files with inline tests were found.",
+                    dna.tests.test_files, dna.tests.inline_test_files
+                )
+            } else {
+                format!("{} test files were found.", dna.tests.test_files)
+            },
             paths: dna.tests.test_directories.iter().take(3).cloned().collect(),
             commands: tests,
         });

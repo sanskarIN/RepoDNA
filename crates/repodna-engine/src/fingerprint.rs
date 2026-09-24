@@ -291,8 +291,8 @@ fn age(dna: &RepositoryDna) -> DnaDimension {
 fn testing(dna: &RepositoryDna) -> DnaDimension {
     const ID: &str = "testing";
     const LABEL: &str = "Test presence";
-    const UNIT: &str = "ratio";
-    const DESCRIPTION: &str = "Share of test code among test and source code lines, doubled and capped at 1 (a ratio of 0.5 or more is 1). Tests are recognized by path and file-name conventions and inline test modules.";
+    const UNIT: &str = "share of code files";
+    const DESCRIPTION: &str = "Share of first-party code files that are test files or contain inline tests (such as Rust #[cfg(test)] modules). Tests are recognized by path and file-name conventions and by inline test markers; the share says where tests exist, not how much behavior they cover.";
     let tests = &dna.tests;
     if !tests.status.has_results() {
         return dimension(
@@ -305,19 +305,20 @@ fn testing(dna: &RepositoryDna) -> DnaDimension {
             Confidence::Unavailable,
         );
     }
-    let confidence = if tests.test_files + tests.source_files == 0 {
-        Confidence::Low
-    } else {
-        Confidence::Medium
-    };
+    let code_files = tests.test_files + tests.source_files;
+    if code_files == 0 {
+        return dimension(ID, LABEL, 0.0, 0.0, UNIT, DESCRIPTION, Confidence::Low);
+    }
+    let with_tests = (tests.test_files + tests.inline_test_files).min(code_files);
+    let share = with_tests as f64 / code_files as f64;
     dimension(
         ID,
         LABEL,
-        tests.test_ratio * 2.0,
-        tests.test_ratio,
+        share,
+        share,
         UNIT,
         DESCRIPTION,
-        confidence,
+        Confidence::Medium,
     )
 }
 
@@ -848,6 +849,15 @@ fn raw_metrics(dna: &RepositoryDna) -> Vec<Metric> {
             Medium,
         );
         m.add(
+            "tests.inline-files",
+            "Source files with inline tests",
+            tests.inline_test_files as f64,
+            "files",
+            "Source files that also contain tests, such as Rust #[cfg(test)] modules.",
+            "Recognized by inline test markers in the file content.",
+            Medium,
+        );
+        m.add(
             "tests.lines",
             "Test lines",
             tests.test_lines as f64,
@@ -1084,9 +1094,9 @@ fn interpretation(dimension: &DnaDimension) -> String {
             "A long history.",
         ),
         "testing" => band(
-            "Little or no test code was detected.",
-            "A moderate share of test code.",
-            "A large share of test code.",
+            "Tests make up a small part of the code files.",
+            "Tests are present across a moderate share of the code files.",
+            "Tests are present in most code files.",
         ),
         "documentation" => band(
             "Few documentation conventions were detected.",
@@ -1389,6 +1399,7 @@ mod tests {
         dna.tests.status = SectionStatus::Analyzed;
         dna.tests.test_ratio = 0.2;
         dna.tests.test_files = 2;
+        dna.tests.inline_test_files = 1;
         dna.tests.source_files = 8;
         dna
     }
@@ -1428,7 +1439,8 @@ mod tests {
         let (age, years, _) = value(&fp, "age");
         assert!((years - 10.0).abs() < 0.01);
         assert!(age > 0.7 && age < 0.9);
-        assert_eq!(value(&fp, "testing"), (0.4, 0.2, Confidence::Medium));
+        // Two test files and one source file with inline tests among ten code files.
+        assert_eq!(value(&fp, "testing"), (0.3, 0.3, Confidence::Medium));
         assert_eq!(value(&fp, "documentation").2, Confidence::Unavailable);
         assert!(fp.dimensions.iter().all(|d| (0.0..=1.0).contains(&d.value)));
     }
