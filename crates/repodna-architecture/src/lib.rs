@@ -8,12 +8,15 @@
 //! Everything here is static and lexical: imports that are computed at runtime, generated
 //! code, and reflection are invisible, and the report says so in its method notes.
 
+pub mod analysis;
 pub mod entrypoints;
 pub mod findings;
 pub mod graph;
 pub mod interactions;
 pub mod modules;
 pub mod resolve;
+
+pub use analysis::{ArchitectureInput, ArchitectureOutput, analyze};
 
 use repodna_parser::FileAnalysis;
 
