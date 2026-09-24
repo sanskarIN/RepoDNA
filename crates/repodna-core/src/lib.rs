@@ -11,6 +11,7 @@
 pub mod confidence;
 pub mod error;
 pub mod hash;
+pub mod paths;
 pub mod severity;
 pub mod time;
 
