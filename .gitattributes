@@ -1,0 +1,26 @@
+# Normalize line endings so analysis results are identical on every platform.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets.
+*.png binary
+*.ico binary
+*.icns binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.gz binary
+
+# Generated files: collapsed in diffs and excluded from GitHub language statistics.
+crates/repodna-report/assets/viewer.html linguist-generated=true -diff
+schemas/*.schema.json linguist-generated=true
+packages/schema/src/generated.ts linguist-generated=true
+examples/**/*.json linguist-generated=true
+apps/web/public/demo/*.json linguist-generated=true
+Cargo.lock linguist-generated=true
+package-lock.json linguist-generated=true
