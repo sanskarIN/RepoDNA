@@ -10,6 +10,7 @@ pub mod badge;
 pub mod card;
 pub mod charts;
 pub mod content;
+pub mod csv;
 pub mod doc;
 pub mod error;
 pub mod facts;
@@ -23,6 +24,7 @@ pub mod report;
 pub mod sections;
 pub mod text;
 
+pub use csv::{CsvTable, csv};
 pub use error::ReportError;
 pub use privacy::apply_privacy;
 pub use report::{PROJECT_URL, ReportOptions, html_report, json_report, markdown_report};
