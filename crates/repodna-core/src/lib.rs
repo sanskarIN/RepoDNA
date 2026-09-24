@@ -9,5 +9,7 @@
 //! serialize, and independent from any user interface.
 
 pub mod error;
+pub mod time;
 
 pub use error::{CoreError, Result};
+pub use time::Timestamp;
