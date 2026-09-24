@@ -11,7 +11,12 @@
 pub mod analysis;
 pub mod config;
 pub mod error;
+pub mod export;
 pub mod paths;
+
+pub use export::{
+    OUTPUT_MARKER, OutputFile, artifact_file_name, report_bundle, write_bundle, write_file,
+};
 
 pub use analysis::{
     AnalysisOutcome, AnalyzeOptions, Loaded, Source, Target, load_stored, load_target,
