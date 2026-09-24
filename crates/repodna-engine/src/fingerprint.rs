@@ -12,7 +12,6 @@ use repodna_core::model::SectionStatus;
 use repodna_core::model::artifact::{RepositoryDna, compute_dna_hash};
 use repodna_core::model::dependencies::ParseStatus;
 use repodna_core::model::fingerprint::{DnaDimension, DnaFingerprint};
-use repodna_core::model::languages::LanguageKind;
 use repodna_core::model::metrics::{MetricsReport, NormalizedSignal, SectionConfidence};
 use repodna_core::model::project::DocCheckStatus;
 
@@ -47,12 +46,8 @@ fn dimension(
 
 /// The inverse Simpson index: the number of equally sized groups that would give the same
 /// concentration. `None` when every weight is zero.
-fn effective_count(weights: impl IntoIterator<Item = u64>) -> Option<f64> {
-    let weights: Vec<f64> = weights
-        .into_iter()
-        .filter(|weight| *weight > 0)
-        .map(|weight| weight as f64)
-        .collect();
+fn effective_count(weights: impl IntoIterator<Item = f64>) -> Option<f64> {
+    let weights: Vec<f64> = weights.into_iter().filter(|weight| *weight > 0.0).collect();
     let total: f64 = weights.iter().sum();
     if total == 0.0 {
         return None;
@@ -80,7 +75,7 @@ fn language_diversity(dna: &RepositoryDna) -> DnaDimension {
     const ID: &str = "language-diversity";
     const LABEL: &str = "Language diversity";
     const UNIT: &str = "effective languages";
-    const DESCRIPTION: &str = "How evenly code is spread across languages: 1 − Σ share², with shares of code lines per programming language (all languages when there is no programming language). 0 means a single language; the raw value is the effective number of languages.";
+    const DESCRIPTION: &str = "How evenly first-party code is spread across languages: 1 − Σ share², using each language's share of first-party code (data, prose, and build-file languages are excluded; when no language has a share, code lines of all languages are used). 0 means a single language; the raw value is the effective number of languages.";
     if !dna.languages.status.has_results() {
         return dimension(
             ID,
@@ -93,18 +88,18 @@ fn language_diversity(dna: &RepositoryDna) -> DnaDimension {
         );
     }
     let languages = &dna.languages.languages;
-    let programming: Vec<u64> = languages
+    let shares: Vec<f64> = languages
         .iter()
-        .filter(|language| language.kind == LanguageKind::Programming)
-        .map(|language| language.code_lines)
+        .map(|language| language.share)
+        .filter(|share| *share > 0.0)
         .collect();
-    let weights = if programming.iter().sum::<u64>() > 0 {
-        programming
-    } else {
+    let weights = if shares.is_empty() {
         languages
             .iter()
-            .map(|language| language.code_lines)
+            .map(|language| language.code_lines as f64)
             .collect()
+    } else {
+        shares
     };
     match effective_count(weights) {
         Some(count) => dimension(
@@ -254,7 +249,7 @@ fn contributor_spread(dna: &RepositoryDna) -> DnaDimension {
             Confidence::Unavailable,
         );
     }
-    match effective_count(dna.git.contributors.iter().map(|c| c.commits)) {
+    match effective_count(dna.git.contributors.iter().map(|c| c.commits as f64)) {
         Some(count) => dimension(
             ID,
             LABEL,
@@ -1289,11 +1284,11 @@ mod tests {
     use repodna_core::model::architecture::{ModuleKind, ModuleRecord};
     use repodna_core::model::git::{CommitRef, ContributorRecord, FileHistoryRecord};
     use repodna_core::model::identity::RepositoryIdentity;
-    use repodna_core::model::languages::{LanguageStat, ParserCapability};
+    use repodna_core::model::languages::{LanguageKind, LanguageStat, ParserCapability};
     use repodna_core::model::metadata::AnalysisMetadata;
     use repodna_core::time::Timestamp;
 
-    fn language(id: &str, kind: LanguageKind, code_lines: u64) -> LanguageStat {
+    fn language(id: &str, kind: LanguageKind, code_lines: u64, share: f64) -> LanguageStat {
         LanguageStat {
             id: id.into(),
             name: id.into(),
@@ -1303,7 +1298,7 @@ mod tests {
             code_lines,
             comment_lines: 0,
             blank_lines: 0,
-            share: 0.0,
+            share,
             capability: ParserCapability::Lexical,
         }
     }
@@ -1371,9 +1366,9 @@ mod tests {
             RepositoryDna::new(RepositoryIdentity::default(), AnalysisMetadata::default());
         dna.languages.status = SectionStatus::Analyzed;
         dna.languages.languages = vec![
-            language("rust", LanguageKind::Programming, 500),
-            language("python", LanguageKind::Programming, 500),
-            language("markdown", LanguageKind::Prose, 5000),
+            language("rust", LanguageKind::Programming, 500, 0.5),
+            language("python", LanguageKind::Programming, 500, 0.5),
+            language("markdown", LanguageKind::Prose, 5000, 0.0),
         ];
         dna.architecture.status = SectionStatus::Analyzed;
         dna.architecture.modules = vec![
