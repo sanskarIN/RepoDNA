@@ -73,7 +73,7 @@ impl GitError {
     pub fn hint(&self) -> Option<&'static str> {
         match self {
             GitError::NotInstalled => Some(
-                "Install Git (https://git-scm.com/downloads) to analyze history, or use `--profile quick` to analyze files only.",
+                "Install Git to analyze history, or use `--profile quick` to analyze files only.",
             ),
             GitError::NotARepository(_) => Some(
                 "The directory has no Git metadata. RepoDNA can still analyze its files; history-based sections will be unavailable.",
