@@ -1,0 +1,54 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+# The desktop shell has its own workspace so that the core CLI can be built and
+# tested without the platform WebView SDKs that Tauri requires.
+exclude = ["apps/desktop/src-tauri"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["Sanskar"]
+repository = "https://github.com/sanskarIN/RepoDNA"
+homepage = "https://github.com/sanskarIN/RepoDNA"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+repodna-core = { path = "crates/repodna-core", version = "1.0.0" }
+
+# Serialization and configuration
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+toml = "1.1.6"
+schemars = "1.2.2"
+
+# Errors
+thiserror = "2.0.21"
+anyhow = "1.0.104"
+
+# Hashing
+sha2 = "0.11.0"
+
+# Testing
+tempfile = "3.27.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+unwrap_used = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = "symbols"
