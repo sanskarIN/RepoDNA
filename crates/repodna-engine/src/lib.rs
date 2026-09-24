@@ -7,6 +7,7 @@
 //!
 //! [`RepositoryDna`]: repodna_core::model::artifact::RepositoryDna
 
+pub mod deps;
 pub mod error;
 pub mod history;
 pub mod input;
