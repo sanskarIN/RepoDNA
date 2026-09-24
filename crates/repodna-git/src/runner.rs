@@ -182,9 +182,29 @@ impl GitRunner {
     where
         F: FnOnce(&mut dyn BufRead) -> Result<(), GitError>,
     {
+        self.stream_with_input(repo, args, None, cancel, consume)
+    }
+
+    /// Like [`GitRunner::stream`], but writes `input` to the command's standard input from
+    /// a separate thread (so large inputs and outputs cannot deadlock on full pipes).
+    pub fn stream_with_input<F>(
+        &self,
+        repo: Option<&Path>,
+        args: &[&str],
+        input: Option<Vec<u8>>,
+        cancel: &CancellationToken,
+        consume: F,
+    ) -> Result<(), GitError>
+    where
+        F: FnOnce(&mut dyn BufRead) -> Result<(), GitError>,
+    {
         cancel.check().map_err(|_| GitError::Cancelled)?;
         let description = describe(args);
-        let mut child = self.command(repo, args).spawn().map_err(|error| {
+        let mut command = self.command(repo, args);
+        if input.is_some() {
+            command.stdin(Stdio::piped());
+        }
+        let mut child = command.spawn().map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
                 GitError::NotInstalled
             } else {
@@ -193,6 +213,13 @@ impl GitRunner {
         })?;
         let stdout = child.stdout.take();
         let stderr = child.stderr.take();
+        let writer = match (input, child.stdin.take()) {
+            (Some(input), Some(mut stdin)) => Some(thread::spawn(move || {
+                // A closed pipe only means the process exited early; its status reports why.
+                let _ = std::io::Write::write_all(&mut stdin, &input);
+            })),
+            _ => None,
+        };
         let stderr_reader = thread::spawn(move || {
             let mut captured = Vec::new();
             if let Some(stderr) = stderr {
@@ -232,6 +259,9 @@ impl GitRunner {
         let status = wait(&child);
         finished.store(true, Ordering::SeqCst);
         let _ = watchdog.join();
+        if let Some(writer) = writer {
+            let _ = writer.join();
+        }
         let stderr = stderr_reader.join().unwrap_or_default();
 
         if cancel.is_cancelled() {

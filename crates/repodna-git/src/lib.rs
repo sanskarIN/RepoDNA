@@ -9,9 +9,11 @@ pub mod error;
 pub mod log;
 pub mod refs;
 pub mod runner;
+pub mod tree;
 pub mod url;
 
 pub use error::GitError;
 pub use log::{ChangeStatus, FileChange, History, LogOptions, ParsedCommit, read_history};
 pub use refs::{RepositoryState, read_branches, read_state, read_tags, repository_root};
 pub use runner::GitRunner;
+pub use tree::{BlobLimits, TreeEntry, list_tree, read_blobs};
