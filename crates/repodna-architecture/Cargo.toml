@@ -1,0 +1,18 @@
+[package]
+name = "repodna-architecture"
+description = "Module inference, import resolution, dependency graphs, cycles, layers, and centrality for RepoDNA."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+repodna-core.workspace = true
+repodna-parser.workspace = true
+repodna-dependencies.workspace = true
+
+[lints]
+workspace = true

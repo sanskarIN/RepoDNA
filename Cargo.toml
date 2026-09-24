@@ -21,6 +21,7 @@ repodna-parser = { path = "crates/repodna-parser", version = "1.0.0" }
 repodna-discovery = { path = "crates/repodna-discovery", version = "1.0.0" }
 repodna-git = { path = "crates/repodna-git", version = "1.0.0" }
 repodna-dependencies = { path = "crates/repodna-dependencies", version = "1.0.0" }
+repodna-architecture = { path = "crates/repodna-architecture", version = "1.0.0" }
 repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration
