@@ -12,6 +12,7 @@ pub mod deps;
 pub mod error;
 pub mod history;
 pub mod input;
+pub mod insights;
 pub mod progress;
 pub mod scan;
 pub mod structure;
