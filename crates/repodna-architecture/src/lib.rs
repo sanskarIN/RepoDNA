@@ -8,6 +8,7 @@
 //! Everything here is static and lexical: imports that are computed at runtime, generated
 //! code, and reflection are invisible, and the report says so in its method notes.
 
+pub mod entrypoints;
 pub mod graph;
 pub mod modules;
 pub mod resolve;
@@ -26,6 +27,8 @@ pub struct SourceFile<'a> {
     /// `true` for first-party source and test code. Only these files form modules and
     /// graph edges; other files are still resolvable targets for references.
     pub first_party: bool,
+    /// `true` for test code.
+    pub test: bool,
     /// Lexical analysis results, when the language has an analyzer.
     pub analysis: Option<&'a FileAnalysis>,
 }

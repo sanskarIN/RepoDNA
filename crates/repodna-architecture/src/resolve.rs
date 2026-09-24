@@ -1707,6 +1707,7 @@ mod tests {
                     language: analysis.as_ref().map(|a| a.language.as_str()),
                     code_lines: 1,
                     first_party: true,
+                    test: false,
                     analysis: analysis.as_ref(),
                 })
                 .collect()
