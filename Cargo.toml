@@ -26,6 +26,7 @@ repodna-quality = { path = "crates/repodna-quality", version = "1.0.0" }
 repodna-security = { path = "crates/repodna-security", version = "1.0.0" }
 repodna-project = { path = "crates/repodna-project", version = "1.0.0" }
 repodna-evolution = { path = "crates/repodna-evolution", version = "1.0.0" }
+repodna-engine = { path = "crates/repodna-engine", version = "1.0.0" }
 repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration
@@ -50,6 +51,9 @@ ignore = "0.4.33"
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
 tar = "0.4.46"
 flate2 = "1.1.10"
+
+# Parallelism
+rayon = "1.12"
 
 # Testing
 tempfile = "3.27.0"
