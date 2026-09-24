@@ -9,6 +9,7 @@
 pub mod badge;
 pub mod card;
 pub mod charts;
+pub mod ci;
 pub mod content;
 pub mod csv;
 pub mod doc;
