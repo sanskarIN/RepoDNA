@@ -1,6 +1,7 @@
 //! Built-in ecosystem providers.
 
 pub mod cargo;
+pub mod dotnet;
 pub mod go;
 pub mod jvm;
 pub mod npm;
@@ -17,6 +18,7 @@ pub fn builtin_providers() -> Vec<Box<dyn EcosystemProvider>> {
         Box::new(go::Go),
         Box::new(jvm::Maven),
         Box::new(jvm::Gradle),
+        Box::new(dotnet::NuGet),
     ]
 }
 
