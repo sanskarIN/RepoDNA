@@ -7,6 +7,7 @@ pub mod jvm;
 pub mod npm;
 pub mod php;
 pub mod python;
+pub mod ruby;
 
 use crate::model::{EcosystemProvider, FileMatch};
 
@@ -21,6 +22,7 @@ pub fn builtin_providers() -> Vec<Box<dyn EcosystemProvider>> {
         Box::new(jvm::Gradle),
         Box::new(dotnet::NuGet),
         Box::new(php::Composer),
+        Box::new(ruby::Bundler),
     ]
 }
 
