@@ -14,6 +14,7 @@ pub mod fingerprint;
 pub mod history;
 pub mod input;
 pub mod insights;
+pub mod pipeline;
 pub mod progress;
 pub mod scan;
 pub mod structure;
@@ -21,4 +22,5 @@ pub mod timeline;
 
 pub use error::EngineError;
 pub use input::{FetchOptions, InputSpec, PreparedInput, prepare_input};
+pub use pipeline::{AnalysisRequest, Extension, analyze};
 pub use progress::{Progress, ProgressEvent};

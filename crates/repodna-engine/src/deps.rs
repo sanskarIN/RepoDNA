@@ -18,6 +18,10 @@ use repodna_dependencies::{DependencyAnalysis, DependencyFile, analyze, is_depen
 /// Packages listed in the concentration view.
 const MAX_CONCENTRATION: usize = 10;
 
+/// Share of external-import files that import one package at which concentration is
+/// reported.
+pub const EXTERNAL_CONCENTRATION_SHARE: f64 = 0.5;
+
 /// Ecosystems where committing a lockfile is the convention.
 const LOCKFILE_ECOSYSTEMS: &[&str] = &["npm", "composer", "rubygems", "go", "pub"];
 

@@ -26,6 +26,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 repodna-testkit.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true
