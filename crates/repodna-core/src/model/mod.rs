@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 pub mod architecture;
 pub mod git;
 pub mod languages;
+pub mod quality;
 pub mod structure;
 
 /// Whether an analysis section was produced, and how completely.
