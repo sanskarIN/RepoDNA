@@ -154,8 +154,24 @@ pub fn test_report(
         directories.insert(test_directory(file.path));
     }
 
+    let inline_files: Vec<&ProjectFile<'_>> =
+        files.iter().filter(|file| file.inline_tests).collect();
+    if !inline_files.is_empty() {
+        let entry = kinds
+            .entry(kind_rank(TestKind::Unit))
+            .or_insert_with(|| (TestKind::Unit, 0, Vec::new()));
+        entry.1 += inline_files.len() as u64;
+        for file in &inline_files {
+            if entry.2.len() < SAMPLES {
+                entry
+                    .2
+                    .push(Evidence::file(file.path).with_note("inline tests"));
+            }
+        }
+    }
+
     let mut notes = Vec::new();
-    let inline = files.iter().filter(|file| file.inline_tests).count();
+    let inline = inline_files.len();
     if inline > 0 {
         let plural = if inline == 1 { "" } else { "s" };
         notes.push(format!(
@@ -174,6 +190,7 @@ pub fn test_report(
         notes,
         frameworks,
         test_files: tests.len() as u64,
+        inline_test_files: inline as u64,
         test_lines,
         source_files: sources.len() as u64,
         test_ratio: if test_lines + source_lines == 0 {
@@ -295,11 +312,12 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                (TestKind::Unit, 1),
+                (TestKind::Unit, 2),
                 (TestKind::Integration, 1),
                 (TestKind::EndToEnd, 1)
             ]
         );
+        assert_eq!(report.inline_test_files, 1);
         assert_eq!(report.commands.len(), 1);
         assert_eq!(report.coverage_artifacts, vec!["coverage", "lcov.info"]);
         assert!(report.notes[0].contains("inline tests"));

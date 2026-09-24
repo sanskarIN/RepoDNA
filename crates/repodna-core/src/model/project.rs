@@ -160,6 +160,10 @@ pub struct TestReport {
     pub frameworks: Vec<DetectedTool>,
     /// Files classified as tests.
     pub test_files: u64,
+    /// Source files that also contain tests, such as Rust `#[cfg(test)]` modules. Their
+    /// code is counted as source code.
+    #[serde(default)]
+    pub inline_test_files: u64,
     /// Code lines in test files.
     pub test_lines: u64,
     /// Files classified as first-party source code.

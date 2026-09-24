@@ -132,7 +132,9 @@ pub fn project_findings(
                 .next_step("Add a test framework for the main language and a first test for the most important behavior."),
         );
     }
+    // With inline tests, test code is counted as source code, so the ratio understates it.
     if tests.test_files > 0
+        && !inline_tests
         && tests.test_ratio < LOW_TEST_RATIO
         && source_lines >= MIN_LINES_FOR_RATIO
     {
