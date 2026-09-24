@@ -879,6 +879,13 @@ impl<'a> Resolver<'a> {
     }
 
     fn rust(&self, from: usize, import: &RawImport) -> Resolution {
+        self.rust_path(from, import, true)
+    }
+
+    /// Resolves a Rust `use` path or `mod` declaration. With `follow_reexports`, a path that
+    /// only matches the crate root (`use crate::Error`) is followed through a re-export in
+    /// the root file (`pub use error::Error;`) to the module that defines the item.
+    fn rust_path(&self, from: usize, import: &RawImport, follow_reexports: bool) -> Resolution {
         let path = self.files[from].path;
         let specifier = import.specifier.as_str();
         if import.kind == ImportKind::Module {
@@ -931,23 +938,54 @@ impl<'a> Resolver<'a> {
                 }
             }
         };
-        resolved.map_or(Resolution::Unresolved, |file| {
-            internal(file, Confidence::Medium)
-        })
+        match resolved {
+            Some((root, true)) if follow_reexports && segments.len() > 1 => {
+                let name = segments[segments.len() - 1];
+                internal(
+                    self.rust_reexport(root, name).unwrap_or(root),
+                    Confidence::Medium,
+                )
+            }
+            Some((file, _)) => internal(file, Confidence::Medium),
+            None => Resolution::Unresolved,
+        }
     }
 
-    /// Finds the file defining the longest module prefix of `segments` in a crate.
-    fn rust_in_crate(&self, src: &str, segments: &[&str]) -> Option<usize> {
+    /// Finds the module that a crate root re-exports `name` from.
+    fn rust_reexport(&self, root: usize, name: &str) -> Option<usize> {
+        let analysis = self.files[root].analysis?;
+        analysis
+            .imports
+            .iter()
+            .filter(|import| {
+                import.kind == ImportKind::Import
+                    && import
+                        .specifier
+                        .rsplit_once("::")
+                        .is_some_and(|(_, last)| last == name)
+            })
+            .find_map(|import| match self.rust_path(root, import, false) {
+                Resolution::Internal { targets, .. } if targets.first() != Some(&root) => {
+                    targets.first().copied()
+                }
+                _ => None,
+            })
+    }
+
+    /// Finds the file defining the longest module prefix of `segments` in a crate. The flag
+    /// is `true` when no module matched and the crate root was returned instead.
+    fn rust_in_crate(&self, src: &str, segments: &[&str]) -> Option<(usize, bool)> {
         for count in (1..=segments.len()).rev() {
             let joined = segments[..count].join("/");
             if let Some(file) = self.first([
                 child_path(src, &format!("{joined}.rs")),
                 child_path(src, &format!("{joined}/mod.rs")),
             ]) {
-                return Some(file);
+                return Some((file, false));
             }
         }
         self.first([child_path(src, "lib.rs"), child_path(src, "main.rs")])
+            .map(|root| (root, true))
     }
 
     fn python_lookup(&self, dotted: &str, anchored_only: bool) -> Option<(usize, Confidence)> {
@@ -1804,6 +1842,29 @@ mod tests {
             pairs(&[
                 ("common", "crates/app/tests/common/mod.rs"),
                 ("app::parser", "crates/app/src/parser/mod.rs"),
+            ])
+        );
+    }
+
+    #[test]
+    fn follows_rust_reexports_from_the_crate_root() {
+        let fixture = Fixture::new(&[
+            (
+                "src/lib.rs",
+                "mod error;\nmod parser;\npub use error::Error;\npub struct Config;\n",
+            ),
+            ("src/error.rs", ""),
+            (
+                "src/parser.rs",
+                "use crate::Error;\nuse crate::Config;\nuse crate::*;\n",
+            ),
+        ]);
+        assert_eq!(
+            resolved(&fixture, &[], "src/parser.rs"),
+            pairs(&[
+                ("crate::Error", "src/error.rs"),
+                ("crate::Config", "src/lib.rs"),
+                ("crate", "src/lib.rs"),
             ])
         );
     }
