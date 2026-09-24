@@ -11,9 +11,11 @@
 //! from a shared report.
 
 pub mod patterns;
+pub mod report;
 pub mod secrets;
 
 pub use patterns::{PATTERN_RULES, PatternRule, scan_patterns};
+pub use report::{DISCLAIMER, build_report, permission_signals, rule_catalog, security_findings};
 pub use secrets::{SECRET_RULES, SecretRule, SecretScanner};
 
 use repodna_core::paths;
