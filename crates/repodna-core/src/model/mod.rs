@@ -8,6 +8,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub mod architecture;
 pub mod languages;
 pub mod structure;
 

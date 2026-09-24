@@ -14,11 +14,23 @@ use serde::{Deserialize, Serialize};
 ///
 /// Variants are ordered from weakest to strongest, so `Confidence::Low < Confidence::High`.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Default,
+    Serialize,
+    Deserialize,
+    JsonSchema,
 )]
 #[serde(rename_all = "kebab-case")]
 pub enum Confidence {
     /// The analysis could not be performed, so no conclusion can be drawn.
+    #[default]
     Unavailable,
     /// A weak heuristic signal; treat as a pointer for manual investigation.
     Low,
