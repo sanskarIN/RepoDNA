@@ -1,6 +1,7 @@
 //! Built-in ecosystem providers.
 
 pub mod cargo;
+pub mod go;
 pub mod npm;
 pub mod python;
 
@@ -12,6 +13,7 @@ pub fn builtin_providers() -> Vec<Box<dyn EcosystemProvider>> {
         Box::new(cargo::Cargo),
         Box::new(npm::Npm),
         Box::new(python::Python),
+        Box::new(go::Go),
     ]
 }
 
