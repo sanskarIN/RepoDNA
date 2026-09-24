@@ -443,10 +443,12 @@ impl AiProviderKind {
 pub struct AiConfig {
     /// Provider kind.
     pub provider: AiProviderKind,
-    /// Model identifier passed to the provider.
+    /// Model identifier passed to the provider. Required for `openai-compatible`; the
+    /// `anthropic` provider defaults to `claude-opus-5`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
-    /// Base URL for HTTP providers.
+    /// Base URL for HTTP providers. Required for `openai-compatible`; the `anthropic`
+    /// provider defaults to `https://api.anthropic.com`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
     /// Name of the environment variable holding the API key (keys are never stored in files).
@@ -456,8 +458,10 @@ pub struct AiConfig {
     pub command: Vec<String>,
     /// Maximum estimated tokens of repository context sent per request.
     pub max_context_tokens: u32,
-    /// Maximum tokens requested in the response.
-    pub max_output_tokens: u32,
+    /// Maximum tokens the model may generate, including any reasoning tokens. When unset,
+    /// `anthropic` uses 16000 (its limit also covers thinking) and other providers 2000.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_output_tokens: Option<u32>,
     /// Request timeout in seconds.
     pub timeout_seconds: u64,
     /// Price per million input tokens, used only for cost estimates you configure yourself.
@@ -479,7 +483,7 @@ impl Default for AiConfig {
             api_key_env: None,
             command: Vec::new(),
             max_context_tokens: 6_000,
-            max_output_tokens: 1_200,
+            max_output_tokens: None,
             timeout_seconds: 120,
             input_cost_per_million: None,
             output_cost_per_million: None,
@@ -613,14 +617,19 @@ impl Config {
                         .push("ai.command must be set when ai.provider = \"command\"".to_owned());
                 }
             }
-            AiProviderKind::OpenaiCompatible | AiProviderKind::Anthropic => {
-                if self.ai.model.as_deref().is_none_or(str::is_empty) {
-                    problems.push(format!(
-                        "ai.model must be set when ai.provider = \"{}\"",
-                        self.ai.provider.id()
-                    ));
+            AiProviderKind::OpenaiCompatible => {
+                for (key, value) in [("model", &self.ai.model), ("endpoint", &self.ai.endpoint)] {
+                    if value.as_deref().is_none_or(str::is_empty) {
+                        problems.push(format!(
+                            "ai.{key} must be set when ai.provider = \"openai-compatible\""
+                        ));
+                    }
                 }
             }
+            AiProviderKind::Anthropic => {}
+        }
+        if self.ai.max_output_tokens.is_some_and(|tokens| tokens < 256) {
+            problems.push("ai.max_output_tokens must be at least 256".to_owned());
         }
         if self.ai.max_context_tokens < 500 {
             problems.push("ai.max_context_tokens must be at least 500".to_owned());
@@ -746,11 +755,14 @@ mod tests {
     fn validation_reports_problems() {
         let mut config = Config::default();
         config.privacy.telemetry = true;
-        config.ai.provider = AiProviderKind::Anthropic;
+        config.ai.provider = AiProviderKind::OpenaiCompatible;
+        config.ai.max_output_tokens = Some(10);
         config.classification.generated = vec!["[bad".into()];
         let problems = config.validate();
         assert!(problems.iter().any(|p| p.contains("telemetry")));
         assert!(problems.iter().any(|p| p.contains("ai.model")));
+        assert!(problems.iter().any(|p| p.contains("ai.endpoint")));
+        assert!(problems.iter().any(|p| p.contains("ai.max_output_tokens")));
         assert!(problems.iter().any(|p| p.contains("classification")));
     }
 
