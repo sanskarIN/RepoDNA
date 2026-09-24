@@ -9,6 +9,7 @@ pub mod npm;
 pub mod php;
 pub mod python;
 pub mod ruby;
+pub mod swift;
 
 use crate::model::{EcosystemProvider, FileMatch};
 
@@ -25,6 +26,7 @@ pub fn builtin_providers() -> Vec<Box<dyn EcosystemProvider>> {
         Box::new(php::Composer),
         Box::new(ruby::Bundler),
         Box::new(dart::Pub),
+        Box::new(swift::SwiftPm),
     ]
 }
 
@@ -38,4 +40,35 @@ pub fn find_provider<'a>(
             .matches(path)
             .map(|found| (provider.as_ref(), found))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use repodna_core::model::dependencies::ManifestKind;
+
+    #[test]
+    fn every_known_file_has_exactly_one_provider() {
+        let providers = builtin_providers();
+        for (path, ecosystem, kind) in [
+            ("Cargo.toml", "cargo", ManifestKind::Manifest),
+            ("web/package-lock.json", "npm", ManifestKind::Lockfile),
+            ("requirements-dev.txt", "pypi", ManifestKind::Manifest),
+            ("go.sum", "go", ManifestKind::Lockfile),
+            ("pom.xml", "maven", ManifestKind::Manifest),
+            ("app/build.gradle.kts", "gradle", ManifestKind::Manifest),
+            ("src/App/App.csproj", "nuget", ManifestKind::Manifest),
+            ("composer.lock", "composer", ManifestKind::Lockfile),
+            ("Gemfile", "rubygems", ManifestKind::Manifest),
+            ("pubspec.yaml", "pub", ManifestKind::Manifest),
+            ("Package.resolved", "swiftpm", ManifestKind::Lockfile),
+        ] {
+            let matching: Vec<_> = providers
+                .iter()
+                .filter_map(|p| p.matches(path).map(|m| (p.ecosystem(), m.kind)))
+                .collect();
+            assert_eq!(matching, vec![(ecosystem, kind)], "{path}");
+        }
+        assert!(find_provider(&providers, "README.md").is_none());
+    }
 }
