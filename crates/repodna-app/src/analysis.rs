@@ -7,6 +7,7 @@ use std::sync::Arc;
 use repodna_core::CancellationToken;
 use repodna_core::io::read_artifact;
 use repodna_core::model::artifact::RepositoryDna;
+use repodna_core::model::metadata::InputKind;
 use repodna_core::time::Timestamp;
 use repodna_engine::{AnalysisCache, AnalysisRequest, FetchOptions, InputSpec, Progress, analyze};
 use repodna_git::url::{looks_like_url, sanitize_url};
@@ -164,6 +165,36 @@ pub fn run_analysis(
         }
     }
     Ok(outcome)
+}
+
+/// The identity under which an imported artifact is stored: its origin remote when it has
+/// one, so imports of the same project group together.
+fn imported_location(dna: &RepositoryDna) -> RepositoryLocation {
+    let remote = dna
+        .identity
+        .remotes
+        .iter()
+        .find(|remote| remote.name == "origin")
+        .or_else(|| dna.identity.remotes.first());
+    RepositoryLocation {
+        kind: InputKind::Artifact,
+        location: remote.map_or_else(
+            || format!("imported:{}", dna.identity.name),
+            |remote| sanitize_url(&remote.url),
+        ),
+    }
+}
+
+/// Stores an artifact file (for example one a teammate exported) so it can be explored
+/// without access to the repository. Returns the stored scan and compatibility notes.
+pub fn import_artifact(
+    paths: &AppPaths,
+    file: &Path,
+) -> Result<(RepositoryDna, ScanRecord, Vec<String>), AppError> {
+    let loaded = read_artifact(file)?;
+    let store = paths.open_store()?;
+    let scan = store.record(&loaded.artifact, &imported_location(&loaded.artifact))?;
+    Ok((loaded.artifact, scan, loaded.warnings))
 }
 
 /// What a command should read an analysis from.
@@ -351,6 +382,13 @@ mod tests {
 
         let artifact = home.path().join("scan.repodna");
         std::fs::write(&artifact, serde_json::to_string(&second.dna).unwrap()).unwrap();
+        let other_home = tempfile::tempdir().unwrap();
+        let other = AppPaths::in_directory(other_home.path());
+        let (imported, scan, notes) = import_artifact(&other, &artifact).unwrap();
+        assert!(notes.is_empty());
+        assert_eq!(imported, second.dna);
+        let (reloaded, _) = load_stored(&other, &format!("imported:{name}")).unwrap();
+        assert_eq!(reloaded.analysis_metadata.id, scan.id);
         assert_eq!(
             resolve_target(&artifact.to_string_lossy()),
             Target::Artifact(artifact.clone())
