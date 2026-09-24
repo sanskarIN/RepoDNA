@@ -10,6 +10,7 @@
 
 pub mod entrypoints;
 pub mod graph;
+pub mod interactions;
 pub mod modules;
 pub mod resolve;
 
