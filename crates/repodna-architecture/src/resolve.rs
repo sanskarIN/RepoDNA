@@ -930,6 +930,11 @@ impl<'a> Resolver<'a> {
                         child_path(&dir, &format!("{name}/mod.rs")),
                     ]);
                     if child.is_none() {
+                        // Crate names are lowercase; a capitalized first segment is a type
+                        // already in scope, as in `use Confidence::{High, Low}`.
+                        if name.starts_with(|c: char| c.is_ascii_uppercase()) {
+                            return Resolution::Ignored;
+                        }
                         return external(name, "cargo");
                     }
                     let mut full = current.clone();
@@ -1793,7 +1798,7 @@ mod tests {
         let fixture = Fixture::new(&[
             (
                 "crates/app/src/lib.rs",
-                "mod parser;\nmod missing;\nuse crate::parser::Lexer;\nuse parser::Token;\nuse std::fmt;\nuse serde::Serialize;\nuse repodna_core::model::Thing;\n",
+                "mod parser;\nmod missing;\nuse crate::parser::Lexer;\nuse parser::Token;\nuse std::fmt;\nuse serde::Serialize;\nuse repodna_core::model::Thing;\nfn f() {\n    use Confidence::{High, Low};\n}\n",
             ),
             (
                 "crates/app/src/parser/mod.rs",
@@ -1822,6 +1827,8 @@ mod tests {
                 ("std::fmt", "ignored"),
                 ("serde::Serialize", "ext:serde"),
                 ("repodna_core::model::Thing", "crates/core/src/model.rs"),
+                ("Confidence::High", "ignored"),
+                ("Confidence::Low", "ignored"),
             ])
         );
         assert_eq!(
