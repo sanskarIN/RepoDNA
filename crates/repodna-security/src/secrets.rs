@@ -1,0 +1,495 @@
+//! Secret detection. Values are never stored: only the rule, the location, and a keyed
+//! fingerprint leave the scanner.
+
+use std::sync::LazyLock;
+
+use regex::Regex;
+use repodna_core::confidence::Confidence;
+use repodna_core::hash::{hmac_sha256, stable_id, to_hex};
+use repodna_core::model::security::SecretCandidate;
+
+use crate::is_sample_path;
+
+/// Lines longer than this are scanned only up to this many bytes (minified files).
+const MAX_LINE_BYTES: usize = 8_192;
+
+/// Maximum candidates reported per file.
+const MAX_PER_FILE: usize = 50;
+
+/// How strongly a rule's matches have to look random.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Check {
+    /// The format itself is distinctive enough.
+    Format,
+    /// The value must reach this Shannon entropy in bits per character.
+    Entropy(f64),
+}
+
+/// A rule that recognizes one kind of credential.
+#[derive(Debug)]
+pub struct SecretRule {
+    /// Rule identifier, e.g. `github-token`.
+    pub id: &'static str,
+    /// What the rule detects.
+    pub description: &'static str,
+    /// Confidence of a match outside tests and examples.
+    pub confidence: Confidence,
+    /// Lowercase fragments of which at least one must occur on the line (a fast prefilter).
+    keywords: &'static [&'static str],
+    /// The pattern; capture group 1 is the secret value.
+    pattern: Regex,
+    check: Check,
+}
+
+fn rule(
+    id: &'static str,
+    description: &'static str,
+    confidence: Confidence,
+    keywords: &'static [&'static str],
+    pattern: &str,
+    check: Check,
+) -> SecretRule {
+    SecretRule {
+        id,
+        description,
+        confidence,
+        keywords,
+        pattern: Regex::new(pattern)
+            .unwrap_or_else(|error| panic!("invalid secret rule {id}: {error}")),
+        check,
+    }
+}
+
+/// Every secret rule, in reporting order.
+pub static SECRET_RULES: LazyLock<Vec<SecretRule>> = LazyLock::new(|| {
+    use Check::{Entropy, Format};
+    use Confidence::{High, Low, Medium};
+    vec![
+        rule(
+            "private-key",
+            "Private key block",
+            High,
+            &["private key"],
+            r"-----BEGIN ((?:RSA |DSA |EC |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?)-----",
+            Format,
+        ),
+        rule(
+            "aws-access-key-id",
+            "AWS access key ID",
+            High,
+            &["akia", "asia"],
+            r"\b((?:AKIA|ASIA)[A-Z0-9]{16})\b",
+            Format,
+        ),
+        rule(
+            "aws-secret-access-key",
+            "AWS secret access key",
+            Medium,
+            &["aws"],
+            r#"(?i)aws.{0,20}?(?:secret|private).{0,20}?["'\s:=]+([A-Za-z0-9/+=]{40})(?:[^A-Za-z0-9/+=]|$)"#,
+            Entropy(4.0),
+        ),
+        rule(
+            "github-token",
+            "GitHub token",
+            High,
+            &["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"],
+            r"\b(gh[pousr]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{60,255})\b",
+            Format,
+        ),
+        rule(
+            "gitlab-token",
+            "GitLab personal access token",
+            High,
+            &["glpat-"],
+            r"\b(glpat-[A-Za-z0-9_\-]{20,})",
+            Format,
+        ),
+        rule(
+            "slack-token",
+            "Slack token",
+            High,
+            &["xox"],
+            r"\b(xox[abprs]-[A-Za-z0-9-]{10,})",
+            Format,
+        ),
+        rule(
+            "slack-webhook",
+            "Slack incoming webhook URL",
+            High,
+            &["hooks.slack.com"],
+            r"(https://hooks\.slack\.com/services/T[A-Za-z0-9_]+/B[A-Za-z0-9_]+/[A-Za-z0-9_]{20,})",
+            Format,
+        ),
+        rule(
+            "stripe-secret-key",
+            "Stripe live secret key",
+            High,
+            &["_live_"],
+            r"\b((?:sk|rk)_live_[A-Za-z0-9]{24,})",
+            Format,
+        ),
+        rule(
+            "google-api-key",
+            "Google API key",
+            Medium,
+            &["aiza"],
+            r"\b(AIza[A-Za-z0-9_\-]{35})",
+            Format,
+        ),
+        rule(
+            "anthropic-api-key",
+            "Anthropic API key",
+            High,
+            &["sk-ant-"],
+            r"\b(sk-ant-[a-z]+\d*-[A-Za-z0-9_\-]{40,})",
+            Format,
+        ),
+        rule(
+            "openai-api-key",
+            "OpenAI API key",
+            High,
+            &["sk-"],
+            r"\b(sk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{40,})",
+            Format,
+        ),
+        rule(
+            "npm-token",
+            "npm access token",
+            High,
+            &["npm_"],
+            r"\b(npm_[A-Za-z0-9]{36})\b",
+            Format,
+        ),
+        rule(
+            "pypi-token",
+            "PyPI API token",
+            High,
+            &["pypi-"],
+            r"\b(pypi-AgEIcHlwaS5vcmc[A-Za-z0-9_\-]{50,})",
+            Format,
+        ),
+        rule(
+            "sendgrid-api-key",
+            "SendGrid API key",
+            High,
+            &["sg."],
+            r"\b(SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43})",
+            Format,
+        ),
+        rule(
+            "azure-storage-key",
+            "Azure storage account key",
+            High,
+            &["accountkey="],
+            r"AccountKey=([A-Za-z0-9+/]{86}==)",
+            Format,
+        ),
+        rule(
+            "telegram-bot-token",
+            "Telegram bot token",
+            Medium,
+            &[":aa"],
+            r"\b(\d{8,10}:AA[A-Za-z0-9_\-]{33})\b",
+            Format,
+        ),
+        rule(
+            "url-credentials",
+            "Password embedded in a URL",
+            Medium,
+            &["://"],
+            r"\b[a-z][a-z0-9+.\-]*://[^\s:/@]+:([^\s/@]{3,})@[A-Za-z0-9.\-]+",
+            Entropy(1.5),
+        ),
+        rule(
+            "jwt",
+            "JSON Web Token",
+            Low,
+            &["eyj"],
+            r"\b(eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,})",
+            Format,
+        ),
+        rule(
+            "generic-secret",
+            "Hard-coded secret assigned to a secret-like name",
+            Low,
+            &[
+                "password", "passwd", "secret", "api_key", "apikey", "api-key", "token",
+            ],
+            r#"(?i)(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)[a-z0-9_\-]*["']?\s*[:=]\s*["']([^"'\s]{8,})["']"#,
+            Entropy(3.0),
+        ),
+    ]
+});
+
+/// Values that are obviously placeholders rather than credentials.
+fn is_placeholder(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    const FRAGMENTS: &[&str] = &[
+        "example",
+        "changeme",
+        "change_me",
+        "placeholder",
+        "dummy",
+        "sample",
+        "your",
+        "xxxx",
+        "****",
+        "redacted",
+        "insert",
+        "replace",
+        "<",
+        ">",
+        "${",
+        "{{",
+        "%(",
+        "process.env",
+        "os.environ",
+        "getenv",
+        "secrets.",
+        "vault:",
+        "env(",
+    ];
+    FRAGMENTS.iter().any(|fragment| lower.contains(fragment))
+        || value.bytes().all(|b| b == value.as_bytes()[0])
+}
+
+/// Shannon entropy of `value` in bits per character.
+pub fn shannon_entropy(value: &str) -> f64 {
+    if value.is_empty() {
+        return 0.0;
+    }
+    let mut counts = [0u32; 256];
+    for byte in value.bytes() {
+        counts[usize::from(byte)] += 1;
+    }
+    let length = value.len() as f64;
+    counts
+        .iter()
+        .filter(|&&count| count > 0)
+        .map(|&count| {
+            let p = f64::from(count) / length;
+            -p * p.log2()
+        })
+        .sum()
+}
+
+/// Lowers a confidence by one step (for matches in tests and examples).
+fn lower(confidence: Confidence) -> Confidence {
+    match confidence {
+        Confidence::High => Confidence::Medium,
+        Confidence::Medium | Confidence::Low => Confidence::Low,
+        Confidence::Unavailable => Confidence::Unavailable,
+    }
+}
+
+/// Scans text for secret candidates.
+#[derive(Debug, Clone)]
+pub struct SecretScanner {
+    key: [u8; 32],
+}
+
+impl SecretScanner {
+    /// Creates a scanner whose fingerprints are keyed with `key`.
+    ///
+    /// The key should be derived from the scanned content (for example a digest of every
+    /// path and content hash), so fingerprints are stable for the same content but cannot
+    /// be checked against guessed values by someone who only has the report.
+    pub fn new(key: [u8; 32]) -> Self {
+        Self { key }
+    }
+
+    fn fingerprint(&self, rule: &str, value: &str) -> String {
+        let mut message = Vec::with_capacity(rule.len() + value.len() + 1);
+        message.extend_from_slice(rule.as_bytes());
+        message.push(0);
+        message.extend_from_slice(value.as_bytes());
+        to_hex(&hmac_sha256(&self.key, &message)[..6])
+    }
+
+    /// Scans the text of one file.
+    pub fn scan(&self, path: &str, text: &str) -> Vec<SecretCandidate> {
+        let sample = is_sample_path(path);
+        let lines: Vec<&str> = text.lines().collect();
+        let mut candidates = Vec::new();
+        for (index, full_line) in lines.iter().enumerate() {
+            let line = truncate_bytes(full_line, MAX_LINE_BYTES);
+            let lowered = line.to_ascii_lowercase();
+            for rule in SECRET_RULES.iter() {
+                if !rule
+                    .keywords
+                    .iter()
+                    .any(|keyword| lowered.contains(keyword))
+                {
+                    continue;
+                }
+                for captures in rule.pattern.captures_iter(line) {
+                    let Some(value) = captures.get(1).map(|m| m.as_str()) else {
+                        continue;
+                    };
+                    let value = if rule.id == "private-key" {
+                        // The key material, not the header, identifies a key.
+                        &private_key_body(&lines, index)
+                    } else {
+                        value
+                    };
+                    if rule.id != "private-key" && is_placeholder(value) {
+                        continue;
+                    }
+                    if let Check::Entropy(minimum) = rule.check
+                        && shannon_entropy(value) < minimum
+                    {
+                        continue;
+                    }
+                    let line_number = u32::try_from(index + 1).unwrap_or(u32::MAX);
+                    candidates.push(SecretCandidate {
+                        id: stable_id(&[rule.id, path, &line_number.to_string()]),
+                        rule: rule.id.to_owned(),
+                        description: rule.description.to_owned(),
+                        path: path.to_owned(),
+                        line: line_number,
+                        confidence: if sample {
+                            lower(rule.confidence)
+                        } else {
+                            rule.confidence
+                        },
+                        fingerprint: self.fingerprint(rule.id, value),
+                        in_test_or_example: sample,
+                    });
+                    if candidates.len() >= MAX_PER_FILE {
+                        return candidates;
+                    }
+                }
+            }
+        }
+        // One location can match several rules (a token that is also a generic secret);
+        // keep the most specific, which comes first in rule order.
+        candidates.dedup_by(|b, a| a.line == b.line && b.rule == "generic-secret");
+        candidates
+    }
+}
+
+/// The body of a private key block starting at `start` (up to 64 lines).
+fn private_key_body(lines: &[&str], start: usize) -> String {
+    lines
+        .iter()
+        .skip(start + 1)
+        .take(64)
+        .take_while(|line| !line.starts_with("-----END"))
+        .map(|line| line.trim())
+        .collect()
+}
+
+fn truncate_bytes(text: &str, max: usize) -> &str {
+    if text.len() <= max {
+        return text;
+    }
+    let mut end = max;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Assembles credential-shaped values at runtime so that no literal in this file looks
+    /// like a real credential.
+    fn fake(parts: &[&str]) -> String {
+        parts.concat()
+    }
+
+    fn scan(path: &str, text: &str) -> Vec<SecretCandidate> {
+        SecretScanner::new([7; 32]).scan(path, text)
+    }
+
+    #[test]
+    fn rules_compile_and_ids_are_unique() {
+        let mut ids: Vec<&str> = SECRET_RULES.iter().map(|rule| rule.id).collect();
+        let count = ids.len();
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), count);
+    }
+
+    #[test]
+    fn detects_token_formats_without_storing_values() {
+        let github = fake(&["gh", "p_", &"a1B2c3D4e5".repeat(4)]);
+        let aws = fake(&["AK", "IA", "Z7Q2X9W4R5T1Y8U3"]);
+        let text = format!("token = \"{github}\"\nkey_id: {aws}\nnothing here\n");
+        let found = scan("deploy/config.yml", &text);
+        let rules: Vec<(&str, u32, Confidence)> = found
+            .iter()
+            .map(|c| (c.rule.as_str(), c.line, c.confidence))
+            .collect();
+        assert_eq!(
+            rules,
+            vec![
+                ("github-token", 1, Confidence::High),
+                ("aws-access-key-id", 2, Confidence::High),
+            ]
+        );
+        let json = format!("{found:?}");
+        assert!(!json.contains(&github) && !json.contains(&aws));
+        assert_eq!(found[0].fingerprint.len(), 12);
+    }
+
+    #[test]
+    fn fingerprints_match_for_equal_values_only() {
+        let value = fake(&["xo", "xb-", "1234567890-abcdefghij"]);
+        let other = fake(&["xo", "xb-", "0987654321-jihgfedcba"]);
+        let text = format!("a={value}\nb={value}\nc={other}\n");
+        let found = scan("src/notify.py", &text);
+        assert_eq!(found.len(), 3);
+        assert_eq!(found[0].fingerprint, found[1].fingerprint);
+        assert_ne!(found[0].fingerprint, found[2].fingerprint);
+        let rekeyed = SecretScanner::new([8; 32]).scan("src/notify.py", &text);
+        assert_ne!(found[0].fingerprint, rekeyed[0].fingerprint);
+    }
+
+    #[test]
+    fn private_keys_are_fingerprinted_by_their_body() {
+        let header = fake(&["-----BEGIN ", "RSA PRIVATE KEY-----"]);
+        let footer = fake(&["-----END ", "RSA PRIVATE KEY-----"]);
+        let text = format!("{header}\nMIIEowIBAAKCAQEA1\nQ2F0cyBhcmUgZ3JlYXQ\n{footer}\n");
+        let found = scan("config/server.key", &text);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].rule, "private-key");
+        assert!(!found[0].in_test_or_example);
+        let in_tests = scan("tests/fixtures/server.key", &text);
+        assert_eq!(in_tests[0].confidence, Confidence::Medium);
+        assert!(in_tests[0].in_test_or_example);
+    }
+
+    #[test]
+    fn skips_placeholders_references_and_low_entropy_values() {
+        let text = [
+            "password = \"changeme123\"",
+            "api_key = \"${API_KEY}\"",
+            "secret: \"aaaaaaaaaaaa\"",
+            "password = os.environ[\"PASSWORD\"]",
+            "url = \"postgres://user:<password>@db/app\"",
+            &fake(&["AK", "IA", "IOSFODNN7EXAMPLE"]),
+        ]
+        .join("\n");
+        assert!(scan("src/settings.py", &text).is_empty());
+        let real = fake(&["db_password = \"Tr0ub4", "dor&3xK9!q\""]);
+        let found = scan("src/settings.py", &real);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].rule, "generic-secret");
+        assert_eq!(found[0].confidence, Confidence::Low);
+        let url = fake(&["postgres://admin:", "S3cr3tP4ss", "@db.internal/app"]);
+        assert_eq!(scan("src/db.py", &url)[0].rule, "url-credentials");
+    }
+
+    #[test]
+    fn entropy_and_truncation_helpers() {
+        assert_eq!(shannon_entropy(""), 0.0);
+        assert_eq!(shannon_entropy("aaaa"), 0.0);
+        assert!((shannon_entropy("abcd") - 2.0).abs() < 1e-9);
+        assert_eq!(truncate_bytes("héllo", 2), "h");
+        assert_eq!(lower(Confidence::High), Confidence::Medium);
+    }
+}
