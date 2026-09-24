@@ -99,14 +99,13 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
         _ => "No description was found in the README or manifests.".to_owned(),
     };
     if !languages.is_empty() {
-        text.push_str(&format!(" It is written mainly in {}", list(&languages)));
-        if dna.architecture.status.has_results() && dna.architecture.style != "Unknown" {
-            text.push_str(&format!(
-                " and looks {} (inferred)",
-                dna.architecture.style.to_lowercase()
-            ));
-        }
-        text.push('.');
+        text.push_str(&format!(" It is written mainly in {}.", list(&languages)));
+    }
+    if dna.architecture.status.has_results() && dna.architecture.style != "Unknown" {
+        text.push_str(&format!(
+            " Inferred architecture style: {}.",
+            dna.architecture.style
+        ));
     }
     let mut evidence: Vec<Evidence> = dna
         .docs
