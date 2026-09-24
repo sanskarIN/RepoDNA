@@ -10,6 +10,7 @@
 pub mod code;
 pub mod deps;
 pub mod error;
+pub mod fingerprint;
 pub mod history;
 pub mod input;
 pub mod insights;
