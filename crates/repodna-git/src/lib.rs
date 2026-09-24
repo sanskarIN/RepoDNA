@@ -6,7 +6,9 @@
 //! is not installed.
 
 pub mod error;
+pub mod log;
 pub mod runner;
 
 pub use error::GitError;
+pub use log::{ChangeStatus, FileChange, History, LogOptions, ParsedCommit, read_history};
 pub use runner::GitRunner;
