@@ -19,6 +19,7 @@ pub mod io;
 pub mod metric;
 pub mod model;
 pub mod paths;
+pub mod schema;
 pub mod severity;
 pub mod time;
 
