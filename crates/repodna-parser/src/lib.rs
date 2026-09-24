@@ -9,9 +9,11 @@
 //! always labeled with the depth of analysis behind them.
 
 pub mod builtin;
+pub mod registry;
 pub mod scanner;
 pub mod spec;
 
 pub use builtin::builtin_languages;
+pub use registry::{LanguageRegistry, shebang_interpreter};
 pub use scanner::{LineKind, ScannedFile, ScannedLine, scan};
 pub use spec::LanguageSpec;
