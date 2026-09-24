@@ -65,6 +65,9 @@ ttf-parser = { version = "0.25.1", default-features = false, features = ["std"] 
 # Parallelism
 rayon = "1.12"
 
+# HTTP client for optional AI providers (rustls with bundled web PKI roots)
+ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
+
 # Testing
 tempfile = "3.27.0"
 

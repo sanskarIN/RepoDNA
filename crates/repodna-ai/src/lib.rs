@@ -15,6 +15,7 @@
 pub mod context;
 pub mod error;
 pub mod prompt;
+pub mod provider;
 pub mod response;
 pub mod task;
 pub mod text;
@@ -25,5 +26,6 @@ mod testing;
 pub use context::{Context, ContextOptions, EvidenceItem, EvidenceKind, select_context};
 pub use error::AiError;
 pub use prompt::{PROMPT_VERSION, Prompt, build_prompt};
+pub use provider::{AiProvider, Completion, CompletionRequest, build_provider, max_output_tokens};
 pub use response::{Answer, AnswerPoint, Support, check_answer};
 pub use task::AiTask;
