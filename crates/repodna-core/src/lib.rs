@@ -10,6 +10,7 @@
 
 pub mod confidence;
 pub mod error;
+pub mod evidence;
 pub mod hash;
 pub mod paths;
 pub mod severity;
@@ -17,5 +18,6 @@ pub mod time;
 
 pub use confidence::Confidence;
 pub use error::{CoreError, Result};
+pub use evidence::Evidence;
 pub use severity::Severity;
 pub use time::Timestamp;
