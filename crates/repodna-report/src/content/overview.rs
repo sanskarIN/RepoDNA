@@ -101,10 +101,16 @@ pub(super) fn summary(blocks: &mut Blocks, dna: &RepositoryDna) {
         (facts.commits, facts.contributors, facts.age_days)
     {
         overview.push_str(&format!(
-            " Its history spans {} with {} commits by {} contributor identities.",
+            " Its history spans {} with {} commit{} by {} contributor {}.",
             span(days),
             thousands(commits),
-            thousands(contributors)
+            if commits == 1 { "" } else { "s" },
+            thousands(contributors),
+            if contributors == 1 {
+                "identity"
+            } else {
+                "identities"
+            }
         ));
     }
     blocks.text(overview);
