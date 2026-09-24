@@ -255,6 +255,7 @@ dependencies = [
  "repodna-core",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "toml",
 ]

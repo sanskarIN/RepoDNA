@@ -10,6 +10,7 @@
 
 pub mod analyze;
 pub mod builtin;
+pub mod declarative;
 pub mod imports;
 pub mod markers;
 pub mod registry;
@@ -20,6 +21,7 @@ pub mod tokens;
 
 pub use analyze::{ANALYZER_VERSION, FileAnalysis, RawReference, analyze_source, count_lines};
 pub use builtin::builtin_languages;
+pub use declarative::{DefinitionError, load_directory, parse_definition};
 pub use imports::{RawImport, extract_imports, extract_package};
 pub use markers::{RawMarker, extract_markers};
 pub use registry::{LanguageRegistry, shebang_interpreter};

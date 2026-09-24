@@ -168,10 +168,20 @@ pub struct ComplexityRules {
 
 impl ComplexityRules {
     /// Creates rules and compiles the keyword expression.
+    ///
+    /// Word-like operators such as `and` are matched on word boundaries like keywords, so
+    /// they never match inside identifiers such as `random`.
     pub fn new(keywords: &[&str], operators: &[&str], ternary: bool) -> Self {
+        let (word_operators, symbol_operators): (Vec<&str>, Vec<&str>) = operators
+            .iter()
+            .partition(|operator| operator.chars().all(|c| c.is_ascii_alphabetic()));
         let mut rules = Self {
-            keywords: keywords.iter().map(|k| (*k).to_owned()).collect(),
-            operators: operators.iter().map(|o| (*o).to_owned()).collect(),
+            keywords: keywords
+                .iter()
+                .chain(word_operators.iter())
+                .map(|k| (*k).to_owned())
+                .collect(),
+            operators: symbol_operators.iter().map(|o| (*o).to_owned()).collect(),
             ternary,
             keyword_regex: None,
         };
