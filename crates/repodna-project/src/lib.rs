@@ -5,6 +5,7 @@
 //! unless the user explicitly enables execution; only a supervised successful run marks a
 //! command as verified.
 
+pub mod analysis;
 pub mod ci;
 pub mod commands;
 pub mod docs;
@@ -12,6 +13,8 @@ pub mod environment;
 pub mod execute;
 pub mod testing;
 pub mod tools;
+
+pub use analysis::{ProjectInput, ProjectOutput, analyze};
 
 use repodna_core::model::structure::FileCategory;
 use repodna_core::paths;
