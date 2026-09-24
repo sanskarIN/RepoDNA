@@ -7,6 +7,7 @@
 
 pub mod complexity;
 pub mod duplication;
+pub mod markers;
 pub mod similarity;
 pub mod tokens;
 
