@@ -11,6 +11,7 @@
 pub mod confidence;
 pub mod error;
 pub mod evidence;
+pub mod finding;
 pub mod hash;
 pub mod paths;
 pub mod severity;
@@ -19,5 +20,6 @@ pub mod time;
 pub use confidence::Confidence;
 pub use error::{CoreError, Result};
 pub use evidence::Evidence;
+pub use finding::{Finding, FindingCategory, Suppression};
 pub use severity::Severity;
 pub use time::Timestamp;
