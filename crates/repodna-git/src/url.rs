@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn sanitizes_credentials() {
         assert_eq!(
-            sanitize_url("https://user:ghp_secret@github.com/o/r.git"),
+            sanitize_url("https://user:placeholder@github.com/o/r.git"),
             "https://github.com/o/r.git"
         );
         assert_eq!(
