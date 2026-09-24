@@ -530,7 +530,7 @@ fn dormant_periods(history: &History, dormant_days: u32) -> Vec<DormantPeriod> {
     if periods.len() > MAX_DORMANT_PERIODS {
         periods.sort_by(|a, b| b.days.cmp(&a.days).then_with(|| a.start.cmp(&b.start)));
         periods.truncate(MAX_DORMANT_PERIODS);
-        periods.sort_by(|a, b| a.start.cmp(&b.start));
+        periods.sort_by_key(|period| period.start);
     }
     periods
 }
