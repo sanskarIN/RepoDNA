@@ -27,6 +27,7 @@ repodna-security = { path = "crates/repodna-security", version = "1.0.0" }
 repodna-project = { path = "crates/repodna-project", version = "1.0.0" }
 repodna-evolution = { path = "crates/repodna-evolution", version = "1.0.0" }
 repodna-engine = { path = "crates/repodna-engine", version = "1.0.0" }
+repodna-store = { path = "crates/repodna-store", version = "1.0.0" }
 repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration
@@ -51,6 +52,9 @@ ignore = "0.4.33"
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
 tar = "0.4.46"
 flate2 = "1.1.10"
+
+# Storage
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 
 # Parallelism
 rayon = "1.12"

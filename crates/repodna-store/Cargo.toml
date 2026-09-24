@@ -1,0 +1,25 @@
+[package]
+name = "repodna-store"
+description = "Local RepoDNA storage: analysis history, stored artifacts, and the per-file analysis cache, in SQLite."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+repodna-core.workspace = true
+repodna-engine.workspace = true
+repodna-parser.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
+flate2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
