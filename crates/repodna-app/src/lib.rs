@@ -11,9 +11,11 @@
 pub mod analysis;
 pub mod config;
 pub mod error;
+pub mod explain;
 pub mod export;
 pub mod paths;
 
+pub use explain::{ExplainOutcome, ExplainRequest, explain, plan_explanation};
 pub use export::{
     OUTPUT_MARKER, OutputFile, artifact_file_name, report_bundle, write_bundle, write_file,
 };
