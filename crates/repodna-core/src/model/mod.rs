@@ -15,6 +15,7 @@ pub mod fingerprint;
 pub mod git;
 pub mod insights;
 pub mod languages;
+pub mod metrics;
 pub mod project;
 pub mod quality;
 pub mod security;
