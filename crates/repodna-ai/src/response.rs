@@ -53,6 +53,7 @@ pub struct AnswerPoint {
 
 /// A checked answer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Answer {
     /// Short summary written by the model.
     pub summary: String,
