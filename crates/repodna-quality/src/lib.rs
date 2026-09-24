@@ -5,6 +5,7 @@
 //! candidates are files nothing in the repository appears to use. Findings say what was
 //! measured, which threshold was crossed, and what the measurement cannot see.
 
+pub mod analysis;
 pub mod complexity;
 pub mod deadcode;
 pub mod duplication;
@@ -15,6 +16,7 @@ pub mod markers;
 pub mod similarity;
 pub mod tokens;
 
+pub use analysis::{QualityInput, QualityOutput, analyze};
 pub use tokens::TokenStream;
 
 use repodna_core::model::structure::LineCounts;

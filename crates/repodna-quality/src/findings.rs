@@ -4,8 +4,8 @@
 //! severity criteria, size, complexity, duplication, and hotspot findings are `Attention`,
 //! and descriptive observations are `Info`.
 
-use repodna_core::config::Thresholds;
 use repodna_core::confidence::Confidence;
+use repodna_core::config::Thresholds;
 use repodna_core::evidence::{Evidence, format_number};
 use repodna_core::finding::{Finding, FindingCategory};
 use repodna_core::model::git::Hotspot;
@@ -241,10 +241,17 @@ pub fn quality_findings(
                 FindingCategory::Duplication,
                 Severity::Info,
                 Confidence::Medium,
-                format!("{} and {} are {}% similar", pair.a, pair.b, percent(pair.similarity)),
+                format!(
+                    "{} and {} are {}% similar",
+                    pair.a,
+                    pair.b,
+                    percent(pair.similarity)
+                ),
             )
             .summary("The two files share most of their token shingles.".to_owned())
-            .rationale("Near-copies of whole files often start as copy-and-modify and then drift apart.")
+            .rationale(
+                "Near-copies of whole files often start as copy-and-modify and then drift apart.",
+            )
             .method(SIMILARITY_METHOD)
             .evidence(Evidence::file(&pair.a))
             .evidence(Evidence::file(&pair.b))
@@ -265,7 +272,12 @@ pub fn quality_findings(
         let urgent: u64 = markers
             .counts
             .iter()
-            .filter(|c| matches!(c.kind, MarkerKind::Fixme | MarkerKind::Bug | MarkerKind::Hack))
+            .filter(|c| {
+                matches!(
+                    c.kind,
+                    MarkerKind::Fixme | MarkerKind::Bug | MarkerKind::Hack
+                )
+            })
             .map(|c| c.count)
             .sum();
         let breakdown: Vec<String> = markers
@@ -350,11 +362,11 @@ pub fn hotspot_findings(hotspots: &[Hotspot], candidates: usize) -> Vec<Finding>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use repodna_core::model::quality::{
-        CodeLocation, DeadCodeCandidate, DeadCodeKind, DuplicateCluster, FileSignal,
-        MarkerCount, MarkerItem, SimilarFilePair,
-    };
     use repodna_core::model::SectionStatus;
+    use repodna_core::model::quality::{
+        CodeLocation, DeadCodeCandidate, DeadCodeKind, DuplicateCluster, FileSignal, MarkerCount,
+        MarkerItem, SimilarFilePair,
+    };
 
     fn function(name: &str, cyclomatic: u32, lines: u32, nesting: u32) -> FunctionSignal {
         FunctionSignal {
@@ -372,7 +384,8 @@ mod tests {
     #[test]
     fn produces_one_finding_per_signal() {
         let mut report = QualityReport::default();
-        report.complexity.top_functions = vec![function("big", 22, 120, 6), function("ok", 3, 5, 1)];
+        report.complexity.top_functions =
+            vec![function("big", 22, 120, 6), function("ok", 3, 5, 1)];
         report.large_functions = vec![function("big", 22, 120, 6)];
         report.deep_nesting = vec![function("big", 22, 120, 6)];
         report.large_files = vec![FileSignal {
@@ -488,6 +501,9 @@ mod tests {
         let findings = hotspot_findings(std::slice::from_ref(&hotspot), 50);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].category, FindingCategory::Activity);
-        assert_eq!(findings[0].title, "src/core.rs is a change hotspot (rank 1)");
+        assert_eq!(
+            findings[0].title,
+            "src/core.rs is a change hotspot (rank 1)"
+        );
     }
 }
