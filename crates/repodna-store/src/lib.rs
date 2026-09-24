@@ -12,12 +12,14 @@
 
 pub mod cache;
 pub mod error;
+pub mod maintenance;
 pub mod paths;
 pub mod schema;
 pub mod store;
 
 pub use cache::{CacheStats, DEFAULT_CACHE_LIMIT};
 pub use error::StoreError;
+pub use maintenance::{RepairReport, ResetReport, StoreStats, repair, reset};
 pub use paths::{StorePaths, config_file, data_home};
 
 pub use store::{

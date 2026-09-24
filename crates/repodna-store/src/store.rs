@@ -6,7 +6,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use repodna_core::config::AnalysisProfile;
 use repodna_core::hash::stable_id;
-use repodna_core::io::{read_artifact, write_artifact};
+use repodna_core::io::{read_artifact, write_artifact, write_atomic};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::InputKind;
 use repodna_core::severity::Severity;
@@ -164,7 +164,7 @@ fn kind_id(kind: InputKind) -> &'static str {
     }
 }
 
-fn parse_kind(id: &str) -> InputKind {
+pub(crate) fn parse_kind(id: &str) -> InputKind {
     match id {
         "git-repository" => InputKind::GitRepository,
         "git-url" => InputKind::GitUrl,
@@ -233,6 +233,10 @@ fn finding_from_row(row: &Row<'_>) -> rusqlite::Result<StoredFinding> {
     })
 }
 
+/// Name of the file describing a repository inside its artifact directory, used to
+/// rebuild the index from the artifacts alone.
+pub(crate) const REPOSITORY_FILE: &str = "repository.json";
+
 const REPOSITORY_QUERY: &str = "SELECT r.id, r.name, r.location, r.kind, r.first_scanned_at, r.last_scanned_at, (SELECT COUNT(*) FROM scans s WHERE s.repository_id = r.id) AS scans FROM repositories r";
 
 impl Store {
@@ -295,6 +299,31 @@ impl Store {
         let artifact = format!("artifacts/{repository_id}/{scan_id}.json");
         let path = self.paths.home().join(&artifact);
         write_artifact(&path, dna, false)?;
+        let descriptor = serde_json::json!({
+            "name": dna.identity.name,
+            "kind": kind_id(location.kind),
+            "location": location.location,
+        });
+        let descriptor_path = self
+            .paths
+            .artifacts()
+            .join(&repository_id)
+            .join(REPOSITORY_FILE);
+        write_atomic(&descriptor_path, format!("{descriptor:#}\n").as_bytes())?;
+        self.index(dna, location, artifact, scan_id)
+    }
+
+    /// Indexes an artifact that is already stored at `artifact` (relative to the home).
+    pub(crate) fn index(
+        &self,
+        dna: &RepositoryDna,
+        location: &RepositoryLocation,
+        artifact: String,
+        scan_id: String,
+    ) -> Result<ScanRecord, StoreError> {
+        let repository_id = location.id();
+        let metadata = &dna.analysis_metadata;
+        let path = self.paths.home().join(&artifact);
         let artifact_bytes = fs::metadata(&path)
             .map_err(|source| StoreError::io(&path, source))?
             .len();
@@ -522,7 +551,7 @@ fn remove_file(path: &Path) -> Result<(), StoreError> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use repodna_core::confidence::Confidence;
     use repodna_core::finding::{Finding, FindingCategory};
