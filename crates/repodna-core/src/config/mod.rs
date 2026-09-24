@@ -14,10 +14,12 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::hash::sha256_hex;
 
+pub mod load;
 pub mod profile;
 pub mod suppression;
 pub mod thresholds;
 
+pub use load::{ConfigLoader, LoadedConfig, PROJECT_CONFIG_FILES};
 pub use profile::{AnalysisProfile, Stage, StageSet};
 pub use suppression::{SuppressionRule, apply_suppressions};
 pub use thresholds::Thresholds;
