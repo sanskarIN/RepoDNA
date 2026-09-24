@@ -10,6 +10,7 @@
 
 pub mod confidence;
 pub mod error;
+pub mod hash;
 pub mod severity;
 pub mod time;
 
