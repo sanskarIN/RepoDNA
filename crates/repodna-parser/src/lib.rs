@@ -15,6 +15,7 @@ pub mod registry;
 pub mod scanner;
 pub mod spec;
 pub mod symbols;
+pub mod tokens;
 
 pub use builtin::builtin_languages;
 pub use imports::{RawImport, extract_imports, extract_package};
@@ -23,3 +24,4 @@ pub use registry::{LanguageRegistry, shebang_interpreter};
 pub use scanner::{LineKind, ScannedFile, ScannedLine, scan};
 pub use spec::LanguageSpec;
 pub use symbols::{ParsedSymbol, SymbolAnalysis, extract_symbols};
+pub use tokens::{Token, tokenize};
