@@ -1,0 +1,7 @@
+# Example language plugin: pure data, no code runs.
+name = "zig-language"
+version = "1.0.0"
+description = "Adds Zig to language detection, import extraction, symbols, and complexity signals."
+api = 1
+languages = ["languages/zig.toml"]
+license = "Apache-2.0"
