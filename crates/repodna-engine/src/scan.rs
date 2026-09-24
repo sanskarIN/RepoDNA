@@ -5,14 +5,19 @@
 //! budget for duplication detection is applied deterministically between chunks. File text
 //! is dropped as soon as a file is processed, except for the small set of metadata files
 //! that later stages read (manifests, CI configuration, README, license).
+//!
+//! With an [`AnalysisCache`], lexical analysis results are reused for files whose content,
+//! language definition, and RepoDNA version are unchanged.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::fmt;
 use std::path::Path;
 
 use rayon::prelude::*;
 use repodna_core::cancel::CancellationToken;
 use repodna_core::config::{Config, DEFAULT_IGNORE_PATTERNS, Stage, StageSet};
 use repodna_core::glob::GlobSet;
+use repodna_core::hash::StableHasher;
 use repodna_core::model::languages::{LanguageKind, ParserCapability};
 use repodna_core::model::security::PatternCandidate;
 use repodna_core::model::structure::{FileCategory, FileRecord, LineCounts, SkipReason};
@@ -21,7 +26,10 @@ use repodna_discovery::{
     ClassificationOverrides, DiscoveredFile, DiscoveryOptions, ReadOutcome, classify, discover,
     read_file,
 };
-use repodna_parser::{FileAnalysis, LanguageRegistry, analyze_and_tokenize, count_lines};
+use repodna_parser::{
+    ANALYZER_VERSION, FileAnalysis, LanguageRegistry, LanguageSpec, analyze_and_tokenize,
+    count_lines, tokenize,
+};
 use repodna_project::wants_content;
 use repodna_quality::TokenStream;
 use repodna_security::{PendingSecret, find_secrets, scan_patterns};
@@ -33,6 +41,38 @@ pub const MAX_TOKENS: usize = 12_000_000;
 
 /// Files processed per parallel chunk.
 const CHUNK: usize = 512;
+
+/// A content-addressed cache of per-file lexical analysis results.
+///
+/// Keys (see [`cache_key`]) cover the file content, the language definition, and the
+/// RepoDNA and analyzer versions, so a cached result is only reused for identical input to
+/// identical code. Implementations must tolerate concurrent `get` calls from worker threads.
+pub trait AnalysisCache: Send + Sync + fmt::Debug {
+    /// Looks up a cached analysis.
+    fn get(&self, key: &str) -> Option<FileAnalysis>;
+
+    /// Stores analyses computed during the file pass.
+    fn put(&self, entries: &[(String, &FileAnalysis)]);
+}
+
+/// A fingerprint of a language definition, part of every cache key for that language.
+pub fn language_fingerprint(spec: &LanguageSpec) -> String {
+    let mut hasher = StableHasher::new();
+    hasher.str_field(&format!("{spec:?}"));
+    hasher.finish_hex()
+}
+
+/// The cache key for the analysis of a file with the given content hash.
+pub fn cache_key(content_sha256: &[u8; 32], language_fingerprint: &str) -> String {
+    let mut hasher = StableHasher::new();
+    hasher
+        .str_field("repodna-file-analysis")
+        .str_field(env!("CARGO_PKG_VERSION"))
+        .str_field(&ANALYZER_VERSION.to_string())
+        .str_field(language_fingerprint)
+        .field(content_sha256);
+    hasher.finish_hex()
+}
 
 /// A processed file.
 #[derive(Debug, Clone)]
@@ -83,6 +123,10 @@ pub struct ScanResult {
     pub ignore_patterns: Vec<String>,
     /// Some files were not tokenized because the token budget was spent.
     pub tokens_truncated: bool,
+    /// Analyses reused from the cache.
+    pub cache_hits: u64,
+    /// Analyses computed and offered to the cache.
+    pub cache_misses: u64,
 }
 
 /// What the file pass needs to know.
@@ -96,6 +140,16 @@ pub struct ScanOptions<'a> {
     pub registry: &'a LanguageRegistry,
     /// Progress sink.
     pub progress: &'a Progress,
+    /// Cache of per-file analysis results, when caching is enabled.
+    pub cache: Option<&'a dyn AnalysisCache>,
+}
+
+/// Per-pass state shared by the worker threads.
+struct PassContext<'a> {
+    options: &'a ScanOptions<'a>,
+    overrides: &'a ClassificationOverrides,
+    /// Language fingerprints by identifier, computed once per pass when caching.
+    fingerprints: HashMap<&'a str, String>,
 }
 
 /// Builds classification overrides from configuration patterns.
@@ -143,13 +197,14 @@ struct Processed {
     secrets: Vec<PendingSecret>,
     patterns: Vec<PatternCandidate>,
     security_scanned: bool,
+    /// Key under which a freshly computed analysis should be cached.
+    cache_key: Option<String>,
+    cache_hit: bool,
 }
 
-fn process(
-    discovered: &DiscoveredFile,
-    options: &ScanOptions<'_>,
-    overrides: &ClassificationOverrides,
-) -> Processed {
+fn process(discovered: &DiscoveredFile, context: &PassContext<'_>) -> Processed {
+    let options = context.options;
+    let overrides = context.overrides;
     let config = options.config;
     let stages = options.stages;
     let registry = options.registry;
@@ -175,6 +230,8 @@ fn process(
         secrets: Vec::new(),
         patterns: Vec::new(),
         security_scanned: false,
+        cache_key: None,
+        cache_hit: false,
     };
 
     // Images, fonts, and other binary formats are recognized by extension and not read.
@@ -211,16 +268,39 @@ fn process(
                         && !classification.generated;
                     match spec {
                         Some(spec) if lexical && stages.contains(Stage::Parsing) => {
-                            let (analysis, tokens) = analyze_and_tokenize(spec, text);
-                            record.lines = Some(analysis.lines);
-                            record.analysis = Some(analysis.summary());
                             let wants_tokens = code
                                 && classification.category == FileCategory::Source
                                 && (stages.contains(Stage::Duplication)
                                     || stages.contains(Stage::Similarity));
-                            if wants_tokens {
+                            let key = options.cache.and_then(|_| {
+                                context
+                                    .fingerprints
+                                    .get(spec.id.as_str())
+                                    .map(|fingerprint| cache_key(&content.sha256, fingerprint))
+                            });
+                            let cached = options
+                                .cache
+                                .zip(key.as_deref())
+                                .and_then(|(cache, key)| cache.get(key));
+                            let (analysis, tokens) = match cached {
+                                Some(analysis) => {
+                                    processed.cache_hit = true;
+                                    let tokens = wants_tokens.then(|| {
+                                        tokenize(&repodna_parser::scan(text, &spec.syntax).lines)
+                                    });
+                                    (analysis, tokens)
+                                }
+                                None => {
+                                    processed.cache_key = key;
+                                    let (analysis, tokens) = analyze_and_tokenize(spec, text);
+                                    (analysis, Some(tokens))
+                                }
+                            };
+                            record.lines = Some(analysis.lines);
+                            record.analysis = Some(analysis.summary());
+                            if wants_tokens && let Some(tokens) = &tokens {
                                 processed.file.tokens =
-                                    Some(TokenStream::for_file(&tokens, Some(&analysis)));
+                                    Some(TokenStream::for_file(tokens, Some(&analysis)));
                             }
                             processed.file.analysis = Some(analysis);
                         }
@@ -296,20 +376,42 @@ pub fn scan_files(
         ..ScanResult::default()
     };
     let total = discovery.files.len();
+    let fingerprints: HashMap<&str, String> = if options.cache.is_some() {
+        options
+            .registry
+            .languages()
+            .iter()
+            .map(|spec| (spec.id.as_str(), language_fingerprint(spec)))
+            .collect()
+    } else {
+        HashMap::new()
+    };
+    let context = PassContext {
+        options,
+        overrides: &overrides,
+        fingerprints,
+    };
     let mut tokens_used = 0usize;
     for chunk in discovery.files.chunks(CHUNK) {
         cancel.check()?;
         let work = || -> Vec<Processed> {
             chunk
                 .par_iter()
-                .map(|file| process(file, options, &overrides))
+                .map(|file| process(file, &context))
                 .collect()
         };
         let processed = match &pool {
             Some(pool) => pool.install(work),
             None => work(),
         };
+        let mut misses: Vec<(usize, String)> = Vec::new();
         for mut item in processed {
+            if item.cache_hit {
+                result.cache_hits += 1;
+            }
+            if let Some(key) = item.cache_key.take() {
+                misses.push((result.files.len(), key));
+            }
             if let Some(tokens) = &item.file.tokens {
                 if tokens_used + tokens.len() > MAX_TOKENS {
                     item.file.tokens = None;
@@ -327,6 +429,21 @@ pub fn scan_files(
             result.patterns.extend(item.patterns);
             result.security_files_scanned += u64::from(item.security_scanned);
             result.files.push(item.file);
+        }
+        if let Some(cache) = options.cache {
+            let entries: Vec<(String, &FileAnalysis)> = misses
+                .into_iter()
+                .filter_map(|(index, key)| {
+                    result.files[index]
+                        .analysis
+                        .as_ref()
+                        .map(|analysis| (key, analysis))
+                })
+                .collect();
+            result.cache_misses += entries.len() as u64;
+            if !entries.is_empty() {
+                cache.put(&entries);
+            }
         }
         options.progress.emit(ProgressEvent::Files {
             done: result.files.len(),
@@ -350,6 +467,7 @@ mod tests {
             stages,
             registry: LanguageRegistry::builtin(),
             progress: &Progress::default(),
+            cache: None,
         };
         scan_files(dir.path(), &options, &CancellationToken::new()).unwrap()
     }
@@ -427,5 +545,60 @@ mod tests {
         assert!(file.analysis.is_none() && file.tokens.is_none());
         assert_eq!(file.record.lines.unwrap().total, 1);
         assert_eq!(result.security_files_scanned, 0);
+    }
+
+    #[test]
+    fn reuses_cached_analyses_for_unchanged_content() {
+        use std::sync::Mutex;
+
+        #[derive(Debug, Default)]
+        struct MemoryCache(Mutex<HashMap<String, FileAnalysis>>);
+        impl AnalysisCache for MemoryCache {
+            fn get(&self, key: &str) -> Option<FileAnalysis> {
+                self.0.lock().unwrap().get(key).cloned()
+            }
+            fn put(&self, entries: &[(String, &FileAnalysis)]) {
+                let mut map = self.0.lock().unwrap();
+                for (key, analysis) in entries {
+                    map.insert(key.clone(), (*analysis).clone());
+                }
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        write_tree(
+            dir.path(),
+            &[
+                ("src/a.rs", "use crate::b;\npub fn a() { if true {} }\n"),
+                ("src/b.rs", "pub fn b() {}\n"),
+                ("README.md", "# Readme\n"),
+            ],
+        );
+        let config = Config::default();
+        let cache = MemoryCache::default();
+        let options = ScanOptions {
+            config: &config,
+            stages: StageSet::of(&Stage::ALL),
+            registry: LanguageRegistry::builtin(),
+            progress: &Progress::default(),
+            cache: Some(&cache),
+        };
+        let cancel = CancellationToken::new();
+        let first = scan_files(dir.path(), &options, &cancel).unwrap();
+        assert_eq!((first.cache_hits, first.cache_misses), (0, 2));
+        assert_eq!(cache.0.lock().unwrap().len(), 2);
+        let second = scan_files(dir.path(), &options, &cancel).unwrap();
+        assert_eq!((second.cache_hits, second.cache_misses), (2, 0));
+        for (a, b) in first.files.iter().zip(&second.files) {
+            assert_eq!(a.analysis, b.analysis);
+            assert_eq!(
+                a.tokens.as_ref().map(|t| t.len()),
+                b.tokens.as_ref().map(|t| t.len())
+            );
+        }
+
+        std::fs::write(dir.path().join("src/b.rs"), "pub fn b() { loop {} }\n").unwrap();
+        let third = scan_files(dir.path(), &options, &cancel).unwrap();
+        assert_eq!((third.cache_hits, third.cache_misses), (1, 1));
     }
 }

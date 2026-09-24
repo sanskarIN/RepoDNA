@@ -296,6 +296,7 @@ mod tests {
             stages,
             registry: LanguageRegistry::builtin(),
             progress: &Progress::default(),
+            cache: None,
         };
         let cancel = CancellationToken::new();
         let mut scan = scan_files(dir.path(), &options, &cancel).unwrap();

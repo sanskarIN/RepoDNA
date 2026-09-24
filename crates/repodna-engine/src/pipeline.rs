@@ -8,6 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use repodna_core::cancel::CancellationToken;
@@ -42,7 +43,7 @@ use crate::history::{GitStage, git_findings, run_git_stage};
 use crate::input::{FetchOptions, InputSpec, prepare_input};
 use crate::insights::build_insights;
 use crate::progress::{Progress, ProgressEvent};
-use crate::scan::{ScanOptions, scan_files};
+use crate::scan::{AnalysisCache, ScanOptions, scan_files};
 use crate::structure::{language_report, structure_findings, structure_report};
 use crate::timeline::{TimelineInput, run_timeline};
 
@@ -78,6 +79,8 @@ pub struct AnalysisRequest {
     pub languages: Vec<LanguageSpec>,
     /// Work that runs after the built-in stages when the plugins stage is enabled.
     pub extensions: Vec<Box<dyn Extension>>,
+    /// Cache of per-file analysis results, used when `performance.cache` is enabled.
+    pub cache: Option<Arc<dyn AnalysisCache>>,
     /// Receives progress events.
     pub progress: Progress,
     /// Time the analysis is measured against. Defaults to now, or `SOURCE_DATE_EPOCH` when
@@ -99,6 +102,7 @@ impl AnalysisRequest {
             fetch: FetchOptions::default(),
             languages: Vec::new(),
             extensions: Vec::new(),
+            cache: None,
             progress: Progress::default(),
             reference_time: None,
             reproducible: false,
@@ -303,6 +307,10 @@ pub fn analyze(
             stages,
             registry,
             progress: &request.progress,
+            cache: request
+                .cache
+                .as_deref()
+                .filter(|_| config.performance.cache),
         },
         cancel,
     )?;
@@ -311,12 +319,14 @@ pub fn analyze(
     } else {
         AnalyzerStatus::Completed
     };
-    recorder.end(
-        Stage::Discovery,
-        begun,
-        discovery_status,
-        Some(format!("{} files", scan.files.len())),
-    );
+    let mut message = format!("{} files", scan.files.len());
+    if scan.cache_hits > 0 {
+        message.push_str(&format!(
+            "; {} analyses reused from the cache",
+            scan.cache_hits
+        ));
+    }
+    recorder.end(Stage::Discovery, begun, discovery_status, Some(message));
     if !scan.errors.is_empty() {
         warnings.push(format!(
             "{} paths could not be read during discovery; see the structure notes.",

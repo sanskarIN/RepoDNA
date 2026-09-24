@@ -256,7 +256,8 @@ impl JsonSchema for Parallelism {
 pub struct PerformanceConfig {
     /// Worker threads.
     pub parallelism: Parallelism,
-    /// Reuse cached per-file and history results.
+    /// Reuse cached per-file analysis results. Entries are keyed by file content, language
+    /// definition, and RepoDNA version, so changed files are always analyzed again.
     pub cache: bool,
 }
 
