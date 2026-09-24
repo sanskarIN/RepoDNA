@@ -93,6 +93,8 @@ pub struct ArchitectureOutput {
     pub module_of: Vec<Option<String>>,
     /// Number of distinct first-party files that import each input file.
     pub file_dependents: Vec<u32>,
+    /// `true` for files included by a module declaration such as Rust's `mod name;`.
+    pub module_declared: Vec<bool>,
     /// Cross-language interactions.
     pub interactions: Vec<LanguageInteraction>,
     /// Entrypoints.
@@ -232,6 +234,7 @@ pub fn analyze(
     let mut output = ArchitectureOutput {
         module_of: vec![None; files.len()],
         file_dependents: vec![0; files.len()],
+        module_declared: vec![false; files.len()],
         ..ArchitectureOutput::default()
     };
     let mut report = ArchitectureReport {
@@ -351,7 +354,9 @@ pub fn analyze(
             .then_with(|| files[a.1].path.cmp(files[b.1].path))
     });
     for &(_, to, data) in &file_edge_list {
-        if data.kind != EdgeKind::Module {
+        if data.kind == EdgeKind::Module {
+            output.module_declared[to] = true;
+        } else {
             output.file_dependents[to] = output.file_dependents[to].saturating_add(1);
         }
     }
@@ -907,6 +912,20 @@ mod tests {
                 .iter()
                 .any(|reason| reason == "Contains the entrypoint index.html")
         );
+    }
+
+    #[test]
+    fn records_module_declarations_separately_from_dependents() {
+        let repo = Repo::new(&[
+            ("src/lib.rs", "mod parser;\n"),
+            ("src/parser.rs", "pub fn parse() {}\n"),
+            ("src/orphan.rs", "pub fn unused() {}\n"),
+        ]);
+        let output = run(&repo, &[]);
+        assert_eq!(output.module_declared, vec![false, true, false]);
+        assert_eq!(output.file_dependents, vec![0, 0, 0]);
+        assert_eq!(output.report.file_edges.len(), 1);
+        assert_eq!(output.report.file_edges[0].kind, EdgeKind::Module);
     }
 
     #[test]
