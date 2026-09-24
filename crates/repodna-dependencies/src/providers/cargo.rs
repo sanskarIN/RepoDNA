@@ -36,7 +36,9 @@ fn dependency(name: &str, value: &toml::Value, scope: DependencyScope) -> Declar
             } else if table.contains_key("git") {
                 "git"
             } else if table.get("workspace").and_then(toml::Value::as_bool) == Some(true) {
-                "workspace"
+                // `{ workspace = true }` inherits the entry from `[workspace.dependencies]`,
+                // which may be a registry package or a path within the repository.
+                "inherited"
             } else {
                 "registry"
             };
@@ -124,10 +126,22 @@ impl EcosystemProvider for Cargo {
                     .map(str::to_owned)
                     .collect();
             }
-            if let Some(package) = workspace.get("package").and_then(toml::Value::as_table)
-                && let Some(rust) = as_str(package.get("rust-version"))
+            if let Some(package) = workspace.get("package").and_then(toml::Value::as_table) {
+                if let Some(rust) = as_str(package.get("rust-version")) {
+                    manifest.requirements.push(("Rust".to_owned(), rust));
+                }
+                if manifest.description.is_none() {
+                    manifest.description = as_str(package.get("description"));
+                }
+            }
+            if let Some(entries) = workspace
+                .get("dependencies")
+                .and_then(toml::Value::as_table)
             {
-                manifest.requirements.push(("Rust".to_owned(), rust));
+                manifest.shared_dependencies = entries
+                    .iter()
+                    .map(|(name, value)| dependency(name, value, DependencyScope::Runtime))
+                    .collect();
             }
         }
         Ok(manifest)
@@ -213,12 +227,37 @@ path = "src/bin/cli.rs"
         assert_eq!(find("serde").requirement.as_deref(), Some("1"));
         assert_eq!(find("local").source, "path");
         assert_eq!(find("fork").source, "git");
-        assert_eq!(find("shared").source, "workspace");
+        assert_eq!(find("shared").source, "inherited");
         assert_eq!(find("extra").scope, DependencyScope::Optional);
         assert_eq!(find("real-name").requirement.as_deref(), Some("3"));
         assert_eq!(find("tempfile").scope, DependencyScope::Development);
         assert_eq!(find("cc").scope, DependencyScope::Build);
         assert_eq!(find("winapi").scope, DependencyScope::Runtime);
+    }
+
+    #[test]
+    fn records_shared_workspace_dependencies() {
+        let manifest = Cargo
+            .parse_manifest(
+                "Cargo.toml",
+                "[workspace]\nmembers = [\"crates/*\"]\n[workspace.package]\ndescription = \"Tools\"\n[workspace.dependencies]\nserde = { version = \"1\", features = [\"derive\"] }\ncore = { path = \"crates/core\" }\nregex = \"1.10\"\n",
+            )
+            .unwrap();
+        assert!(manifest.dependencies.is_empty());
+        assert_eq!(manifest.description.as_deref(), Some("Tools"));
+        let shared: Vec<(&str, Option<&str>, &str)> = manifest
+            .shared_dependencies
+            .iter()
+            .map(|d| (d.name.as_str(), d.requirement.as_deref(), d.source.as_str()))
+            .collect();
+        assert_eq!(
+            shared,
+            vec![
+                ("core", None, "path"),
+                ("regex", Some("1.10"), "registry"),
+                ("serde", Some("1"), "registry")
+            ]
+        );
     }
 
     #[test]

@@ -12,7 +12,7 @@ use repodna_core::model::project::{EnvironmentRequirement, RequirementKind};
 use repodna_core::model::structure::EntrypointKind;
 use repodna_core::paths;
 
-use crate::model::{EcosystemProvider, ParsedLockfile, ParsedManifest};
+use crate::model::{DeclaredDependency, EcosystemProvider, ParsedLockfile, ParsedManifest};
 use crate::providers::{builtin_providers, find_provider};
 
 /// A manifest or lockfile to analyze.
@@ -171,14 +171,46 @@ pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
         }
     }
 
+    // Shared declarations members can inherit (the shallowest manifest wins).
+    let mut shared: BTreeMap<(&str, String), &DeclaredDependency> = BTreeMap::new();
+    let mut by_depth: Vec<&Parsed<'_>> = parsed.iter().collect();
+    by_depth.sort_by_key(|item| (paths::depth(item.path), item.path));
+    for item in by_depth {
+        if let Some(manifest) = &item.manifest {
+            for dependency in &manifest.shared_dependencies {
+                shared
+                    .entry((item.ecosystem, dependency.name.to_lowercase()))
+                    .or_insert(dependency);
+            }
+        }
+    }
+
     // Direct dependencies, merged per ecosystem and name.
     let mut records: BTreeMap<(&str, String), DependencyRecord> = BTreeMap::new();
     for item in &parsed {
         let Some(manifest) = &item.manifest else {
             continue;
         };
-        for dependency in &manifest.dependencies {
-            let key = (item.ecosystem, dependency.name.to_lowercase());
+        for declared_dependency in &manifest.dependencies {
+            let key = (item.ecosystem, declared_dependency.name.to_lowercase());
+            let resolved;
+            let dependency = if declared_dependency.source == "inherited" {
+                resolved = match shared.get(&key) {
+                    Some(template) => DeclaredDependency {
+                        name: declared_dependency.name.clone(),
+                        requirement: declared_dependency
+                            .requirement
+                            .clone()
+                            .or_else(|| template.requirement.clone()),
+                        scope: declared_dependency.scope,
+                        source: template.source.clone(),
+                    },
+                    None => declared_dependency.clone(),
+                };
+                &resolved
+            } else {
+                declared_dependency
+            };
             let internal = matches!(dependency.source.as_str(), "workspace" | "path")
                 || declared.contains_key(&key);
             let record = records.entry(key).or_insert_with(|| DependencyRecord {
@@ -449,6 +481,34 @@ mod tests {
 
     fn file<'a>(path: &'a str, content: &'a str) -> DependencyFile<'a> {
         DependencyFile { path, content }
+    }
+
+    #[test]
+    fn resolves_dependencies_inherited_from_the_workspace() {
+        let root = "[workspace]\nmembers = [\"crates/*\"]\n[workspace.dependencies]\nserde = { version = \"1.0\", features = [\"derive\"] }\ncore = { path = \"crates/core\" }\n";
+        let core = "[package]\nname = \"core\"\n[dependencies]\nserde.workspace = true\n";
+        let app = "[package]\nname = \"app\"\n[dependencies]\ncore.workspace = true\nserde = { workspace = true, optional = true }\nunknown.workspace = true\n";
+        let analysis = analyze(&[
+            file("Cargo.toml", root),
+            file("crates/core/Cargo.toml", core),
+            file("crates/app/Cargo.toml", app),
+        ]);
+        let find = |name: &str| {
+            analysis
+                .report
+                .dependencies
+                .iter()
+                .find(|d| d.name == name)
+                .unwrap()
+        };
+        let serde = find("serde");
+        assert!(!serde.internal);
+        assert_eq!(serde.requirement.as_deref(), Some("1.0"));
+        assert_eq!(serde.source, "registry");
+        assert_eq!(serde.manifests.len(), 2);
+        assert!(find("core").internal);
+        assert!(!find("unknown").internal);
+        assert_eq!(analysis.report.direct_count, 2);
     }
 
     #[test]

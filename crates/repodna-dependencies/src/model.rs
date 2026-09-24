@@ -12,7 +12,8 @@ pub struct DeclaredDependency {
     pub requirement: Option<String>,
     /// Usage scope.
     pub scope: DependencyScope,
-    /// `registry`, `git`, `path`, or `workspace`.
+    /// `registry`, `git`, `path`, `workspace` (a package of the same workspace), or
+    /// `inherited` (declared in a shared workspace table and resolved during aggregation).
     pub source: String,
 }
 
@@ -50,6 +51,9 @@ pub struct ParsedManifest {
     pub description: Option<String>,
     /// Declared dependencies.
     pub dependencies: Vec<DeclaredDependency>,
+    /// Declarations that member packages can inherit instead of repeating them, such as
+    /// Cargo's `[workspace.dependencies]`. They are not dependencies of this manifest.
+    pub shared_dependencies: Vec<DeclaredDependency>,
     /// Workspace member patterns declared by this manifest.
     pub workspace_members: Vec<String>,
     /// Workspace tool, e.g. `cargo-workspace`, when this manifest declares a workspace.
