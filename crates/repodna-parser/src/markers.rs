@@ -25,12 +25,17 @@ pub const MAX_MARKER_TEXT: usize = 120;
 /// Maximum markers recorded per file.
 const MAX_MARKERS: usize = 500;
 
+/// A marker is the first word of a comment (after doc-comment punctuation such as `/`, `!`,
+/// or `*`), optionally written as a tag (`@deprecated`, `@todo`) and optionally followed by
+/// an owner in parentheses. Mentions elsewhere in prose, or quoted as `TODO`, do not count.
 static MARKER: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b(TODO|FIXME|HACK|XXX|BUG|DEPRECATED)\b[\s:(\-\]\[]*(.*)")
-        .unwrap_or_else(|error| panic!("invalid marker pattern: {error}"))
+    Regex::new(
+        r"^[\s/*#!;%'\-]*(@?)(TODO|FIXME|HACK|XXX|BUG|DEPRECATED|todo|deprecated)(\([^)]*\))?(?:[:\s\-]|$)[\s:\-]*(.*)$",
+    )
+    .unwrap_or_else(|error| panic!("invalid marker pattern: {error}"))
 });
 
-fn kind(keyword: &str) -> Option<MarkerKind> {
+fn kind(keyword: &str, tagged: bool) -> Option<MarkerKind> {
     Some(match keyword {
         "TODO" => MarkerKind::Todo,
         "FIXME" => MarkerKind::Fixme,
@@ -38,6 +43,9 @@ fn kind(keyword: &str) -> Option<MarkerKind> {
         "XXX" => MarkerKind::Xxx,
         "BUG" => MarkerKind::Bug,
         "DEPRECATED" => MarkerKind::Deprecated,
+        // Lowercase forms count only as documentation tags.
+        "todo" if tagged => MarkerKind::Todo,
+        "deprecated" if tagged => MarkerKind::Deprecated,
         _ => return None,
     })
 }
@@ -62,9 +70,9 @@ pub fn extract_markers(lines: &[ScannedLine]) -> Vec<RawMarker> {
             continue;
         }
         if let Some(captures) = MARKER.captures(&line.comment)
-            && let Some(kind) = kind(&captures[1])
+            && let Some(kind) = kind(&captures[2], !captures[1].is_empty())
         {
-            let text = captures.get(2).map_or("", |m| m.as_str()).trim();
+            let text = captures.get(4).map_or("", |m| m.as_str()).trim();
             let text = text.trim_end_matches(['*', '/', '-']).trim();
             markers.push(RawMarker {
                 kind,
@@ -101,8 +109,21 @@ mod tests {
             found,
             vec![
                 (MarkerKind::Todo, 1, "handle errors".into()),
-                (MarkerKind::Fixme, 3, "sanskar) - flaky".into()),
-                (MarkerKind::Bug, 4, "free".into()),
+                (MarkerKind::Fixme, 3, "flaky".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn ignores_mentions_and_accepts_tags() {
+        let source = "/// `TODO`\n//! TODO/FIXME-style markers are counted.\n// Remember the TODO list.\n/**\n * @deprecated Use v2 instead.\n * @todo split this\n */\n// XXX\n// TODOS: not a marker\n";
+        let found = markers("rust", source);
+        assert_eq!(
+            found,
+            vec![
+                (MarkerKind::Deprecated, 5, "Use v2 instead.".into()),
+                (MarkerKind::Todo, 6, "split this".into()),
+                (MarkerKind::Xxx, 8, String::new()),
             ]
         );
     }
