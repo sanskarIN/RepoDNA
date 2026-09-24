@@ -433,8 +433,8 @@ fn raw_metrics(dna: &RepositoryDna) -> Vec<Metric> {
             "Lines",
             structure.total_lines as f64,
             "lines",
-            "Lines in text files whose language was recognized.",
-            "Counted per file by the language-aware line counter.",
+            "Lines in the text files that were read.",
+            "Counted per file; files over the size limit are not read.",
             High,
         );
         m.add(
@@ -443,7 +443,7 @@ fn raw_metrics(dna: &RepositoryDna) -> Vec<Metric> {
             structure.code_lines as f64,
             "lines",
             "Lines that are neither blank nor only a comment.",
-            "Counted per file by the language-aware line counter.",
+            "Counted per file by the language-aware line counter; in files without a recognized language every non-blank line counts.",
             Medium,
         );
         m.add(
@@ -1187,18 +1187,18 @@ fn status_confidence(
 
 fn section_confidence(dna: &RepositoryDna) -> Vec<SectionConfidence> {
     let structure = &dna.structure;
-    let structure_reason = if structure.truncated || structure.skipped_files > 0 {
+    let structure_reason = if structure.skipped_files > 0 {
         (
             Confidence::Medium,
             format!(
-                "{} files could not be read or were over the size limit{}.",
-                structure.skipped_files,
-                if structure.truncated {
-                    ", and the file list was truncated"
-                } else {
-                    ""
-                }
+                "{} files were over the size limit or unreadable, so their contents were not analyzed.",
+                structure.skipped_files
             ),
+        )
+    } else if structure.truncated {
+        (
+            Confidence::Medium,
+            "Some lists were truncated; see the section notes.".to_owned(),
         )
     } else {
         (
