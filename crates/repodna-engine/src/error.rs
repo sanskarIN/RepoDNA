@@ -16,6 +16,9 @@ pub enum EngineError {
     /// The input is neither a directory, an archive, nor a URL.
     #[error("{0} is not a directory or a supported archive")]
     UnsupportedInput(String),
+    /// The configuration cannot be applied.
+    #[error("invalid configuration: {0}")]
+    Config(String),
     /// Discovery failed.
     #[error(transparent)]
     Discovery(#[from] DiscoveryError),
@@ -66,6 +69,9 @@ impl EngineError {
             EngineError::Git(error) => error.hint().map(str::to_owned),
             EngineError::Archive(_) => {
                 Some("Check that the archive is complete and not password-protected.".to_owned())
+            }
+            EngineError::Config(_) => {
+                Some("Fix the value in your repodna.toml or user configuration.".to_owned())
             }
             EngineError::Discovery(DiscoveryError::InvalidPattern { .. }) => {
                 Some("Fix the ignore pattern in your configuration.".to_owned())
