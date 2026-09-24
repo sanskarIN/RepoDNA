@@ -1,0 +1,12 @@
+# RepoDNA configuration for analyzing this repository.
+# Reference: https://github.com/sanskarIN/RepoDNA/blob/main/docs/configuration.md
+
+[analysis]
+profile = "standard"
+
+# The security analyzer's detection patterns and their tests necessarily contain the
+# insecure settings they look for, so those matches are expected here.
+[[suppress]]
+rule = "security.tls-verification-disabled"
+path = "crates/repodna-security/src/**"
+reason = "Detection patterns and their tests contain the settings they detect."
