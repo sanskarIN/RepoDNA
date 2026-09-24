@@ -9,6 +9,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub mod architecture;
+pub mod artifact;
 pub mod dependencies;
 pub mod evolution;
 pub mod fingerprint;

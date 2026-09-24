@@ -26,5 +26,7 @@ pub use error::{CoreError, Result};
 pub use evidence::Evidence;
 pub use finding::{Finding, FindingCategory, Suppression};
 pub use metric::Metric;
+pub use model::artifact::{RepositoryDna, compute_dna_hash};
+pub use model::metadata::SCHEMA_VERSION;
 pub use severity::Severity;
 pub use time::Timestamp;
