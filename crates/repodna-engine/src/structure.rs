@@ -2,6 +2,10 @@
 
 use std::collections::BTreeMap;
 
+use repodna_core::confidence::Confidence;
+use repodna_core::config::Thresholds;
+use repodna_core::evidence::Evidence;
+use repodna_core::finding::{Finding, FindingCategory};
 use repodna_core::metric::round4;
 use repodna_core::model::SectionStatus;
 use repodna_core::model::languages::{
@@ -12,12 +16,16 @@ use repodna_core::model::structure::{
     SymbolRecord,
 };
 use repodna_core::paths;
+use repodna_core::severity::Severity;
 use repodna_parser::LanguageRegistry;
 
 use crate::scan::ScanResult;
 
 /// Maximum directory records kept (shallowest first).
 pub const MAX_DIRECTORIES: usize = 5_000;
+
+/// Large binary files reported as findings (largest first).
+const MAX_BINARY_FINDINGS: usize = 20;
 
 /// A language counts as primary at this share of first-party code.
 const PRIMARY_SHARE: f64 = 0.1;
@@ -252,6 +260,50 @@ pub fn language_report(scan: &ScanResult, registry: &LanguageRegistry) -> Langua
     }
 }
 
+/// Formats a byte count with a binary unit, e.g. `12.5 MiB`.
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["KiB", "MiB", "GiB", "TiB"];
+    if bytes < 1024 {
+        return format!("{bytes} bytes");
+    }
+    let mut value = bytes as f64;
+    let mut unit = "";
+    for candidate in UNITS {
+        value /= 1024.0;
+        unit = candidate;
+        if value < 1024.0 {
+            break;
+        }
+    }
+    format!("{value:.1} {unit}")
+}
+
+/// Derives structure findings: committed binary files above the size threshold.
+pub fn structure_findings(report: &StructureReport, thresholds: &Thresholds) -> Vec<Finding> {
+    let limit = thresholds.large_binary_bytes;
+    let mut large: Vec<_> = report
+        .files
+        .iter()
+        .filter(|file| file.binary && file.bytes >= limit)
+        .collect();
+    large.sort_by(|a, b| b.bytes.cmp(&a.bytes).then_with(|| a.path.cmp(&b.path)));
+    large
+        .into_iter()
+        .take(MAX_BINARY_FINDINGS)
+        .map(|file| {
+            Finding::new("structure.large-binary", &file.path, FindingCategory::Structure, Severity::Info, Confidence::High, format!("{} is a {} binary file", file.path, format_bytes(file.bytes)))
+                .summary(format!("The file is {} ({} bytes); the threshold is {}.", format_bytes(file.bytes), file.bytes, format_bytes(limit)))
+                .rationale("Every clone downloads every committed version of a binary file, so large binaries keep the repository heavy even after they are replaced or deleted.")
+                .method("File size compared with the large-binary threshold; binary files are recognized by extension or by NUL bytes in their first 8,000 bytes.")
+                .evidence(Evidence::file(&file.path))
+                .evidence(Evidence::metric_with_threshold("structure.file.bytes", file.bytes as f64, limit as f64, "bytes"))
+                .limitation("Only the current version is measured; earlier versions in the history can be larger or more numerous.")
+                .next_step("Consider Git LFS, release assets, or fetching the file during the build.")
+                .path(file.path.clone())
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,5 +414,28 @@ mod tests {
         assert_eq!(report.primary, vec!["rust", "typescript"]);
         assert_eq!(report.unrecognized_files, 1);
         assert_eq!(report.languages[2].name, "Rust");
+    }
+
+    #[test]
+    fn reports_large_binary_files() {
+        let mut video = file("media/intro.mp4", FileCategory::Asset, None, 0);
+        video.record.binary = true;
+        video.record.bytes = 12 * 1024 * 1024;
+        let mut small = file("media/icon.png", FileCategory::Asset, None, 0);
+        small.record.binary = true;
+        small.record.bytes = 2048;
+        let mut text = file("data/big.csv", FileCategory::Data, None, 0);
+        text.record.bytes = 50 * 1024 * 1024;
+        let report = structure_report(&scan_of(vec![video, small, text]), 10);
+        let findings = structure_findings(&report, &Thresholds::default());
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].rule, "structure.large-binary");
+        assert_eq!(
+            findings[0].title,
+            "media/intro.mp4 is a 12.0 MiB binary file"
+        );
+        assert_eq!(format_bytes(512), "512 bytes");
+        assert_eq!(format_bytes(1536), "1.5 KiB");
+        assert_eq!(format_bytes(3 * 1024 * 1024 * 1024), "3.0 GiB");
     }
 }
