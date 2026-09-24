@@ -1,5 +1,6 @@
 //! Report content: every section of the full report as document blocks.
 
+mod appendix;
 mod code;
 mod history;
 mod overview;
@@ -89,10 +90,16 @@ pub fn section(dna: &RepositoryDna, section: Section, options: ContentOptions) -
         Section::Contributors => history::contributors(&mut blocks, dna, options),
         Section::TimeMachine => history::time_machine(&mut blocks, dna, options),
         Section::Evolution => history::evolution(&mut blocks, dna, options),
-        _ => {}
+        Section::Findings => appendix::findings(&mut blocks, dna),
+        Section::Onboarding => appendix::onboarding(&mut blocks, dna),
+        Section::Evidence => appendix::evidence(&mut blocks, dna),
+        Section::Metrics => appendix::metrics(&mut blocks, dna),
+        Section::Metadata => appendix::metadata(&mut blocks, dna),
     }
     blocks
 }
+
+pub use appendix::signature;
 
 /// Builds every selected section in report order.
 pub fn report(dna: &RepositoryDna, sections: SectionSet, options: ContentOptions) -> Blocks {
