@@ -15,6 +15,7 @@ pub mod evidence;
 pub mod finding;
 pub mod glob;
 pub mod hash;
+pub mod io;
 pub mod metric;
 pub mod model;
 pub mod paths;
