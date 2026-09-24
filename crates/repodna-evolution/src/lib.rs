@@ -5,11 +5,14 @@
 //! interpretations that are labeled as such; nothing is inferred about people.
 
 pub mod ages;
+pub mod analysis;
 pub mod epochs;
 pub mod events;
 pub mod recent;
 pub mod snapshots;
 pub mod story;
+
+pub use analysis::{EvolutionInput, EvolutionOutput, analyze};
 
 #[cfg(test)]
 pub(crate) mod testutil;
