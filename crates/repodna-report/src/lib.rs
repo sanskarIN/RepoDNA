@@ -6,13 +6,18 @@
 //!
 //! [`RepositoryDna`]: repodna_core::model::artifact::RepositoryDna
 
+pub mod badge;
+pub mod card;
 pub mod charts;
+pub mod error;
 pub mod facts;
 pub mod fonts;
 pub mod palette;
+pub mod png;
 pub mod privacy;
 pub mod sections;
 pub mod text;
 
+pub use error::ReportError;
 pub use privacy::apply_privacy;
 pub use sections::{Section, SectionSet};
