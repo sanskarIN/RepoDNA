@@ -8,7 +8,11 @@
 pub mod error;
 pub mod log;
 pub mod runner;
+pub mod url;
 
 pub use error::GitError;
 pub use log::{ChangeStatus, FileChange, History, LogOptions, ParsedCommit, read_history};
 pub use runner::GitRunner;
+pub use url::{
+    ParsedRemote, UrlPolicy, looks_like_url, parse_remote, sanitize_url, validate_clone_url,
+};
