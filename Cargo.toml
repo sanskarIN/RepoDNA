@@ -30,6 +30,7 @@ repodna-engine = { path = "crates/repodna-engine", version = "1.0.0" }
 repodna-store = { path = "crates/repodna-store", version = "1.0.0" }
 repodna-report = { path = "crates/repodna-report", version = "1.0.0" }
 repodna-ai = { path = "crates/repodna-ai", version = "1.0.0" }
+repodna-plugin = { path = "crates/repodna-plugin", version = "1.0.0" }
 repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration

@@ -808,6 +808,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "repodna-plugin"
+version = "1.0.0"
+dependencies = [
+ "repodna-core",
+ "repodna-engine",
+ "repodna-parser",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "repodna-project"
 version = "1.0.0"
 dependencies = [
