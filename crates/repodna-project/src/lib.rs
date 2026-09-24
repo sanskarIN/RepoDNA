@@ -7,6 +7,7 @@
 
 pub mod ci;
 pub mod commands;
+pub mod docs;
 pub mod environment;
 pub mod testing;
 pub mod tools;
