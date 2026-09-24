@@ -4,6 +4,7 @@
 //! revisions. Statements are either facts that link to commits and snapshots, or
 //! interpretations that are labeled as such; nothing is inferred about people.
 
+pub mod ages;
 pub mod epochs;
 pub mod events;
 pub mod snapshots;
