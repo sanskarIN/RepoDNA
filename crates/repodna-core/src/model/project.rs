@@ -24,8 +24,10 @@ pub struct DetectedTool {
     pub evidence: Vec<Evidence>,
 }
 
-/// What a command is for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+/// What a command is for, in the order a newcomer would run them.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum CommandPurpose {
     /// Install dependencies.
