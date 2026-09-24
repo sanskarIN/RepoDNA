@@ -9,6 +9,7 @@
 //! serialize, and independent from any user interface.
 
 pub mod confidence;
+pub mod config;
 pub mod error;
 pub mod evidence;
 pub mod finding;
