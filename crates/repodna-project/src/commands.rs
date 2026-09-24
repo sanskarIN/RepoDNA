@@ -572,6 +572,7 @@ mod tests {
             language: None,
             code_lines: 0,
             total_lines: 0,
+            inline_tests: false,
         }
     }
 

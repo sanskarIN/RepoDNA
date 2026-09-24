@@ -303,6 +303,14 @@ pub fn test_frameworks(context: ToolContext<'_>) -> Vec<DetectedTool> {
             Confidence::High,
             Evidence::file(path),
         ));
+    } else if let Some(path) = index.file(|file| file.inline_tests && file.language == Some("rust"))
+    {
+        tools.push(tool(
+            "Rust test harness",
+            Some("cargo"),
+            Confidence::High,
+            Evidence::file(path).with_note("inline #[cfg(test)] module"),
+        ));
     } else if let Some(path) = index.named("Cargo.toml") {
         tools.push(tool(
             "Rust test harness",
@@ -497,6 +505,7 @@ mod tests {
             language,
             code_lines: 10,
             total_lines: 12,
+            inline_tests: false,
         }
     }
 

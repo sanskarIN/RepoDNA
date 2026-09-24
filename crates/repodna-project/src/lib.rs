@@ -8,6 +8,7 @@
 pub mod ci;
 pub mod commands;
 pub mod environment;
+pub mod testing;
 pub mod tools;
 
 use repodna_core::model::structure::FileCategory;
@@ -26,6 +27,8 @@ pub struct ProjectFile<'a> {
     pub code_lines: u64,
     /// All lines.
     pub total_lines: u64,
+    /// The file contains inline tests, such as a Rust `#[cfg(test)]` module.
+    pub inline_tests: bool,
 }
 
 /// File names whose content project analysis reads.
