@@ -5,6 +5,7 @@ pub mod dotnet;
 pub mod go;
 pub mod jvm;
 pub mod npm;
+pub mod php;
 pub mod python;
 
 use crate::model::{EcosystemProvider, FileMatch};
@@ -19,6 +20,7 @@ pub fn builtin_providers() -> Vec<Box<dyn EcosystemProvider>> {
         Box::new(jvm::Maven),
         Box::new(jvm::Gradle),
         Box::new(dotnet::NuGet),
+        Box::new(php::Composer),
     ]
 }
 
