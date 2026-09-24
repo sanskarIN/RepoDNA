@@ -11,6 +11,7 @@ pub mod error;
 pub mod input;
 pub mod progress;
 pub mod scan;
+pub mod structure;
 
 pub use error::EngineError;
 pub use input::{FetchOptions, InputSpec, PreparedInput, prepare_input};
