@@ -130,6 +130,10 @@ pub struct FindingChanges {
 pub struct Store {
     pub(crate) connection: Mutex<Connection>,
     pub(crate) paths: StorePaths,
+    /// Cache keys read since the last bookkeeping pass.
+    pub(crate) touched: Mutex<Vec<String>>,
+    /// Size limit of the analysis cache in compressed bytes.
+    pub(crate) cache_limit: u64,
 }
 
 pub(crate) fn severity_id(severity: Severity) -> &'static str {
@@ -241,7 +245,16 @@ impl Store {
         Ok(Self {
             connection: Mutex::new(connection),
             paths,
+            touched: Mutex::new(Vec::new()),
+            cache_limit: crate::cache::DEFAULT_CACHE_LIMIT,
         })
+    }
+
+    /// Sets the size limit of the analysis cache in compressed bytes.
+    #[must_use]
+    pub fn with_cache_limit(mut self, bytes: u64) -> Self {
+        self.cache_limit = bytes;
+        self
     }
 
     /// The storage locations.
