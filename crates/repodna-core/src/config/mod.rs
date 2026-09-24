@@ -367,9 +367,10 @@ pub enum PrivacyPreset {
     /// Everything in the artifact (secret values and absolute paths are never included).
     #[default]
     Local,
-    /// Removes commit messages and marker text.
+    /// Removes commit messages, marker comment text, and command output.
     Share,
-    /// Additionally anonymizes contributors and removes remote URLs and symbol names.
+    /// Additionally anonymizes contributors and removes remote URLs (keeping the repository
+    /// name and owner) and symbol names.
     Public,
 }
 

@@ -596,6 +596,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "repodna-report"
+version = "1.0.0"
+dependencies = [
+ "repodna-core",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "repodna-security"
 version = "1.0.0"
 dependencies = [
