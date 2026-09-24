@@ -8,6 +8,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub mod languages;
 pub mod structure;
 
 /// Whether an analysis section was produced, and how completely.
