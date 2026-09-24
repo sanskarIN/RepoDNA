@@ -12,6 +12,7 @@ pub mod architecture;
 pub mod dependencies;
 pub mod evolution;
 pub mod git;
+pub mod insights;
 pub mod languages;
 pub mod project;
 pub mod quality;
