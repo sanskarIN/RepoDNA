@@ -6,6 +6,7 @@
 //! measured, which threshold was crossed, and what the measurement cannot see.
 
 pub mod complexity;
+pub mod deadcode;
 pub mod duplication;
 pub mod markers;
 pub mod similarity;
