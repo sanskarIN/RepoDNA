@@ -8,6 +8,7 @@
 //! [`ParserCapability`](repodna_core::model::languages::ParserCapability) so results are
 //! always labeled with the depth of analysis behind them.
 
+pub mod analyze;
 pub mod builtin;
 pub mod imports;
 pub mod markers;
@@ -17,6 +18,7 @@ pub mod spec;
 pub mod symbols;
 pub mod tokens;
 
+pub use analyze::{ANALYZER_VERSION, FileAnalysis, RawReference, analyze_source, count_lines};
 pub use builtin::builtin_languages;
 pub use imports::{RawImport, extract_imports, extract_package};
 pub use markers::{RawMarker, extract_markers};
