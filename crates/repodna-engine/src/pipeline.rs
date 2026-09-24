@@ -253,6 +253,79 @@ fn privacy(config: &Config, network_used: bool, git_ran: bool, security_ran: boo
     }
 }
 
+/// Absolute forms of the input's location, longest first.
+fn location_needles(roots: &[&Path]) -> Vec<String> {
+    let mut needles: Vec<String> = Vec::new();
+    for root in roots {
+        let mut candidates = vec![root.to_path_buf()];
+        if let Ok(canonical) = root.canonicalize() {
+            candidates.push(canonical);
+        }
+        if let Ok(absolute) = std::path::absolute(root) {
+            candidates.push(absolute);
+        }
+        for candidate in candidates {
+            let text = candidate.display().to_string();
+            let text = text.trim_end_matches(['/', '\\']).to_owned();
+            if candidate.is_absolute() && text.len() > 1 && !needles.contains(&text) {
+                needles.push(text);
+            }
+        }
+    }
+    needles.sort_by(|a, b| b.len().cmp(&a.len()).then_with(|| a.cmp(b)));
+    needles
+}
+
+/// Removes the input's local location from free text (notes, warnings, stage messages, and
+/// command output), so artifacts never reveal where the repository lives on disk. Paths
+/// below the location become relative; the location itself becomes `.`.
+fn scrub_locations(dna: &mut RepositoryDna, needles: &[String]) {
+    if needles.is_empty() {
+        return;
+    }
+    let scrub = |text: &mut String| {
+        for needle in needles {
+            if text.contains(needle.as_str()) {
+                *text = text
+                    .replace(&format!("{needle}/"), "")
+                    .replace(&format!("{needle}\\"), "")
+                    .replace(needle.as_str(), ".");
+            }
+        }
+    };
+    let metadata = &mut dna.analysis_metadata;
+    metadata.warnings.iter_mut().for_each(scrub);
+    metadata
+        .analyzers
+        .iter_mut()
+        .filter_map(|run| run.message.as_mut())
+        .for_each(scrub);
+    for notes in [
+        &mut dna.structure.notes,
+        &mut dna.languages.notes,
+        &mut dna.architecture.notes,
+        &mut dna.git.notes,
+        &mut dna.code_quality.notes,
+        &mut dna.dependencies.notes,
+        &mut dna.tests.notes,
+        &mut dna.builds.notes,
+        &mut dna.docs.notes,
+        &mut dna.security.notes,
+        &mut dna.evolution.notes,
+        &mut dna.similarity.notes,
+    ] {
+        notes.iter_mut().for_each(scrub);
+    }
+    for execution in dna
+        .builds
+        .executions
+        .iter_mut()
+        .chain(dna.tests.executions.iter_mut())
+    {
+        execution.output_tail.iter_mut().for_each(scrub);
+    }
+}
+
 /// Runs an analysis and returns the artifact.
 ///
 /// # Errors
@@ -852,6 +925,9 @@ pub fn analyze(
         privacy: privacy(config, prepared.network_used, git_ran, security_ran),
         ai: None,
     };
+    let mut roots = vec![prepared.root.as_path()];
+    roots.extend(prepared.git_root.as_deref());
+    scrub_locations(&mut dna, &location_needles(&roots));
     Ok(dna)
 }
 
@@ -1110,6 +1186,38 @@ mod tests {
             analyze(&missing, &CancellationToken::new()),
             Err(EngineError::NotFound(_))
         ));
+    }
+
+    #[test]
+    fn scrubs_local_locations_from_messages() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("project");
+        std::fs::create_dir(&root).unwrap();
+        let needles = location_needles(&[root.as_path()]);
+        assert!(!needles.is_empty());
+        let mut dna =
+            RepositoryDna::new(RepositoryIdentity::default(), AnalysisMetadata::default());
+        let shown = needles[needles.len() - 1].clone();
+        dna.analysis_metadata.warnings = vec![
+            format!("could not read {shown}/src/secret.rs: permission denied"),
+            format!("{shown} is not a Git repository"),
+            "nothing to hide".to_owned(),
+        ];
+        dna.structure.notes = vec![format!(
+            "IO error for {shown}{}a.txt",
+            std::path::MAIN_SEPARATOR
+        )];
+        scrub_locations(&mut dna, &needles);
+        assert_eq!(
+            dna.analysis_metadata.warnings,
+            vec![
+                "could not read src/secret.rs: permission denied",
+                ". is not a Git repository",
+                "nothing to hide"
+            ]
+        );
+        assert_eq!(dna.structure.notes, vec!["IO error for a.txt"]);
+        assert!(location_needles(&[Path::new(".")]).iter().all(|n| n != "."));
     }
 
     #[test]
