@@ -1,6 +1,7 @@
 //! Report content: every section of the full report as document blocks.
 
 mod code;
+mod history;
 mod overview;
 mod project;
 
@@ -84,6 +85,10 @@ pub fn section(dna: &RepositoryDna, section: Section, options: ContentOptions) -
         Section::Build => project::build(&mut blocks, dna),
         Section::Documentation => project::documentation(&mut blocks, dna),
         Section::Security => project::security(&mut blocks, dna),
+        Section::History => history::history(&mut blocks, dna, options),
+        Section::Contributors => history::contributors(&mut blocks, dna, options),
+        Section::TimeMachine => history::time_machine(&mut blocks, dna, options),
+        Section::Evolution => history::evolution(&mut blocks, dna, options),
         _ => {}
     }
     blocks
