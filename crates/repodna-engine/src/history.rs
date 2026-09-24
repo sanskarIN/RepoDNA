@@ -60,10 +60,21 @@ pub fn git_findings(report: &GitReport, thresholds: &Thresholds) -> Vec<Finding>
         .filter(|area| area.recent_churn_share > 0.0)
         .count();
     if recent_changes >= MIN_RECENT_FILE_CHANGES && active_areas >= 2 {
+        // Directory activity lists parents and their children (`crates` and `crates/core`);
+        // only the most specific areas are compared, so a parent holding everything does
+        // not trivially qualify.
+        let is_parent = |path: &str| {
+            let prefix = format!("{path}/");
+            report
+                .directory_activity
+                .iter()
+                .any(|other| other.path.starts_with(&prefix))
+        };
         let mut areas: Vec<_> = report
             .directory_activity
             .iter()
             .filter(|area| area.recent_churn_share >= thresholds.high_churn_share)
+            .filter(|area| area.path == "(root)" || !is_parent(&area.path))
             .collect();
         areas.sort_by(|a, b| {
             b.recent_churn_share
@@ -279,6 +290,7 @@ mod tests {
         let mut report = GitReport {
             commit_count: 40,
             directory_activity: vec![
+                area("src", 0.9),
                 area("src/api", 0.6),
                 area("(root)", 0.35),
                 area("docs", 0.05),
