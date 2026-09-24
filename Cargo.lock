@@ -704,6 +704,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "repodna-app"
+version = "1.0.0"
+dependencies = [
+ "repodna-ai",
+ "repodna-core",
+ "repodna-engine",
+ "repodna-git",
+ "repodna-plugin",
+ "repodna-report",
+ "repodna-store",
+ "repodna-testkit",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "repodna-architecture"
 version = "1.0.0"
 dependencies = [
