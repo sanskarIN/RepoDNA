@@ -57,6 +57,11 @@ pub struct FileAnalysis {
     pub module_complexity: u32,
     /// Deepest nesting inside any function.
     pub max_nesting: u32,
+    /// The file contains a "run as a program" guard such as Python's
+    /// `if __name__ == "__main__":`, Node's `require.main === module`, or Ruby's
+    /// `if __FILE__ == $0`.
+    #[serde(default)]
+    pub main_guard: bool,
 }
 
 impl FileAnalysis {
@@ -87,6 +92,13 @@ impl FileAnalysis {
     }
 }
 
+static MAIN_GUARD: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"if\s+__name__\s*==\s*["']__main__["']|require\.main\s*===?\s*module|if\s+__FILE__\s*==\s*\$(?:0|PROGRAM_NAME)|import\.meta\.main"#,
+    )
+    .unwrap_or_else(|error| panic!("invalid main-guard pattern: {error}"))
+});
+
 static REFERENCE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"["'`]((?:\.{1,2}/)*[\w@.\-]+(?:/[\w@.\-]+)*\.(?:rs|py|js|mjs|cjs|jsx|ts|tsx|go|java|kt|c|h|cc|cpp|hpp|cs|php|rb|swift|dart|sh|sql|html|htm|css|scss|json|yaml|yml|toml|xml|md|proto|wasm|graphql|lua|vue|svelte))["'`]"#,
@@ -115,6 +127,11 @@ pub fn analyze_source(spec: &LanguageSpec, text: &str) -> FileAnalysis {
         Vec::new()
     };
     let package = extract_package(spec, &scanned.lines);
+    let main_guard = spec.kind == LanguageKind::Programming
+        && scanned
+            .lines
+            .iter()
+            .any(|line| MAIN_GUARD.is_match(&line.code));
     let (symbols, module_complexity, max_nesting) = match symbol_analysis {
         Some(analysis) => (
             analysis.symbols,
@@ -134,6 +151,7 @@ pub fn analyze_source(spec: &LanguageSpec, text: &str) -> FileAnalysis {
         package,
         module_complexity,
         max_nesting,
+        main_guard,
     }
 }
 
@@ -238,6 +256,21 @@ mod tests {
         let json = serde_json::to_string(&analysis).unwrap();
         let back: FileAnalysis = serde_json::from_str(&json).unwrap();
         assert_eq!(back, analysis);
+    }
+
+    #[test]
+    fn detects_main_guards() {
+        assert!(
+            analyze(
+                "python",
+                "def main():\n    pass\n\nif __name__ == \"__main__\":\n    main()\n"
+            )
+            .main_guard
+        );
+        assert!(analyze("javascript", "if (require.main === module) { run(); }\n").main_guard);
+        assert!(analyze("ruby", "run if __FILE__ == $0\n").main_guard);
+        assert!(!analyze("python", "# if __name__ == \"__main__\":\nx = 1\n").main_guard);
+        assert!(!analyze("python", "import os\n").main_guard);
     }
 
     #[test]
