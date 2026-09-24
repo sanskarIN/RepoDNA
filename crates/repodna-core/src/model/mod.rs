@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod architecture;
 pub mod dependencies;
+pub mod evolution;
 pub mod git;
 pub mod languages;
 pub mod project;
