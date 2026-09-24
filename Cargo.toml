@@ -24,6 +24,7 @@ repodna-dependencies = { path = "crates/repodna-dependencies", version = "1.0.0"
 repodna-architecture = { path = "crates/repodna-architecture", version = "1.0.0" }
 repodna-quality = { path = "crates/repodna-quality", version = "1.0.0" }
 repodna-security = { path = "crates/repodna-security", version = "1.0.0" }
+repodna-project = { path = "crates/repodna-project", version = "1.0.0" }
 repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration
