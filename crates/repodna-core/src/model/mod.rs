@@ -14,6 +14,7 @@ pub mod git;
 pub mod languages;
 pub mod project;
 pub mod quality;
+pub mod security;
 pub mod structure;
 
 /// Whether an analysis section was produced, and how completely.
