@@ -1,6 +1,7 @@
 //! Built-in ecosystem providers.
 
 pub mod cargo;
+pub mod dart;
 pub mod dotnet;
 pub mod go;
 pub mod jvm;
@@ -23,6 +24,7 @@ pub fn builtin_providers() -> Vec<Box<dyn EcosystemProvider>> {
         Box::new(dotnet::NuGet),
         Box::new(php::Composer),
         Box::new(ruby::Bundler),
+        Box::new(dart::Pub),
     ]
 }
 
