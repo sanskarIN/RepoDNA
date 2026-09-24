@@ -446,6 +446,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "repodna-quality"
+version = "1.0.0"
+dependencies = [
+ "repodna-core",
+ "repodna-parser",
+]
+
+[[package]]
 name = "repodna-testkit"
 version = "1.0.0"
 dependencies = [
