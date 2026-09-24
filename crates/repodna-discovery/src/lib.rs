@@ -7,5 +7,7 @@
 //! size, and extracts archives with strict limits against path traversal and archive bombs.
 
 pub mod classify;
+pub mod content;
 
 pub use classify::{Classification, ClassificationOverrides, classify};
+pub use content::{FileContent, ReadOutcome, looks_binary, looks_generated, read_file};
