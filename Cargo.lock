@@ -427,6 +427,7 @@ name = "repodna-evolution"
 version = "1.0.0"
 dependencies = [
  "repodna-core",
+ "repodna-dependencies",
  "repodna-discovery",
  "repodna-git",
  "repodna-parser",

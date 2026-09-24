@@ -12,6 +12,7 @@ publish.workspace = true
 [dependencies]
 repodna-core.workspace = true
 repodna-parser.workspace = true
+repodna-dependencies.workspace = true
 repodna-discovery.workspace = true
 repodna-git.workspace = true
 repodna-project.workspace = true

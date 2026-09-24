@@ -7,6 +7,7 @@
 pub mod ages;
 pub mod epochs;
 pub mod events;
+pub mod recent;
 pub mod snapshots;
 
 #[cfg(test)]
