@@ -9,6 +9,7 @@
 pub mod badge;
 pub mod card;
 pub mod charts;
+pub mod content;
 pub mod doc;
 pub mod error;
 pub mod facts;
