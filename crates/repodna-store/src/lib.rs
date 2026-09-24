@@ -12,6 +12,7 @@
 
 pub mod error;
 pub mod paths;
+pub mod schema;
 
 pub use error::StoreError;
 pub use paths::{StorePaths, config_file, data_home};
