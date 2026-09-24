@@ -118,35 +118,87 @@ static RUST_USE_START: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?use\s+")
         .unwrap_or_else(|error| panic!("invalid Rust use pattern: {error}"))
 });
+static RUST_INLINE_MOD: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+[A-Za-z_]\w*\s*\{")
+        .unwrap_or_else(|error| panic!("invalid Rust inline mod pattern: {error}"))
+});
 
 fn rust_imports(lines: &[ScannedLine]) -> Vec<RawImport> {
     let mut imports = Vec::new();
+    // Brace depth, and the depths at which enclosing inline `mod name { … }` blocks opened.
+    let mut depth = 0usize;
+    let mut inline_modules: Vec<usize> = Vec::new();
     let mut index = 0;
     while index < lines.len() {
         let text = &lines[index].masked;
+        let first_line = index;
         if let Some(captures) = RUST_MOD.captures(text) {
             imports.push(RawImport::new(&captures[1], index, ImportKind::Module));
         } else if let Some(captures) = RUST_EXTERN_CRATE.captures(text) {
             imports.push(RawImport::new(&captures[1], index, ImportKind::Import));
+        } else if RUST_INLINE_MOD.is_match(text) {
+            inline_modules.push(depth);
         } else if let Some(start) = RUST_USE_START.find(text) {
             // Accumulate the statement until its terminating semicolon (at most 50 lines).
             let mut statement = text[start.end()..].to_owned();
-            let first_line = index;
             while !statement.contains(';') && index + 1 < lines.len() && index - first_line < 50 {
                 index += 1;
                 statement.push(' ');
                 statement.push_str(&lines[index].masked);
             }
             let tree = normalize_use_tree(statement.split(';').next().unwrap_or_default());
+            let tree = rebase_super(&tree, inline_modules.len());
             let mut paths = Vec::new();
             expand_use_tree("", &tree, &mut paths);
             for path in paths {
                 imports.push(RawImport::new(path, first_line, ImportKind::Import));
             }
         }
+        for line in &lines[first_line..=index] {
+            for byte in line.masked.bytes() {
+                match byte {
+                    b'{' => depth += 1,
+                    b'}' => {
+                        depth = depth.saturating_sub(1);
+                        while inline_modules.last().is_some_and(|&open| open >= depth) {
+                            inline_modules.pop();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
         index += 1;
     }
     imports
+}
+
+/// Rewrites a use tree written inside `inline_depth` inline `mod name { … }` blocks so that
+/// it is relative to the file's own module: inside `mod tests { use super::*; }` the
+/// `super` is the file itself, not its parent module.
+fn rebase_super(tree: &str, inline_depth: usize) -> String {
+    if inline_depth == 0 {
+        return tree.to_owned();
+    }
+    let mut rest = tree;
+    let mut stripped = 0;
+    while stripped < inline_depth {
+        if let Some(after) = rest.strip_prefix("super::") {
+            rest = after;
+            stripped += 1;
+        } else if rest == "super" {
+            return "self".to_owned();
+        } else {
+            break;
+        }
+    }
+    if stripped == 0 {
+        tree.to_owned()
+    } else if stripped == inline_depth && (rest == "super" || rest.starts_with("super::")) {
+        rest.to_owned()
+    } else {
+        format!("self::{rest}")
+    }
 }
 
 /// Expands a Rust use tree such as `a::{b, c::{d, e as f}}` into full paths.
@@ -390,6 +442,22 @@ mod tests {
         assert!(
             lines.contains(&2),
             "multi-line use is attributed to its first line"
+        );
+    }
+
+    #[test]
+    fn rust_super_inside_inline_modules_refers_to_the_file() {
+        let source = "use super::parent_item;\nfn f() {}\n#[cfg(test)]\nmod tests {\n    use super::*;\n    use super::helper;\n    use super::super::sibling;\n    mod nested {\n        use super::super::Thing;\n    }\n    #[test]\n    fn t() { let _ = 1; }\n}\nuse super::after;\n";
+        let found = specifiers("rust", source);
+        assert_eq!(
+            found,
+            vec![
+                "super::parent_item",
+                "self::helper",
+                "super::sibling",
+                "self::Thing",
+                "super::after",
+            ]
         );
     }
 
