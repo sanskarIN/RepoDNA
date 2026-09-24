@@ -9,9 +9,11 @@
 pub mod badge;
 pub mod card;
 pub mod charts;
+pub mod doc;
 pub mod error;
 pub mod facts;
 pub mod fonts;
+pub mod markdown;
 pub mod palette;
 pub mod png;
 pub mod privacy;
