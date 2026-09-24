@@ -378,6 +378,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "repodna-git"
+version = "1.0.0"
+dependencies = [
+ "repodna-core",
+ "repodna-testkit",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "repodna-parser"
 version = "1.0.0"
 dependencies = [

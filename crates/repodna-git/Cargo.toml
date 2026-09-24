@@ -1,0 +1,21 @@
+[package]
+name = "repodna-git"
+description = "Hardened, read-only Git history analysis for RepoDNA."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+repodna-core.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+repodna-testkit.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
