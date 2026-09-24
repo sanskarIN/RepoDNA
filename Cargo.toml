@@ -20,6 +20,7 @@ repodna-core = { path = "crates/repodna-core", version = "1.0.0" }
 repodna-parser = { path = "crates/repodna-parser", version = "1.0.0" }
 repodna-discovery = { path = "crates/repodna-discovery", version = "1.0.0" }
 repodna-git = { path = "crates/repodna-git", version = "1.0.0" }
+repodna-dependencies = { path = "crates/repodna-dependencies", version = "1.0.0" }
 repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration
@@ -37,6 +38,7 @@ sha2 = "0.11.0"
 
 # Text processing
 regex = "1.13.1"
+yaml-rust2 = { version = "0.13.0", default-features = false }
 
 # File system and archives
 ignore = "0.4.33"
