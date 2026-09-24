@@ -4,9 +4,13 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use repodna_core::cancel::CancellationToken;
-use repodna_core::config::Config;
+use repodna_core::confidence::Confidence;
+use repodna_core::config::{Config, Thresholds};
+use repodna_core::evidence::Evidence;
+use repodna_core::finding::{Finding, FindingCategory};
 use repodna_core::model::git::{CommitRef, GitReport, ReleaseInfo};
 use repodna_core::model::identity::RemoteInfo;
+use repodna_core::severity::Severity;
 use repodna_core::time::Timestamp;
 use repodna_git::url::parse_remote;
 use repodna_git::{
@@ -27,6 +31,91 @@ pub struct GitStage {
     pub remotes: Vec<RemoteInfo>,
     /// Releases recognized from tags.
     pub releases: Vec<ReleaseInfo>,
+}
+
+/// High-churn areas reported (largest share first).
+const MAX_CHURN_FINDINGS: usize = 3;
+
+/// File changes needed in the recent window before churn shares are meaningful.
+const MIN_RECENT_FILE_CHANGES: u32 = 10;
+
+/// Commits needed before contributor concentration is reported.
+const MIN_COMMITS_FOR_OWNERSHIP: u64 = 20;
+
+/// Share of commits by one contributor at which concentration is reported.
+const OWNERSHIP_SHARE: f64 = 0.75;
+
+/// Derives findings from the Git section: areas with most of the recent churn, and commits
+/// concentrated in one contributor identity. Wording describes history, not people.
+pub fn git_findings(report: &GitReport, thresholds: &Thresholds) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    let recent_changes: u32 = report
+        .file_history
+        .iter()
+        .map(|record| record.recent_commits)
+        .sum();
+    let active_areas = report
+        .directory_activity
+        .iter()
+        .filter(|area| area.recent_churn_share > 0.0)
+        .count();
+    if recent_changes >= MIN_RECENT_FILE_CHANGES && active_areas >= 2 {
+        let mut areas: Vec<_> = report
+            .directory_activity
+            .iter()
+            .filter(|area| area.recent_churn_share >= thresholds.high_churn_share)
+            .collect();
+        areas.sort_by(|a, b| {
+            b.recent_churn_share
+                .total_cmp(&a.recent_churn_share)
+                .then_with(|| a.path.cmp(&b.path))
+        });
+        for area in areas.into_iter().take(MAX_CHURN_FINDINGS) {
+            let root = area.path == "(root)";
+            let place = if root {
+                "files at the repository root".to_owned()
+            } else {
+                format!("{}/", area.path)
+            };
+            let percent = area.recent_churn_share * 100.0;
+            let mut finding = Finding::new("activity.high-churn-area", &area.path, FindingCategory::Activity, Severity::Info, Confidence::High, format!("{percent:.0}% of recent changes are in {place}"))
+                .summary(format!("{percent:.0}% of the lines added or deleted in the last {} days of history touched {place}.", thresholds.recent_days))
+                .rationale("Areas under heavy change are where reviews, tests, and documentation matter most right now, and where parallel work is most likely to conflict.")
+                .method("Lines added plus deleted per directory (first two levels) in the recent window, divided by all churn in that window.")
+                .evidence(Evidence::metric_with_threshold("git.directory.recent-churn-share", area.recent_churn_share, thresholds.high_churn_share, "ratio"))
+                .limitation("Mechanical changes such as renames, formatting, and regenerated files inflate churn.")
+                .next_step("Check that tests and documentation for this area keep up with the changes.");
+            if !root {
+                finding = finding
+                    .evidence(Evidence::directory(area.path.as_str()))
+                    .path(area.path.clone());
+            }
+            findings.push(finding);
+        }
+    }
+    let ownership = &report.ownership;
+    if report.commit_count >= MIN_COMMITS_FOR_OWNERSHIP
+        && ownership.top_contributor_share >= OWNERSHIP_SHARE
+    {
+        let title = if ownership.contributors <= 1 {
+            "All commits come from one contributor identity".to_owned()
+        } else {
+            format!(
+                "{:.0}% of commits come from one contributor identity",
+                ownership.top_contributor_share * 100.0
+            )
+        };
+        findings.push(
+            Finding::new("contributors.concentration", "repository", FindingCategory::Contributors, Severity::Info, Confidence::High, title)
+                .summary(format!("{} contributor identities made {} commits; {} of them authored at least half.", ownership.contributors, report.commit_count, ownership.contributors_for_half_of_commits))
+                .rationale("When most changes come from one person, knowledge of the code is likely concentrated. This describes the history, not the quality of anyone's work.")
+                .method("Commits per contributor identity (grouped by e-mail address after .mailmap) over the analyzed history.")
+                .evidence(Evidence::metric_with_threshold("git.ownership.top-share", ownership.top_contributor_share, OWNERSHIP_SHARE, "ratio"))
+                .limitation("Squash merges, pair programming, bots, and people using several e-mail addresses distort attribution.")
+                .next_step("If continuity matters, document the key areas and spread reviews across more people."),
+        );
+    }
+    findings
 }
 
 /// Replaces contributor names with numbered pseudonyms, ordered by commits.
@@ -174,6 +263,61 @@ mod tests {
         );
         assert_eq!(stage.remotes[0].url, "https://github.com/acme/widget.git");
         assert_eq!(stage.remotes[0].provider, "github");
+    }
+
+    #[test]
+    fn derives_churn_and_ownership_findings() {
+        use repodna_core::model::git::{DirectoryActivity, FileHistoryRecord, OwnershipSummary};
+        let area = |path: &str, share: f64| DirectoryActivity {
+            path: path.into(),
+            commits: 5,
+            churn: 100,
+            authors: 1,
+            last_changed: Timestamp::UNIX_EPOCH,
+            recent_churn_share: share,
+        };
+        let mut report = GitReport {
+            commit_count: 40,
+            directory_activity: vec![
+                area("src/api", 0.6),
+                area("(root)", 0.35),
+                area("docs", 0.05),
+            ],
+            ownership: OwnershipSummary {
+                contributors: 3,
+                contributors_for_half_of_commits: 1,
+                top_contributor_share: 0.8,
+                note: String::new(),
+            },
+            ..GitReport::default()
+        };
+        report.file_history = vec![FileHistoryRecord {
+            path: "src/api/a.rs".into(),
+            commits: 12,
+            authors: 1,
+            insertions: 10,
+            deletions: 0,
+            first_seen: Timestamp::UNIX_EPOCH,
+            last_changed: Timestamp::UNIX_EPOCH,
+            recent_commits: 12,
+            previous_paths: Vec::new(),
+        }];
+        let findings = git_findings(&report, &Thresholds::default());
+        let titles: Vec<&str> = findings.iter().map(|f| f.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            vec![
+                "60% of recent changes are in src/api/",
+                "35% of recent changes are in files at the repository root",
+                "80% of commits come from one contributor identity"
+            ]
+        );
+        assert_eq!(findings[0].paths, vec!["src/api"]);
+        assert!(findings[1].paths.is_empty());
+
+        report.file_history[0].recent_commits = 2;
+        report.commit_count = 5;
+        assert!(git_findings(&report, &Thresholds::default()).is_empty());
     }
 
     #[test]
