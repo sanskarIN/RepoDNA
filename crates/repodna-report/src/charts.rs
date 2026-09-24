@@ -153,6 +153,21 @@ impl Svg {
     }
 }
 
+/// A date label whose precision suits the span of the axis.
+fn time_label(unix: i64, span_seconds: i64) -> String {
+    let timestamp = repodna_core::time::Timestamp::from_unix(unix);
+    const DAY: i64 = 86_400;
+    if span_seconds >= 2 * 365 * DAY {
+        timestamp.year().to_string()
+    } else if span_seconds >= 60 * DAY {
+        timestamp.month_key()
+    } else if span_seconds >= 2 * DAY {
+        timestamp.date_string()
+    } else {
+        format!("{:02}:00", timestamp.hour())
+    }
+}
+
 /// A clean axis step and top value for data up to `max` with about `ticks` intervals.
 fn nice_scale(max: f64, ticks: u32) -> (f64, f64) {
     if max.is_nan() || max <= 0.0 || !max.is_finite() {
@@ -452,8 +467,13 @@ pub fn line(points: &[(i64, f64)], unit: &str, label: &str) -> Option<String> {
     // Time ticks: up to five evenly spaced dates.
     for index in 0..5 {
         let t = first + (last - first) * index / 4;
-        let date = repodna_core::time::Timestamp::from_unix(t).month_key();
-        svg.text(x_of(t), height - 10.0, "middle", "viz-muted", &date);
+        svg.text(
+            x_of(t),
+            height - 10.0,
+            "middle",
+            "viz-muted",
+            &time_label(t, last - first),
+        );
     }
     for (t, v) in points {
         let date = repodna_core::time::Timestamp::from_unix(*t).date_string();
@@ -838,7 +858,7 @@ pub fn timeline(
             96.0,
             anchor,
             "viz-muted",
-            &repodna_core::time::Timestamp::from_unix(t).month_key(),
+            &time_label(t, end - start),
         );
     }
     let mut x = left;
@@ -868,6 +888,19 @@ mod tests {
             .descendants()
             .filter(|node| node.has_tag_name(tag))
             .count()
+    }
+
+    #[test]
+    fn labels_time_by_span() {
+        let day = 86_400;
+        let t = repodna_core::time::Timestamp::from_ymd(2024, 3, 5)
+            .unwrap()
+            .unix()
+            + 13 * 3600;
+        assert_eq!(time_label(t, 3 * 365 * day), "2024");
+        assert_eq!(time_label(t, 90 * day), "2024-03");
+        assert_eq!(time_label(t, 10 * day), "2024-03-05");
+        assert_eq!(time_label(t, 3600), "13:00");
     }
 
     #[test]

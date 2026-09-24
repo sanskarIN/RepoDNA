@@ -78,19 +78,20 @@ pub(super) fn history(blocks: &mut Blocks, dna: &RepositoryDna, options: Content
     blocks.rich(vec![
         Inline::Strong(activity.level.label().to_owned()),
         Inline::Text(format!(
-            ". {} {} commits in the last 30 days, {} in the last 90, and {} in the last 365.",
+            ". {} In the last 365 days: {} commits.",
             activity.description,
-            thousands(activity.commits_last_30_days),
-            thousands(activity.commits_last_90_days),
             thousands(activity.commits_last_365_days)
         )),
     ]);
     let (points, period) = aggregate(&git.timeline);
     if options.figures {
-        blocks.figure(
-            columns(&points, "commits", &format!("Commits per {period}")),
-            format!("Commits per {period}"),
-        );
+        // A chart of one or two bars says less than the table below it.
+        if points.len() >= 3 {
+            blocks.figure(
+                columns(&points, "commits", &format!("Commits per {period}")),
+                format!("Commits per {period}"),
+            );
+        }
         blocks.figure(
             heatmap(&git.weekday_hour, "Commits by weekday and hour"),
             "Commits by weekday and hour, in each author's local time",
@@ -397,10 +398,12 @@ pub(super) fn time_machine(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
     if let Some(recent) = &dna.insights.recent_changes {
         blocks.heading(3, "What changed recently", None);
         blocks.text(format!(
-            "In the last {} days of history: {} commits by {} contributors changed {} files ({} lines added, {} deleted).",
+            "In the last {} days of history: {} commit{} by {} contributor{} changed {} files ({} lines added, {} deleted).",
             recent.window_days,
             thousands(recent.commits),
+            if recent.commits == 1 { "" } else { "s" },
             recent.contributors,
+            if recent.contributors == 1 { "" } else { "s" },
             thousands(recent.files_changed),
             thousands(recent.insertions),
             thousands(recent.deletions)

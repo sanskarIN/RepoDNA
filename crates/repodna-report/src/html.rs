@@ -58,10 +58,11 @@ pre{background:var(--code-bg);padding:12px 14px;border-radius:8px;overflow:auto;
 pre code{background:none;padding:0}
 ul{margin:0 0 12px;padding-left:22px}
 li{margin:3px 0}
-.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px;margin:0 0 16px}
 .stats div{border:1px solid var(--border);border-radius:10px;padding:10px 14px;background:var(--page)}
 .stats dt{color:var(--muted);font-size:13px}
-.stats dd{margin:2px 0 0;font-size:21px;font-weight:650;overflow-wrap:anywhere}
+.stats dd{margin:2px 0 0;font-size:20px;font-weight:650;overflow-wrap:break-word}
+.nw{white-space:nowrap}
 .table-wrap{overflow-x:auto;margin:0 0 14px;border:1px solid var(--border);border-radius:10px}
 table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{padding:7px 11px;text-align:left;vertical-align:top;border-bottom:1px solid var(--grid)}
@@ -184,6 +185,9 @@ pub fn inline(rich: &Rich) -> String {
         .map(|part| match part {
             Inline::Text(text) => esc(text),
             Inline::Strong(text) => format!("<strong>{}</strong>", esc(text)),
+            Inline::Code(text) if text.chars().count() <= 16 => {
+                format!(r#"<code class="nw">{}</code>"#, esc(text))
+            }
             Inline::Code(text) => format!("<code>{}</code>", esc(text)),
             Inline::Link { text, url } => {
                 if url.starts_with("https://") {
@@ -214,11 +218,14 @@ fn table(out: &mut String, table: &Table) {
         out.push_str("<tr>");
         for (index, cell) in row.iter().enumerate() {
             let numeric = table.numeric.get(index).copied().unwrap_or(false);
-            out.push_str(&format!(
-                "<td{}>{}</td>",
-                if numeric { r#" class="num""# } else { "" },
-                inline(cell)
-            ));
+            let class = if numeric {
+                r#" class="num""#
+            } else if is_date(cell) {
+                r#" class="nw""#
+            } else {
+                ""
+            };
+            out.push_str(&format!("<td{class}>{}</td>", inline(cell)));
         }
         out.push_str("</tr>");
     }
@@ -228,6 +235,23 @@ fn table(out: &mut String, table: &Table) {
             r#"<p class="omitted">{} more not shown; the JSON artifact has the complete list.</p>"#,
             table.omitted
         ));
+    }
+}
+
+/// `true` for a cell holding only a `YYYY-MM-DD` date, which should not wrap.
+fn is_date(cell: &Rich) -> bool {
+    match cell.as_slice() {
+        [Inline::Text(text)] => {
+            let bytes = text.as_bytes();
+            bytes.len() == 10
+                && bytes[4] == b'-'
+                && bytes[7] == b'-'
+                && bytes
+                    .iter()
+                    .enumerate()
+                    .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
+        }
+        _ => false,
     }
 }
 

@@ -163,10 +163,20 @@ pub(super) fn architecture(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
         });
         let mut table = Table::new(&["From", "To", "Imports#", "Confidence"]);
         table.omitted = truncate(&mut edges, 20);
+        let names: std::collections::HashMap<&str, &str> = report
+            .modules
+            .iter()
+            .map(|module| (module.id.as_str(), module.name.as_str()))
+            .collect();
+        let name = |id: &str| {
+            names
+                .get(id)
+                .map_or_else(|| id.to_owned(), |n| (*n).to_owned())
+        };
         for edge in edges {
             table.row(vec![
-                plain(edge.from.clone()),
-                plain(edge.to.clone()),
+                plain(name(&edge.from)),
+                plain(name(&edge.to)),
                 plain(thousands(u64::from(edge.weight))),
                 plain(confidence(edge.confidence)),
             ]);
@@ -196,10 +206,14 @@ pub(super) fn architecture(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
     }
     if let Some(workspace) = &report.workspace {
         blocks.text(format!(
-            "Workspace: {} declared in {} with {} members.",
+            "Workspace: {} declared in {} (members: {}).",
             workspace.tool,
             workspace.manifest,
-            workspace.members.len()
+            if workspace.members.is_empty() {
+                "none listed".to_owned()
+            } else {
+                workspace.members.join(", ")
+            }
         ));
     }
     let attempted = report.resolved_imports + report.unresolved_imports;

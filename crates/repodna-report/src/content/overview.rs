@@ -69,11 +69,13 @@ pub(super) fn cover(blocks: &mut Blocks, dna: &RepositoryDna, options: ContentOp
             "Project DNA card",
         );
     }
-    let mut stats = headline_stats(&facts);
+    blocks.stats(headline_stats(&facts));
     if !facts.dna_hash.is_empty() {
-        stats.push(("DNA hash".to_owned(), facts.dna_hash.clone()));
+        blocks.rich(vec![
+            Inline::Text("DNA hash (identifies this snapshot's content): ".to_owned()),
+            Inline::Code(facts.dna_hash.clone()),
+        ]);
     }
-    blocks.stats(stats);
 }
 
 pub(super) fn summary(blocks: &mut Blocks, dna: &RepositoryDna) {
