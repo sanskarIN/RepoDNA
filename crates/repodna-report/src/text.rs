@@ -45,6 +45,8 @@ pub fn bytes(value: u64) -> String {
 pub fn span(days: i64) -> String {
     if days >= 365 {
         format!("{:.1} years", days as f64 / 365.25)
+    } else if days <= 0 {
+        "less than a day".to_owned()
     } else if days == 1 {
         "1 day".to_owned()
     } else {
@@ -150,6 +152,7 @@ mod tests {
         assert_eq!(bytes(512), "512 B");
         assert_eq!(bytes(1536), "1.5 KiB");
         assert_eq!(bytes(5 * 1024 * 1024 * 1024), "5.0 GiB");
+        assert_eq!(span(0), "less than a day");
         assert_eq!(span(1), "1 day");
         assert_eq!(span(45), "45 days");
         assert_eq!(span(730), "2.0 years");

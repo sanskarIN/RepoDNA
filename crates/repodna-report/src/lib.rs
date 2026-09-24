@@ -14,13 +14,16 @@ pub mod doc;
 pub mod error;
 pub mod facts;
 pub mod fonts;
+pub mod html;
 pub mod markdown;
 pub mod palette;
 pub mod png;
 pub mod privacy;
+pub mod report;
 pub mod sections;
 pub mod text;
 
 pub use error::ReportError;
 pub use privacy::apply_privacy;
+pub use report::{PROJECT_URL, ReportOptions, html_report, json_report, markdown_report};
 pub use sections::{Section, SectionSet};

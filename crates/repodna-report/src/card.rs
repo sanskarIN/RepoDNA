@@ -168,12 +168,12 @@ fn value_or_dash<T>(value: Option<T>, format: impl Fn(T) -> String) -> String {
 }
 
 fn years(days: i64) -> String {
-    if days < 60 {
-        format!("{days} days")
-    } else if days < 730 {
-        format!("{:.0} months", days as f64 / 30.44)
-    } else {
-        format!("{:.1} yrs", days as f64 / 365.25)
+    match days {
+        i64::MIN..=0 => "< 1 day".to_owned(),
+        1 => "1 day".to_owned(),
+        2..=59 => format!("{days} days"),
+        60..=729 => format!("{:.0} months", days as f64 / 30.44),
+        _ => format!("{:.1} yrs", days as f64 / 365.25),
     }
 }
 
