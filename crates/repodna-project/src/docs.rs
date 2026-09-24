@@ -520,18 +520,39 @@ pub fn docs_report(
     report.doc_directories = doc_directories.into_iter().take(50).collect();
     report.examples = examples.into_iter().take(50).collect();
 
-    // A purpose statement, from the shallowest manifest description or the README.
+    // A purpose statement for the whole repository: a root manifest's description, then
+    // the root README's first paragraph. A nested package's description describes only that
+    // package, so it is used only when it is the repository's single description.
     let mut sorted_descriptions: Vec<&(String, String)> = descriptions.iter().collect();
     sorted_descriptions.sort_by_key(|(manifest, _)| (paths::depth(manifest), manifest.clone()));
-    if let Some((manifest, description)) = sorted_descriptions.first() {
-        report.description = Some(description.chars().take(MAX_DESCRIPTION).collect());
-        report.description_source = Some(manifest.clone());
-    } else if let Some(info) = &readme
-        && let Some(text) = contents.get(&info.path)
-        && let Some(paragraph) = first_paragraph(text)
-    {
-        report.description = Some(paragraph);
-        report.description_source = Some(info.path.clone());
+    let root_manifest = sorted_descriptions
+        .iter()
+        .find(|(manifest, _)| paths::depth(manifest) == 1);
+    let readme_paragraph = readme
+        .as_ref()
+        .filter(|info| paths::depth(&info.path) == 1)
+        .and_then(|info| {
+            let text = contents.get(&info.path)?;
+            Some((info.path.clone(), first_paragraph(text)?))
+        });
+    let chosen = if let Some((manifest, description)) = root_manifest {
+        Some((
+            manifest.clone(),
+            description.chars().take(MAX_DESCRIPTION).collect(),
+        ))
+    } else if let Some(found) = readme_paragraph {
+        Some(found)
+    } else if let [(manifest, description)] = sorted_descriptions.as_slice() {
+        Some((
+            manifest.clone(),
+            description.chars().take(MAX_DESCRIPTION).collect(),
+        ))
+    } else {
+        None
+    };
+    if let Some((source, description)) = chosen {
+        report.description = Some(description);
+        report.description_source = Some(source);
     }
     report.readme = readme;
     report
@@ -688,5 +709,39 @@ mod tests {
         assert_eq!(manifest_only.checks[1].status, DocCheckStatus::Partial);
         assert_eq!(manifest_only.checks[0].status, DocCheckStatus::NotDetected);
         assert_eq!(manifest_only.description.as_deref(), Some("A tool."));
+    }
+
+    #[test]
+    fn prefers_repository_level_descriptions() {
+        let files = [
+            file("README.md", FileCategory::Documentation),
+            file("crates/a/Cargo.toml", FileCategory::Manifest),
+            file("crates/b/Cargo.toml", FileCategory::Manifest),
+        ];
+        let contents: BTreeMap<String, String> = [(
+            "README.md".to_owned(),
+            "# Tool\n\nA repository-wide tool.\n".to_owned(),
+        )]
+        .into();
+        let nested = [
+            ("crates/a/Cargo.toml".to_owned(), "Crate A".to_owned()),
+            ("crates/b/Cargo.toml".to_owned(), "Crate B".to_owned()),
+        ];
+        let report = docs_report(&files, &contents, &nested);
+        assert_eq!(
+            report.description.as_deref(),
+            Some("A repository-wide tool.")
+        );
+        assert_eq!(report.description_source.as_deref(), Some("README.md"));
+
+        let no_readme = docs_report(&files[1..], &BTreeMap::new(), &nested);
+        assert_eq!(no_readme.description, None);
+        let single = docs_report(&files[1..2], &BTreeMap::new(), &nested[..1]);
+        assert_eq!(single.description.as_deref(), Some("Crate A"));
+
+        let mut with_root = nested.to_vec();
+        with_root.push(("package.json".to_owned(), "Root package".to_owned()));
+        let rooted = docs_report(&files, &contents, &with_root);
+        assert_eq!(rooted.description.as_deref(), Some("Root package"));
     }
 }
