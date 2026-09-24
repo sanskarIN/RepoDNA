@@ -236,12 +236,11 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
         .into_iter()
         .map(|((_, len), locations)| (len, locations.into_iter().collect()))
         .collect();
+    // Longest sequences first, so a block nested inside a larger duplicate is recognized.
     candidates.sort_by(|a, b| {
-        let weight = |c: &(u32, Vec<(u32, u32)>)| u64::from(c.0) * (c.1.len() as u64 - 1);
-        weight(b)
-            .cmp(&weight(a))
+        b.0.cmp(&a.0)
+            .then_with(|| b.1.len().cmp(&a.1.len()))
             .then_with(|| a.1.cmp(&b.1))
-            .then_with(|| b.0.cmp(&a.0))
     });
 
     // Drop clusters whose every occurrence lies inside an occurrence already kept.
