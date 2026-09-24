@@ -14,6 +14,7 @@
 
 pub mod discover;
 pub mod manifest;
+pub mod protocol;
 
 pub use discover::{Discovery, Plugin, discover};
 pub use manifest::{MANIFEST_FILE, PLUGIN_API, Permission, PluginManifest};
