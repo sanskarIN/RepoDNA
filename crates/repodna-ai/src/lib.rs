@@ -17,6 +17,7 @@ pub mod error;
 pub mod explain;
 pub mod prompt;
 pub mod provider;
+pub mod render;
 pub mod response;
 pub mod task;
 pub mod text;
