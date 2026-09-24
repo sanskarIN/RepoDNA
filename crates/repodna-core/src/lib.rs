@@ -8,8 +8,10 @@
 //! crates and produce the types defined here, which keeps the model stable, easy to
 //! serialize, and independent from any user interface.
 
+pub mod confidence;
 pub mod error;
 pub mod time;
 
+pub use confidence::Confidence;
 pub use error::{CoreError, Result};
 pub use time::Timestamp;
