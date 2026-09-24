@@ -8,10 +8,15 @@
 //! reports without overwriting files RepoDNA did not create; and optional AI
 //! explanations. Front ends only parse input and present results.
 
+pub mod analysis;
 pub mod config;
 pub mod error;
 pub mod paths;
 
+pub use analysis::{
+    AnalysisOutcome, AnalyzeOptions, Loaded, Source, Target, load_stored, load_target,
+    resolve_target, run_analysis,
+};
 pub use config::{ConfigOptions, Overrides, load_config};
 pub use error::{AppError, ErrorKind};
 pub use paths::AppPaths;
