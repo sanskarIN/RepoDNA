@@ -9,3 +9,4 @@
 //! code, and reflection are invisible, and the report says so in its method notes.
 
 pub mod graph;
+pub mod modules;
