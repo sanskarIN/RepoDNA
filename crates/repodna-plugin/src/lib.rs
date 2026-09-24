@@ -14,6 +14,7 @@
 
 pub mod discover;
 pub mod manifest;
+pub mod process;
 pub mod protocol;
 
 pub use discover::{Discovery, Plugin, discover};
