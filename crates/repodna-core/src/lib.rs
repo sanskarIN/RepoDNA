@@ -10,8 +10,10 @@
 
 pub mod confidence;
 pub mod error;
+pub mod severity;
 pub mod time;
 
 pub use confidence::Confidence;
 pub use error::{CoreError, Result};
+pub use severity::Severity;
 pub use time::Timestamp;
