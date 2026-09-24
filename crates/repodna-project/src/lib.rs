@@ -5,6 +5,7 @@
 //! unless the user explicitly enables execution; only a supervised successful run marks a
 //! command as verified.
 
+pub mod commands;
 pub mod tools;
 
 use repodna_core::model::structure::FileCategory;
