@@ -14,9 +14,9 @@ use crate::time::Timestamp;
 pub enum EpochKind {
     /// The first period of the history.
     Initial,
-    /// A period with activity above the repository's median.
+    /// A period whose commit rate is close to or above the repository's median.
     Active,
-    /// A period with activity at or below the repository's median.
+    /// A period whose commit rate is well below the repository's median.
     Maintenance,
     /// The most recent period.
     Current,
