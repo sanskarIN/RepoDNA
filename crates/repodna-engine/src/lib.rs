@@ -8,7 +8,9 @@
 //! [`RepositoryDna`]: repodna_core::model::artifact::RepositoryDna
 
 pub mod error;
+pub mod input;
 pub mod progress;
 
 pub use error::EngineError;
+pub use input::{FetchOptions, InputSpec, PreparedInput, prepare_input};
 pub use progress::{Progress, ProgressEvent};
