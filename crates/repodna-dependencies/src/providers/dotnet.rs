@@ -104,8 +104,8 @@ impl EcosystemProvider for NuGet {
                 .requirements
                 .push((".NET".to_owned(), framework[1].to_owned()));
         }
-        manifest.package_name = Some(repodna_core::paths::file_stem(path).to_owned())
-            .filter(|_| file_name(path) != "Directory.Packages.props");
+        manifest.package_name = (file_name(path) != "Directory.Packages.props")
+            .then(|| repodna_core::paths::file_stem(path).to_owned());
         Ok(manifest)
     }
 
