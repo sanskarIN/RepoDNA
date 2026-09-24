@@ -1,0 +1,23 @@
+[package]
+name = "repodna-parser"
+description = "Language registry and lexical analyzers (comments, strings, imports, symbols, complexity) for RepoDNA."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+repodna-core.workspace = true
+regex.workspace = true
+serde.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true
