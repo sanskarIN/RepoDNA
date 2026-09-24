@@ -9,9 +9,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::imports::{RawImport, extract_imports, extract_package};
 use crate::markers::{RawMarker, extract_markers};
-use crate::scanner::scan;
+use crate::scanner::{ScannedFile, scan};
 use crate::spec::{ImportExtractor, LanguageSpec};
 use crate::symbols::{ParsedSymbol, extract_symbols};
+use crate::tokens::{Token, tokenize};
 
 /// Version of the per-file analysis output. Bump whenever results for the same input can
 /// change, so cached results are invalidated.
@@ -108,7 +109,18 @@ static REFERENCE: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Analyzes source text with the given language specification.
 pub fn analyze_source(spec: &LanguageSpec, text: &str) -> FileAnalysis {
+    analyze_scanned(spec, &scan(text, &spec.syntax))
+}
+
+/// Analyzes source text and also returns its normalized token stream (for duplication and
+/// similarity detection), scanning the text only once.
+pub fn analyze_and_tokenize(spec: &LanguageSpec, text: &str) -> (FileAnalysis, Vec<Token>) {
     let scanned = scan(text, &spec.syntax);
+    let tokens = tokenize(&scanned.lines);
+    (analyze_scanned(spec, &scanned), tokens)
+}
+
+fn analyze_scanned(spec: &LanguageSpec, scanned: &ScannedFile) -> FileAnalysis {
     let lines = scanned.line_counts();
     let imports = if spec.imports.is_empty() && spec.import_extractor == ImportExtractor::Patterns {
         Vec::new()
@@ -278,5 +290,15 @@ mod tests {
         let analysis = analyze("javascript", "const cfg = require('./config.json');\n");
         assert_eq!(analysis.imports.len(), 1);
         assert!(analysis.references.is_empty());
+    }
+    #[test]
+    fn analyze_and_tokenize_matches_separate_calls() {
+        let registry = crate::LanguageRegistry::builtin();
+        let spec = registry.get("python").unwrap();
+        let text = "import os\n# note\nx = 1  # trailing\nprint(\"hi\")\n";
+        let (analysis, tokens) = analyze_and_tokenize(spec, text);
+        assert_eq!(analysis, analyze_source(spec, text));
+        assert_eq!(tokens, tokenize(&scan(text, &spec.syntax).lines));
+        assert!(tokens.iter().all(|token| token.line != 2));
     }
 }

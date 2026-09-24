@@ -19,7 +19,9 @@ pub mod spec;
 pub mod symbols;
 pub mod tokens;
 
-pub use analyze::{ANALYZER_VERSION, FileAnalysis, RawReference, analyze_source, count_lines};
+pub use analyze::{
+    ANALYZER_VERSION, FileAnalysis, RawReference, analyze_and_tokenize, analyze_source, count_lines,
+};
 pub use builtin::builtin_languages;
 pub use declarative::{DefinitionError, load_directory, parse_definition};
 pub use imports::{RawImport, extract_imports, extract_package};
