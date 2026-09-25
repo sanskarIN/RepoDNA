@@ -12,7 +12,7 @@ use crate::charts::{Share, share_bar, treemap};
 use crate::doc::{Blocks, Inline, Table, code, plain};
 use crate::facts::{Facts, facts, folded_languages};
 use crate::sections::Section;
-use crate::text::{bytes, list, percent, span, thousands};
+use crate::text::{bytes, counted, list, percent, span, thousands};
 
 fn optional(value: Option<u64>) -> String {
     value.map_or_else(|| "Not analyzed".to_owned(), thousands)
@@ -88,11 +88,11 @@ pub(super) fn summary(blocks: &mut Blocks, dna: &RepositoryDna) {
         .map(|l| format!("{} ({})", l.name, percent(l.share)))
         .collect();
     let mut overview = format!(
-        "{} is a {} repository with {} files and {} code lines",
+        "{} is a {} repository with {} and {}",
         facts.name,
         dna.structure.size_class.label().to_lowercase(),
-        thousands(facts.files),
-        thousands(facts.code_lines)
+        counted(facts.files, "file", "files"),
+        counted(facts.code_lines, "code line", "code lines")
     );
     if languages.is_empty() {
         overview.push('.');

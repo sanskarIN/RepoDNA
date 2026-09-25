@@ -9,7 +9,7 @@ use repodna_core::model::security::PatternCategory;
 use super::{confidence, heading, not_analyzed, notes};
 use crate::doc::{Block, Blocks, Inline, Table, code, plain, truncate};
 use crate::sections::Section;
-use crate::text::{percent, thousands};
+use crate::text::{counted, percent, thousands};
 
 fn purpose_label(purpose: CommandPurpose) -> &'static str {
     match purpose {
@@ -284,13 +284,13 @@ pub(super) fn documentation(blocks: &mut Blocks, dna: &RepositoryDna) {
                 Inline::Text("The README (".to_owned()),
                 Inline::Code(readme.path.clone()),
                 Inline::Text(format!(
-                    ") has {} lines, {} words, {} headings, {} code blocks, {} links, and {} images{}.",
-                    thousands(readme.lines),
-                    thousands(readme.words),
-                    readme.headings.len(),
-                    readme.code_blocks,
-                    readme.links,
-                    readme.images,
+                    ") has {}, {}, {}, {}, {}, and {}{}.",
+                    counted(readme.lines, "line", "lines"),
+                    counted(readme.words, "word", "words"),
+                    counted(readme.headings.len() as u64, "heading", "headings"),
+                    counted(u64::from(readme.code_blocks), "code block", "code blocks"),
+                    counted(u64::from(readme.links), "link", "links"),
+                    counted(u64::from(readme.images), "image", "images"),
                     if sections.is_empty() {
                         String::new()
                     } else {
@@ -343,9 +343,13 @@ pub(super) fn documentation(blocks: &mut Blocks, dna: &RepositoryDna) {
     }
     blocks.table(table);
     blocks.text(format!(
-        "{} documentation files with {} lines.",
-        thousands(report.doc_files),
-        thousands(report.doc_lines)
+        "{} with {}.",
+        counted(
+            report.doc_files,
+            "documentation file",
+            "documentation files"
+        ),
+        counted(report.doc_lines, "line", "lines")
     ));
     if !report.doc_directories.is_empty() {
         blocks.rich(vec![

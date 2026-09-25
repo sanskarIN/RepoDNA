@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashSet};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::severity::Severity;
 
-use crate::text::thousands;
+use crate::text::{counted, thousands};
 
 /// When a CI run should fail.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -130,7 +130,7 @@ pub fn evaluate(
         if dna.tests.status.has_results() {
             let with_tests = dna.tests.test_files + dna.tests.inline_test_files;
             if with_tests > 0 {
-                format!("yes ({} files)", thousands(with_tests))
+                format!("yes ({})", counted(with_tests, "file", "files"))
             } else {
                 "no".to_owned()
             }

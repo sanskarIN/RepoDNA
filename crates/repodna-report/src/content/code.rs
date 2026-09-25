@@ -11,7 +11,7 @@ use super::{ContentOptions, confidence, heading, not_analyzed, notes};
 use crate::charts::{GraphNode, bars, columns, layered_graph};
 use crate::doc::{Blocks, Inline, Rich, Table, code, plain, truncate};
 use crate::sections::Section;
-use crate::text::{number, percent, thousands};
+use crate::text::{counted, number, percent, thousands};
 
 /// Modules drawn in the dependency diagram (largest first).
 const MAX_GRAPH_MODULES: usize = 40;
@@ -38,11 +38,15 @@ pub(super) fn architecture(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
         Inline::Text("Inferred style: ".to_owned()),
         Inline::Strong(report.style.clone()),
         Inline::Text(format!(
-            " ({} confidence). {} modules, {} module dependencies, {} layers.",
+            " ({} confidence). {}, {}, {}.",
             report.style_confidence.label().to_lowercase(),
-            report.modules.len(),
-            report.module_edges.len(),
-            report.layers.len()
+            counted(report.modules.len() as u64, "module", "modules"),
+            counted(
+                report.module_edges.len() as u64,
+                "module dependency",
+                "module dependencies"
+            ),
+            counted(report.layers.len() as u64, "layer", "layers")
         )),
     ]);
     blocks.list(
@@ -442,8 +446,12 @@ pub(super) fn hotspots(blocks: &mut Blocks, dna: &RepositoryDna, options: Conten
     }
     if git.hot_spots.is_empty() {
         blocks.text(format!(
-            "No file had at least {} commits, so no hotspots were ranked.",
-            dna.analysis_metadata.thresholds.hotspot_min_commits
+            "No file had at least {}, so no hotspots were ranked.",
+            counted(
+                u64::from(dna.analysis_metadata.thresholds.hotspot_min_commits),
+                "commit",
+                "commits"
+            )
         ));
         return;
     }

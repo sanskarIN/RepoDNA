@@ -15,6 +15,15 @@ pub fn thousands(value: u64) -> String {
     out
 }
 
+/// A number with thousands separators and the matching noun form: `1 file`, `12,345 files`.
+pub fn counted(value: u64, one: &str, many: &str) -> String {
+    format!(
+        "{} {}",
+        thousands(value),
+        if value == 1 { one } else { many }
+    )
+}
+
 /// Formats a 0–1 ratio as a percentage with one decimal, e.g. `12.5%`.
 pub fn percent(ratio: f64) -> String {
     if !ratio.is_finite() {

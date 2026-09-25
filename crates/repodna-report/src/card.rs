@@ -15,7 +15,7 @@ use repodna_core::model::artifact::RepositoryDna;
 use crate::facts::{Facts, LanguageShare, facts, folded_languages};
 use crate::fonts::{FONT_STACK, fit, text_width};
 use crate::palette::{DARK, LIGHT, Palette};
-use crate::text::{escape_html as esc, thousands};
+use crate::text::{counted, escape_html as esc, thousands};
 
 /// Card width in pixels.
 pub const WIDTH: f64 = 1200.0;
@@ -181,13 +181,16 @@ fn years(days: i64) -> String {
 pub fn render_facts(facts: &Facts, options: CardOptions) -> String {
     let palette = if options.dark { &DARK } else { &LIGHT };
     let mut out = String::new();
+    let unknown_or = |value: Option<u64>, one: &str, many: &str| {
+        value.map_or_else(|| format!("— {many}"), |value| counted(value, one, many))
+    };
     let description = format!(
-        "{}: {} files, {} code lines, {} commits, {} contributors.",
+        "{}: {}, {}, {}, {}.",
         facts.name,
-        thousands(facts.files),
-        thousands(facts.code_lines),
-        value_or_dash(facts.commits, thousands),
-        value_or_dash(facts.contributors, thousands),
+        counted(facts.files, "file", "files"),
+        counted(facts.code_lines, "code line", "code lines"),
+        unknown_or(facts.commits, "commit", "commits"),
+        unknown_or(facts.contributors, "contributor", "contributors"),
     );
     let _ = write!(
         out,
@@ -321,7 +324,7 @@ pub fn render_facts(facts: &Facts, options: CardOptions) -> String {
                 if files == 0 {
                     "Not detected".to_owned()
                 } else {
-                    format!("Detected ({} files)", thousands(files))
+                    format!("Detected ({})", counted(files, "file", "files"))
                 }
             }),
         ),

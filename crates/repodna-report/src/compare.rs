@@ -14,7 +14,7 @@ use crate::doc::{Blocks, Inline, Table, plain};
 use crate::facts::{NAMED_LANGUAGES, facts};
 use crate::html::{self, Page};
 use crate::markdown;
-use crate::text::{number, percent, span, thousands};
+use crate::text::{counted, number, percent, span, thousands};
 
 /// One compared measure.
 #[derive(Debug, Clone, PartialEq)]
@@ -216,11 +216,15 @@ pub fn compare(artifacts: &[RepositoryDna]) -> Comparison {
                 .map(|dna| {
                     if dna.architecture.status.has_results() {
                         format!(
-                            "{} ({} modules, {} dependencies, {} cycles)",
+                            "{} ({}, {}, {})",
                             dna.architecture.style,
-                            dna.architecture.modules.len(),
-                            dna.architecture.module_edges.len(),
-                            dna.architecture.cycles.len()
+                            counted(dna.architecture.modules.len() as u64, "module", "modules"),
+                            counted(
+                                dna.architecture.module_edges.len() as u64,
+                                "dependency",
+                                "dependencies"
+                            ),
+                            counted(dna.architecture.cycles.len() as u64, "cycle", "cycles")
                         )
                     } else {
                         not()

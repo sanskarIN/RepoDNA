@@ -13,7 +13,7 @@ use super::{ContentOptions, confidence, heading, not_analyzed, notes};
 use crate::charts::{Period, bars, columns, heatmap, line, timeline};
 use crate::doc::{Blocks, Inline, Rich, Table, code, plain, truncate};
 use crate::sections::Section;
-use crate::text::{bytes, percent, span, thousands};
+use crate::text::{bytes, counted, percent, span, thousands};
 
 fn git_missing(blocks: &mut Blocks, dna: &RepositoryDna) -> bool {
     let git = &dna.git;
@@ -78,9 +78,9 @@ pub(super) fn history(blocks: &mut Blocks, dna: &RepositoryDna, options: Content
     blocks.rich(vec![
         Inline::Strong(activity.level.label().to_owned()),
         Inline::Text(format!(
-            ". {} In the last 365 days: {} commits.",
+            ". {} In the last 365 days: {}.",
             activity.description,
-            thousands(activity.commits_last_365_days)
+            counted(activity.commits_last_365_days, "commit", "commits")
         )),
     ]);
     let (points, period) = aggregate(&git.timeline);
@@ -398,14 +398,16 @@ pub(super) fn time_machine(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
     if let Some(recent) = &dna.insights.recent_changes {
         blocks.heading(3, "What changed recently", None);
         blocks.text(format!(
-            "In the last {} days of history: {} commit{} by {} contributor{} changed {} files ({} lines added, {} deleted).",
+            "In the last {} days of history: {} by {} changed {} ({} added, {} deleted).",
             recent.window_days,
-            thousands(recent.commits),
-            if recent.commits == 1 { "" } else { "s" },
-            recent.contributors,
-            if recent.contributors == 1 { "" } else { "s" },
-            thousands(recent.files_changed),
-            thousands(recent.insertions),
+            counted(recent.commits, "commit", "commits"),
+            counted(
+                u64::from(recent.contributors),
+                "contributor",
+                "contributors"
+            ),
+            counted(recent.files_changed, "file", "files"),
+            counted(recent.insertions, "line", "lines"),
             thousands(recent.deletions)
         ));
         blocks.list(
@@ -417,9 +419,9 @@ pub(super) fn time_machine(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
                     vec![
                         Inline::Code(format!("{}/", d.path)),
                         Inline::Text(format!(
-                            ": {} commits, {} lines changed",
-                            d.commits,
-                            thousands(d.churn)
+                            ": {}, {} changed",
+                            counted(d.commits, "commit", "commits"),
+                            counted(d.churn, "line", "lines")
                         )),
                     ]
                 })
@@ -506,7 +508,11 @@ pub(super) fn evolution(blocks: &mut Blocks, dna: &RepositoryDna, options: Conte
             .map(|epoch| Period {
                 start: epoch.start.unix(),
                 end: epoch.end.unix(),
-                label: format!("{} ({} commits)", epoch.label, thousands(epoch.commits)),
+                label: format!(
+                    "{} ({})",
+                    epoch.label,
+                    counted(epoch.commits, "commit", "commits")
+                ),
                 slot: epoch_kind(epoch.kind).1,
             })
             .collect();
