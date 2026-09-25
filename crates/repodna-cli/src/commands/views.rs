@@ -132,16 +132,11 @@ pub fn run_show(ctx: &Ctx, cmd: &ShowCmd) -> Result<(), AppError> {
     let sections = SectionSet::parse(&cmd.section).map_err(|error| {
         AppError::usage(error).with_hint("`repodna show --list` prints the section identifiers.")
     })?;
-    if cmd.format == ViewFormat::Json {
-        return Err(AppError::usage(
-            "`repodna show` prints text or Markdown; use `repodna report --format json` for JSON",
-        ));
-    }
     let loaded = ctx.load(&cmd.target, &cmd.analysis)?;
     let dna = apply_privacy(&loaded.dna, cmd.privacy.into());
     render(
         ctx,
         &report(&dna, sections, ContentOptions::default()),
-        cmd.format,
+        cmd.format.into(),
     )
 }

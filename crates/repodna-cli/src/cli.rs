@@ -345,6 +345,24 @@ pub enum ViewFormat {
     Json,
 }
 
+/// Output format of `repodna show`, which renders report sections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum TextFormat {
+    /// Readable text.
+    Text,
+    /// Markdown.
+    Markdown,
+}
+
+impl From<TextFormat> for ViewFormat {
+    fn from(format: TextFormat) -> Self {
+        match format {
+            TextFormat::Text => Self::Text,
+            TextFormat::Markdown => Self::Markdown,
+        }
+    }
+}
+
 /// Views such as `repodna architecture`.
 #[derive(Debug, Args)]
 pub struct ViewCmd {
@@ -406,9 +424,9 @@ pub struct ShowCmd {
     /// List the section identifiers.
     #[arg(long)]
     pub list: bool,
-    /// Output format (text or markdown).
-    #[arg(long, value_enum, default_value_t = ViewFormat::Text)]
-    pub format: ViewFormat,
+    /// Output format (`repodna report --format json` writes JSON).
+    #[arg(long, value_enum, default_value_t = TextFormat::Text)]
+    pub format: TextFormat,
     /// Privacy preset.
     #[arg(long, value_enum, default_value_t = PrivacyArg::Local)]
     pub privacy: PrivacyArg,
