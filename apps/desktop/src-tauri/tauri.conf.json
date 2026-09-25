@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb", "rpm", "app", "dmg", "msi", "nsis"],
     "category": "DeveloperTool",
     "shortDescription": "Repository intelligence and code archaeology",
     "longDescription": "RepoDNA analyzes a repository's structure, architecture, history, dependencies, and health on your machine, and explains every conclusion with the evidence behind it.",

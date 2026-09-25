@@ -1,0 +1,15 @@
+{
+  "name": "@repodna/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The RepoDNA desktop app, built with Tauri.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "bundle": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.5"
+  }
+}

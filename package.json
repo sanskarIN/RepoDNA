@@ -13,7 +13,8 @@
   "workspaces": [
     "packages/schema",
     "packages/visualization",
-    "apps/web"
+    "apps/web",
+    "apps/desktop"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
