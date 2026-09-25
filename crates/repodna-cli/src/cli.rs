@@ -243,6 +243,8 @@ pub enum Command {
     Version(VersionCmd),
     /// Serve the web interface and a local API on this machine (127.0.0.1 only).
     Serve(ServeCmd),
+    /// Print the JSON Schema of the analysis artifact or the configuration file.
+    Schema(SchemaCmd),
     /// Print a shell completion script.
     Completions(CompletionsCmd),
 }
@@ -859,6 +861,23 @@ pub struct ServeCmd {
     /// How analyses started from the browser run.
     #[command(flatten)]
     pub analysis: AnalysisArgs,
+}
+
+/// Which schema to print.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SchemaKind {
+    /// The analysis artifact (`repodna.json`, `.repodna` files).
+    Artifact,
+    /// The configuration file (`repodna.toml` and the user configuration).
+    Config,
+}
+
+/// `repodna schema`.
+#[derive(Debug, Args)]
+pub struct SchemaCmd {
+    /// Which schema.
+    #[arg(value_enum, default_value_t = SchemaKind::Artifact)]
+    pub kind: SchemaKind,
 }
 
 /// `repodna completions`.

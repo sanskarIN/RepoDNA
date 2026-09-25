@@ -429,3 +429,22 @@ fn serves_the_local_api() {
     assert!(response.starts_with("HTTP/1.1 200"), "{response}");
     assert!(response.contains("\"status\": \"ok\""), "{response}");
 }
+
+#[test]
+fn published_schemas_are_current() {
+    let env = Env::new();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schemas");
+    for (kind, file) in [
+        ("artifact", "repodna-artifact.schema.json"),
+        ("config", "repodna-config.schema.json"),
+    ] {
+        let output = env.run(&["schema", kind]);
+        assert_eq!(code(&output), 0);
+        let published = std::fs::read_to_string(root.join(file)).unwrap();
+        assert_eq!(
+            stdout(&output).replace("\r\n", "\n"),
+            published.replace("\r\n", "\n"),
+            "schemas/{file} is out of date: run `repodna schema {kind} > schemas/{file}`"
+        );
+    }
+}

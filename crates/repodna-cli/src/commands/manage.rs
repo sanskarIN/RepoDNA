@@ -13,7 +13,7 @@ use serde_json::json;
 use super::{Ctx, print, to_json};
 use crate::cli::{
     AnalysisArgs, CacheAction, CacheCmd, CleanCmd, Cli, CompletionsCmd, ConfigAction, ConfigCmd,
-    InitCmd, VersionCmd,
+    InitCmd, SchemaCmd, SchemaKind, VersionCmd,
 };
 use crate::term::thousands;
 
@@ -350,6 +350,15 @@ pub fn run_version(cmd: &VersionCmd) -> Result<(), AppError> {
         std::env::consts::OS,
         std::env::consts::ARCH
     ))
+}
+
+/// Runs `repodna schema`.
+pub fn run_schema(cmd: &SchemaCmd) -> Result<(), AppError> {
+    let schema = match cmd.kind {
+        SchemaKind::Artifact => repodna_core::schema::artifact_schema(),
+        SchemaKind::Config => repodna_core::schema::config_schema(),
+    };
+    print(&to_json(&schema)?)
 }
 
 /// Runs `repodna completions`.

@@ -53,6 +53,7 @@ fn dispatch(ctx: &Ctx, command: &Command) -> Result<(), AppError> {
         Command::Doctor(cmd) => doctor::run(ctx, cmd),
         Command::Version(cmd) => manage::run_version(cmd),
         Command::Serve(cmd) => serve::run(ctx, cmd),
+        Command::Schema(cmd) => manage::run_schema(cmd),
         Command::Completions(cmd) => manage::run_completions(cmd),
     }
 }
