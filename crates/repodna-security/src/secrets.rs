@@ -212,6 +212,22 @@ pub static SECRET_RULES: LazyLock<Vec<SecretRule>> = LazyLock::new(|| {
             Format,
         ),
         rule(
+            "env-assignment-secret",
+            "Secret assigned without quotes, as in an environment file",
+            Medium,
+            &[
+                "password",
+                "passwd",
+                "secret",
+                "api_key",
+                "apikey",
+                "token",
+                "private_key",
+            ],
+            r#"(?i)^\s*(?:export\s+|env\s+|-\s+)?[a-z0-9_.]*(?:password|passwd|secret|api_?key|access_?token|auth_?token|private_?key|token)(?:_[a-z0-9]+)*\s*=\s*([^\s"'$#`{<][^\s"'#`]{7,})\s*$"#,
+            Entropy(3.0),
+        ),
+        rule(
             "generic-secret",
             "Hard-coded secret assigned to a secret-like name",
             Low,
@@ -655,6 +671,25 @@ mod tests {
         assert_eq!(
             flags,
             vec![(1, false, Confidence::High), (4, true, Confidence::Medium)]
+        );
+    }
+
+    #[test]
+    fn finds_unquoted_secrets_in_environment_files() {
+        let password = fake(&["Tr0ub4", "dor&3xK9!q"]);
+        let text = format!(
+            "DATABASE_PASSWORD={password}\nexport API_TOKEN={password}\nPASSWORD=${{DB_PASSWORD}}\nAPI_KEY=$FROM_ENV\nSECRET=changeme\nPORT=8080\nTOKENIZER_PATH=/usr/share/model/vocab.json\n"
+        );
+        let found: Vec<(String, u32)> = scan(".env", &text)
+            .into_iter()
+            .map(|c| (c.rule, c.line))
+            .collect();
+        assert_eq!(
+            found,
+            vec![
+                ("env-assignment-secret".to_owned(), 1),
+                ("env-assignment-secret".to_owned(), 2),
+            ]
         );
     }
 
