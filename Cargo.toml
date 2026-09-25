@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = ["crates/*", "xtask"]
 # The desktop shell has its own workspace so that the core CLI can be built and
 # tested without the platform WebView SDKs that Tauri requires.
 exclude = ["apps/desktop/src-tauri"]
