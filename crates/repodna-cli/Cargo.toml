@@ -34,6 +34,10 @@ clap_complete.workspace = true
 ctrlc.workspace = true
 terminal_size.workspace = true
 
+# musl's allocator makes multi-threaded analysis several times slower.
+[target.'cfg(target_env = "musl")'.dependencies]
+mimalloc.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true
 repodna-testkit.workspace = true
