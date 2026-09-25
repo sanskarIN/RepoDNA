@@ -13,7 +13,7 @@ use repodna_core::model::security::{PatternCandidate, PatternCategory};
 use repodna_core::paths;
 use repodna_parser::{LanguageSpec, scan};
 
-use crate::is_sample_path;
+use crate::{is_sample_path, test_lines};
 
 /// Maximum pattern candidates reported per file.
 const MAX_PER_FILE: usize = 50;
@@ -341,6 +341,17 @@ fn is_env_file(path: &str) -> bool {
         .any(|suffix| name.ends_with(suffix))
 }
 
+/// `true` for a line that contains regular expression syntax such as `\s*` or `(?:` at
+/// least twice, which ordinary code that uses a construct does not.
+fn defines_pattern(line: &str) -> bool {
+    const SYNTAX: &[&str] = &[r"\s*", r"\s+", r"\b", "(?:", r"\(", r"\d", r"\w", r"\."];
+    SYNTAX
+        .iter()
+        .filter(|syntax| line.contains(*syntax))
+        .count()
+        >= 2
+}
+
 fn lower(confidence: Confidence) -> Confidence {
     match confidence {
         Confidence::High => Confidence::Medium,
@@ -354,14 +365,14 @@ pub fn scan_patterns(path: &str, text: &str, spec: Option<&LanguageSpec>) -> Vec
     let language = spec.map_or("", |spec| spec.id.as_str());
     let workflow = is_workflow(path);
     let container = is_container_file(path, language);
-    let sample = is_sample_path(path);
-    let code_lines: Vec<String> = match spec {
-        Some(spec) => scan(text, &spec.syntax)
-            .lines
-            .into_iter()
-            .map(|line| line.code)
-            .collect(),
-        None => text.lines().map(str::to_owned).collect(),
+    let sample_path = is_sample_path(path);
+    let (code_lines, tests): (Vec<String>, Vec<bool>) = match spec {
+        Some(spec) => {
+            let lines = scan(text, &spec.syntax).lines;
+            let tests = test_lines(&lines, Some(spec));
+            (lines.into_iter().map(|line| line.code).collect(), tests)
+        }
+        None => (text.lines().map(str::to_owned).collect(), Vec::new()),
     };
     let mut candidates = Vec::new();
     let mut push = |rule: &'static str,
@@ -370,6 +381,12 @@ pub fn scan_patterns(path: &str, text: &str, spec: Option<&LanguageSpec>) -> Vec
                     recommendation: &str,
                     confidence: Confidence,
                     line: Option<u32>| {
+        let in_tests = line
+            .and_then(|line| usize::try_from(line).ok())
+            .and_then(|line| tests.get(line.wrapping_sub(1)))
+            .copied()
+            .unwrap_or(false);
+        let sample = sample_path || in_tests;
         if candidates.len() < MAX_PER_FILE {
             let line_text = line.map_or_else(String::new, |line| line.to_string());
             candidates.push(PatternCandidate {
@@ -408,7 +425,13 @@ pub fn scan_patterns(path: &str, text: &str, spec: Option<&LanguageSpec>) -> Vec
         }
         let number = u32::try_from(index + 1).ok();
         let lowered = line.to_ascii_lowercase();
+        // Rule tables, linters, and tests spell risky constructs out as regular
+        // expressions; such a line describes the construct rather than using it.
+        let describes_pattern = defines_pattern(line);
         for rule in &applicable {
+            if describes_pattern {
+                break;
+            }
             if !rule
                 .keywords
                 .iter()
@@ -574,5 +597,19 @@ mod tests {
             LanguageRegistry::builtin().get("python"),
         );
         assert_eq!(sample[0].confidence, Confidence::Low);
+    }
+
+    #[test]
+    fn skips_regex_definitions_and_lowers_rust_test_code() {
+        let text = "const RULE: &str = r\"verify\\s*=\\s*False\\b|\\bCERT_NONE\\b\";\nfn run() { client.danger_accept_invalid_certs(true); }\n#[cfg(test)]\nmod tests {\n    fn t() { client.danger_accept_invalid_certs(true); }\n}\n";
+        let spec = LanguageRegistry::builtin().detect_path("src/client.rs");
+        let found: Vec<(Option<u32>, Confidence)> = scan_patterns("src/client.rs", text, spec)
+            .into_iter()
+            .map(|candidate| (candidate.line, candidate.confidence))
+            .collect();
+        assert_eq!(
+            found,
+            vec![(Some(2), Confidence::Medium), (Some(5), Confidence::Low)]
+        );
     }
 }

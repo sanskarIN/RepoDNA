@@ -8,7 +8,9 @@ use repodna_core::confidence::Confidence;
 use repodna_core::hash::{hmac_sha256, sha256, stable_id, to_hex};
 use repodna_core::model::security::SecretCandidate;
 
-use crate::is_sample_path;
+use repodna_parser::LanguageSpec;
+
+use crate::{is_sample_path, test_lines_of};
 
 /// Lines longer than this are scanned only up to this many bytes (minified files).
 const MAX_LINE_BYTES: usize = 8_192;
@@ -274,7 +276,25 @@ fn is_placeholder(value: &str) -> bool {
     ];
     FRAGMENTS.iter().any(|fragment| lower.contains(fragment))
         || value.bytes().all(|b| b == value.as_bytes()[0])
+        || has_sequence(value, 8)
         || is_environment_variable_name(value)
+}
+
+/// `true` when `value` contains `length` consecutive characters counting up, as in
+/// `ABCDEFGH` or `12345678`: made-up keys, not generated ones.
+fn has_sequence(value: &str, length: usize) -> bool {
+    let mut run = 1;
+    for pair in value.as_bytes().windows(2) {
+        if pair[0].is_ascii_alphanumeric() && pair[1] == pair[0].wrapping_add(1) {
+            run += 1;
+            if run >= length {
+                return true;
+            }
+        } else {
+            run = 1;
+        }
+    }
+    false
 }
 
 /// `ANTHROPIC_API_KEY`-style names: settings such as `api_key_env = "MY_KEY"` name the
@@ -333,8 +353,14 @@ impl SecretScanner {
     }
 
     /// Scans the text of one file and fingerprints the matches with this scanner's key.
-    pub fn scan(&self, path: &str, text: &str) -> Vec<SecretCandidate> {
-        find_secrets(path, text)
+    /// `spec` is the file's detected language, if any.
+    pub fn scan(
+        &self,
+        path: &str,
+        text: &str,
+        spec: Option<&LanguageSpec>,
+    ) -> Vec<SecretCandidate> {
+        find_secrets(path, text, spec)
             .into_iter()
             .map(|pending| pending.finalize(&self.key))
             .collect()
@@ -373,9 +399,10 @@ fn value_digest(rule: &str, value: &str) -> [u8; 32] {
 }
 
 /// Finds secret candidates in the text of one file; fingerprints are completed later with
-/// [`PendingSecret::finalize`].
-pub fn find_secrets(path: &str, text: &str) -> Vec<PendingSecret> {
-    let sample = is_sample_path(path);
+/// [`PendingSecret::finalize`]. `spec` is the file's detected language, if any.
+pub fn find_secrets(path: &str, text: &str, spec: Option<&LanguageSpec>) -> Vec<PendingSecret> {
+    let sample_path = is_sample_path(path);
+    let tests = test_lines_of(text, spec);
     let lines: Vec<&str> = text.lines().collect();
     let mut found: Vec<PendingSecret> = Vec::new();
     for (index, full_line) in lines.iter().enumerate() {
@@ -415,6 +442,7 @@ pub fn find_secrets(path: &str, text: &str) -> Vec<PendingSecret> {
                     continue;
                 }
                 let line_number = u32::try_from(index + 1).unwrap_or(u32::MAX);
+                let sample = sample_path || tests.get(index).copied().unwrap_or(false);
                 found.push(PendingSecret {
                     candidate: SecretCandidate {
                         id: stable_id(&[rule.id, path, &line_number.to_string()]),
@@ -479,7 +507,7 @@ mod tests {
     }
 
     fn scan(path: &str, text: &str) -> Vec<SecretCandidate> {
-        SecretScanner::new([7; 32]).scan(path, text)
+        SecretScanner::new([7; 32]).scan(path, text, None)
     }
 
     #[test]
@@ -515,22 +543,22 @@ mod tests {
 
     #[test]
     fn fingerprints_match_for_equal_values_only() {
-        let value = fake(&["xo", "xb-", "1234567890-abcdefghij"]);
-        let other = fake(&["xo", "xb-", "0987654321-jihgfedcba"]);
+        let value = fake(&["xo", "xb-", "7302948561-kq8w3n5z1x"]);
+        let other = fake(&["xo", "xb-", "5829301746-zm4p7r2t9w"]);
         let text = format!("a={value}\nb={value}\nc={other}\n");
         let found = scan("src/notify.py", &text);
         assert_eq!(found.len(), 3);
         assert_eq!(found[0].fingerprint, found[1].fingerprint);
         assert_ne!(found[0].fingerprint, found[2].fingerprint);
-        let rekeyed = SecretScanner::new([8; 32]).scan("src/notify.py", &text);
+        let rekeyed = SecretScanner::new([8; 32]).scan("src/notify.py", &text, None);
         assert_ne!(found[0].fingerprint, rekeyed[0].fingerprint);
     }
 
     #[test]
     fn deferred_fingerprints_match_immediate_ones() {
-        let value = fake(&["xo", "xb-", "1234567890-abcdefghij"]);
+        let value = fake(&["xo", "xb-", "7302948561-kq8w3n5z1x"]);
         let text = format!("a={value}\n");
-        let pending = find_secrets("src/a.py", &text);
+        let pending = find_secrets("src/a.py", &text, None);
         assert!(pending[0].candidate().fingerprint.is_empty());
         let finalized = pending[0].clone().finalize(&[7; 32]);
         assert_eq!(finalized, scan("src/a.py", &text)[0]);
@@ -559,6 +587,7 @@ mod tests {
             "password = os.environ[\"PASSWORD\"]",
             "url = \"postgres://user:<password>@db/app\"",
             &fake(&["AK", "IA", "IOSFODNN7EXAMPLE"]),
+            &fake(&["AK", "IA", "ABCDEFGHIJKLMNOP"]),
         ]
         .join("\n");
         assert!(scan("src/settings.py", &text).is_empty());
@@ -608,5 +637,32 @@ mod tests {
         assert!(!is_environment_variable_name("sk_live_Abc"));
         let found = scan("config.toml", "api_key_env = \"ANTHROPIC_API_KEY\"\n");
         assert!(found.is_empty(), "{found:?}");
+    }
+
+    #[test]
+    fn rust_test_modules_count_as_test_code() {
+        let registry = repodna_parser::LanguageRegistry::builtin();
+        let rust = registry.get("rust");
+        let key = fake(&["AK", "IA", "Z7Q2X9W4R5T1Y8U3"]);
+        let text = format!(
+            "const ID: &str = \"{key}\";\n#[cfg(test)]\nmod tests {{\n    const ID: &str = \"{key}\";\n}}\n"
+        );
+        let found = SecretScanner::new([7; 32]).scan("src/aws.rs", &text, rust);
+        let flags: Vec<(u32, bool, Confidence)> = found
+            .iter()
+            .map(|c| (c.line, c.in_test_or_example, c.confidence))
+            .collect();
+        assert_eq!(
+            flags,
+            vec![(1, false, Confidence::High), (4, true, Confidence::Medium)]
+        );
+    }
+
+    #[test]
+    fn counting_sequences_are_placeholders() {
+        assert!(has_sequence("ABCDEFGHIJKLMNOP", 8));
+        assert!(has_sequence("key-12345678", 8));
+        assert!(!has_sequence("Z7Q2X9W4R5T1Y8U3", 8));
+        assert!(!has_sequence("abcdefg", 8));
     }
 }

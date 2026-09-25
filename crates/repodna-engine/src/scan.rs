@@ -316,7 +316,7 @@ fn process(discovered: &DiscoveredFile, context: &PassContext<'_>) -> Processed 
                         && classification.category != FileCategory::Lockfile
                     {
                         processed.security_scanned = true;
-                        processed.secrets = find_secrets(&discovered.path, text);
+                        processed.secrets = find_secrets(&discovered.path, text, spec);
                         if !classification.vendored {
                             processed.patterns = scan_patterns(&discovered.path, text, spec);
                         }

@@ -19,6 +19,24 @@ pub use report::{DISCLAIMER, build_report, permission_signals, rule_catalog, sec
 pub use secrets::{PendingSecret, SECRET_RULES, SecretRule, SecretScanner, find_secrets};
 
 use repodna_core::paths;
+use repodna_parser::{LanguageSpec, ScannedLine, rust_test_lines, scan};
+
+/// Which scanned lines are test code: the inside of Rust `#[cfg(test)]` items. Other
+/// languages keep tests in separate files, which [`is_sample_path`] recognizes.
+fn test_lines(lines: &[ScannedLine], spec: Option<&LanguageSpec>) -> Vec<bool> {
+    match spec {
+        Some(spec) if spec.id == "rust" => rust_test_lines(lines),
+        _ => Vec::new(),
+    }
+}
+
+/// [`test_lines`] for text that has not been scanned yet.
+fn test_lines_of(text: &str, spec: Option<&LanguageSpec>) -> Vec<bool> {
+    match spec {
+        Some(spec) if spec.id == "rust" => rust_test_lines(&scan(text, &spec.syntax).lines),
+        _ => Vec::new(),
+    }
+}
 
 /// Directory and file-name fragments that mark tests, fixtures, examples, and documentation,
 /// where sample credentials are common.

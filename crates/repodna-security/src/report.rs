@@ -185,7 +185,7 @@ pub fn security_findings(report: &SecurityReport) -> Vec<Finding> {
             ));
         }
         if candidate.in_test_or_example {
-            summary.push_str(" The path looks like a test, fixture, example, or document.");
+            summary.push_str(" It is in test code, a fixture, an example, or documentation.");
         }
         findings.push(
             Finding::new(
@@ -296,9 +296,9 @@ mod tests {
         ]
         .concat();
         let token = ["gh", "p_", &"Zq7Xw2Ve9Rt4".repeat(3)].concat();
-        let mut secrets = scanner.scan("deploy/id_rsa", &key);
-        secrets.extend(scanner.scan("src/client.py", &format!("TOKEN = \"{token}\"\n")));
-        secrets.extend(scanner.scan("tests/test_client.py", &format!("T = \"{token}\"\n")));
+        let mut secrets = scanner.scan("deploy/id_rsa", &key, None);
+        secrets.extend(scanner.scan("src/client.py", &format!("TOKEN = \"{token}\"\n"), None));
+        secrets.extend(scanner.scan("tests/test_client.py", &format!("T = \"{token}\"\n"), None));
         let patterns = scan_patterns(
             "src/net.py",
             "requests.get(u, verify=False)\n",
