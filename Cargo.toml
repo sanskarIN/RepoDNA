@@ -32,6 +32,7 @@ repodna-report = { path = "crates/repodna-report", version = "1.0.0" }
 repodna-ai = { path = "crates/repodna-ai", version = "1.0.0" }
 repodna-plugin = { path = "crates/repodna-plugin", version = "1.0.0" }
 repodna-app = { path = "crates/repodna-app", version = "1.0.0" }
+repodna-server = { path = "crates/repodna-server", version = "1.0.0" }
 repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration
@@ -72,6 +73,10 @@ clap = { version = "4.6.7", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.6.11"
 ctrlc = "3.5.2"
 terminal_size = "0.4.4"
+
+# Local server (loopback only)
+tiny_http = "0.12.0"
+getrandom = "0.4.3"
 toml_edit = "0.25.15"
 
 # HTTP client for optional AI providers (rustls with bundled web PKI roots)
