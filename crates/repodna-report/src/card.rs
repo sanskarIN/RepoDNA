@@ -15,7 +15,7 @@ use repodna_core::model::artifact::RepositoryDna;
 use crate::facts::{Facts, LanguageShare, facts, folded_languages};
 use crate::fonts::{FONT_STACK, fit, text_width};
 use crate::palette::{DARK, LIGHT, Palette};
-use crate::text::{counted, escape_html as esc, thousands};
+use crate::text::{counted, escape_html as esc, thousands, whole_percent};
 
 /// Card width in pixels.
 pub const WIDTH: f64 = 1200.0;
@@ -271,7 +271,7 @@ pub fn render_facts(facts: &Facts, options: CardOptions) -> String {
             c(x + 7.0),
             c(y - 6.0)
         );
-        let label = format!("{} {:.0}%", language.name, language.share * 100.0);
+        let label = format!("{} {}", language.name, whole_percent(language.share));
         text(
             &mut out,
             x + 22.0,

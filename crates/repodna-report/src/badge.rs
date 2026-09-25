@@ -7,7 +7,7 @@ use repodna_core::model::artifact::RepositoryDna;
 
 use crate::facts::facts;
 use crate::fonts::text_width;
-use crate::text::escape_html as esc;
+use crate::text::{escape_html as esc, whole_percent};
 
 /// Badge label background.
 const LABEL_COLOR: &str = "#3d3d3a";
@@ -97,7 +97,7 @@ pub fn badge(dna: &RepositoryDna, kind: BadgeKind) -> Badge {
                     .languages
                     .iter()
                     .take(2)
-                    .map(|l| format!("{} {:.0}%", l.name, l.share * 100.0))
+                    .map(|l| format!("{} {}", l.name, whole_percent(l.share)))
                     .collect();
                 (top.join(" · "), INFO_COLOR)
             }

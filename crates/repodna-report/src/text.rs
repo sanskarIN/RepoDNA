@@ -24,6 +24,17 @@ pub fn counted(value: u64, one: &str, many: &str) -> String {
     )
 }
 
+/// Formats a 0–1 ratio as a whole percentage, e.g. `86%`; a share that would round to zero
+/// but is not zero is `<1%`.
+pub fn whole_percent(ratio: f64) -> String {
+    let value = (ratio * 100.0).round();
+    if value == 0.0 && ratio > 0.0 {
+        "<1%".to_owned()
+    } else {
+        format!("{value:.0}%")
+    }
+}
+
 /// Formats a 0–1 ratio as a percentage with one decimal, e.g. `12.5%`.
 pub fn percent(ratio: f64) -> String {
     if !ratio.is_finite() {
@@ -191,5 +202,13 @@ mod tests {
         assert_eq!(csv_field("a,b"), "\"a,b\"");
         assert_eq!(csv_field("say \"hi\""), "\"say \"\"hi\"\"\"");
         assert_eq!(csv_field("=SUM(A1)"), "'=SUM(A1)");
+    }
+
+    #[test]
+    fn whole_percentages_show_small_shares() {
+        assert_eq!(whole_percent(0.86), "86%");
+        assert_eq!(whole_percent(0.004), "<1%");
+        assert_eq!(whole_percent(0.0), "0%");
+        assert_eq!(whole_percent(0.005), "1%");
     }
 }
