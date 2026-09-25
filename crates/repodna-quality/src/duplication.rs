@@ -27,6 +27,10 @@ pub const MAX_OCCURRENCES: usize = 50;
 /// occurrence only (linear instead of quadratic work for boilerplate repeated everywhere).
 const MAX_PAIRWISE: usize = 64;
 
+/// Matches built from fewer distinct tokens than this are data, such as lists of string
+/// literals or rows of a table, not duplicated logic.
+const MIN_DISTINCT_TOKENS: usize = 12;
+
 /// Base of the polynomial rolling hash (odd, so multiplication is invertible mod 2^64).
 const BASE: u64 = 0x0000_0100_0000_01b3;
 
@@ -35,7 +39,8 @@ pub const DUPLICATION_METHOD: &str = "Token streams with comments, whitespace, i
 and literal values normalized away are compared with winnowed rolling-hash fingerprints; every \
 candidate is verified token by token and extended to its maximal length. Fragments repeated in \
 more than 64 places are compared with their first occurrence. Identifiers must match, so renamed \
-copies are not reported. Test files are excluded, because repeated setup code in \
+copies are not reported. Sequences made of fewer than 12 distinct tokens, such as lists of \
+literals, are treated as data. Test files are excluded, because repeated setup code in \
 tests is usually intentional.";
 
 /// A verified duplicate: a token range in one stream that equals a range in another.
@@ -123,6 +128,20 @@ fn extend(streams: &[&TokenStream], a: (u32, u32), b: (u32, u32), k: usize) -> O
     })
 }
 
+/// `true` when the `len` tokens from `start` use too few distinct tokens to be logic.
+fn is_data(hashes: &[u32], start: u32, len: u32) -> bool {
+    let start = start as usize;
+    let range = &hashes[start..(start + len as usize).min(hashes.len())];
+    let mut distinct: HashSet<u32> = HashSet::with_capacity(MIN_DISTINCT_TOKENS);
+    for hash in range {
+        distinct.insert(*hash);
+        if distinct.len() >= MIN_DISTINCT_TOKENS {
+            return false;
+        }
+    }
+    true
+}
+
 fn sequence_key(hashes: &[u32]) -> u64 {
     hashes
         .iter()
@@ -204,6 +223,7 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
         }
         if let Some(found) = extend(&streams, a, b, k)
             && found.len >= min_tokens
+            && !is_data(&streams[found.a as usize].hashes, found.a_start, found.len)
         {
             matches.insert(found);
         }
@@ -427,6 +447,17 @@ mod tests {
         assert!(report.clusters.is_empty());
         assert_eq!(report.duplicated_lines, 0);
         assert_eq!(report.status, SectionStatus::Partial);
+    }
+
+    #[test]
+    fn lists_of_literals_are_data_not_duplication() {
+        let names: Vec<String> = (0..120).map(|i| format!("    \"module_{i}\",")).collect();
+        let text = format!("NAMES = [\n{}\n]\n", names.join("\n"));
+        let analyzed = [analyze("src/names.py", &text, false)];
+        let report = detect_duplication(&files(&analyzed), 40);
+        assert!(report.clusters.is_empty(), "{:?}", report.clusters);
+        assert!(is_data(&[1, 2, 1, 2, 1, 2], 0, 6));
+        assert!(!is_data(&(0..20).collect::<Vec<u32>>(), 0, 20));
     }
 
     #[test]
