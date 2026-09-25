@@ -21,10 +21,11 @@ use repodna_core::hash::StableHasher;
 use repodna_core::model::languages::{LanguageKind, ParserCapability};
 use repodna_core::model::security::PatternCandidate;
 use repodna_core::model::structure::{FileCategory, FileRecord, LineCounts, SkipReason};
+use repodna_core::paths;
 use repodna_dependencies::is_dependency_file;
 use repodna_discovery::{
-    ClassificationOverrides, DiscoveredFile, DiscoveryOptions, ReadOutcome, classify, discover,
-    read_file,
+    ClassificationOverrides, DiscoveredFile, DiscoveryOptions, LinguistAttributes, ReadOutcome,
+    classify, discover, looks_generated, read_file,
 };
 use repodna_parser::{
     ANALYZER_VERSION, FileAnalysis, LanguageRegistry, LanguageSpec, analyze_and_tokenize,
@@ -130,6 +131,8 @@ pub struct ScanResult {
     pub cache_hits: u64,
     /// Analyses computed and offered to the cache.
     pub cache_misses: u64,
+    /// `.gitattributes` files whose linguist attributes were applied.
+    pub attribute_files: Vec<String>,
 }
 
 /// What the file pass needs to know.
@@ -157,18 +160,54 @@ struct PassContext<'a> {
 
 /// Builds classification overrides from configuration patterns.
 pub fn classification_overrides(config: &Config) -> Result<ClassificationOverrides, EngineError> {
-    let set = |patterns: &[String]| {
-        GlobSet::new(patterns)
+    classification_overrides_with(config, &LinguistAttributes::default())
+}
+
+/// Builds classification overrides from configuration patterns and the repository's
+/// linguist attributes. Configuration comes last, so it wins where both apply.
+pub fn classification_overrides_with(
+    config: &Config,
+    attributes: &LinguistAttributes,
+) -> Result<ClassificationOverrides, EngineError> {
+    let set = |from_attributes: &[String], from_config: &[String]| {
+        let patterns: Vec<&String> = from_attributes.iter().chain(from_config).collect();
+        GlobSet::new(&patterns)
             .map_err(|error| EngineError::Config(format!("classification pattern: {error}")))
     };
     let c = &config.classification;
     Ok(ClassificationOverrides {
-        generated: set(&c.generated)?,
-        vendor: set(&c.vendor)?,
-        tests: set(&c.tests)?,
-        docs: set(&c.docs)?,
-        source: set(&c.source)?,
+        generated: set(&attributes.generated, &c.generated)?,
+        vendor: set(&attributes.vendored, &c.vendor)?,
+        tests: set(&[], &c.tests)?,
+        docs: set(&attributes.documentation, &c.docs)?,
+        source: set(&attributes.first_party, &c.source)?,
     })
+}
+
+/// Largest `.gitattributes` file read; real ones are a few kilobytes.
+const MAX_ATTRIBUTES_BYTES: u64 = 256 * 1024;
+
+/// Reads the linguist attributes of every discovered `.gitattributes` file.
+fn linguist_attributes(files: &[DiscoveredFile]) -> (LinguistAttributes, Vec<String>) {
+    let mut attributes = LinguistAttributes::default();
+    let mut used = Vec::new();
+    for file in files {
+        if paths::file_name(&file.path) != ".gitattributes" {
+            continue;
+        }
+        let ReadOutcome::Content(content) = read_file(&file.absolute, MAX_ATTRIBUTES_BYTES) else {
+            continue;
+        };
+        let Some(text) = content.text.as_deref() else {
+            continue;
+        };
+        let before = attributes.clone();
+        attributes.add_file(paths::parent(&file.path), text);
+        if attributes != before {
+            used.push(file.path.clone());
+        }
+    }
+    (attributes, used)
 }
 
 /// Counts lines of a file without a known language: blank lines and everything else.
@@ -261,6 +300,22 @@ fn process(discovered: &DiscoveredFile, context: &PassContext<'_>) -> Processed 
                         classification = classify(&discovered.path, language_kind, overrides);
                         record.category = classification.category;
                     }
+                    if !classification.generated
+                        && matches!(
+                            classification.category,
+                            FileCategory::Source
+                                | FileCategory::Test
+                                | FileCategory::Configuration
+                                | FileCategory::Data
+                                | FileCategory::Other
+                        )
+                        && !overrides.source.matches(&discovered.path)
+                        && looks_generated(text, language.as_deref())
+                    {
+                        classification.generated = true;
+                        classification.category = FileCategory::Generated;
+                        record.category = FileCategory::Generated;
+                    }
                     let spec = language.as_deref().and_then(|id| registry.get(id));
                     let lexical =
                         spec.is_some_and(|spec| spec.capability() == ParserCapability::Lexical);
@@ -343,14 +398,14 @@ pub fn scan_files(
     cancel: &CancellationToken,
 ) -> Result<ScanResult, EngineError> {
     let config = options.config;
-    let overrides = classification_overrides(config)?;
+    let mut overrides = classification_overrides(config)?;
     let mut ignore_patterns: Vec<String> = Vec::new();
     if config.ignore.use_default_patterns {
         ignore_patterns.extend(DEFAULT_IGNORE_PATTERNS.iter().map(|p| (*p).to_owned()));
     }
     ignore_patterns.extend(config.ignore.patterns.iter().cloned());
     let threads = config.performance.parallelism.threads();
-    let discovery = discover(
+    let mut discovery = discover(
         root,
         &DiscoveryOptions {
             respect_gitignore: config.analysis.respect_gitignore,
@@ -367,6 +422,15 @@ pub fn scan_files(
         other => EngineError::Discovery(other),
     })?;
 
+    // Linguist attributes can only be read once the `.gitattributes` files are found.
+    let (attributes, attribute_files) = linguist_attributes(&discovery.files);
+    if !attributes.is_empty() {
+        overrides = classification_overrides_with(config, &attributes)?;
+        for file in &mut discovery.files {
+            file.classification = classify(&file.path, file.language_kind, &overrides);
+        }
+    }
+
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
         .build()
@@ -376,6 +440,7 @@ pub fn scan_files(
         truncated: discovery.truncated,
         errors: discovery.errors,
         ignore_patterns: discovery.ignore_patterns,
+        attribute_files,
         ..ScanResult::default()
     };
     let total = discovery.files.len();
@@ -480,6 +545,55 @@ mod tests {
 
     fn all_stages() -> StageSet {
         StageSet::of(&Stage::ALL)
+    }
+
+    #[test]
+    fn honors_linguist_attributes_and_generated_headers() {
+        let result = scan(
+            &[
+                (
+                    ".gitattributes",
+                    "schemas/*.json linguist-generated\nthird_party/** linguist-vendored\nsrc/api.pb.ts -linguist-generated\n",
+                ),
+                ("schemas/model.json", "{\"type\": \"object\"}\n"),
+                ("third_party/lib.js", "export const a = 1;\n"),
+                (
+                    "src/types.ts",
+                    "// Code generated by schemagen. DO NOT EDIT.\nexport type A = string;\n",
+                ),
+                (
+                    "src/api.pb.ts",
+                    "// Code generated by protoc. DO NOT EDIT.\nexport const b = 2;\n",
+                ),
+                ("src/main.ts", "export const c = 3;\n"),
+                (
+                    "Cargo.lock",
+                    "# This file is automatically @generated by Cargo.\nversion = 4\n",
+                ),
+            ],
+            all_stages(),
+        );
+        let find = |path: &str| {
+            let file = result.files.iter().find(|f| f.record.path == path).unwrap();
+            (
+                file.record.category,
+                file.record.generated,
+                file.record.vendored,
+            )
+        };
+        assert_eq!(
+            find("schemas/model.json"),
+            (FileCategory::Generated, true, false)
+        );
+        assert_eq!(
+            find("third_party/lib.js"),
+            (FileCategory::Vendor, false, true)
+        );
+        assert_eq!(find("src/types.ts"), (FileCategory::Generated, true, false));
+        assert_eq!(find("src/api.pb.ts"), (FileCategory::Source, false, false));
+        assert_eq!(find("src/main.ts"), (FileCategory::Source, false, false));
+        assert_eq!(find("Cargo.lock"), (FileCategory::Lockfile, false, false));
+        assert_eq!(result.attribute_files, vec![".gitattributes"]);
     }
 
     #[test]

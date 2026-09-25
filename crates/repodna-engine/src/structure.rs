@@ -64,6 +64,12 @@ pub fn structure_report(scan: &ScanResult, max_symbols: usize) -> StructureRepor
             .push("Discovery stopped at its file limit; the file list is incomplete.".to_owned());
     }
     report.notes.extend(scan.errors.iter().take(20).cloned());
+    if !scan.attribute_files.is_empty() {
+        report.notes.push(format!(
+            "Generated, vendored, and documentation files marked with linguist attributes in {} are classified accordingly.",
+            scan.attribute_files.join(", ")
+        ));
+    }
 
     let mut categories: BTreeMap<u8, CategoryCount> = BTreeMap::new();
     let mut directories: BTreeMap<String, DirectoryAccumulator> = BTreeMap::new();
