@@ -661,7 +661,7 @@ pub struct ExportCmd {
     /// The repository or analysis to use (see the help text).
     #[arg(default_value = ".", help = TARGET_HELP)]
     pub target: String,
-    /// Output file (default: repodna-<name>-<date>.repodna).
+    /// Output file (default: `repodna-<name>-<date>.repodna`).
     #[arg(short, long, value_name = "FILE")]
     pub output: Option<PathBuf>,
     /// Privacy preset.
