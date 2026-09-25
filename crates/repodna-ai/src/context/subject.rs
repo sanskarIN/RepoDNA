@@ -7,8 +7,9 @@ use std::path::Path;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::paths;
 use repodna_core::redact::redact_secrets;
+use repodna_core::text::count;
 
-use super::general::{edges, findings, hotspots, is_within, module_path, modules, plural};
+use super::general::{edges, findings, hotspots, is_within, module_path, modules};
 use super::{Candidates, EXCERPT_BYTES, EXCERPT_FILES, EXCERPT_LINES, EvidenceKind};
 use crate::error::AiError;
 
@@ -58,9 +59,9 @@ pub(super) fn file_history(dna: &RepositoryDna, c: &mut Candidates, dir: &str, l
             &record.path,
             format!(
                 "{} ({} recent) by {}; +{} −{}; first seen {}, last changed {}.",
-                plural(u64::from(record.commits), "commit"),
+                count(u64::from(record.commits), "commit", "commits"),
                 record.recent_commits,
-                plural(u64::from(record.authors), "author"),
+                count(u64::from(record.authors), "author", "authors"),
                 record.insertions,
                 record.deletions,
                 record.first_seen.date_string(),
@@ -179,7 +180,7 @@ pub(super) fn module_task(
         },
         format!(
             "Contains {} in this analysis.",
-            plural(files as u64, "file")
+            count(files as u64, "file", "files")
         ),
     );
     hotspots(dna, c, 5, within);

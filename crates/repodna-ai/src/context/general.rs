@@ -5,6 +5,7 @@ use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::dependencies::DependencyScope;
 use repodna_core::model::insights::ChangeKind;
 use repodna_core::paths;
+use repodna_core::text::count;
 
 use super::{Candidates, EvidenceKind};
 
@@ -28,14 +29,6 @@ fn change_label(change: ChangeKind) -> &'static str {
 
 pub(super) fn percent(share: f64) -> String {
     format!("{:.0}%", share * 100.0)
-}
-
-pub(super) fn plural(count: u64, word: &str) -> String {
-    if count == 1 {
-        format!("1 {word}")
-    } else {
-        format!("{count} {word}s")
-    }
 }
 
 pub(super) fn is_within(path: &str, dir: &str) -> bool {
@@ -76,7 +69,7 @@ pub(super) fn overview(dna: &RepositoryDna, c: &mut Candidates) {
             "size",
             format!(
                 "{} and {} lines of code; size class {}.",
-                plural(s.total_files, "file"),
+                count(s.total_files, "file", "files"),
                 s.code_lines,
                 s.size_class.label()
             ),
@@ -118,8 +111,12 @@ pub(super) fn overview(dna: &RepositoryDna, c: &mut Candidates) {
             "history",
             format!(
                 "{}{span} by {}. {}",
-                plural(g.commit_count, "commit"),
-                plural(u64::from(g.ownership.contributors), "contributor"),
+                count(g.commit_count, "commit", "commits"),
+                count(
+                    u64::from(g.ownership.contributors),
+                    "contributor",
+                    "contributors"
+                ),
                 g.activity.description
             ),
         );
@@ -197,7 +194,7 @@ pub(super) fn modules(
         let mut detail = format!(
             "Module {}: {}, {} lines of code; used by {} other modules, uses {}.",
             module.name,
-            plural(module.files, "file"),
+            count(module.files, "file", "files"),
             module.code_lines,
             module.fan_in,
             module.fan_out
@@ -264,7 +261,7 @@ pub(super) fn edges(
             format!("{from} → {to}"),
             format!(
                 "{from} depends on {to} through {} ({} confidence).",
-                plural(u64::from(edge.weight), "import"),
+                count(u64::from(edge.weight), "import", "imports"),
                 edge.confidence.label()
             ),
         );
@@ -278,7 +275,7 @@ pub(super) fn cycles(dna: &RepositoryDna, c: &mut Candidates, limit: usize) {
             cycle.path.join(" → "),
             format!(
                 "Dependency cycle between {} ({} confidence).",
-                plural(cycle.members.len() as u64, "member"),
+                count(cycle.members.len() as u64, "member", "members"),
                 cycle.confidence.label()
             ),
         );
@@ -329,7 +326,7 @@ pub(super) fn architecture_signals(dna: &RepositoryDna, c: &mut Candidates) {
             format!(
                 "{} workspace with {}.",
                 workspace.tool,
-                plural(workspace.members.len() as u64, "member")
+                count(workspace.members.len() as u64, "member", "members")
             ),
         );
     }
@@ -357,14 +354,24 @@ pub(super) fn packages(dna: &RepositoryDna, c: &mut Candidates, limit: usize) {
         let ecosystems: Vec<String> = d
             .ecosystems
             .iter()
-            .map(|e| format!("{} ({} manifests)", e.ecosystem, e.manifests))
+            .map(|e| {
+                format!(
+                    "{} ({})",
+                    e.ecosystem,
+                    count(u64::from(e.manifests), "manifest", "manifests")
+                )
+            })
             .collect();
         c.push(
             EvidenceKind::Metric,
             "dependencies",
             format!(
                 "{} declared directly and {} locked; ecosystems: {}.",
-                plural(d.direct_count, "external dependency"),
+                count(
+                    d.direct_count,
+                    "external dependency",
+                    "external dependencies"
+                ),
                 d.locked_count,
                 ecosystems.join(", ")
             ),
@@ -400,7 +407,7 @@ pub(super) fn packages(dna: &RepositoryDna, c: &mut Candidates, limit: usize) {
         if let Some(importers) = usage(&dependency.name) {
             detail.push_str(&format!(
                 ", imported by {}",
-                plural(u64::from(importers), "file")
+                count(u64::from(importers), "file", "files")
             ));
         }
         detail.push('.');
@@ -438,12 +445,12 @@ pub(super) fn hotspots(
             format!(
                 "Hotspot rank {}: {}, {} recent; {} lines changed in total; {} lines, complexity {}, {}. {}",
                 hotspot.rank,
-                plural(u64::from(hotspot.commits), "commit"),
+                count(u64::from(hotspot.commits), "commit", "commits"),
                 hotspot.recent_commits,
                 hotspot.churn,
                 hotspot.lines,
                 hotspot.complexity,
-                plural(u64::from(hotspot.dependents), "dependent file"),
+                count(u64::from(hotspot.dependents), "dependent file", "dependent files"),
                 hotspot.interpretation
             ),
         );
@@ -508,7 +515,7 @@ pub(super) fn history(dna: &RepositoryDna, c: &mut Candidates) {
                 "Version {} released on {}, {} after the previous release.",
                 release.version,
                 release.date.date_string(),
-                plural(release.commits_since_previous, "commit")
+                count(release.commits_since_previous, "commit", "commits")
             ),
         );
     }
@@ -544,7 +551,7 @@ pub(super) fn history(dna: &RepositoryDna, c: &mut Candidates) {
             &directory.path,
             format!(
                 "{} and {} lines changed; last changed {}; {} of its churn is recent.",
-                plural(directory.commits, "commit"),
+                count(directory.commits, "commit", "commits"),
                 directory.churn,
                 directory.last_changed.date_string(),
                 percent(directory.recent_churn_share)
@@ -568,8 +575,8 @@ pub(super) fn evolution(dna: &RepositoryDna, c: &mut Candidates) {
                 "From {} to {}: {} by {}.{focus}",
                 epoch.start.date_string(),
                 epoch.end.date_string(),
-                plural(epoch.commits, "commit"),
-                plural(u64::from(epoch.contributors), "contributor")
+                count(epoch.commits, "commit", "commits"),
+                count(u64::from(epoch.contributors), "contributor", "contributors")
             ),
         );
     }
@@ -626,15 +633,15 @@ pub(super) fn recent_changes(dna: &RepositoryDna, c: &mut Candidates) {
         .directories
         .iter()
         .take(5)
-        .map(|d| format!("{} ({} commits)", d.path, d.commits))
+        .map(|d| format!("{} ({})", d.path, count(d.commits, "commit", "commits")))
         .collect();
     c.push(
         EvidenceKind::Fact,
         format!("last {} days", recent.window_days),
         format!(
             "{} by {}; {} files changed (+{} −{}); most active areas: {}. {} added and {} removed files; {} test files and {} documentation files changed.",
-            plural(recent.commits, "commit"),
-            plural(u64::from(recent.contributors), "contributor"),
+            count(recent.commits, "commit", "commits"),
+            count(u64::from(recent.contributors), "contributor", "contributors"),
             recent.files_changed,
             recent.insertions,
             recent.deletions,
@@ -711,8 +718,8 @@ pub(super) fn tests_and_docs(dna: &RepositoryDna, c: &mut Candidates) {
         "tests",
         format!(
             "{} and {} with inline tests; {} of code lines are test code; frameworks: {}.",
-            plural(t.test_files, "test file"),
-            plural(t.inline_test_files, "source file"),
+            count(t.test_files, "test file", "test files"),
+            count(t.inline_test_files, "source file", "source files"),
             percent(t.test_ratio),
             if frameworks.is_empty() {
                 "none detected".to_owned()
