@@ -19,6 +19,7 @@ use repodna_core::model::project::{CommandPurpose, DocCheckStatus};
 use repodna_core::model::structure::FileCategory;
 use repodna_core::paths;
 use repodna_core::severity::Severity;
+use repodna_core::text::{continue_sentence, count, join_alternatives};
 
 /// Important files listed.
 const MAX_IMPORTANT: usize = 15;
@@ -134,7 +135,7 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
         let items: Vec<String> = entrypoints
             .iter()
             .take(5)
-            .map(|e| format!("{} ({})", e.path, e.reason.to_lowercase()))
+            .map(|e| format!("{} ({})", e.path, continue_sentence(&e.reason)))
             .collect();
         (
             format!("Execution or use starts at {}.", list(&items)),
@@ -227,11 +228,11 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     // How is it tested?
     let tests = &dna.tests;
     let frameworks: Vec<String> = tests.frameworks.iter().map(|f| f.name.clone()).collect();
-    let mut text = format!("{} test files", tests.test_files);
+    let mut text = count(tests.test_files, "test file", "test files");
     if tests.inline_test_files > 0 {
         text.push_str(&format!(
-            " and {} source files with inline tests",
-            tests.inline_test_files
+            " and {} with inline tests",
+            count(tests.inline_test_files, "source file", "source files")
         ));
     }
     if !frameworks.is_empty() {
@@ -240,7 +241,10 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     text.push('.');
     let test_commands = commands(dna, &[CommandPurpose::Test], 3);
     if !test_commands.is_empty() {
-        text.push_str(&format!(" Run them with {}.", test_commands.join(" or ")));
+        text.push_str(&format!(
+            " Run them with {}.",
+            join_alternatives(&test_commands)
+        ));
     }
     if !tests.ci_commands.is_empty() {
         text.push_str(" CI runs tests.");
@@ -263,10 +267,16 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     if dna.git.status.has_results() {
         let activity = &dna.git.activity;
         let mut text = format!("{}. {}", activity.level.label(), activity.description);
-        if activity.level != ActivityLevel::None {
+        // Busy repositories are described by their last 30 days; add the longer window
+        // when it says something new.
+        if matches!(
+            activity.level,
+            ActivityLevel::VeryActive | ActivityLevel::Active
+        ) && activity.commits_last_90_days > activity.commits_last_30_days
+        {
             text.push_str(&format!(
-                " {} commits in the last 90 days.",
-                activity.commits_last_90_days
+                " {} in the last 90 days.",
+                count(activity.commits_last_90_days, "commit", "commits")
             ));
         }
         answers.push(answer(
@@ -318,8 +328,12 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     } else {
         let titles: Vec<String> = urgent.iter().take(3).map(|f| f.title.clone()).collect();
         format!(
-            "{} critical or warning findings, starting with: {}.",
-            urgent.len(),
+            "{}, starting with: {}.",
+            count(
+                urgent.len() as u64,
+                "critical or warning finding",
+                "critical or warning findings"
+            ),
             titles.join("; ")
         )
     };
@@ -434,9 +448,13 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
             description: central
                 .iter()
                 .take(3)
-                .map(|m| format!("{}: {}", m.name, m.importance.join("; ")))
+                .map(|m| {
+                    let reasons: Vec<String> =
+                        m.importance.iter().map(|r| continue_sentence(r)).collect();
+                    format!("{}: {}.", m.name, reasons.join("; "))
+                })
                 .collect::<Vec<_>>()
-                .join(". "),
+                .join(" "),
             paths: central.iter().take(3).map(|m| m.path.clone()).collect(),
             commands: Vec::new(),
         });
