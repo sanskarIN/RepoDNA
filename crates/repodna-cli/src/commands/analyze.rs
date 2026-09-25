@@ -116,6 +116,13 @@ pub fn summary(
         "Tests",
         if t.test_files + t.inline_test_files == 0 {
             "none detected".to_owned()
+        } else if t.inline_test_files == 0 {
+            plural(t.test_files, "test file", "test files")
+        } else if t.test_files == 0 {
+            format!(
+                "{} with inline tests",
+                plural(t.inline_test_files, "source file", "source files")
+            )
         } else {
             format!(
                 "{} and {} with inline tests",
