@@ -17,6 +17,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -65,6 +66,9 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 /// Maximum captured standard-error bytes.
 const MAX_STDERR: usize = 16 * 1024;
+
+/// How often a running command's deadline and cancellation are checked.
+const WATCH_INTERVAL: Duration = Duration::from_millis(20);
 
 /// Runs Git commands safely.
 #[derive(Debug, Clone)]
@@ -229,16 +233,16 @@ impl GitRunner {
         });
 
         let child = Arc::new(Mutex::new(child));
-        let finished = Arc::new(AtomicBool::new(false));
         let timed_out = Arc::new(AtomicBool::new(false));
+        // Dropping `done` wakes the watchdog at once, so finishing never waits on its timer.
+        let (done, finished) = mpsc::channel::<()>();
         let watchdog = {
             let child = Arc::clone(&child);
-            let finished = Arc::clone(&finished);
             let timed_out = Arc::clone(&timed_out);
             let cancel = cancel.clone();
             let deadline = Instant::now() + self.timeout;
             thread::spawn(move || {
-                while !finished.load(Ordering::SeqCst) {
+                loop {
                     let expired = Instant::now() >= deadline;
                     if expired || cancel.is_cancelled() {
                         timed_out.store(expired, Ordering::SeqCst);
@@ -247,7 +251,12 @@ impl GitRunner {
                         }
                         return;
                     }
-                    thread::sleep(Duration::from_millis(25));
+                    if !matches!(
+                        finished.recv_timeout(WATCH_INTERVAL),
+                        Err(RecvTimeoutError::Timeout)
+                    ) {
+                        return;
+                    }
                 }
             })
         };
@@ -257,7 +266,7 @@ impl GitRunner {
             None => Ok(()),
         };
         let status = wait(&child);
-        finished.store(true, Ordering::SeqCst);
+        drop(done);
         let _ = watchdog.join();
         if let Some(writer) = writer {
             let _ = writer.join();
@@ -285,7 +294,10 @@ impl GitRunner {
     }
 }
 
+/// Waits for the command to exit. Its output has ended by now, so it is usually exiting
+/// already: check again quickly at first, then less often.
 fn wait(child: &Arc<Mutex<Child>>) -> Result<std::process::ExitStatus, GitError> {
+    let mut pause = Duration::from_millis(1);
     loop {
         {
             let mut guard = child
@@ -295,7 +307,8 @@ fn wait(child: &Arc<Mutex<Child>>) -> Result<std::process::ExitStatus, GitError>
                 return Ok(status);
             }
         }
-        thread::sleep(Duration::from_millis(5));
+        thread::sleep(pause);
+        pause = (pause * 2).min(WATCH_INTERVAL);
     }
 }
 
@@ -376,6 +389,53 @@ mod tests {
             runner.text(dir.path(), &["--version"], &token),
             Err(GitError::Cancelled)
         ));
+    }
+
+    /// A Git alias that sleeps without holding the output pipes (the shell replaces itself
+    /// with `sleep` after redirecting them), so killing Git ends the command's output at once.
+    #[cfg(unix)]
+    const PAUSE: [&str; 3] = ["-c", "alias.pause=!exec sleep 3 >/dev/null 2>&1", "pause"];
+
+    #[cfg(unix)]
+    #[test]
+    fn stops_commands_that_run_too_long() {
+        if !git_available() {
+            return;
+        }
+        let runner = GitRunner::detect()
+            .unwrap()
+            .with_timeout(Duration::from_millis(200));
+        let dir = tempfile::tempdir().unwrap();
+        let started = Instant::now();
+        let result = runner.text(dir.path(), &PAUSE, &CancellationToken::new());
+        assert!(
+            matches!(result, Err(GitError::Timeout { .. })),
+            "{result:?}"
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stops_running_commands_when_cancelled() {
+        if !git_available() {
+            return;
+        }
+        let runner = GitRunner::detect().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let token = CancellationToken::new();
+        let canceller = {
+            let token = token.clone();
+            thread::spawn(move || {
+                thread::sleep(Duration::from_millis(200));
+                token.cancel();
+            })
+        };
+        let started = Instant::now();
+        let result = runner.text(dir.path(), &PAUSE, &token);
+        canceller.join().unwrap();
+        assert!(matches!(result, Err(GitError::Cancelled)), "{result:?}");
+        assert!(started.elapsed() < Duration::from_secs(2));
     }
 
     #[test]
