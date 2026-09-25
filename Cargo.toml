@@ -67,6 +67,13 @@ ttf-parser = { version = "0.25.1", default-features = false, features = ["std"] 
 # Parallelism
 rayon = "1.12"
 
+# Command line
+clap = { version = "4.6.7", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4.6.11"
+ctrlc = "3.5.2"
+terminal_size = "0.4.4"
+toml_edit = "0.25.15"
+
 # HTTP client for optional AI providers (rustls with bundled web PKI roots)
 ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
 

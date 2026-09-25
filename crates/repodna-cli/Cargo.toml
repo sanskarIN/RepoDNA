@@ -1,0 +1,36 @@
+[package]
+name = "repodna-cli"
+description = "The RepoDNA command-line interface."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+repodna-core.workspace = true
+repodna-git.workspace = true
+repodna-parser.workspace = true
+repodna-engine.workspace = true
+repodna-store.workspace = true
+repodna-report.workspace = true
+repodna-ai.workspace = true
+repodna-plugin.workspace = true
+repodna-app.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
+ctrlc.workspace = true
+terminal_size.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+repodna-testkit.workspace = true
+
+[lints]
+workspace = true
