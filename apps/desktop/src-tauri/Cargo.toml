@@ -19,7 +19,8 @@ tauri-build = { version = "2.6.3", features = [] }
 repodna-app = { path = "../../../crates/repodna-app" }
 repodna-core = { path = "../../../crates/repodna-core" }
 repodna-report = { path = "../../../crates/repodna-report" }
-repodna-server = { path = "../../../crates/repodna-server" }
+# The window shows the web interface itself, so the server crate need not embed a copy.
+repodna-server = { path = "../../../crates/repodna-server", default-features = false }
 repodna-store = { path = "../../../crates/repodna-store" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

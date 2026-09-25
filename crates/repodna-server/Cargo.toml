@@ -25,5 +25,11 @@ getrandom.workspace = true
 tempfile.workspace = true
 repodna-testkit.workspace = true
 
+[features]
+default = ["embed-web"]
+# Embeds the built web interface (apps/web/dist) when it exists. The desktop app turns this
+# off because it ships the interface itself.
+embed-web = []
+
 [lints]
 workspace = true

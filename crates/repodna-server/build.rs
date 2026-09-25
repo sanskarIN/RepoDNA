@@ -1,6 +1,6 @@
 //! Embeds the built web interface (`apps/web/dist`, or the directory named by
-//! `REPODNA_WEB_DIST`) when it exists, so release builds of `repodna serve` include it.
-//! Without it, the server falls back to a small built-in page.
+//! `REPODNA_WEB_DIST`) when it exists and the `embed-web` feature is on, so release builds
+//! of `repodna serve` include it. Without it, the server falls back to a small built-in page.
 
 use std::env;
 use std::fs;
@@ -26,13 +26,17 @@ fn main() {
     println!("cargo:rerun-if-env-changed=REPODNA_WEB_DIST");
     let manifest =
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("Cargo sets CARGO_MANIFEST_DIR"));
-    let dist = env::var_os("REPODNA_WEB_DIST")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| manifest.join("../../apps/web/dist"));
+    let chosen = env::var_os("REPODNA_WEB_DIST").map(PathBuf::from);
+    let web = manifest.join("../../apps/web");
+    let dist = chosen.clone().unwrap_or_else(|| web.join("dist"));
     let mut files = Vec::new();
-    if dist.join("index.html").is_file() {
+    let embed = env::var_os("CARGO_FEATURE_EMBED_WEB").is_some();
+    if embed && dist.join("index.html").is_file() {
         println!("cargo:rerun-if-changed={}", dist.display());
         collect(&dist, &dist, &mut files);
+    } else if embed && chosen.is_none() && web.is_dir() {
+        // Run again when the web interface is built later.
+        println!("cargo:rerun-if-changed={}", web.display());
     }
     let mut code = String::from(
         "/// Files of the built web interface, as `(path, contents)`; empty when the build did not include it.\npub static WEB_ASSETS: &[(&str, &[u8])] = &[\n",

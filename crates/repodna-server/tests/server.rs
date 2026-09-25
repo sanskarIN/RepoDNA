@@ -284,11 +284,21 @@ fn protects_the_api_and_serves_analyses() {
     let cookie_value = cookie.split(';').next().unwrap().to_owned();
     let page = send(address, "GET", "/", &[("Cookie", &cookie_value)], "");
     assert_eq!(page.status, 200);
-    assert!(
-        page.body
-            .contains("does not include the interactive web interface")
-    );
-    assert_eq!(send(address, "GET", "/", &[], "").status, 401);
+    // The build embeds the web interface when it was built first; otherwise the server
+    // shows its built-in page.
+    let anonymous = send(address, "GET", "/", &[], "");
+    if running.server.has_web_interface() {
+        // The interface's files hold no data, so they need no token; the API does.
+        assert!(page.body.contains(r#"<div id="root">"#), "{}", page.body);
+        assert_eq!(anonymous.status, 200);
+    } else {
+        // The built-in page lists stored analyses, so it needs the token.
+        assert!(
+            page.body
+                .contains("does not include the interactive web interface")
+        );
+        assert_eq!(anonymous.status, 401);
+    }
 
     // Starting analyses: refused from other origins, accepted with the token.
     let evil = [
