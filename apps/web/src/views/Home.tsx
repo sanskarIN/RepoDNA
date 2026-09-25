@@ -7,9 +7,9 @@ import { navigate } from "../lib/router";
 import { useApp } from "../state";
 
 const PROFILES = [
-  ["standard", "Standard: everything except the slowest history reconstruction"],
-  ["quick", "Quick: structure, languages, and dependencies only"],
-  ["deep", "Deep: all analyzers, including duplication and historical architecture"],
+  ["standard", "Standard: history, dependencies, architecture, quality, and security"],
+  ["quick", "Quick: structure, languages, and project conventions; no Git history"],
+  ["deep", "Deep: adds duplication, file similarity, and historical architecture"],
 ] as const;
 
 function message(error: unknown): string {

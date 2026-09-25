@@ -160,10 +160,11 @@ impl StageSet {
 pub enum AnalysisProfile {
     /// Structure, languages, basic metrics, and project conventions. No Git.
     Quick,
-    /// Adds Git history, dependencies, architecture, quality, security, and evolution.
+    /// Adds Git history, dependencies, architecture, quality, security, evolution, and
+    /// enabled plugins.
     #[default]
     Standard,
-    /// Adds duplication, similarity, historical architecture, and plugins.
+    /// Adds duplication, similarity, and historical architecture.
     Deep,
     /// Git history and evolution only.
     HistoryOnly,
@@ -207,10 +208,10 @@ impl AnalysisProfile {
                 "Current structure, languages, basic metrics, and project conventions; no Git history."
             }
             AnalysisProfile::Standard => {
-                "Adds Git history, dependencies, architecture, quality, security, and evolution."
+                "Adds Git history, dependencies, architecture, quality, security, evolution, and enabled plugins."
             }
             AnalysisProfile::Deep => {
-                "Adds duplication, file similarity, historical architecture snapshots, and enabled plugins."
+                "Adds duplication, file similarity, and historical architecture snapshots."
             }
             AnalysisProfile::HistoryOnly => "Git history and evolution only.",
             AnalysisProfile::ArchitectureOnly => "Parsing, dependencies, and architecture only.",

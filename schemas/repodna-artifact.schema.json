@@ -389,12 +389,12 @@
         },
         {
           "const": "standard",
-          "description": "Adds Git history, dependencies, architecture, quality, security, and evolution.",
+          "description": "Adds Git history, dependencies, architecture, quality, security, evolution, and\nenabled plugins.",
           "type": "string"
         },
         {
           "const": "deep",
-          "description": "Adds duplication, similarity, historical architecture, and plugins.",
+          "description": "Adds duplication, similarity, and historical architecture.",
           "type": "string"
         },
         {
