@@ -31,6 +31,18 @@ static JUST_RECIPE: LazyLock<Regex> = LazyLock::new(|| {
 pub fn purpose_of(name: &str) -> Option<CommandPurpose> {
     let lower = name.to_ascii_lowercase();
     let head = lower.split([':', '-', '_', '.']).next().unwrap_or(&lower);
+    // A bare `check` runs the tests (the GNU `make check` convention); `check-format` or
+    // `check:generated` verifies something else.
+    if head == "check" && lower.len() > head.len() {
+        let rest = &lower[head.len() + 1..];
+        return Some(match rest {
+            "test" | "tests" | "unit" | "e2e" | "all" => CommandPurpose::Test,
+            _ if rest.starts_with("format") || rest.starts_with("fmt") || rest == "prettier" => {
+                CommandPurpose::Format
+            }
+            _ => CommandPurpose::Lint,
+        });
+    }
     let purpose = match head {
         "test" | "tests" | "check" | "e2e" | "coverage" | "spec" => CommandPurpose::Test,
         "build" | "compile" | "all" | "dist" | "package" | "release" => CommandPurpose::Build,
@@ -603,6 +615,11 @@ mod tests {
         assert_eq!(purpose_of("fmt"), Some(CommandPurpose::Format));
         assert_eq!(purpose_of("postinstall"), None);
         assert_eq!(purpose_of("deploy"), None);
+        assert_eq!(purpose_of("check"), Some(CommandPurpose::Test));
+        assert_eq!(purpose_of("check:tests"), Some(CommandPurpose::Test));
+        assert_eq!(purpose_of("check-format"), Some(CommandPurpose::Format));
+        assert_eq!(purpose_of("check-generated"), Some(CommandPurpose::Lint));
+        assert_eq!(purpose_of("check:types"), Some(CommandPurpose::Lint));
     }
 
     #[test]
