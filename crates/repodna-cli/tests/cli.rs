@@ -15,8 +15,8 @@ struct Env {
 impl Env {
     fn new() -> Self {
         Self {
-            home: TempDir::new().unwrap(),
-            work: TempDir::new().unwrap(),
+            home: TempDir::new().expect("temporary home"),
+            work: TempDir::new().expect("temporary working directory"),
         }
     }
 
@@ -29,7 +29,7 @@ impl Env {
             .env("SOURCE_DATE_EPOCH", "1790000000")
             .env_remove("COLUMNS")
             .output()
-            .unwrap()
+            .expect("the repodna binary runs")
     }
 
     fn work(&self, name: &str) -> PathBuf {
