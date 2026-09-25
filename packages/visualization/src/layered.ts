@@ -57,6 +57,47 @@ function mean(values: number[]): number | undefined {
   return values.length === 0 ? undefined : values.reduce((a, b) => a + b, 0) / values.length;
 }
 
+/**
+ * Layers for a graph that has none: nodes that depend on nothing are layer 0, and every
+ * other node sits one layer past its deepest dependency. Nodes in a cycle, or depending on
+ * one, get `null`.
+ */
+export function assignLayers(
+  ids: readonly string[],
+  edges: readonly { from: string; to: string }[],
+): Map<string, number | null> {
+  const known = new Set(ids);
+  const dependencies = new Map<string, string[]>(ids.map((id) => [id, []]));
+  for (const edge of edges) {
+    if (known.has(edge.from) && known.has(edge.to) && edge.from !== edge.to) {
+      dependencies.get(edge.from)?.push(edge.to);
+    }
+  }
+  const layers = new Map<string, number | null>();
+  const visiting = new Set<string>();
+  const visit = (id: string): number | null => {
+    if (layers.has(id)) {
+      return layers.get(id) ?? null;
+    }
+    if (visiting.has(id)) {
+      return null;
+    }
+    visiting.add(id);
+    let layer: number | null = 0;
+    for (const dependency of dependencies.get(id) ?? []) {
+      const below = visit(dependency);
+      layer = below === null || layer === null ? null : Math.max(layer, below + 1);
+    }
+    visiting.delete(id);
+    layers.set(id, layer);
+    return layer;
+  };
+  for (const id of ids) {
+    visit(id);
+  }
+  return layers;
+}
+
 /** Lays out a layered dependency graph from left (layer 0) to right. */
 export function layeredLayout(
   nodes: readonly GraphNode[],

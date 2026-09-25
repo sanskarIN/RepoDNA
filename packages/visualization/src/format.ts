@@ -27,10 +27,14 @@ export function compact(value: number): string {
   return thousands(value);
 }
 
-/** 0.125 → "12.5%". */
+/** 0.125 → "12.5%"; a share too small to show at `digits` is "<0.1%", not "0.0%". */
 export function percent(ratio: number, digits = 1): string {
   if (!Number.isFinite(ratio)) {
     return "–";
+  }
+  const smallest = 10 ** -digits;
+  if (ratio > 0 && ratio * 100 < smallest / 2) {
+    return `<${smallest.toFixed(digits)}%`;
   }
   return `${(ratio * 100).toFixed(digits)}%`;
 }

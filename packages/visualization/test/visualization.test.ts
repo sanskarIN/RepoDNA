@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DARK,
   LIGHT,
+  assignLayers,
   bands,
   categorize,
   compact,
@@ -143,8 +144,33 @@ describe("heatmap and formatting", () => {
     expect(compact(4_200_000)).toBe("4.2M");
     expect(percent(0.125)).toBe("12.5%");
     expect(percent(Number.NaN)).toBe("–");
+    expect(percent(0.0003)).toBe("<0.1%");
+    expect(percent(0.0005)).toBe("0.1%");
+    expect(percent(0)).toBe("0.0%");
+    expect(percent(0.004, 0)).toBe("<1%");
     expect(span(3)).toBe("3 days");
     expect(span(400)).toBe("13 months");
     expect(span(800)).toBe("2.2 years");
+  });
+});
+
+describe("assignLayers", () => {
+  it("puts dependencies first and leaves cycles unlayered", () => {
+    const layers = assignLayers(
+      ["app", "lib", "util", "a", "b"],
+      [
+        { from: "app", to: "lib" },
+        { from: "lib", to: "util" },
+        { from: "app", to: "util" },
+        { from: "a", to: "b" },
+        { from: "b", to: "a" },
+        { from: "app", to: "outside" },
+      ],
+    );
+    expect(layers.get("util")).toBe(0);
+    expect(layers.get("lib")).toBe(1);
+    expect(layers.get("app")).toBe(2);
+    expect(layers.get("a")).toBeNull();
+    expect(layers.get("b")).toBeNull();
   });
 });
