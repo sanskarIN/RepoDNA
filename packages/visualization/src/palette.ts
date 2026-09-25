@@ -72,8 +72,9 @@ export interface Category<T> {
 
 /**
  * Assigns fixed-order colors to the largest categories and folds the tail into "Other".
- * `key` identifies an entity so its color stays the same when others are filtered out:
- * pass the full, unfiltered ordering as `order` to keep colors stable across views.
+ * To keep an entity's color the same across views (for example across snapshots), pass
+ * a stable ordering of labels as `order`: its first seven labels own the named slots, and
+ * every other item folds into "Other" instead of borrowing a color.
  */
 export function categorize<T>(
   items: readonly T[],
@@ -84,12 +85,16 @@ export function categorize<T>(
 ): Category<T>[] {
   const colors = palette(theme);
   const sorted = [...items].sort((a, b) => value(b) - value(a));
-  const named = sorted.slice(0, MAX_CATEGORIES);
-  const rest = sorted.slice(MAX_CATEGORIES);
-  const slots = order ?? named.map(label);
+  const slots = order?.slice(0, MAX_CATEGORIES);
+  const named = slots
+    ? sorted.filter((item) => slots.includes(label(item)))
+    : sorted.slice(0, MAX_CATEGORIES);
+  const rest = slots
+    ? sorted.filter((item) => !slots.includes(label(item)))
+    : sorted.slice(MAX_CATEGORIES);
   const categories: Category<T>[] = named.map((item, index) => {
-    const slot = slots.indexOf(label(item));
-    const color = colors.series[slot >= 0 && slot < MAX_CATEGORIES ? slot : index] ?? colors.other;
+    const slot = slots ? slots.indexOf(label(item)) : index;
+    const color = colors.series[slot] ?? colors.other;
     return { label: label(item), value: value(item), color, items: [item] };
   });
   if (rest.length > 0) {

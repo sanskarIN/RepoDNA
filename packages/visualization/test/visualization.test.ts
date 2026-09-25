@@ -41,6 +41,17 @@ describe("palette", () => {
       ["l0", "l1", "l2"],
     );
     expect(stable[0]?.color).toBe(DARK.series[1]);
+    // Items outside the stable order fold into "Other" rather than borrow a slot color.
+    const folded = categorize(
+      items.slice(0, 3),
+      (i) => i.size,
+      (i) => i.name,
+      "light",
+      ["l1", "l2"],
+    );
+    expect(folded.map((c) => c.label)).toEqual(["l1", "l2", "Other (1)"]);
+    expect(folded[0]?.color).toBe(LIGHT.series[0]);
+    expect(folded[2]?.color).toBe(LIGHT.other);
     expect(sequentialIndex(0, 10)).toBe(0);
     expect(sequentialIndex(10, 10)).toBe(6);
     expect(sequentialIndex(1, 10)).toBe(1);
