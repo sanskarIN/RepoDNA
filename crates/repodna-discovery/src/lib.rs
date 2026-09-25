@@ -7,6 +7,7 @@
 //! size, and extracts archives with strict limits against path traversal and archive bombs.
 
 pub mod archive;
+pub mod attributes;
 pub mod classify;
 pub mod content;
 pub mod walk;
@@ -14,6 +15,7 @@ pub mod walk;
 pub use archive::{
     ArchiveError, ArchiveKind, ArchiveLimits, ExtractedArchive, detect_archive, extract,
 };
+pub use attributes::LinguistAttributes;
 pub use classify::{Classification, ClassificationOverrides, classify};
 pub use content::{FileContent, ReadOutcome, looks_binary, looks_generated, read_file};
 pub use walk::{DiscoveredFile, Discovery, DiscoveryError, DiscoveryOptions, discover};
