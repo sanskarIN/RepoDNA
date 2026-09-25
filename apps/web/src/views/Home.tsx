@@ -197,7 +197,7 @@ function Stored() {
       {repositories === null && !error ? <p className="muted">Loading…</p> : null}
       {repositories && repositories.length === 0 ? (
         <p className="muted">
-          None yet. Analyze a repository above or run `repodna analyze &lt;path&gt;`.
+          None yet. Analyze a repository above or run <code>repodna analyze &lt;path&gt;</code>.
         </p>
       ) : null}
       <ul className="list">
