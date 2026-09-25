@@ -20,6 +20,8 @@ pub struct TreeEntry {
     pub size: u64,
     /// File mode, e.g. `100644` or `120000` for a symbolic link.
     pub mode: String,
+    /// Object name of the blob; files with the same contents have the same name.
+    pub object: String,
 }
 
 /// Lists every file (blob) in `revision`.
@@ -45,7 +47,7 @@ pub fn list_tree(
             continue;
         };
         let mut fields = header.split_whitespace();
-        let (Some(mode), Some(kind), Some(_object), Some(size)) =
+        let (Some(mode), Some(kind), Some(object), Some(size)) =
             (fields.next(), fields.next(), fields.next(), fields.next())
         else {
             continue;
@@ -57,6 +59,7 @@ pub fn list_tree(
             path: path.to_owned(),
             size: size.parse().unwrap_or(0),
             mode: mode.to_owned(),
+            object: object.to_owned(),
         });
     }
     Ok(entries)
@@ -193,6 +196,22 @@ mod tests {
         let paths: Vec<_> = old_tree.iter().map(|e| e.path.as_str()).collect();
         assert_eq!(paths, vec!["docs/with space.md", "src/lib.rs"]);
         assert_eq!(old_tree[1].size, 14);
+        let object = runner
+            .text(
+                repo.path(),
+                &["rev-parse", &format!("{first}:src/lib.rs")],
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(old_tree[1].object, object);
+        let new_tree = list_tree(&runner, repo.path(), "HEAD", &cancel).unwrap();
+        let changed = new_tree.iter().find(|e| e.path == "src/lib.rs").unwrap();
+        let unchanged = new_tree
+            .iter()
+            .find(|e| e.path == "docs/with space.md")
+            .unwrap();
+        assert_ne!(changed.object, old_tree[1].object);
+        assert_eq!(unchanged.object, old_tree[0].object);
 
         let requested = vec![
             "src/lib.rs".to_owned(),

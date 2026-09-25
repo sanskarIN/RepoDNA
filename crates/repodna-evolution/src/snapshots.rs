@@ -328,6 +328,7 @@ mod tests {
             path: path.to_owned(),
             size,
             mode: "100644".to_owned(),
+            object: format!("{path}-object"),
         };
         let entries = [
             entry("src/lib.rs", 3_000),
@@ -340,6 +341,7 @@ mod tests {
                 path: "link".into(),
                 size: 5,
                 mode: "120000".into(),
+                object: "link-object".into(),
             },
         ];
         let snapshot = build_snapshot(&plan, &entries, LanguageRegistry::builtin());
