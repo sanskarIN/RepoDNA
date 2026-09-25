@@ -107,7 +107,10 @@ pub fn plan_snapshots(
         if index == 0 {
             continue;
         }
-        let label = Timestamp::from_unix(oldest_first[index - 1].timestamp).month_key();
+        let label = sample_label(
+            Timestamp::from_unix(oldest_first[index - 1].timestamp),
+            end - start,
+        );
         plans.push(plan(index - 1, label, SnapshotKind::Sample));
     }
 
@@ -116,6 +119,25 @@ pub fn plan_snapshots(
     plans.dedup_by(|later, earlier| later.revision == earlier.revision);
     plans.truncate(max);
     plans
+}
+
+/// A label for a sampled snapshot, just precise enough to tell the samples of a history
+/// `span` seconds long apart: the month for long histories, the day, or the minute (UTC).
+fn sample_label(at: Timestamp, span: i64) -> String {
+    const DAY: i64 = 86_400;
+    if span >= 180 * DAY {
+        at.month_key()
+    } else if span >= 7 * DAY {
+        at.date_string()
+    } else {
+        let civil = at.civil();
+        format!(
+            "{} {:02}:{:02} UTC",
+            at.date_string(),
+            civil.hour,
+            civil.minute
+        )
+    }
 }
 
 /// `count` indices spread evenly over `0..len`, always including the last one.
@@ -339,5 +361,13 @@ mod tests {
         assert_eq!(points[0].commits, 10);
         assert_eq!(spaced(10, 3), vec![2, 5, 9]);
         assert_eq!(spaced(2, 5), vec![0, 1]);
+    }
+
+    #[test]
+    fn sample_labels_match_the_length_of_history() {
+        let at = Timestamp::parse_rfc3339("2026-09-24T11:10:21Z").unwrap();
+        assert_eq!(sample_label(at, 400 * 86_400), "2026-09");
+        assert_eq!(sample_label(at, 30 * 86_400), "2026-09-24");
+        assert_eq!(sample_label(at, 3_600), "2026-09-24 11:10 UTC");
     }
 }
