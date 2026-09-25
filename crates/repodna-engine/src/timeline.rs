@@ -4,6 +4,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
+use rayon::ThreadPool;
+use rayon::prelude::*;
 use repodna_architecture::{ArchitectureInput, SourceFile};
 use repodna_core::cancel::CancellationToken;
 use repodna_core::config::Config;
@@ -29,7 +31,8 @@ use crate::history::GitStage;
 const HISTORICAL_MAX_FILES: usize = 5_000;
 /// Files larger than this are not read at historical revisions.
 const HISTORICAL_MAX_FILE_BYTES: u64 = 512 * 1024;
-/// Bytes read per historical snapshot.
+/// Bytes read per historical snapshot (files unchanged since the previous snapshot are
+/// not read again).
 const HISTORICAL_MAX_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
 /// Module edges kept per snapshot (heaviest first).
 const HISTORICAL_MAX_EDGES: usize = 500;
@@ -91,14 +94,34 @@ struct HistoricalSource<'a> {
     test: bool,
 }
 
+impl HistoricalSource<'_> {
+    /// The analysis of a file depends only on its contents and its language.
+    fn key(&self) -> AnalysisKey {
+        (self.entry.object.clone(), self.spec.id.clone())
+    }
+}
+
+/// A blob's object name and the language it was analyzed as.
+type AnalysisKey = (String, String);
+
+/// Analyses from the previous snapshot. Most files do not change between two snapshots,
+/// so only new and changed files are read and analyzed again.
+pub type SnapshotAnalyses = HashMap<AnalysisKey, FileAnalysis>;
+
 /// Reconstructs the module structure and the module dependencies at `revision` by reading
 /// its manifests and first-party source files and running the architecture analysis on them.
+///
+/// `analyses` holds the file analyses of the previous snapshot; on return it holds this
+/// snapshot's. Files are analyzed on `pool` when one is given.
+#[allow(clippy::too_many_arguments)]
 pub fn historical_architecture(
     git: &GitRunner,
     root: &Path,
     revision: &str,
     entries: &[TreeEntry],
     registry: &LanguageRegistry,
+    analyses: &mut SnapshotAnalyses,
+    pool: Option<&ThreadPool>,
     cancel: &CancellationToken,
 ) -> Result<SnapshotArchitecture, GitError> {
     let overrides = ClassificationOverrides::default();
@@ -132,8 +155,18 @@ pub fn historical_architecture(
             });
         }
     }
+    // Read each new or changed file once, even when several paths have the same contents.
+    let mut pending: HashMap<AnalysisKey, &HistoricalSource<'_>> = HashMap::new();
+    for source in &sources {
+        let key = source.key();
+        if !analyses.contains_key(&key) {
+            pending.entry(key).or_insert(source);
+        }
+    }
+    let mut pending: Vec<(AnalysisKey, &HistoricalSource<'_>)> = pending.into_iter().collect();
+    pending.sort_by(|a, b| a.1.entry.path.cmp(&b.1.entry.path));
     let mut paths = manifests.clone();
-    paths.extend(sources.iter().map(|source| source.entry.path.clone()));
+    paths.extend(pending.iter().map(|(_, source)| source.entry.path.clone()));
     let texts: HashMap<String, String> = read_blobs(
         git,
         root,
@@ -158,24 +191,34 @@ pub fn historical_architecture(
         })
         .collect();
     let dependencies = analyze(&dependency_files);
-    let analyses: Vec<Option<FileAnalysis>> = sources
-        .iter()
-        .map(|source| {
-            texts
-                .get(&source.entry.path)
-                .map(|text| analyze_source(source.spec, text))
-        })
-        .collect();
+    let work = || -> Vec<(AnalysisKey, FileAnalysis)> {
+        pending
+            .into_par_iter()
+            .filter_map(|(key, source)| {
+                let text = texts.get(&source.entry.path)?;
+                Some((key, analyze_source(source.spec, text)))
+            })
+            .collect()
+    };
+    let analyzed = match pool {
+        Some(pool) => pool.install(work),
+        None => work(),
+    };
+    analyses.extend(analyzed);
+    let keys: Vec<AnalysisKey> = sources.iter().map(HistoricalSource::key).collect();
     let files: Vec<SourceFile<'_>> = sources
         .iter()
-        .zip(&analyses)
-        .map(|(source, analysis)| SourceFile {
-            path: &source.entry.path,
-            language: Some(source.spec.id.as_str()),
-            code_lines: analysis.as_ref().map_or(0, |a| a.lines.code),
-            first_party: true,
-            test: source.test,
-            analysis: analysis.as_ref(),
+        .zip(&keys)
+        .map(|(source, key)| {
+            let analysis = analyses.get(key);
+            SourceFile {
+                path: &source.entry.path,
+                language: Some(source.spec.id.as_str()),
+                code_lines: analysis.map_or(0, |a| a.lines.code),
+                first_party: true,
+                test: source.test,
+                analysis,
+            }
         })
         .collect();
     let declared: Vec<(String, String)> = dependencies
@@ -240,6 +283,9 @@ pub fn historical_architecture(
             .then_with(|| a.to.cmp(&b.to))
     });
     edges.truncate(HISTORICAL_MAX_EDGES);
+    // Keep only this snapshot's analyses, so memory stays bounded by one snapshot.
+    let used: HashSet<AnalysisKey> = keys.into_iter().collect();
+    analyses.retain(|key, _| used.contains(key));
     Ok(SnapshotArchitecture { modules, edges })
 }
 
@@ -266,6 +312,15 @@ pub fn run_timeline(
         usize::try_from(config.analysis.snapshots).unwrap_or(usize::MAX),
     );
     let mut snapshots: Vec<Snapshot> = Vec::with_capacity(plans.len());
+    let mut analyses = SnapshotAnalyses::new();
+    let pool = with_architecture
+        .then(|| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(config.performance.parallelism.threads())
+                .build()
+                .ok()
+        })
+        .flatten();
     for plan in &plans {
         match list_tree(git, root, &plan.revision, cancel) {
             Ok(entries) => {
@@ -277,6 +332,8 @@ pub fn run_timeline(
                         &plan.revision,
                         &entries,
                         registry,
+                        &mut analyses,
+                        pool.as_ref(),
                         cancel,
                     ) {
                         Ok(architecture) => snapshot.architecture = Some(architecture),
@@ -519,5 +576,71 @@ mod tests {
             ("app", "lib")
         );
         assert!(last.modules.iter().all(|m| m.bytes > 0));
+    }
+
+    #[test]
+    fn reuses_analyses_of_unchanged_files_between_snapshots() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("lib/util.ts", "export const one = 1;\n");
+        repo.write("app/main.ts", "export const main = 1;\n");
+        let first = repo.commit("initial", "Ana", "ana@example.test", "2023-01-01T10:00:00Z");
+        repo.write(
+            "app/main.ts",
+            "import { one } from '../lib/util';\nexport const main = one;\n",
+        );
+        let second = repo.commit(
+            "use util",
+            "Ana",
+            "ana@example.test",
+            "2024-01-01T10:00:00Z",
+        );
+        let git = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        let registry = LanguageRegistry::builtin();
+        let tree = |revision: &str| list_tree(&git, repo.path(), revision, &cancel).unwrap();
+        let key = |revision: &str, path: &str| -> AnalysisKey {
+            let entry = tree(revision).into_iter().find(|e| e.path == path).unwrap();
+            (entry.object, "typescript".to_owned())
+        };
+        let mut analyses = SnapshotAnalyses::new();
+        let entries = tree(&first);
+        historical_architecture(
+            &git,
+            repo.path(),
+            &first,
+            &entries,
+            registry,
+            &mut analyses,
+            None,
+            &cancel,
+        )
+        .unwrap();
+        let util = key(&first, "lib/util.ts");
+        let old_main = key(&first, "app/main.ts");
+        assert_eq!(analyses.len(), 2);
+        assert!(analyses.contains_key(&old_main));
+        // Mark the unchanged file's analysis: a file analyzed again would lose the mark.
+        analyses.get_mut(&util).unwrap().lines.code = 12_345;
+
+        let entries = tree(&second);
+        let architecture = historical_architecture(
+            &git,
+            repo.path(),
+            &second,
+            &entries,
+            registry,
+            &mut analyses,
+            None,
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(analyses.len(), 2);
+        assert_eq!(analyses[&util].lines.code, 12_345);
+        assert!(analyses.contains_key(&key(&second, "app/main.ts")));
+        assert!(!analyses.contains_key(&old_main));
+        assert_eq!(architecture.edges.len(), 1);
     }
 }
