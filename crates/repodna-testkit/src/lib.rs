@@ -1,7 +1,8 @@
 //! # repodna-testkit
 //!
 //! Helpers for tests: build Git repositories with fixed authors and dates so that commit
-//! hashes and analysis results are deterministic, and write file trees in one call.
+//! hashes and analysis results are deterministic, write file trees in one call, and create
+//! the [fixture repositories](fixtures) used by tests, examples, and benchmarks.
 //!
 //! Every Git command runs with an empty global configuration, no system configuration,
 //! and signing disabled, so tests behave the same on every machine.
@@ -10,6 +11,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use tempfile::TempDir;
+
+pub mod fixtures;
 
 /// Returns `true` when a `git` executable is available.
 pub fn git_available() -> bool {
