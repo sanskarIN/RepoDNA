@@ -2,7 +2,7 @@
   "name": "repodna-workspace",
   "version": "1.0.0",
   "private": true,
-  "description": "Web interface and shared TypeScript packages of RepoDNA.",
+  "description": "Open-source repository intelligence and code archaeology.",
   "license": "Apache-2.0",
   "author": "Sanskar",
   "homepage": "https://github.com/sanskarIN/RepoDNA",
