@@ -134,7 +134,7 @@ fn analyze_scanned(spec: &LanguageSpec, scanned: &ScannedFile) -> FileAnalysis {
     };
     let markers = extract_markers(&scanned.lines);
     let references = if spec.kind == LanguageKind::Programming {
-        extract_references(&scanned.lines, &imports)
+        extract_references(&scanned.lines, &imports, spec.id == "rust")
     } else {
         Vec::new()
     };
@@ -167,12 +167,56 @@ fn analyze_scanned(spec: &LanguageSpec, scanned: &ScannedFile) -> FileAnalysis {
     }
 }
 
+/// Tracks whether lines belong to a Rust `#[cfg(test)]` item, whose string literals are
+/// test fixtures rather than references the code depends on.
+#[derive(Default)]
+struct RustTestRegions {
+    depth: usize,
+    pending: bool,
+    body: Option<usize>,
+}
+
+impl RustTestRegions {
+    /// Consumes one masked line and returns `true` when it belongs to a test item.
+    fn in_test(&mut self, masked: &str) -> bool {
+        if self.body.is_none() && masked.trim_start().starts_with("#[cfg(test)]") {
+            self.pending = true;
+        }
+        let inside = self.pending || self.body.is_some();
+        for byte in masked.bytes() {
+            match byte {
+                b'{' => {
+                    if self.pending {
+                        self.body = Some(self.depth);
+                        self.pending = false;
+                    }
+                    self.depth += 1;
+                }
+                b'}' => {
+                    self.depth = self.depth.saturating_sub(1);
+                    if self.body == Some(self.depth) {
+                        self.body = None;
+                    }
+                }
+                b';' if self.pending => self.pending = false,
+                _ => {}
+            }
+        }
+        inside
+    }
+}
+
 fn extract_references(
     lines: &[crate::scanner::ScannedLine],
     imports: &[RawImport],
+    rust: bool,
 ) -> Vec<RawReference> {
     let mut references = Vec::new();
+    let mut tests = RustTestRegions::default();
     for (index, line) in lines.iter().enumerate() {
+        if rust && tests.in_test(&line.masked) {
+            continue;
+        }
         if !line.code.contains(['"', '\'', '`']) {
             continue;
         }
@@ -283,6 +327,17 @@ mod tests {
         assert!(analyze("ruby", "run if __FILE__ == $0\n").main_guard);
         assert!(!analyze("python", "# if __name__ == \"__main__\":\nx = 1\n").main_guard);
         assert!(!analyze("python", "import os\n").main_guard);
+    }
+
+    #[test]
+    fn ignores_references_in_rust_test_items() {
+        let source = "const VIEW: &str = include_str!(\"../assets/view.html\");\n#[cfg(test)]\nmod tests {\n    fn fixture() { let _ = (\"src/main.rs\", \"{\"); }\n}\n#[cfg(test)]\nmod more;\nfn after() -> &'static str { \"config/app.json\" }\n";
+        let paths: Vec<String> = analyze("rust", source)
+            .references
+            .into_iter()
+            .map(|r| r.path)
+            .collect();
+        assert_eq!(paths, vec!["../assets/view.html", "config/app.json"]);
     }
 
     #[test]
