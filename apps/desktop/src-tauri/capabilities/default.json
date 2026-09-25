@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window may use Tauri's core events and the app's own commands. Dialogs and links go through those commands, never directly from the page.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
