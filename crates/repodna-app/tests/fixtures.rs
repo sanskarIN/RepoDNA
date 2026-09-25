@@ -1,8 +1,6 @@
 //! Analyzes every fixture repository and checks what RepoDNA finds in each: the fixtures
 //! are designed so that each one demonstrates a situation the analysis must recognize.
 
-use std::process::Command;
-
 use repodna_app::{AnalyzeOptions, AppPaths, ConfigOptions, run_analysis};
 use repodna_core::CancellationToken;
 use repodna_core::config::AnalysisProfile;
@@ -60,8 +58,10 @@ fn rules(dna: &RepositoryDna) -> Vec<&str> {
     dna.findings.iter().map(|f| f.rule.as_str()).collect()
 }
 
+/// Whether `program` runs; the tests that execute build and test commands need it.
+#[cfg(unix)]
 fn tool_available(program: &str) -> bool {
-    Command::new(program)
+    std::process::Command::new(program)
         .arg("--version")
         .output()
         .is_ok_and(|output| output.status.success())
