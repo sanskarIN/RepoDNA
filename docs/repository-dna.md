@@ -87,7 +87,7 @@ Suppressed findings keep their place and carry the suppression's reason.
 | `architecture.unresolved` | info | A large share of imports could not be resolved. |
 | `build.no-ci` | info | No CI configuration was detected. |
 | `contributors.concentration` | info | Most commits come from one contributor identity. |
-| `dependencies.lock-mismatch` | warning | A lockfile disagrees with its manifest. |
+| `dependencies.lock-mismatch` | warning | A lockfile does not lock every dependency its manifest declares. |
 | `dependencies.no-lockfile` | info | Manifests declare dependencies but no lockfile is committed. |
 | `dependencies.duplicate-versions` | info | A package is locked at more than one version. |
 | `dependencies.stale-manifest` | info | A manifest has not changed for `stale_manifest_days`. |
