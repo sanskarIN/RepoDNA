@@ -193,6 +193,14 @@ pub fn import_artifact(
 ) -> Result<(RepositoryDna, ScanRecord, Vec<String>), AppError> {
     let loaded = read_artifact(file)?;
     let store = paths.open_store()?;
+    let id = &loaded.artifact.analysis_metadata.id;
+    if !id.is_empty()
+        && let Some(existing) = store.scan(id)?.filter(|scan| &scan.id == id)
+    {
+        let mut warnings = loaded.warnings;
+        warnings.push("This analysis is already stored, so nothing was imported.".to_owned());
+        return Ok((loaded.artifact, existing, warnings));
+    }
     let scan = store.record(&loaded.artifact, &imported_location(&loaded.artifact))?;
     Ok((loaded.artifact, scan, loaded.warnings))
 }
@@ -389,6 +397,13 @@ mod tests {
         assert_eq!(imported, second.dna);
         let (reloaded, _) = load_stored(&other, &format!("imported:{name}")).unwrap();
         assert_eq!(reloaded.analysis_metadata.id, scan.id);
+        // Importing an analysis that is already stored changes nothing.
+        let (_, existing, notes) = import_artifact(&paths, &artifact).unwrap();
+        assert_eq!(
+            existing.repository_id,
+            second.scan.as_ref().unwrap().repository_id
+        );
+        assert!(notes[0].contains("already stored"));
         assert_eq!(
             resolve_target(&artifact.to_string_lossy()),
             Target::Artifact(artifact.clone())
