@@ -16,6 +16,7 @@ use repodna_core::model::git::{
     OwnershipSummary, ReleaseInfo, TagInfo, TimelineBucket,
 };
 use repodna_core::paths;
+use repodna_core::text::{self, count};
 use repodna_core::time::SECONDS_PER_DAY;
 
 use crate::log::{ChangeStatus, History, ParsedCommit};
@@ -476,22 +477,20 @@ fn activity(history: &History, reference: Timestamp) -> ActivitySummary {
         ActivityLevel::Dormant
     };
     let latest_date = Timestamp::from_unix(latest).date_string();
+    let commits = |n: u64| count(n, "commit", "commits");
     let description = match level {
-        ActivityLevel::VeryActive | ActivityLevel::Active => {
-            format!(
-                "{last_30} commits in the last 30 days; the latest commit is from {latest_date}."
-            )
-        }
-        ActivityLevel::Moderate => {
-            format!(
-                "{last_90} commits in the last 90 days; the latest commit is from {latest_date}."
-            )
-        }
-        ActivityLevel::Low => {
-            format!(
-                "{last_365} commits in the last 12 months; the latest commit is from {latest_date}."
-            )
-        }
+        ActivityLevel::VeryActive | ActivityLevel::Active => format!(
+            "{} in the last 30 days; the latest commit is from {latest_date}.",
+            commits(last_30)
+        ),
+        ActivityLevel::Moderate => format!(
+            "{} in the last 90 days; the latest commit is from {latest_date}.",
+            commits(last_90)
+        ),
+        ActivityLevel::Low => format!(
+            "{} in the last 12 months; the latest commit is from {latest_date}.",
+            commits(last_365)
+        ),
         ActivityLevel::Dormant => format!(
             "No commits detected in the last 12 months. No activity detected after {latest_date}."
         ),
@@ -555,7 +554,8 @@ fn ownership(contributors: &[ContributorRecord]) -> OwnershipSummary {
         contributors_for_half_of_commits: half,
         top_contributor_share: round4(contributors[0].commits as f64 / total as f64),
         note: format!(
-            "{half} of {count} contributor(s) authored at least half of the analyzed commits. This describes the recorded history; it is not a judgment about individuals."
+            "{half} of {} authored at least half of the analyzed commits. This describes the recorded history; it is not a judgment about individuals.",
+            text::count(u64::from(count), "contributor", "contributors")
         ),
     }
 }
