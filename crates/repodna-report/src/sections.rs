@@ -185,6 +185,11 @@ impl SectionSet {
         Self(Section::ALL.iter().fold(0, |bits, s| bits | s.bit()))
     }
 
+    /// A set holding exactly `sections`.
+    pub fn of(sections: &[Section]) -> Self {
+        Self(sections.iter().fold(0, |bits, s| bits | s.bit()))
+    }
+
     /// Parses section identifiers; an empty list means every section.
     pub fn parse<S: AsRef<str>>(ids: &[S]) -> Result<Self, String> {
         if ids.is_empty() {
@@ -223,6 +228,10 @@ mod tests {
         );
         let error = SectionSet::parse(&["nope"]).unwrap_err();
         assert!(error.contains("expected one of cover, summary"));
+        assert_eq!(
+            SectionSet::of(&[Section::TimeMachine, Section::Summary]),
+            some
+        );
     }
 
     #[test]
