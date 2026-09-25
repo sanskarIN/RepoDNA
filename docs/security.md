@@ -111,7 +111,9 @@ Repositories can be hostile: an archive, a clone, or a shared directory may cont
 crafted to exploit the tools that read them. RepoDNA is built to read them safely.
 
 **Read-only.** Analysis never writes to the repository. Discovery does not follow symbolic
-links, skips version-control metadata, and reads files only up to `max_file_bytes`.
+links, skips version-control metadata, and reads files only up to `max_file_bytes`. (If you
+enable command execution, the repository's own build and test commands can write, as they
+would if you ran them yourself.)
 
 **No commands run by default.** Build and test commands are detected, never run, unless
 you enable execution in your user configuration. A repository's `repodna.toml` cannot
