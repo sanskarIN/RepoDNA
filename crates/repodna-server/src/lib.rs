@@ -11,5 +11,6 @@
 
 pub mod assets;
 pub mod http;
+pub mod jobs;
 
 pub use assets::Assets;
