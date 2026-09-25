@@ -952,6 +952,7 @@ dependencies = [
  "repodna-parser",
  "repodna-plugin",
  "repodna-report",
+ "repodna-server",
  "repodna-store",
  "repodna-testkit",
  "serde",

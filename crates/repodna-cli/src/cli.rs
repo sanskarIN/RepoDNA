@@ -241,6 +241,8 @@ pub enum Command {
     Doctor(DoctorCmd),
     /// Print version information.
     Version(VersionCmd),
+    /// Serve the web interface and a local API on this machine (127.0.0.1 only).
+    Serve(ServeCmd),
     /// Print a shell completion script.
     Completions(CompletionsCmd),
 }
@@ -840,6 +842,23 @@ pub struct VersionCmd {
     /// Print JSON.
     #[arg(long)]
     pub json: bool,
+}
+
+/// `repodna serve`.
+#[derive(Debug, Args)]
+pub struct ServeCmd {
+    /// Port on 127.0.0.1 (0 picks a free port).
+    #[arg(long, default_value_t = 7878)]
+    pub port: u16,
+    /// Serve the web interface from this directory instead of the built-in files.
+    #[arg(long, value_name = "DIR")]
+    pub web_dir: Option<PathBuf>,
+    /// Do not allow starting analyses from the browser.
+    #[arg(long)]
+    pub no_scan: bool,
+    /// How analyses started from the browser run.
+    #[command(flatten)]
+    pub analysis: AnalysisArgs,
 }
 
 /// `repodna completions`.

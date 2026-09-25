@@ -389,3 +389,43 @@ fn analyzes_git_history_when_available() {
     ]);
     assert!(!stdout(&anonymized).contains("Grace"));
 }
+
+#[test]
+fn serves_the_local_api() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    let env = Env::new();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_repodna"))
+        .args(["serve", "--port", "0"])
+        .env("REPODNA_HOME", env.home.path())
+        .env("NO_COLOR", "1")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let mut lines = BufReader::new(stdout).lines();
+    let login = lines
+        .by_ref()
+        .map_while(Result::ok)
+        .find(|line| line.contains("?token="))
+        .unwrap();
+    let url = login.trim();
+    let address = url
+        .trim_start_matches("http://")
+        .split('/')
+        .next()
+        .unwrap()
+        .to_owned();
+    let mut stream = std::net::TcpStream::connect(&address).unwrap();
+    write!(
+        stream,
+        "GET /api/health HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n"
+    )
+    .unwrap();
+    let mut response = String::new();
+    stream.read_to_string(&mut response).unwrap();
+    let _ = child.kill();
+    let _ = child.wait();
+    assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+    assert!(response.contains("\"status\": \"ok\""), "{response}");
+}

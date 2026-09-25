@@ -8,6 +8,7 @@ pub mod explain;
 pub mod manage;
 pub mod plugins;
 pub mod report;
+pub mod serve;
 pub mod views;
 
 use std::io::Write;

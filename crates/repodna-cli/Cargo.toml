@@ -24,6 +24,7 @@ repodna-report.workspace = true
 repodna-ai.workspace = true
 repodna-plugin.workspace = true
 repodna-app.workspace = true
+repodna-server.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
