@@ -63,7 +63,7 @@ rusqlite = { version = "0.40.2", features = ["bundled"] }
 
 # Rendering (SVG to PNG with bundled fonts; no system fonts are loaded)
 resvg = { version = "0.48.1", default-features = false, features = ["text"] }
-ttf-parser = { version = "0.25.1", default-features = false, features = ["std"] }
+skrifa = { version = "0.44.0", default-features = false, features = ["std"] }
 
 # Parallelism
 rayon = "1.12"

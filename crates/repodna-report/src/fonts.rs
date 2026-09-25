@@ -3,7 +3,8 @@
 //! PNG rendering never loads system fonts, so output is identical on every machine. The
 //! same font's metrics are used to fit text in SVG layouts.
 
-use ttf_parser::Face;
+use skrifa::instance::{LocationRef, Size};
+use skrifa::{FontRef, MetadataProvider};
 
 /// DejaVu Sans (see `assets/fonts/LICENSE-DejaVu.txt`).
 pub const SANS: &[u8] = include_bytes!("../assets/fonts/DejaVuSans.ttf");
@@ -20,25 +21,28 @@ pub const FONT_STACK: &str = "'DejaVu Sans', system-ui, -apple-system, 'Segoe UI
 /// Width of `text` in pixels at `size`, from the bundled font's advance widths.
 pub fn text_width(text: &str, size: f64, bold: bool) -> f64 {
     let data = if bold { SANS_BOLD } else { SANS };
-    let Ok(face) = Face::parse(data, 0) else {
+    let Ok(font) = FontRef::new(data) else {
         // The bundled fonts always parse; fall back to a typical average width.
         return text.chars().count() as f64 * size * 0.6;
     };
-    let units = f64::from(face.units_per_em());
-    let fallback = face
-        .glyph_index('n')
-        .and_then(|glyph| face.glyph_hor_advance(glyph))
-        .unwrap_or(1200);
-    let advance: u64 = text
+    let location = LocationRef::default();
+    let units = f64::from(font.metrics(Size::unscaled(), location).units_per_em);
+    if units <= 0.0 {
+        return text.chars().count() as f64 * size * 0.6;
+    }
+    let charmap = font.charmap();
+    let glyphs = font.glyph_metrics(Size::unscaled(), location);
+    let advance_of = |character: char| {
+        charmap
+            .map(character)
+            .and_then(|glyph| glyphs.advance_width(glyph))
+    };
+    let fallback = advance_of('n').unwrap_or(1200.0);
+    let advance: f64 = text
         .chars()
-        .map(|character| {
-            face.glyph_index(character)
-                .and_then(|glyph| face.glyph_hor_advance(glyph))
-                .unwrap_or(fallback)
-        })
-        .map(u64::from)
+        .map(|character| f64::from(advance_of(character).unwrap_or(fallback)))
         .sum();
-    advance as f64 * size / units
+    advance * size / units
 }
 
 /// Shortens `text` with an ellipsis so it is at most `max_width` pixels wide at `size`.
@@ -63,8 +67,8 @@ mod tests {
 
     #[test]
     fn measures_bundled_font_text() {
-        assert!(Face::parse(SANS, 0).is_ok());
-        assert!(Face::parse(SANS_BOLD, 0).is_ok());
+        assert!(FontRef::new(SANS).is_ok());
+        assert!(FontRef::new(SANS_BOLD).is_ok());
         let regular = text_width("RepoDNA", 12.0, false);
         let bold = text_width("RepoDNA", 12.0, true);
         assert!(regular > 40.0 && regular < 70.0, "{regular}");
