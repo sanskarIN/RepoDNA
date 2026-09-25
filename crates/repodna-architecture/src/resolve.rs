@@ -862,20 +862,26 @@ impl<'a> Resolver<'a> {
             return None;
         }
         let path = self.files[from].path;
-        if let Some(file) = paths::join(paths::parent(path), reference).and_then(|c| self.file(&c))
-        {
+        let dir = paths::parent(path);
+        if let Some(file) = paths::join(dir, reference).and_then(|c| self.file(&c)) {
             return Some((file, Confidence::Medium));
         }
+        // A path with directories may be relative to a directory a program runs from: an
+        // enclosing package directory or the repository root. Bare file names only match
+        // siblings, and paths are never matched by suffix anywhere in the repository,
+        // because generic literals such as "src/main.rs" would then link unrelated code.
         let trimmed = reference.trim_start_matches("./");
-        if let Some(file) = self.file(trimmed) {
-            return Some((file, Confidence::Medium));
+        if !trimmed.contains('/') || trimmed.starts_with("../") {
+            return None;
         }
-        if trimmed.contains('/')
-            && let Some((file, true)) = self.suffix_match(trimmed)
-        {
-            return Some((file, Confidence::Low));
+        let mut ancestors = paths::ancestors(dir);
+        ancestors.reverse();
+        for ancestor in ancestors {
+            if let Some(file) = self.file(&format!("{ancestor}/{trimmed}")) {
+                return Some((file, Confidence::Low));
+            }
         }
-        None
+        self.file(trimmed).map(|file| (file, Confidence::Medium))
     }
 
     fn rust(&self, from: usize, import: &RawImport) -> Resolution {
@@ -2198,6 +2204,33 @@ mod tests {
         );
         assert_eq!(resolver.resolve_reference(0, "https://x.test/a.json"), None);
         assert_eq!(resolver.resolve_reference(0, "missing.json"), None);
+    }
+
+    #[test]
+    fn resolves_references_only_near_the_referencing_file() {
+        let fixture = Fixture::new(&[
+            ("crates/core/src/model.rs", ""),
+            ("crates/cli/src/main.rs", ""),
+            ("web/app/views.py", ""),
+            ("web/templates/index.html", ""),
+            ("web/app/Cargo.toml", ""),
+            ("Cargo.toml", ""),
+        ]);
+        let sources = fixture.sources();
+        let resolver = Resolver::new(&sources, &[]);
+        // A generic literal must not link to an unrelated file with the same suffix.
+        assert_eq!(resolver.resolve_reference(0, "src/main.rs"), None);
+        // Relative to an enclosing directory.
+        assert_eq!(
+            resolver.resolve_reference(2, "templates/index.html"),
+            Some((3, Confidence::Low))
+        );
+        // Bare names only match siblings.
+        assert_eq!(
+            resolver.resolve_reference(2, "Cargo.toml"),
+            Some((4, Confidence::Medium))
+        );
+        assert_eq!(resolver.resolve_reference(0, "Cargo.toml"), None);
     }
 
     #[test]
