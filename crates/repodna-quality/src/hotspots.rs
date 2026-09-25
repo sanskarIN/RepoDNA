@@ -9,6 +9,7 @@ use std::cmp::Ordering;
 use repodna_core::evidence::Evidence;
 use repodna_core::metric::round4;
 use repodna_core::model::git::Hotspot;
+use repodna_core::text::count;
 
 /// Weights of the hotspot signals (they sum to 1).
 pub const WEIGHTS: Weights = Weights {
@@ -159,15 +160,16 @@ pub fn rank_hotspots(inputs: &[HotspotInput<'_>], settings: &HotspotSettings) ->
             }
             if strong(churn[index]) {
                 reasons.push(format!(
-                    "{} lines added or removed (top {}% by churn)",
-                    input.churn,
+                    "{} added or removed (top {}% by churn)",
+                    count(input.churn, "line", "lines"),
                     top_percent(churn[index])
                 ));
             }
             if strong(recent[index]) {
                 reasons.push(format!(
-                    "{} commits in the last {} days",
-                    input.recent_commits, settings.recent_days
+                    "{} in the last {} days",
+                    count(u64::from(input.recent_commits), "commit", "commits"),
+                    settings.recent_days
                 ));
             }
             if strong(complexity[index]) {
@@ -177,16 +179,20 @@ pub fn rank_hotspots(inputs: &[HotspotInput<'_>], settings: &HotspotSettings) ->
                 ));
             }
             if strong(size[index]) {
-                reasons.push(format!("{} code lines", input.lines));
+                reasons.push(count(input.lines, "code line", "code lines"));
             }
             if strong(authors[index]) {
-                reasons.push(format!("Changed by {} authors", input.authors));
+                reasons.push(format!("Changed by {}", count(u64::from(input.authors), "author", "authors")));
             }
             if strong(dependents[index]) {
-                reasons.push(format!("{} files import it", input.dependents));
+                reasons.push(if input.dependents == 1 {
+                    "1 file imports it".to_owned()
+                } else {
+                    format!("{} files import it", input.dependents)
+                });
             }
             if reasons.is_empty() {
-                reasons.push(format!("Changed in {} commits", input.commits));
+                reasons.push(format!("Changed in {}", count(u64::from(input.commits), "commit", "commits")));
             }
             let interpretation = if strong(commits[index]) && strong(complexity[index]) {
                 "Frequently changed and complex: changes here are more likely to need careful review and good test coverage."

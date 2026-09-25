@@ -11,6 +11,7 @@ use repodna_core::finding::{Finding, FindingCategory};
 use repodna_core::model::git::Hotspot;
 use repodna_core::model::quality::{FunctionSignal, MarkerKind, QualityReport, SimilarityReport};
 use repodna_core::severity::Severity;
+use repodna_core::text::count;
 
 use crate::complexity::COMPLEXITY_METHOD;
 use crate::duplication::DUPLICATION_METHOD;
@@ -186,11 +187,15 @@ pub fn quality_findings(
             FindingCategory::Duplication,
             Severity::Attention,
             Confidence::High,
-            format!("{} duplicated lines in {places} places", cluster.lines),
+            format!(
+                "{} duplicated in {places} places",
+                count(u64::from(cluster.lines), "line", "lines")
+            ),
         )
         .summary(format!(
-            "A block of {} normalized tokens ({} lines) appears {places} times.",
-            cluster.tokens, cluster.lines
+            "A block of {} normalized tokens ({}) appears {places} times.",
+            cluster.tokens,
+            count(u64::from(cluster.lines), "line", "lines")
         ))
         .rationale("Duplicated code has to be changed in several places; a fix applied to one copy is easily missed in the others.")
         .method(DUPLICATION_METHOD)
