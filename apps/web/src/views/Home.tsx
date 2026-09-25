@@ -310,7 +310,7 @@ export function Home() {
           </p>
           <p className="muted">
             Create one with <code>repodna export</code> or{" "}
-            <code>repodna analyze --format json</code>. The file is read in this browser and never
+            <code>repodna analyze --format json</code>. The file is read on this machine and never
             uploaded.
           </p>
           <input

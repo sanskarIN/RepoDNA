@@ -47,10 +47,10 @@ export function Settings() {
           <ul className="evidence">
             <li>RepoDNA analyzes repositories on this machine and sends no telemetry.</li>
             <li>
-              This page stores only your theme choice in this browser, and the sign-in token for
-              this tab.
+              This interface stores only your theme choice, and the sign-in token of this tab when
+              it is served by <code>repodna serve</code>.
             </li>
-            <li>Files you open here are read in the browser and never uploaded.</li>
+            <li>Files you open here are read on this machine and never uploaded.</li>
             <li>
               AI explanations are off unless you configure a provider; remote providers need your
               explicit consent.

@@ -197,7 +197,7 @@ export function Reports() {
       ) : (
         <Panel
           title="This analysis file"
-          description="Opened in this browser; nothing was uploaded."
+          description="Opened on this machine; nothing was uploaded."
         >
           <p>
             <button
