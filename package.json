@@ -11,7 +11,8 @@
     "url": "https://github.com/sanskarIN/RepoDNA.git"
   },
   "workspaces": [
-    "packages/schema"
+    "packages/schema",
+    "packages/visualization"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
