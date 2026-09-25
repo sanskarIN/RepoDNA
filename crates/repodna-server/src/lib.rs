@@ -13,6 +13,7 @@ pub mod api;
 pub mod assets;
 pub mod http;
 pub mod jobs;
+pub mod library;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;

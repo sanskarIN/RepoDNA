@@ -4,14 +4,12 @@
 use std::io::Read;
 
 use repodna_app::{AnalyzeOptions, AppPaths};
-use repodna_core::config::{AnalysisProfile, PrivacyPreset, ReportTheme};
+use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::card::{CardOptions, render as render_card};
+use repodna_report::compare;
 use repodna_report::compare::json_comparison;
-use repodna_report::{
-    ReportOptions, apply_privacy, compare, html_report, json_report, markdown_report,
-};
-use repodna_store::{RepositoryRecord, ScanRecord, Store, StoreError};
+use repodna_store::Store;
 use serde_json::{Value, json};
 use tiny_http::{Method, Request};
 
@@ -20,6 +18,7 @@ use crate::http::{
     APP_CSP, REPORT_CSP, Reply, Target, constant_time_eq, cookie, error, json, respond, with_header,
 };
 use crate::jobs::Jobs;
+use crate::library::{self, LookupError};
 
 /// Name of the session cookie.
 pub const COOKIE: &str = "repodna_token";
@@ -80,46 +79,16 @@ impl State {
     }
 }
 
-fn storage_error(error: &StoreError) -> Reply {
-    crate::http::error(500, &format!("local storage failed: {error}"))
-}
-
-fn repository(state: &State, query: &str) -> Result<RepositoryRecord, Reply> {
-    state
-        .store
-        .find_repository(query)
-        .map_err(|e| storage_error(&e))?
-        .ok_or_else(|| error(404, &format!("no stored repository matches `{query}`")))
-}
-
-fn scan_record(
-    state: &State,
-    repository: &RepositoryRecord,
-    target: &Target,
-) -> Result<ScanRecord, Reply> {
-    let scan = match target.param("scan") {
-        Some(id) => state
-            .store
-            .scan(id)
-            .map_err(|e| storage_error(&e))?
-            .filter(|scan| scan.repository_id == repository.id),
-        None => state
-            .store
-            .scans(&repository.id, 1)
-            .map_err(|e| storage_error(&e))?
-            .into_iter()
-            .next(),
-    };
-    scan.ok_or_else(|| error(404, "no stored analysis matches"))
+fn lookup_error(failure: &LookupError) -> Reply {
+    match failure {
+        LookupError::NoRepository(_) | LookupError::NoScan => error(404, &failure.to_string()),
+        LookupError::Storage(_) => error(500, &failure.to_string()),
+    }
 }
 
 fn privacy(target: &Target) -> Result<PrivacyPreset, Reply> {
-    match target.param("privacy").unwrap_or("local") {
-        "local" => Ok(PrivacyPreset::Local),
-        "share" => Ok(PrivacyPreset::Share),
-        "public" => Ok(PrivacyPreset::Public),
-        other => Err(error(400, &format!("unknown privacy preset `{other}`"))),
-    }
+    library::parse_privacy(target.param("privacy").unwrap_or("local"))
+        .map_err(|message| error(400, &message))
 }
 
 fn load(
@@ -127,45 +96,10 @@ fn load(
     query: &str,
     target: &Target,
 ) -> Result<(RepositoryDna, PrivacyPreset), Reply> {
-    let repository = repository(state, query)?;
-    let scan = scan_record(state, &repository, target)?;
-    let dna = state.store.load(&scan).map_err(|e| storage_error(&e))?;
     let preset = privacy(target)?;
-    Ok((apply_privacy(&dna, preset), preset))
-}
-
-fn scan_json(scan: &ScanRecord) -> Value {
-    json!({
-        "id": scan.id,
-        "generatedAt": scan.generated_at,
-        "profile": scan.profile,
-        "revision": scan.revision,
-        "dnaHash": scan.dna_hash,
-        "toolVersion": scan.tool_version,
-        "files": scan.files,
-        "codeLines": scan.code_lines,
-        "commits": scan.commits,
-        "contributors": scan.contributors,
-        "findings": {
-            "critical": scan.critical,
-            "warning": scan.warning,
-            "attention": scan.attention,
-            "info": scan.info,
-            "suppressed": scan.suppressed,
-        },
-    })
-}
-
-fn repository_json(repository: &RepositoryRecord) -> Value {
-    json!({
-        "id": repository.id,
-        "name": repository.name,
-        "location": repository.location,
-        "kind": repository.kind,
-        "scans": repository.scans,
-        "firstScannedAt": repository.first_scanned_at,
-        "lastScannedAt": repository.last_scanned_at,
-    })
+    let dna = library::load(&state.store, query, target.param("scan"), preset)
+        .map_err(|failure| lookup_error(&failure))?;
+    Ok((dna, preset))
 }
 
 fn view(dna: &RepositoryDna, name: &str) -> Option<Value> {
@@ -193,41 +127,24 @@ fn report(state: &State, query: &str, target: &Target) -> Reply {
         Ok(loaded) => loaded,
         Err(reply) => return reply,
     };
-    let theme = match target.param("theme").unwrap_or("professional") {
-        "professional" => ReportTheme::Professional,
-        "minimal" => ReportTheme::Minimal,
-        "technical" => ReportTheme::Technical,
-        "dark" => ReportTheme::Dark,
-        other => return error(400, &format!("unknown theme `{other}`")),
+    let theme = match library::parse_theme(target.param("theme").unwrap_or("professional")) {
+        Ok(theme) => theme,
+        Err(message) => return error(400, &message),
     };
-    let options = ReportOptions {
-        theme,
-        privacy: preset,
-        ..ReportOptions::default()
-    };
-    match target.param("format").unwrap_or("html") {
-        "html" => respond(
+    let format = target.param("format").unwrap_or("html");
+    match library::report(&dna, format, theme, preset) {
+        Ok(document) => respond(
             200,
-            "text/html; charset=utf-8",
-            html_report(&dna, &options).into_bytes(),
-            REPORT_CSP,
+            document.content_type,
+            document.text.into_bytes(),
+            if format == "html" {
+                REPORT_CSP
+            } else {
+                APP_CSP
+            },
         ),
-        "markdown" => respond(
-            200,
-            "text/markdown; charset=utf-8",
-            markdown_report(&dna, &options).into_bytes(),
-            APP_CSP,
-        ),
-        "json" => match json_report(&dna, preset, true) {
-            Ok(text) => respond(
-                200,
-                "application/json; charset=utf-8",
-                text.into_bytes(),
-                APP_CSP,
-            ),
-            Err(e) => error(500, &e.to_string()),
-        },
-        other => error(400, &format!("unknown report format `{other}`")),
+        Err(message) if message.starts_with("unknown report format") => error(400, &message),
+        Err(message) => error(500, &message),
     }
 }
 
@@ -392,26 +309,16 @@ pub fn handle(state: &State, request: &mut Request) -> Reply {
                     "webInterface": state.assets.available(),
                 }),
             ),
-            (Method::Get, ["repositories"]) => match state.store.repositories() {
-                Ok(list) => json(
-                    200,
-                    &json!(list.iter().map(repository_json).collect::<Vec<_>>()),
-                ),
-                Err(e) => storage_error(&e),
+            (Method::Get, ["repositories"]) => match library::repositories(&state.store) {
+                Ok(list) => json(200, &list),
+                Err(failure) => lookup_error(&failure),
             },
-            (Method::Get, ["repositories", query]) => match repository(state, query) {
-                Ok(repository) => match state.store.scans(&repository.id, 100) {
-                    Ok(scans) => json(
-                        200,
-                        &json!({
-                            "repository": repository_json(&repository),
-                            "scans": scans.iter().map(scan_json).collect::<Vec<_>>(),
-                        }),
-                    ),
-                    Err(e) => storage_error(&e),
-                },
-                Err(reply) => reply,
-            },
+            (Method::Get, ["repositories", query]) => {
+                match library::repository_detail(&state.store, query) {
+                    Ok(detail) => json(200, &detail),
+                    Err(failure) => lookup_error(&failure),
+                }
+            }
             (Method::Get, ["repositories", query, "artifact"]) => match load(state, query, &target)
             {
                 Ok((dna, _)) => json(200, &json!(dna)),
