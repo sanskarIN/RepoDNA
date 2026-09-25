@@ -800,7 +800,7 @@ export interface SuppressionRule {
    */
   reason: string;
   /**
-   * Rule identifier or wildcard pattern, e.g. `security.secret-candidate` or `quality.*`.
+   * Rule identifier or wildcard pattern, e.g. `security.secret` or `quality.*`.
    */
   rule: string;
   /**

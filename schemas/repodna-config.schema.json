@@ -552,7 +552,7 @@
         },
         "rule": {
           "default": "*",
-          "description": "Rule identifier or wildcard pattern, e.g. `security.secret-candidate` or `quality.*`.",
+          "description": "Rule identifier or wildcard pattern, e.g. `security.secret` or `quality.*`.",
           "type": "string"
         },
         "source": {

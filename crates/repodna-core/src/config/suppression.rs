@@ -13,7 +13,7 @@ use crate::glob::{Glob, GlobError, wildcard_match};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct SuppressionRule {
-    /// Rule identifier or wildcard pattern, e.g. `security.secret-candidate` or `quality.*`.
+    /// Rule identifier or wildcard pattern, e.g. `security.secret` or `quality.*`.
     #[serde(default = "any_rule")]
     pub rule: String,
     /// Optional path glob; the rule then applies only to findings about matching paths.
@@ -108,7 +108,7 @@ mod tests {
 
     fn secret_finding(path: &str) -> Finding {
         Finding::new(
-            "security.secret-candidate",
+            "security.secret",
             path,
             FindingCategory::Security,
             Severity::Warning,
@@ -158,7 +158,7 @@ mod tests {
         let mut by_id = rule("*", None);
         by_id.id = Some(finding.id.clone());
         assert!(by_id.matches(&finding));
-        by_id.id = Some("security.secret-candidate:000000000000".into());
+        by_id.id = Some("security.secret:000000000000".into());
         assert!(!by_id.matches(&finding));
     }
 

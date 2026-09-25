@@ -693,7 +693,7 @@ duplicate_min_tokens = 70
 
 # Suppress known false positives. Suppressed findings stay visible in reports.
 # [[suppress]]
-# rule = "security.secret-candidate"
+# rule = "security.secret"
 # path = "tests/fixtures/**"
 # reason = "Intentional fake credentials used by tests"
 

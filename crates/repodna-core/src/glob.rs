@@ -352,7 +352,7 @@ mod tests {
 
     #[test]
     fn wildcards_for_rule_identifiers() {
-        assert!(wildcard_match("security.*", "security.secret-candidate"));
+        assert!(wildcard_match("security.*", "security.secret"));
         assert!(wildcard_match("*", "anything.at.all"));
         assert!(wildcard_match("architecture.cycle", "architecture.cycle"));
         assert!(!wildcard_match("architecture.cycle", "architecture.cycles"));
