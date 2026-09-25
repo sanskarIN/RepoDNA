@@ -102,6 +102,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - name: Build
+        env:
+          # Link the C runtime statically so the Windows binary needs no Visual C++ runtime.
+          RUSTFLAGS: ${{ contains(matrix.target, 'windows-msvc') && '-C target-feature=+crt-static' || '' }}
         run: cargo build --release --locked -p repodna-cli --target ${{ matrix.target }}
       - name: Check the binary
         # The x86_64 macOS binary is cross-compiled on an Arm runner.
