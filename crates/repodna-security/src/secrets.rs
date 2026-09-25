@@ -274,6 +274,17 @@ fn is_placeholder(value: &str) -> bool {
     ];
     FRAGMENTS.iter().any(|fragment| lower.contains(fragment))
         || value.bytes().all(|b| b == value.as_bytes()[0])
+        || is_environment_variable_name(value)
+}
+
+/// `ANTHROPIC_API_KEY`-style names: settings such as `api_key_env = "MY_KEY"` name the
+/// variable that holds a secret rather than holding one.
+fn is_environment_variable_name(value: &str) -> bool {
+    value.contains('_')
+        && value.as_bytes()[0].is_ascii_uppercase()
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
 }
 
 /// Shannon entropy of `value` in bits per character.
@@ -587,5 +598,15 @@ mod tests {
         assert!((shannon_entropy("abcd") - 2.0).abs() < 1e-9);
         assert_eq!(truncate_bytes("héllo", 2), "h");
         assert_eq!(lower(Confidence::High), Confidence::Medium);
+    }
+
+    #[test]
+    fn environment_variable_names_are_not_secrets() {
+        assert!(is_environment_variable_name("ANTHROPIC_API_KEY"));
+        assert!(is_environment_variable_name("MY_PROVIDER_KEY_2"));
+        assert!(!is_environment_variable_name("AKIAABCDEFGHIJKLMNOP"));
+        assert!(!is_environment_variable_name("sk_live_Abc"));
+        let found = scan("config.toml", "api_key_env = \"ANTHROPIC_API_KEY\"\n");
+        assert!(found.is_empty(), "{found:?}");
     }
 }
