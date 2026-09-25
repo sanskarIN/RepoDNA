@@ -8,6 +8,11 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 publish.workspace = true
+default-run = "repodna"
+
+[[bin]]
+name = "repodna"
+path = "src/main.rs"
 
 [dependencies]
 repodna-core.workspace = true
