@@ -11,6 +11,7 @@ use repodna_core::model::architecture::{
 };
 use repodna_core::paths;
 use repodna_core::severity::Severity;
+use repodna_core::text::count;
 
 /// Share of first-party code in one module at or above which code counts as concentrated.
 pub const CODE_CONCENTRATION: f64 = 0.5;
@@ -450,8 +451,9 @@ pub fn architecture_findings(report: &ArchitectureReport, total_code_lines: u64)
                     format!("{} has no detected links to other modules", module.name),
                 )
                 .summary(format!(
-                    "No resolved import connects {} ({} files) with any other module, in either direction.",
-                    module.name, module.files
+                    "No resolved import connects {} ({}) with any other module, in either direction.",
+                    module.name,
+                    count(module.files, "file", "files")
                 ))
                 .rationale("Isolated code is either independent, connected in ways static analysis cannot see (configuration, runtime loading, code generation), or unused.")
                 .method("Modules with zero fan-in and zero fan-out in the module dependency graph.")
