@@ -206,6 +206,16 @@ impl RustTestRegions {
     }
 }
 
+/// Marks the lines of Rust source that belong to `#[cfg(test)]` items (usually the `tests`
+/// module). `lines` must come from scanning the file with the Rust syntax.
+pub fn rust_test_lines(lines: &[crate::scanner::ScannedLine]) -> Vec<bool> {
+    let mut regions = RustTestRegions::default();
+    lines
+        .iter()
+        .map(|line| regions.in_test(&line.masked))
+        .collect()
+}
+
 fn extract_references(
     lines: &[crate::scanner::ScannedLine],
     imports: &[RawImport],
@@ -355,5 +365,16 @@ mod tests {
         assert_eq!(analysis, analyze_source(spec, text));
         assert_eq!(tokens, tokenize(&scan(text, &spec.syntax).lines));
         assert!(tokens.iter().all(|token| token.line != 2));
+    }
+
+    #[test]
+    fn marks_rust_test_lines() {
+        let rust = LanguageRegistry::builtin().get("rust").unwrap();
+        let source = "fn real() {}\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() { let s = \"}\"; }\n}\nfn after() {}\n";
+        let lines = scan(source, &rust.syntax).lines;
+        assert_eq!(
+            rust_test_lines(&lines),
+            vec![false, true, true, true, true, true, false]
+        );
     }
 }

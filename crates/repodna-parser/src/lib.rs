@@ -20,7 +20,8 @@ pub mod symbols;
 pub mod tokens;
 
 pub use analyze::{
-    ANALYZER_VERSION, FileAnalysis, RawReference, analyze_and_tokenize, analyze_source, count_lines,
+    ANALYZER_VERSION, FileAnalysis, RawReference, analyze_and_tokenize, analyze_source,
+    count_lines, rust_test_lines,
 };
 pub use builtin::builtin_languages;
 pub use declarative::{DefinitionError, load_directory, parse_definition};
