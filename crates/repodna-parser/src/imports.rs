@@ -61,7 +61,10 @@ pub fn extract_imports(spec: &LanguageSpec, lines: &[ScannedLine]) -> Vec<RawImp
                 continue;
             }
             for pattern in &spec.imports {
-                for captures in pattern.regex.captures_iter(&line.code) {
+                let Some(regex) = pattern.regex.get() else {
+                    continue;
+                };
+                for captures in regex.captures_iter(&line.code) {
                     let Some(whole) = captures.get(0) else {
                         continue;
                     };
@@ -176,7 +179,7 @@ fn starts_in_code(line: &ScannedLine, start: usize, end: usize) -> bool {
 
 /// Extracts the package or namespace declaration, if the language has one.
 pub fn extract_package(spec: &LanguageSpec, lines: &[ScannedLine]) -> Option<String> {
-    let pattern = spec.package.as_ref()?;
+    let pattern = spec.package.as_ref()?.get()?;
     lines.iter().find_map(|line| {
         pattern
             .captures(&line.code)

@@ -5,9 +5,62 @@
 //! complexity. The same generic scanner processes every language, which keeps behavior
 //! consistent and lets new languages be added declaratively (see [`crate::declarative`]).
 
+use std::fmt;
+use std::sync::{Arc, OnceLock};
+
 use regex::Regex;
 use repodna_core::model::languages::{LanguageKind, ParserCapability};
 use repodna_core::model::structure::SymbolKind;
+
+/// A regular expression that is compiled the first time it is used.
+///
+/// Unicode classes such as `\w` make each expression take about a millisecond to compile,
+/// and a repository usually contains only a few of the built-in languages, so the
+/// expressions of a language are compiled when its first file is analyzed. Clones share
+/// the compiled expression.
+#[derive(Clone)]
+pub struct Pattern {
+    source: Arc<str>,
+    compiled: Arc<OnceLock<Option<Regex>>>,
+}
+
+impl Pattern {
+    /// An expression that is compiled on first use. One that does not compile never
+    /// matches; tests check that every built-in expression compiles.
+    pub fn new(source: impl Into<Arc<str>>) -> Self {
+        Self {
+            source: source.into(),
+            compiled: Arc::new(OnceLock::new()),
+        }
+    }
+
+    /// An expression that is already compiled, such as one checked when a plugin loads.
+    pub fn compiled(regex: Regex) -> Self {
+        let source: Arc<str> = regex.as_str().into();
+        Self {
+            source,
+            compiled: Arc::new(OnceLock::from(Some(regex))),
+        }
+    }
+
+    /// The expression's source text.
+    pub fn as_str(&self) -> &str {
+        &self.source
+    }
+
+    /// The compiled expression, or `None` when it does not compile.
+    pub fn get(&self) -> Option<&Regex> {
+        self.compiled
+            .get_or_init(|| Regex::new(&self.source).ok())
+            .as_ref()
+    }
+}
+
+impl fmt::Debug for Pattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Pattern").field(&self.as_str()).finish()
+    }
+}
 
 /// A line-comment introducer such as `//` or `#`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,7 +178,7 @@ pub enum ImportExtractor {
 #[derive(Debug, Clone)]
 pub struct ImportPattern {
     /// The expression, applied to comment-free lines with string contents intact.
-    pub regex: Regex,
+    pub regex: Pattern,
     /// Capture group holding the specifier.
     pub group: usize,
     /// Kind of import.
@@ -136,7 +189,7 @@ pub struct ImportPattern {
 #[derive(Debug, Clone)]
 pub struct SymbolPattern {
     /// The expression, applied to masked lines (comments removed, string contents blanked).
-    pub regex: Regex,
+    pub regex: Pattern,
     /// Capture group holding the name.
     pub group: usize,
     /// Kind of symbol.
@@ -165,8 +218,8 @@ pub struct ComplexityRules {
     pub operators: Vec<String>,
     /// Whether ` ? ` counts as a ternary decision point.
     pub ternary: bool,
-    /// Compiled word-boundary expression for `keywords` (built by [`ComplexityRules::compile`]).
-    pub keyword_regex: Option<Regex>,
+    /// Word-boundary expression for `keywords` (built by [`ComplexityRules::compile`]).
+    pub keyword_regex: Option<Pattern>,
 }
 
 impl ComplexityRules {
@@ -192,14 +245,14 @@ impl ComplexityRules {
         rules
     }
 
-    /// (Re)compiles the keyword expression.
+    /// (Re)builds the keyword expression, which is compiled when first used.
     pub fn compile(&mut self) {
         self.keyword_regex = if self.keywords.is_empty() {
             None
         } else {
             let alternatives: Vec<String> =
                 self.keywords.iter().map(|k| regex::escape(k)).collect();
-            Regex::new(&format!(r"\b(?:{})\b", alternatives.join("|"))).ok()
+            Some(Pattern::new(format!(r"\b(?:{})\b", alternatives.join("|"))))
         };
     }
 
@@ -233,7 +286,7 @@ pub struct LanguageSpec {
     /// Import patterns.
     pub imports: Vec<ImportPattern>,
     /// Pattern capturing a package or namespace declaration.
-    pub package: Option<Regex>,
+    pub package: Option<Pattern>,
     /// Function and method patterns.
     pub functions: Vec<SymbolPattern>,
     /// Type, module, and other symbol patterns.
@@ -281,5 +334,48 @@ impl LanguageSpec {
         } else {
             ParserCapability::Detection
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn patterns_compile_once_on_first_use() {
+        let pattern = Pattern::new(r"^\s*fn\s+(\w+)");
+        let copy = pattern.clone();
+        assert!(pattern.compiled.get().is_none());
+        let regex = copy.get().expect("valid expression");
+        assert_eq!(regex.captures("fn main").unwrap()[1].to_owned(), "main");
+        // The clone compiled it for both.
+        assert!(pattern.compiled.get().is_some());
+        assert_eq!(pattern.as_str(), r"^\s*fn\s+(\w+)");
+        assert_eq!(format!("{pattern:?}"), r#"Pattern("^\\s*fn\\s+(\\w+)")"#);
+    }
+
+    #[test]
+    fn invalid_patterns_never_match() {
+        assert!(Pattern::new("(unclosed").get().is_none());
+    }
+
+    #[test]
+    fn compiled_patterns_keep_their_source() {
+        let pattern = Pattern::compiled(Regex::new("a+b").unwrap());
+        assert_eq!(pattern.as_str(), "a+b");
+        assert!(pattern.get().is_some_and(|regex| regex.is_match("aab")));
+    }
+
+    #[test]
+    fn keyword_rules_match_whole_words() {
+        let rules = ComplexityRules::new(&["if", "for"], &["&&", "and"], true);
+        let regex = rules.keyword_regex.as_ref().and_then(Pattern::get).unwrap();
+        assert_eq!(regex.find_iter("if x and y: for z in r").count(), 3);
+        assert_eq!(regex.find_iter("iffy random fortune").count(), 0);
+        assert!(
+            ComplexityRules::new(&[], &[], false)
+                .keyword_regex
+                .is_none()
+        );
     }
 }

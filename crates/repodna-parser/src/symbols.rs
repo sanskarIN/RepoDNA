@@ -13,7 +13,7 @@ use repodna_core::model::structure::SymbolKind;
 use serde::{Deserialize, Serialize};
 
 use crate::scanner::{LineKind, ScannedLine};
-use crate::spec::{BodyStyle, ComplexityRules, LanguageSpec};
+use crate::spec::{BodyStyle, ComplexityRules, LanguageSpec, Pattern};
 
 /// A symbol found by lexical analysis.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -368,6 +368,7 @@ pub fn count_decisions(rules: &ComplexityRules, text: &str) -> u32 {
     let mut count = rules
         .keyword_regex
         .as_ref()
+        .and_then(Pattern::get)
         .map_or(0, |regex| regex.find_iter(text).count());
     for operator in &rules.operators {
         count += text.matches(operator.as_str()).count();
@@ -399,7 +400,7 @@ pub fn extract_symbols(spec: &LanguageSpec, lines: &[ScannedLine]) -> SymbolAnal
         }
         let text = &line.masked;
         let function = spec.functions.iter().find_map(|pattern| {
-            let captures = pattern.regex.captures(text)?;
+            let captures = pattern.regex.get()?.captures(text)?;
             let name = captures.get(pattern.group)?;
             if CONTROL_WORDS.contains(&name.as_str()) {
                 return None;
@@ -434,7 +435,7 @@ pub fn extract_symbols(spec: &LanguageSpec, lines: &[ScannedLine]) -> SymbolAnal
             continue;
         }
         let type_symbol = spec.types.iter().find_map(|pattern| {
-            let captures = pattern.regex.captures(text)?;
+            let captures = pattern.regex.get()?.captures(text)?;
             let name = captures.get(pattern.group)?;
             Some((pattern.kind, clean_name(name.as_str())))
         });

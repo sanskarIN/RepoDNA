@@ -4,19 +4,17 @@
 //! detection only. Patterns run on masked lines (comments removed, string contents
 //! blanked), so text inside strings and comments can never create false symbols.
 
-use regex::Regex;
 use repodna_core::model::languages::LanguageKind;
 use repodna_core::model::structure::SymbolKind;
 
 use crate::spec::{
     BlockComment, BodyStyle, ComplexityRules, ImportExtractor, ImportKind, ImportPattern,
-    LanguageSpec, LineComment, StringRule, SymbolPattern, Syntax,
+    LanguageSpec, LineComment, Pattern, StringRule, SymbolPattern, Syntax,
 };
 
-fn re(pattern: &str) -> Regex {
-    // Built-in expressions are constants covered by `every_builtin_pattern_compiles`.
-    Regex::new(pattern)
-        .unwrap_or_else(|error| panic!("invalid built-in pattern {pattern}: {error}"))
+fn re(pattern: &str) -> Pattern {
+    // Built-in expressions are constants that `every_builtin_pattern_compiles` checks.
+    Pattern::new(pattern)
 }
 
 fn import(pattern: &str, group: usize, kind: ImportKind) -> ImportPattern {
@@ -1606,6 +1604,28 @@ mod tests {
                 "duplicate id {}",
                 language.id
             );
+            // Patterns compile lazily, so compile each one here, with its capture group.
+            let groups = language
+                .imports
+                .iter()
+                .map(|p| (&p.regex, p.group))
+                .chain(language.functions.iter().map(|p| (&p.regex, p.group)))
+                .chain(language.types.iter().map(|p| (&p.regex, p.group)))
+                .chain(language.package.iter().map(|p| (p, 1)));
+            for (pattern, group) in groups {
+                let regex = pattern.get().unwrap_or_else(|| {
+                    panic!("{}: invalid pattern {}", language.id, pattern.as_str())
+                });
+                assert!(
+                    group < regex.captures_len(),
+                    "{}: {} has no group {group}",
+                    language.id,
+                    pattern.as_str()
+                );
+            }
+            if let Some(keywords) = &language.complexity.keyword_regex {
+                assert!(keywords.get().is_some(), "{}: keywords", language.id);
+            }
         }
         assert!(languages.len() >= 60, "{} languages", languages.len());
     }

@@ -28,7 +28,7 @@ use serde::Deserialize;
 
 use crate::spec::{
     BlockComment, BodyStyle, ComplexityRules, ImportKind, ImportPattern, LanguageSpec, LineComment,
-    StringRule, SymbolPattern,
+    Pattern, StringRule, SymbolPattern,
 };
 
 /// Maximum size of a language definition file.
@@ -235,24 +235,24 @@ pub fn parse_definition(text: &str, origin: &str) -> Result<LanguageSpec, Defini
     }
     for pattern in &definition.imports {
         spec.imports.push(ImportPattern {
-            regex: compile(origin, pattern)?,
+            regex: Pattern::compiled(compile(origin, pattern)?),
             group: 1,
             kind: ImportKind::Import,
         });
     }
     if let Some(pattern) = &definition.package {
-        spec.package = Some(compile(origin, pattern)?);
+        spec.package = Some(Pattern::compiled(compile(origin, pattern)?));
     }
     for pattern in &definition.functions {
         spec.functions.push(SymbolPattern {
-            regex: compile(origin, pattern)?,
+            regex: Pattern::compiled(compile(origin, pattern)?),
             group: 1,
             kind: SymbolKind::Function,
         });
     }
     for definition in &definition.types {
         spec.types.push(SymbolPattern {
-            regex: compile(origin, &definition.pattern)?,
+            regex: Pattern::compiled(compile(origin, &definition.pattern)?),
             group: 1,
             kind: symbol_kind(origin, &definition.kind)?,
         });
