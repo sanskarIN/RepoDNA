@@ -194,7 +194,7 @@ pub fn security_findings(report: &SecurityReport) -> Vec<Finding> {
                 FindingCategory::Security,
                 secret_severity(candidate),
                 candidate.confidence,
-                format!("Possible {} in {}", candidate.description.to_lowercase(), candidate.path),
+                format!("Possible secret in {}: {}", candidate.path, candidate.description),
             )
             .summary(summary)
             .rationale("Credentials committed to a repository are exposed to everyone with access to it and to its history, including forks and clones.")

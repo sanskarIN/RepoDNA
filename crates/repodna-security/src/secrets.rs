@@ -213,7 +213,7 @@ pub static SECRET_RULES: LazyLock<Vec<SecretRule>> = LazyLock::new(|| {
         ),
         rule(
             "env-assignment-secret",
-            "Secret assigned without quotes, as in an environment file",
+            "Unquoted secret assignment",
             Medium,
             &[
                 "password",
