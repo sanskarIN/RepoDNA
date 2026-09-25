@@ -2,7 +2,7 @@
 # crates, and unexpected sources: https://embarkstudios.github.io/cargo-deny/
 #
 #   cargo deny check
-#   cargo deny --manifest-path apps/desktop/src-tauri/Cargo.toml --config deny.toml check
+#   cargo deny --manifest-path apps/desktop/src-tauri/Cargo.toml check
 
 [graph]
 all-features = true
