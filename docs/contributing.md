@@ -24,8 +24,6 @@ cargo run -p repodna-cli -- serve  # try your change
 | An example plugin | `plugins/` | [Plugins](plugins.md) |
 | Documentation | `docs/` | This site |
 
-Issues labeled "good first issue" are small and well described.
-
 ## Principles for changes
 
 - Every conclusion needs evidence, a method, and its limitations. Do not add signals that
