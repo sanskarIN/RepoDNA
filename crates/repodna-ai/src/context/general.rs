@@ -639,17 +639,21 @@ pub(super) fn recent_changes(dna: &RepositoryDna, c: &mut Candidates) {
         EvidenceKind::Fact,
         format!("last {} days", recent.window_days),
         format!(
-            "{} by {}; {} files changed (+{} −{}); most active areas: {}. {} added and {} removed files; {} test files and {} documentation files changed.",
+            "{} by {}; {} changed (+{} −{}); most active areas: {}. Files added: {}, removed: {}; {} and {} changed.",
             count(recent.commits, "commit", "commits"),
             count(u64::from(recent.contributors), "contributor", "contributors"),
-            recent.files_changed,
+            count(recent.files_changed, "file", "files"),
             recent.insertions,
             recent.deletions,
             if areas.is_empty() { "none".to_owned() } else { areas.join(", ") },
             recent.added_files.len(),
             recent.removed_files.len(),
-            recent.test_files_changed,
-            recent.doc_files_changed
+            count(recent.test_files_changed, "test file", "test files"),
+            count(
+                recent.doc_files_changed,
+                "documentation file",
+                "documentation files"
+            )
         ),
     );
     for change in recent.dependency_changes.iter().take(8) {
@@ -717,9 +721,16 @@ pub(super) fn tests_and_docs(dna: &RepositoryDna, c: &mut Candidates) {
         EvidenceKind::Metric,
         "tests",
         format!(
-            "{} and {} with inline tests; {} of code lines are test code; frameworks: {}.",
-            count(t.test_files, "test file", "test files"),
-            count(t.inline_test_files, "source file", "source files"),
+            "{}; {} of code lines are test code; frameworks: {}.",
+            if t.inline_test_files == 0 {
+                count(t.test_files, "test file", "test files")
+            } else {
+                format!(
+                    "{} and {} with inline tests",
+                    count(t.test_files, "test file", "test files"),
+                    count(t.inline_test_files, "source file", "source files")
+                )
+            },
             percent(t.test_ratio),
             if frameworks.is_empty() {
                 "none detected".to_owned()
