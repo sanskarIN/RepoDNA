@@ -346,7 +346,7 @@
         },
         "use_default_patterns": {
           "default": true,
-          "description": "Also exclude common dependency and tool-cache directories ([`DEFAULT_IGNORE_PATTERNS`]):\n`node_modules/`, `bower_components/`, `.venv/`, `__pycache__/`, `.tox/`, `.mypy_cache/`,\n`.pytest_cache/`, `.gradle/`, `.next/`, `.nuxt/`, `.turbo/`, and `.parcel-cache/`.",
+          "description": "Also exclude common dependency and tool-cache directories:\n`node_modules/`, `bower_components/`, `.venv/`, `__pycache__/`, `.tox/`, `.mypy_cache/`,\n`.pytest_cache/`, `.gradle/`, `.next/`, `.nuxt/`, `.turbo/`, and `.parcel-cache/`.",
           "type": "boolean"
         }
       },

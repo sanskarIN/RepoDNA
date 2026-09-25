@@ -274,7 +274,7 @@ impl Default for PerformanceConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct IgnoreConfig {
-    /// Also exclude common dependency and tool-cache directories ([`DEFAULT_IGNORE_PATTERNS`]):
+    /// Also exclude common dependency and tool-cache directories:
     /// `node_modules/`, `bower_components/`, `.venv/`, `__pycache__/`, `.tox/`, `.mypy_cache/`,
     /// `.pytest_cache/`, `.gradle/`, `.next/`, `.nuxt/`, `.turbo/`, and `.parcel-cache/`.
     pub use_default_patterns: bool,
