@@ -17,7 +17,6 @@
 *.gz binary
 
 # Generated files: collapsed in diffs and excluded from GitHub language statistics.
-crates/repodna-report/assets/viewer.html linguist-generated=true -diff
 schemas/*.schema.json linguist-generated=true
 packages/schema/src/generated.ts linguist-generated=true
 examples/**/*.json linguist-generated=true
