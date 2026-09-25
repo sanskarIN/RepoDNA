@@ -23,6 +23,7 @@ pub mod paths;
 pub mod redact;
 pub mod schema;
 pub mod severity;
+pub mod text;
 pub mod time;
 
 pub use cancel::{CancellationToken, Cancelled};
