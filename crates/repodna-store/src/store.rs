@@ -422,11 +422,12 @@ impl Store {
         Ok(record)
     }
 
-    /// Every repository, most recently scanned first.
+    /// Every repository, most recently scanned first. Scan times have one-second
+    /// resolution, so repositories scanned in the same second are listed by name.
     pub fn repositories(&self) -> Result<Vec<RepositoryRecord>, StoreError> {
         let connection = self.lock();
         let mut statement = connection.prepare(&format!(
-            "{REPOSITORY_QUERY} ORDER BY r.last_scanned_at DESC, r.id"
+            "{REPOSITORY_QUERY} ORDER BY r.last_scanned_at DESC, r.name COLLATE NOCASE, r.id"
         ))?;
         let rows = statement.query_map([], repository_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -598,6 +599,33 @@ pub(crate) mod tests {
             kind: InputKind::GitRepository,
             location: "/work/widget".into(),
         }
+    }
+
+    #[test]
+    fn lists_repositories_scanned_in_the_same_second_by_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(StorePaths::new(dir.path())).unwrap();
+        for (id, name, day) in [
+            ("cccc3333", "zeta", 2),
+            ("dddd4444", "Alpha", 2),
+            ("eeee5555", "beta", 2),
+            ("ffff6666", "older", 1),
+        ] {
+            let mut dna = artifact(id, day, &[]);
+            dna.identity.name = name.into();
+            let place = RepositoryLocation {
+                kind: InputKind::LocalDirectory,
+                location: format!("/work/{name}"),
+            };
+            store.record(&dna, &place).unwrap();
+        }
+        let names: Vec<String> = store
+            .repositories()
+            .unwrap()
+            .into_iter()
+            .map(|r| r.name)
+            .collect();
+        assert_eq!(names, vec!["Alpha", "beta", "zeta", "older"]);
     }
 
     #[test]
