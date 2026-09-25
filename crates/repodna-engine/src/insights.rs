@@ -300,7 +300,13 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
             .hot_spots
             .iter()
             .take(3)
-            .map(|h| format!("{} ({} commits)", h.path, h.commits))
+            .map(|h| {
+                format!(
+                    "{} ({})",
+                    h.path,
+                    count(u64::from(h.commits), "commit", "commits")
+                )
+            })
             .collect();
         answers.push(answer(
             "hotspots",
@@ -405,9 +411,12 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
             title: "Run the tests".to_owned(),
             description: if dna.tests.inline_test_files > 0 {
                 format!(
-                    "{} test files and {} source files with inline tests were found.",
-                    dna.tests.test_files, dna.tests.inline_test_files
+                    "{} and {} with inline tests were found.",
+                    count(dna.tests.test_files, "test file", "test files"),
+                    count(dna.tests.inline_test_files, "source file", "source files")
                 )
+            } else if dna.tests.test_files == 1 {
+                "1 test file was found.".to_owned()
             } else {
                 format!("{} test files were found.", dna.tests.test_files)
             },
@@ -584,7 +593,10 @@ fn glossary(dna: &RepositoryDna) -> Vec<GlossaryTerm> {
         } else {
             format!("{}/", module.path)
         };
-        let mut definition = format!("Module at {location} with {} files", module.files);
+        let mut definition = format!(
+            "Module at {location} with {}",
+            count(module.files, "file", "files")
+        );
         if let Some(language) = &module.language {
             definition.push_str(&format!(", mostly {}", language_name(dna, language)));
         }

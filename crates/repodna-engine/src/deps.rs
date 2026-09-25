@@ -129,7 +129,11 @@ pub fn dependency_findings(
         if !has_lockfile && declares && LOCKFILE_ECOSYSTEMS.contains(&ecosystem) {
             findings.push(
                 Finding::new("dependencies.no-lockfile", ecosystem, FindingCategory::Dependencies, Severity::Info, Confidence::Medium, format!("No {ecosystem} lockfile is committed"))
-                    .summary(format!("{} {ecosystem} manifest(s) declare dependencies, but no lockfile was found.", manifests.len()))
+                    .summary(if manifests.len() == 1 {
+                        format!("1 {ecosystem} manifest declares dependencies, but no lockfile was found.")
+                    } else {
+                        format!("{} {ecosystem} manifests declare dependencies, but no lockfile was found.", manifests.len())
+                    })
                     .rationale("Without a lockfile, each install can resolve newer versions than the ones that were tested.")
                     .method("Manifests and lockfiles are recognized by file name per ecosystem.")
                     .with_evidence(manifests.iter().take(5).map(|path| Evidence::file(*path)))
@@ -146,7 +150,11 @@ pub fn dependency_findings(
             .map(|d| format!("{} ({})", d.name, d.versions.join(", ")))
             .collect();
         findings.push(
-            Finding::new("dependencies.duplicate-versions", "repository", FindingCategory::Dependencies, Severity::Info, Confidence::High, format!("{} packages are locked at more than one version", report.duplicates.len()))
+            Finding::new("dependencies.duplicate-versions", "repository", FindingCategory::Dependencies, Severity::Info, Confidence::High, if report.duplicates.len() == 1 {
+                "1 package is locked at more than one version".to_owned()
+            } else {
+                format!("{} packages are locked at more than one version", report.duplicates.len())
+            })
                 .summary(format!("For example: {}.", sample.join("; ")))
                 .rationale("Several versions of one package increase install size and can behave differently in different parts of the code.")
                 .method("Lockfile entries are grouped by package name.")

@@ -23,6 +23,7 @@ use repodna_core::model::metadata::{
     PlatformInfo, PrivacyInfo,
 };
 use repodna_core::model::project::{CommandCandidate, CommandPurpose, ExecutionResult};
+use repodna_core::text::count;
 use repodna_core::time::Timestamp;
 use repodna_dependencies::DependencyAnalysis;
 use repodna_git::url::parse_remote;
@@ -392,11 +393,11 @@ pub fn analyze(
     } else {
         AnalyzerStatus::Completed
     };
-    let mut message = format!("{} files", scan.files.len());
+    let mut message = count(scan.files.len() as u64, "file", "files");
     if scan.cache_hits > 0 {
         message.push_str(&format!(
-            "; {} analyses reused from the cache",
-            scan.cache_hits
+            "; {} reused from the cache",
+            count(scan.cache_hits, "analysis", "analyses")
         ));
     }
     recorder.end(Stage::Discovery, begun, discovery_status, Some(message));
@@ -444,7 +445,7 @@ pub fn analyze(
                 let begun = recorder.begin(Stage::Git);
                 match run_git_stage(runner, git_root, &current_files, config, now, cancel) {
                     Ok(stage) => {
-                        let message = format!("{} commits", stage.report.commit_count);
+                        let message = count(stage.report.commit_count, "commit", "commits");
                         recorder.end(Stage::Git, begun, AnalyzerStatus::Completed, Some(message));
                         git_stage = Some(stage);
                     }
@@ -867,7 +868,10 @@ pub fn analyze(
     let mut data_sources = vec![DataSource {
         kind: DataSourceKind::LocalFiles,
         name: "file system".to_owned(),
-        detail: format!("{} files discovered", dna.structure.total_files),
+        detail: format!(
+            "{} discovered",
+            count(dna.structure.total_files, "file", "files")
+        ),
         accessed_at: now,
     }];
     if prepared.info.kind == InputKind::GitUrl {
@@ -882,7 +886,7 @@ pub fn analyze(
         data_sources.push(DataSource {
             kind: DataSourceKind::GitHistory,
             name: git_version.map_or_else(|| "git".to_owned(), |version| format!("git {version}")),
-            detail: format!("{} commits read", dna.git.commit_count),
+            detail: format!("{} read", count(dna.git.commit_count, "commit", "commits")),
             accessed_at: now,
         });
     }

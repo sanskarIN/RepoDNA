@@ -11,6 +11,7 @@ use repodna_core::finding::{Finding, FindingCategory};
 use repodna_core::model::git::{CommitRef, GitReport, ReleaseInfo};
 use repodna_core::model::identity::RemoteInfo;
 use repodna_core::severity::Severity;
+use repodna_core::text::count;
 use repodna_core::time::Timestamp;
 use repodna_git::url::parse_remote;
 use repodna_git::{
@@ -118,7 +119,16 @@ pub fn git_findings(report: &GitReport, thresholds: &Thresholds) -> Vec<Finding>
         };
         findings.push(
             Finding::new("contributors.concentration", "repository", FindingCategory::Contributors, Severity::Info, Confidence::High, title)
-                .summary(format!("{} contributor identities made {} commits; {} of them authored at least half.", ownership.contributors, report.commit_count, ownership.contributors_for_half_of_commits))
+                .summary(if ownership.contributors <= 1 {
+                    format!("One contributor identity made {}.", count(report.commit_count, "commit", "commits"))
+                } else {
+                    format!(
+                        "{} made {}; {} of them authored at least half.",
+                        count(u64::from(ownership.contributors), "contributor identity", "contributor identities"),
+                        count(report.commit_count, "commit", "commits"),
+                        ownership.contributors_for_half_of_commits
+                    )
+                })
                 .rationale("When most changes come from one person, knowledge of the code is likely concentrated. This describes the history, not the quality of anyone's work.")
                 .method("Commits per contributor identity (grouped by e-mail address after .mailmap) over the analyzed history.")
                 .evidence(Evidence::metric_with_threshold("git.ownership.top-share", ownership.top_contributor_share, OWNERSHIP_SHARE, "ratio"))
