@@ -1,3 +1,4 @@
+import { SCHEMA_MAJOR, SCHEMA_MINOR } from "@repodna/schema";
 import { ExternalLink, PageHeader, Panel } from "../components/common";
 import { ShortcutTable } from "../components/ShortcutHelp";
 import type { ThemePreference } from "../lib/theme";
@@ -9,8 +10,10 @@ const THEMES: [ThemePreference, string][] = [
   ["dark", "Dark"],
 ];
 
+/** The project and its creator's links, as listed on the About screen. */
 export const LINKS: [string, string, string][] = [
-  ["GitHub", "https://github.com/sanskarIN/RepoDNA", "Source code, issues, and releases"],
+  ["Source code", "https://github.com/sanskarIN/RepoDNA", "Issues, releases, and discussions"],
+  ["GitHub", "https://github.com/sanskarIN", "The creator's profile"],
   ["Programming learning", "https://sanskarIN.gumroad.com", "Programming learning on Gumroad"],
   ["Buy Me A Coffee", "https://www.buymeacoffee.com/sanskarIN", "Support RepoDNA's development"],
   ["Razorpay", "https://www.razorpay.me/@sanskarIN", "Support RepoDNA's development"],
@@ -72,13 +75,17 @@ export function Settings() {
             {session ? (
               <>
                 <dt>RepoDNA</dt>
-                <dd>{session.version}</dd>
+                <dd>v{session.version}</dd>
                 <dt>New analyses</dt>
                 <dd>{session.allowScans ? "Allowed" : "Turned off (--no-scan)"}</dd>
               </>
             ) : null}
             <dt>Web interface</dt>
-            <dd>{__REPODNA_VERSION__}</dd>
+            <dd>RepoDNA v{__REPODNA_VERSION__}</dd>
+            <dt>Reads analyses</dt>
+            <dd>
+              Analysis schema v{SCHEMA_MAJOR} (up to {SCHEMA_MAJOR}.{SCHEMA_MINOR})
+            </dd>
           </dl>
         </Panel>
       </div>
