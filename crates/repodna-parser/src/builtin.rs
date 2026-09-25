@@ -430,6 +430,7 @@ fn js_like(id: &str, name: &str, extensions: &[&str]) -> LanguageSpec {
     let mut syntax = c_syntax(false);
     syntax.strings.push(StringRule::multiline("`"));
     let mut spec = lexical(id, name, extensions, syntax, BodyStyle::Braces);
+    spec.import_extractor = ImportExtractor::JavaScript;
     spec.imports = vec![
         import(r#"\bfrom\s+["']([^"']+)["']"#, 1, ImportKind::Import),
         import(r#"^\s*import\s+["']([^"']+)["']"#, 1, ImportKind::Import),

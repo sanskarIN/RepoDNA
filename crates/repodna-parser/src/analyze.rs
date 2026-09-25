@@ -16,7 +16,7 @@ use crate::tokens::{Token, tokenize};
 
 /// Version of the per-file analysis output. Bump whenever results for the same input can
 /// change, so cached results are invalidated.
-pub const ANALYZER_VERSION: u32 = 1;
+pub const ANALYZER_VERSION: u32 = 2;
 
 /// Maximum string-literal file references recorded per file.
 const MAX_REFERENCES: usize = 500;

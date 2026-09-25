@@ -2,8 +2,10 @@
 //!
 //! Most languages are handled by per-line patterns. Rust `use` trees, Go import blocks,
 //! and Python `from … import (…)` statements span lines or need expansion, so they have
-//! dedicated extractors.
+//! dedicated extractors. JavaScript and TypeScript use their patterns, but statements that
+//! only import or re-export types are left out: the compiler erases them.
 
+use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -43,14 +45,19 @@ const MAX_IMPORTS: usize = 2_000;
 /// Extracts imports from scanned lines.
 pub fn extract_imports(spec: &LanguageSpec, lines: &[ScannedLine]) -> Vec<RawImport> {
     let mut imports = match spec.import_extractor {
-        ImportExtractor::Patterns => Vec::new(),
+        ImportExtractor::Patterns | ImportExtractor::JavaScript => Vec::new(),
         ImportExtractor::Rust => rust_imports(lines),
         ImportExtractor::Go => go_imports(lines),
         ImportExtractor::Python => python_imports(lines),
     };
+    let type_only = if spec.import_extractor == ImportExtractor::JavaScript {
+        type_only_lines(lines)
+    } else {
+        HashSet::new()
+    };
     if !spec.imports.is_empty() {
         for (index, line) in lines.iter().enumerate() {
-            if line.code.trim().is_empty() {
+            if line.code.trim().is_empty() || type_only.contains(&index) {
                 continue;
             }
             for pattern in &spec.imports {
@@ -82,6 +89,78 @@ pub fn extract_imports(spec: &LanguageSpec, lines: &[ScannedLine]) -> Vec<RawImp
     imports.dedup();
     imports.truncate(MAX_IMPORTS);
     imports
+}
+
+static FROM_CLAUSE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"\bfrom\s*["'][^"']+["']"#).expect("the from-clause pattern is valid")
+});
+
+/// Lines holding the `from "…"` clause of a TypeScript statement that imports or re-exports
+/// only types: `import type …`, `export type { … } from`, or braces whose every name is
+/// marked `type`. Statements may span lines, so they are followed from their first line.
+fn type_only_lines(lines: &[ScannedLine]) -> HashSet<usize> {
+    let mut found = HashSet::new();
+    let mut statement: Option<String> = None;
+    for (index, line) in lines.iter().enumerate() {
+        let code = line.code.trim();
+        if starts_module_statement(code) {
+            statement = Some(String::new());
+        }
+        let Some(text) = statement.as_mut() else {
+            continue;
+        };
+        text.push_str(code);
+        text.push(' ');
+        if FROM_CLAUSE.is_match(code) {
+            if is_type_only(text) {
+                found.insert(index);
+            }
+            statement = None;
+        } else if code.ends_with(';') || text.len() > 4_000 {
+            statement = None;
+        }
+    }
+    found
+}
+
+/// `import …` (not a dynamic `import(…)`) or a re-export `export {`, `export *`, `export type`.
+fn starts_module_statement(code: &str) -> bool {
+    if let Some(rest) = code.strip_prefix("import") {
+        return rest.starts_with([' ', '{', '*']) && !rest.trim_start().starts_with('(');
+    }
+    code.strip_prefix("export")
+        .map(str::trim_start)
+        .is_some_and(|rest| rest.starts_with(['{', '*']) || rest.starts_with("type "))
+}
+
+/// Whether an import or export statement brings in types only.
+fn is_type_only(statement: &str) -> bool {
+    let rest = statement
+        .strip_prefix("import")
+        .or_else(|| statement.strip_prefix("export"))
+        .unwrap_or(statement)
+        .trim_start();
+    if let Some(after) = rest.strip_prefix("type") {
+        // `import type from "./type"` imports a value named `type`.
+        let after = after.trim_start();
+        return rest[4..].starts_with([' ', '{', '*']) && !after.starts_with("from");
+    }
+    let Some(open) = rest.find('{') else {
+        return false;
+    };
+    if !rest[..open].trim().is_empty() {
+        // A default or namespace import beside the braces is a value import.
+        return false;
+    }
+    let Some(close) = rest[open..].find('}') else {
+        return false;
+    };
+    let names: Vec<&str> = rest[open + 1..open + close]
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .collect();
+    !names.is_empty() && names.iter().all(|name| name.starts_with("type "))
 }
 
 /// Returns `true` when the first non-whitespace byte of `code[start..end]` is real code
@@ -591,6 +670,24 @@ mod tests {
         assert_eq!(
             extract_package(rust, &scan("fn main() {}", &rust.syntax).lines),
             None
+        );
+    }
+
+    #[test]
+    fn typescript_type_only_imports_are_not_runtime_dependencies() {
+        let source = "import type { Backend } from './backend';\nimport type {\n  Session,\n  Job,\n} from './types';\nimport { type A, type B } from './letters';\nimport { type C, D } from './mixed';\nimport E, { type F } from './default';\nexport type { G } from './reexported';\nexport * from './everything';\nimport type from './named-type';\nimport types from './types-value';\nimport './styles.css';\nconst lazy = await import('./lazy');\n";
+        let found = specifiers("typescript", source);
+        assert_eq!(
+            found,
+            vec![
+                "./mixed",
+                "./default",
+                "./everything",
+                "./named-type",
+                "./types-value",
+                "./styles.css",
+                "./lazy",
+            ]
         );
     }
 }

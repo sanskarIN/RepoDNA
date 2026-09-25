@@ -116,6 +116,9 @@ pub enum ImportExtractor {
     Go,
     /// Python `import a, b` and `from x import (y, z)`.
     Python,
+    /// The language's patterns, minus TypeScript type-only imports and exports, which the
+    /// compiler erases and which therefore are not runtime dependencies.
+    JavaScript,
 }
 
 /// A regular expression whose capture group `group` holds an import specifier.
