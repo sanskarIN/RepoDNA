@@ -8,11 +8,13 @@ pub mod ages;
 pub mod analysis;
 pub mod epochs;
 pub mod events;
+pub mod names;
 pub mod recent;
 pub mod snapshots;
 pub mod story;
 
 pub use analysis::{EvolutionInput, EvolutionOutput, analyze};
+pub use names::LanguageNames;
 
 #[cfg(test)]
 pub(crate) mod testutil;

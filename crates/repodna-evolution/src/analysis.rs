@@ -13,6 +13,7 @@ use repodna_git::History;
 use crate::ages::{abandoned_areas, module_ages};
 use crate::epochs::detect_epochs;
 use crate::events::detect_events;
+use crate::names::LanguageNames;
 use crate::snapshots::{SAMPLING_METHOD, growth};
 use crate::story::{StoryInput, archaeology, story};
 
@@ -37,6 +38,8 @@ pub struct EvolutionInput<'a> {
     pub snapshots: Vec<Snapshot>,
     /// Modules and their files, for module ages.
     pub modules: &'a [(String, Vec<String>)],
+    /// Display names of the languages in the snapshots.
+    pub language_names: &'a LanguageNames,
 }
 
 /// Results of evolution analysis.
@@ -71,7 +74,12 @@ pub fn analyze(input: EvolutionInput<'_>) -> EvolutionOutput {
         );
     }
     let epochs = detect_epochs(history);
-    let events = detect_events(history, &input.snapshots, input.releases);
+    let events = detect_events(
+        history,
+        &input.snapshots,
+        input.releases,
+        input.language_names,
+    );
     let abandoned = abandoned_areas(input.file_history, latest);
     let ages = module_ages(input.modules, input.file_history, start, latest);
     let archaeology = archaeology(&StoryInput {
@@ -82,6 +90,7 @@ pub fn analyze(input: EvolutionInput<'_>) -> EvolutionOutput {
         dormant_periods: input.dormant_periods,
         releases: input.releases,
         abandoned: &abandoned,
+        language_names: input.language_names,
     });
     let story = story(&archaeology);
 
@@ -230,6 +239,7 @@ mod tests {
             file_history: &file_history,
             snapshots: Vec::new(),
             modules: &modules,
+            language_names: &LanguageNames::default(),
         });
         assert_eq!(output.report.status, SectionStatus::Analyzed);
         assert!(!output.report.epochs.is_empty());
@@ -253,6 +263,7 @@ mod tests {
             file_history: &[],
             snapshots: Vec::new(),
             modules: &[],
+            language_names: &LanguageNames::default(),
         });
         assert_eq!(empty.report.status, SectionStatus::Unavailable);
     }

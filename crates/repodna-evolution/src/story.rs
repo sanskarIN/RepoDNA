@@ -9,8 +9,11 @@ use repodna_core::model::evolution::{
     StatementKind, StoryStatement,
 };
 use repodna_core::model::git::{DormantPeriod, ReleaseInfo};
+use repodna_core::text::count;
 use repodna_core::time::Timestamp;
 use repodna_git::{History, contributor_id};
+
+use crate::names::{LanguageNames, moment};
 
 /// Statements per archaeology section.
 const MAX_PER_SECTION: usize = 8;
@@ -32,6 +35,8 @@ pub struct StoryInput<'a> {
     pub releases: &'a [ReleaseInfo],
     /// Areas that stopped changing.
     pub abandoned: &'a [AbandonedArea],
+    /// Display names of the languages in the snapshots.
+    pub language_names: &'a LanguageNames,
 }
 
 fn fact(text: String, date: Option<Timestamp>, evidence: Vec<Evidence>) -> StoryStatement {
@@ -65,13 +70,13 @@ fn list(items: &[String]) -> String {
     }
 }
 
-fn main_languages(snapshot: &Snapshot) -> Vec<String> {
+fn main_languages(snapshot: &Snapshot, names: &LanguageNames) -> Vec<String> {
     snapshot
         .languages
         .iter()
         .filter(|language| language.share >= 0.1)
         .take(3)
-        .map(|language| language.id.clone())
+        .map(|language| names.name(&language.id).to_owned())
         .collect()
 }
 
@@ -87,7 +92,7 @@ fn event_statement(event: &EvolutionEvent) -> StoryStatement {
             event.date.date_string()
         ),
         _ => format!(
-            "{} on {}: {}",
+            "{} on {}. {}",
             event.title,
             event.date.date_string(),
             event.description
@@ -121,7 +126,7 @@ pub fn archaeology(input: &StoryInput<'_>) -> ArchaeologyReport {
         ));
     }
     if let Some(first) = input.snapshots.first() {
-        let languages = main_languages(first);
+        let languages = main_languages(first, input.language_names);
         if !languages.is_empty() {
             report.origin.push(fact(
                 format!(
@@ -148,8 +153,9 @@ pub fn archaeology(input: &StoryInput<'_>) -> ArchaeologyReport {
         let end = Timestamp::from_unix(last.timestamp);
         report.growth.push(fact(
             format!(
-                "{commits} commits by {} contributors between {} and {}.",
-                authors.len(),
+                "{} by {} between {} and {}.",
+                count(commits as u64, "commit", "commits"),
+                count(authors.len() as u64, "contributor", "contributors"),
                 start.date_string(),
                 end.date_string()
             ),
@@ -166,10 +172,10 @@ pub fn archaeology(input: &StoryInput<'_>) -> ArchaeologyReport {
     {
         report.growth.push(fact(
             format!(
-                "The repository went from {} files ({}) to {} files ({}).",
-                first.files,
+                "The repository went from {} ({}) to {} ({}).",
+                count(first.files, "file", "files"),
                 first.date.date_string(),
-                last.files,
+                count(last.files, "file", "files"),
                 last.date.date_string()
             ),
             Some(last.date),
@@ -183,10 +189,13 @@ pub fn archaeology(input: &StoryInput<'_>) -> ArchaeologyReport {
         {
             report.growth.push(interpretation(
                 format!(
-                    "Growth was fastest between {} and {}, when {} files were added.",
-                    pair[0].label,
-                    pair[1].label,
-                    pair[1].files - pair[0].files
+                    "Growth was fastest between {} and {}, when {} added.",
+                    moment(&pair[0]),
+                    moment(&pair[1]),
+                    match pair[1].files - pair[0].files {
+                        1 => "1 file was".to_owned(),
+                        added => format!("{added} files were"),
+                    }
                 ),
                 Some(pair[1].date),
                 vec![snapshot_evidence(&pair[0]), snapshot_evidence(&pair[1])],
@@ -264,10 +273,10 @@ pub fn archaeology(input: &StoryInput<'_>) -> ArchaeologyReport {
             .map(|area| format!("{area}/"))
             .collect();
         let mut text = format!(
-            "Since {}, {} commits by {} contributors",
+            "Since {}, {} by {}",
             epoch.start.date_string(),
-            epoch.commits,
-            epoch.contributors
+            count(epoch.commits, "commit", "commits"),
+            count(u64::from(epoch.contributors), "contributor", "contributors")
         );
         if focus.is_empty() {
             text.push('.');
@@ -286,13 +295,18 @@ pub fn archaeology(input: &StoryInput<'_>) -> ArchaeologyReport {
         }
     }
     if let Some(current) = input.snapshots.last() {
-        let languages = main_languages(current);
-        let mut text = format!("The current revision has {} files", current.files);
-        if !languages.is_empty() {
-            text.push_str(&format!(
+        let languages = main_languages(current, input.language_names);
+        let mut text = format!(
+            "The current revision has {}",
+            count(current.files, "file", "files")
+        );
+        match languages.as_slice() {
+            [] => {}
+            [only] => text.push_str(&format!("; the main language by size is {only}")),
+            _ => text.push_str(&format!(
                 "; the main languages by size are {}",
                 list(&languages)
-            ));
+            )),
         }
         text.push('.');
         report.current_state.push(fact(
@@ -348,7 +362,11 @@ mod tests {
         Snapshot {
             revision: format!("rev-{label}"),
             label: label.to_owned(),
-            kind: SnapshotKind::Sample,
+            kind: match label {
+                "Initial commit" => SnapshotKind::Initial,
+                "Current" => SnapshotKind::Current,
+                _ => SnapshotKind::Sample,
+            },
             date: Timestamp::from_ymd(date.0, date.1, date.2).unwrap(),
             commit_index: files,
             files,
@@ -380,7 +398,7 @@ mod tests {
             commit("c3", "2021-03-01", "ana", &["~cli/a.rs"]),
         ]);
         let epochs = detect_epochs(&history);
-        let events = detect_events(&history, &[], &[]);
+        let events = detect_events(&history, &[], &[], &LanguageNames::default());
         let snapshots = [
             snapshot("Initial commit", (2020, 1, 1), 2),
             snapshot("2020-02", (2020, 2, 1), 5),
@@ -408,6 +426,7 @@ mod tests {
             dormant_periods: &dormant,
             releases: &releases,
             abandoned: &[],
+            language_names: &LanguageNames::new([("rust".to_owned(), "Rust".to_owned())]),
         };
         let report = archaeology(&input);
         assert_eq!(
@@ -416,14 +435,14 @@ mod tests {
         );
         assert_eq!(
             report.origin[1].text,
-            "At that point the code was mostly rust (by size)."
+            "At that point the code was mostly Rust (by size)."
         );
         assert!(
             report
                 .growth
                 .iter()
                 .any(|s| s.kind == StatementKind::Interpretation
-                    && s.text.contains("between Initial commit and 2020-02"))
+                    && s.text.contains("between the first commit and 2020-02"))
         );
         assert_eq!(report.expansions[0].text, "cli/ appeared (2020-02-01).");
         assert_eq!(

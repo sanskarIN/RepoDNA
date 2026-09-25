@@ -19,7 +19,7 @@ use repodna_dependencies::{DependencyFile, analyze, is_dependency_file};
 use repodna_discovery::{ClassificationOverrides, classify};
 use repodna_evolution::recent::{Declaration, diff_dependencies, recent_changes};
 use repodna_evolution::snapshots::{build_snapshot, plan_snapshots};
-use repodna_evolution::{EvolutionInput, EvolutionOutput};
+use repodna_evolution::{EvolutionInput, EvolutionOutput, LanguageNames};
 use repodna_git::{BlobLimits, GitError, GitRunner, TreeEntry, list_tree, read_blobs};
 use repodna_parser::{FileAnalysis, LanguageRegistry, LanguageSpec, analyze_source};
 
@@ -296,6 +296,12 @@ pub fn run_timeline(
             )),
         }
     }
+    let language_names = LanguageNames::new(
+        registry
+            .languages()
+            .iter()
+            .map(|spec| (spec.id.clone(), spec.name.clone())),
+    );
     let evolution = repodna_evolution::analyze(EvolutionInput {
         history: &stage.history,
         releases: &stage.releases,
@@ -303,6 +309,7 @@ pub fn run_timeline(
         file_history: &stage.report.file_history,
         snapshots,
         modules,
+        language_names: &language_names,
     });
 
     let mut recent = recent_changes(&stage.history, config.thresholds.recent_days, current_files);

@@ -8,10 +8,13 @@ use repodna_core::hash::stable_id;
 use repodna_core::model::evolution::{EvolutionEvent, EvolutionEventKind, Snapshot};
 use repodna_core::model::git::ReleaseInfo;
 use repodna_core::paths;
+use repodna_core::text::count;
 use repodna_core::time::Timestamp;
 use repodna_discovery::classify::is_test_path;
 use repodna_git::{ChangeStatus, History, ParsedCommit, area_of};
 use repodna_project::is_ci_file;
+
+use crate::names::{LanguageNames, moment};
 
 /// Areas must reach this many files to count as introduced or removed modules.
 const MIN_AREA_FILES: usize = 3;
@@ -128,6 +131,7 @@ pub fn detect_events(
     history: &History,
     snapshots: &[Snapshot],
     releases: &[ReleaseInfo],
+    names: &LanguageNames,
 ) -> Vec<EvolutionEvent> {
     let mut out = Builder { events: Vec::new() };
     let oldest_first: Vec<&ParsedCommit> = history.commits.iter().rev().collect();
@@ -188,14 +192,18 @@ pub fn detect_events(
                 (
                     "Oldest analyzed commit".to_owned(),
                     format!(
-                        "History was read up to a limit; the oldest analyzed commit touched {created} files."
+                        "History was read up to a limit; the oldest analyzed commit touched {}.",
+                        count(created as u64, "file", "files")
                     ),
                     Confidence::Medium,
                 )
             } else {
                 (
                     "Repository created".to_owned(),
-                    format!("The first commit added {created} files."),
+                    format!(
+                        "The first commit added {}.",
+                        count(created as u64, "file", "files")
+                    ),
                     Confidence::High,
                 )
             };
@@ -376,7 +384,7 @@ pub fn detect_events(
         );
     }
 
-    snapshot_events(&mut out, snapshots);
+    snapshot_events(&mut out, snapshots, names);
     let mut events = out.events;
     events.sort_by(|a, b| {
         a.date
@@ -387,7 +395,7 @@ pub fn detect_events(
 }
 
 /// Language and size changes between consecutive snapshots.
-fn snapshot_events(out: &mut Builder, snapshots: &[Snapshot]) {
+fn snapshot_events(out: &mut Builder, snapshots: &[Snapshot], names: &LanguageNames) {
     for pair in snapshots.windows(2) {
         let (before, after) = (&pair[0], &pair[1]);
         let evidence = vec![
@@ -405,10 +413,13 @@ fn snapshot_events(out: &mut Builder, snapshots: &[Snapshot]) {
                 out.push(
                     EvolutionEventKind::LanguageIntroduced,
                     after.date,
-                    format!("{} became a notable language", language.id),
+                    format!("{} became a notable language", names.name(&language.id)),
                     format!(
                         "Its share of first-party code (by bytes) grew from {}% at {} to {}% at {}.",
-                        percent(previous), before.label, percent(language.share), after.label
+                        percent(previous),
+                        moment(before),
+                        percent(language.share),
+                        moment(after)
                     ),
                     Some(&after.revision),
                     Confidence::Medium,
@@ -418,10 +429,13 @@ fn snapshot_events(out: &mut Builder, snapshots: &[Snapshot]) {
                 out.push(
                     EvolutionEventKind::LanguageShift,
                     after.date,
-                    format!("The share of {} changed", language.id),
+                    format!("The share of {} changed", names.name(&language.id)),
                     format!(
                         "Its share of first-party code (by bytes) went from {}% at {} to {}% at {}.",
-                        percent(previous), before.label, percent(language.share), after.label
+                        percent(previous),
+                        moment(before),
+                        percent(language.share),
+                        moment(after)
                     ),
                     Some(&after.revision),
                     Confidence::Medium,
@@ -436,8 +450,11 @@ fn snapshot_events(out: &mut Builder, snapshots: &[Snapshot]) {
                 after.date,
                 format!("The repository grew to {b} files"),
                 format!(
-                    "It went from {a} files at {} to {b} files at {}.",
-                    before.label, after.label
+                    "It went from {} at {} to {} at {}.",
+                    count(a, "file", "files"),
+                    moment(before),
+                    count(b, "file", "files"),
+                    moment(after)
                 ),
                 Some(&after.revision),
                 Confidence::High,
@@ -449,8 +466,11 @@ fn snapshot_events(out: &mut Builder, snapshots: &[Snapshot]) {
                 after.date,
                 format!("The repository shrank to {b} files"),
                 format!(
-                    "It went from {a} files at {} to {b} files at {}.",
-                    before.label, after.label
+                    "It went from {} at {} to {} at {}.",
+                    count(a, "file", "files"),
+                    moment(before),
+                    count(b, "file", "files"),
+                    moment(after)
                 ),
                 Some(&after.revision),
                 Confidence::High,
@@ -517,7 +537,7 @@ mod tests {
             commit: "c4".into(),
             commits_since_previous: 4,
         }];
-        let events = detect_events(&history(commits), &[], &releases);
+        let events = detect_events(&history(commits), &[], &releases, &LanguageNames::default());
         assert_eq!(
             kinds(&events),
             vec![
@@ -583,7 +603,12 @@ mod tests {
             snapshot("b", 2, 200, 0.6, 0.4),
             snapshot("c", 3, 120, 0.95, 0.05),
         ];
-        let events = detect_events(&history(Vec::new()), &snapshots, &[]);
+        let events = detect_events(
+            &history(Vec::new()),
+            &snapshots,
+            &[],
+            &LanguageNames::default(),
+        );
         assert_eq!(
             kinds(&events),
             vec![
