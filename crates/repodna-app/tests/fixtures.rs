@@ -230,10 +230,7 @@ fn suspicious_secrets() {
             .iter()
             .find(|s| s.rule == rule && s.path == path)
             .unwrap_or_else(|| {
-                panic!(
-                    "missing expected secret finding: rule={rule}, path={path}, findings_count={}",
-                    secrets.len()
-                )
+                panic!("missing expected secret finding")
             })
     };
     assert!(!found("aws-access-key-id", "deploy/config.py").in_test_or_example);
