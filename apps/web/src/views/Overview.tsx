@@ -255,10 +255,8 @@ export function Overview() {
               label="Files changed"
               value={thousands(dna.insights.recentChanges.filesChanged)}
             />
-            <Tile
-              label="Lines"
-              value={`+${compact(dna.insights.recentChanges.insertions)} −${compact(dna.insights.recentChanges.deletions)}`}
-            />
+            <Tile label="Lines added" value={compact(dna.insights.recentChanges.insertions)} />
+            <Tile label="Lines removed" value={compact(dna.insights.recentChanges.deletions)} />
           </div>
           <DataTable
             rows={dna.insights.recentChanges.directories}

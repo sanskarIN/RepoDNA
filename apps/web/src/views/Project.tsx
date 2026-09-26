@@ -150,7 +150,8 @@ export function Project() {
         />
         <Tile
           label="Frameworks"
-          value={
+          value={tests.frameworks.length > 0 ? thousands(tests.frameworks.length) : "None"}
+          note={
             tests.frameworks.length > 0
               ? tests.frameworks.map((f) => f.name).join(", ")
               : "None detected"
