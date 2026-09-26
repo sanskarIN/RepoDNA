@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Finding, RepositoryDna } from "@repodna/schema";
 import { continuousDays } from "./activity";
+import { isLoopbackHost } from "./backend";
 import { artifactFileName } from "./download";
 import { highlights } from "./findings";
 import { parseMarkdown } from "./markdown";
@@ -137,5 +138,15 @@ describe("markdown", () => {
         1,
       );
     }
+  });
+});
+
+describe("backend detection", () => {
+  it("asks for a local server only on this machine's addresses", () => {
+    expect(isLoopbackHost("127.0.0.1")).toBe(true);
+    expect(isLoopbackHost("localhost")).toBe(true);
+    expect(isLoopbackHost("[::1]")).toBe(true);
+    expect(isLoopbackHost("sanskarin.github.io")).toBe(false);
+    expect(isLoopbackHost("192.168.1.10")).toBe(false);
   });
 });
