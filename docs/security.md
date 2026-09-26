@@ -78,6 +78,7 @@ How candidates are handled:
 | `env-file-committed` | configuration | An environment file with values is committed |
 | `workflow-pull-request-target` | CI workflow | The workflow runs on `pull_request_target` with repository secrets and write access |
 | `workflow-untrusted-checkout` | CI workflow | A `pull_request_target` workflow checks out the pull request's code |
+| `workflow-script-injection` | CI workflow | Text controlled by issue or pull request authors is interpolated into a shell command |
 | `workflow-write-all` | CI workflow | The workflow token has write access to everything |
 | `privileged-container` | container | A container runs in privileged mode |
 | `docker-socket-mount` | container | The Docker socket is mounted into a container |
