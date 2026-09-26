@@ -15,7 +15,7 @@ pub const EXIT_CODES: &str = "Exit codes:
   4    invalid configuration
   5    CI policy violated (findings at or above --fail-on)
   6    local storage could not be read or written
-  7    an external tool or service failed (Git, network, AI provider)
+  7    an external tool or service failed (Git or the network)
   130  cancelled (Ctrl+C)
 
 Findings are analysis signals backed by evidence, not formal guarantees.
@@ -216,8 +216,6 @@ pub enum Command {
     Badge(BadgeCmd),
     /// Write a developer onboarding guide.
     Onboarding(OnboardingCmd),
-    /// Explain a repository with an optional AI provider (off unless configured).
-    Explain(ExplainCmd),
     /// Summarize an analysis for CI, optionally failing on findings.
     Ci(CiCmd),
     /// Export an analysis as a portable .repodna file.
@@ -552,73 +550,6 @@ pub struct OnboardingCmd {
     pub analysis: AnalysisArgs,
 }
 
-/// Explanation topics.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum AboutArg {
-    /// The whole repository.
-    Repository,
-    /// The inferred architecture.
-    Architecture,
-    /// How the repository evolved.
-    History,
-    /// Dependency relationships.
-    Dependencies,
-    /// An onboarding guide.
-    Onboarding,
-}
-
-/// Explanation output formats.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum ExplainFormat {
-    /// Readable text.
-    Text,
-    /// Markdown.
-    Markdown,
-    /// JSON with provenance.
-    Json,
-}
-
-/// `repodna explain`.
-#[derive(Debug, Args)]
-pub struct ExplainCmd {
-    /// The repository or analysis to use (see the help text).
-    #[arg(default_value = ".", help = TARGET_HELP)]
-    pub target: String,
-    /// What to explain.
-    #[arg(long, value_enum, default_value_t = AboutArg::Repository, conflicts_with_all = ["module", "hotspot", "ask"])]
-    pub about: AboutArg,
-    /// Explain one module or directory.
-    #[arg(long, value_name = "PATH", conflicts_with_all = ["hotspot", "ask"])]
-    pub module: Option<String>,
-    /// Explain why a file is (or is not) a hotspot.
-    #[arg(long, value_name = "PATH", conflicts_with = "ask")]
-    pub hotspot: Option<String>,
-    /// Ask a question about the repository.
-    #[arg(long, value_name = "QUESTION")]
-    pub ask: Option<String>,
-    /// Print what would be sent, without contacting any provider.
-    #[arg(long)]
-    pub dry_run: bool,
-    /// Allow a provider that sends evidence off this machine, for this run.
-    #[arg(long)]
-    pub allow_remote_ai: bool,
-    /// Ask the provider again instead of reusing a cached explanation.
-    #[arg(long)]
-    pub fresh: bool,
-    /// Output format.
-    #[arg(long, value_enum, default_value_t = ExplainFormat::Text)]
-    pub format: ExplainFormat,
-    /// Write to this file instead of standard output.
-    #[arg(short, long, value_name = "FILE")]
-    pub output: Option<PathBuf>,
-    /// Replace an existing output file that RepoDNA did not create.
-    #[arg(long)]
-    pub force: bool,
-    /// How the analysis runs.
-    #[command(flatten)]
-    pub analysis: AnalysisArgs,
-}
-
 /// CI failure threshold.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum FailOn {
@@ -818,7 +749,7 @@ pub enum CacheAction {
         #[arg(long)]
         json: bool,
     },
-    /// Clear the per-file analysis cache and cached explanations.
+    /// Clear the per-file analysis cache.
     Clear,
     /// Check the database, set a damaged one aside, and rebuild the index from stored
     /// artifacts.
@@ -854,6 +785,13 @@ pub struct DoctorCmd {
     /// Print JSON.
     #[arg(long)]
     pub json: bool,
+    /// Also write a ZIP file for a bug report: the results, the environment, the effective
+    /// configuration, and a summary of storage and plugins. It contains no source code.
+    #[arg(long, value_name = "FILE")]
+    pub export: Option<PathBuf>,
+    /// Replace an existing file that RepoDNA did not create.
+    #[arg(long, requires = "export")]
+    pub force: bool,
 }
 
 /// `repodna version`.
@@ -927,9 +865,7 @@ mod tests {
         assert_eq!(analyze.analysis.profile, Some(AnalysisProfile::Deep));
         assert!(Cli::try_parse_from(["repodna", "compare", "a"]).is_err());
         assert!(Cli::try_parse_from(["repodna", "analyze", "--profile", "nope"]).is_err());
-        assert!(
-            Cli::try_parse_from(["repodna", "explain", "--module", "a", "--ask", "b"]).is_err()
-        );
+        assert!(Cli::try_parse_from(["repodna", "explain"]).is_err());
         let cli = Cli::try_parse_from(["repodna", "ci", "--fail-on", "warning"]).unwrap();
         assert!(matches!(cli.command, Command::Ci(ref ci) if ci.fail_on == FailOn::Warning));
     }

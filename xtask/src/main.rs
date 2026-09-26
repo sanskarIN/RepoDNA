@@ -4,13 +4,16 @@
 //! cargo xtask setup
 //! cargo xtask fixtures [--out DIR] [--large-files N] [--large-commits N]
 //! cargo xtask bench [--repodna PATH] [--fixtures DIR] [--runs N]
+//! cargo xtask notices [--check]
 //! ```
 //!
 //! `setup` prepares a fresh clone for development: it checks the prerequisites, installs the
 //! web dependencies, builds the web interface and the command line, and writes the fixtures.
 //! `fixtures` writes every fixture repository (see `repodna_testkit::fixtures`) to
 //! `fixtures/generated/`. `bench` times `repodna analyze` on those fixtures and on this
-//! repository and prints a Markdown table for the benchmark notes.
+//! repository and prints a Markdown table for the benchmark notes. `notices` writes
+//! `THIRD-PARTY-NOTICES.txt`, the licenses of the third-party software in RepoDNA's
+//! downloads, or with `--check` fails when it is out of date.
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -18,6 +21,8 @@ use std::process::{Command, ExitCode};
 use std::time::{Duration, Instant};
 
 use repodna_testkit::fixtures::{FIXTURES, FixtureOptions, build};
+
+mod notices;
 
 /// Written into the fixtures directory so that it is only ever replaced when RepoDNA made it.
 const MARKER: &str = ".repodna-fixtures";
@@ -30,10 +35,11 @@ fn main() -> ExitCode {
         Some("setup") => setup(),
         Some("fixtures") => fixtures(&args[1..]),
         Some("bench") => bench(&args[1..]),
+        Some("notices") => notices::run(&args[1..]),
         _ => {
             let _ = writeln!(
                 io::stderr(),
-                "usage:\n  cargo xtask setup\n  cargo xtask fixtures [--out DIR] [--large-files N] [--large-commits N]\n  cargo xtask bench [--repodna PATH] [--fixtures DIR] [--runs N]"
+                "usage:\n  cargo xtask setup\n  cargo xtask fixtures [--out DIR] [--large-files N] [--large-commits N]\n  cargo xtask bench [--repodna PATH] [--fixtures DIR] [--runs N]\n  cargo xtask notices [--check]"
             );
             return ExitCode::from(2);
         }

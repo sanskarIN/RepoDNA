@@ -251,12 +251,24 @@ export interface Detected {
   signInNeeded: boolean;
 }
 
+/**
+ * `true` for the addresses `repodna serve` answers on. It listens on 127.0.0.1 only and
+ * refuses other host names, so a page from anywhere else (such as the web version on
+ * GitHub Pages) has no server to ask.
+ */
+export function isLoopbackHost(hostname: string): boolean {
+  return ["127.0.0.1", "localhost", "[::1]", "::1"].includes(hostname.toLowerCase());
+}
+
 /** Finds the backend this page can use. */
 export async function detectBackend(): Promise<Detected> {
   if (isDesktop()) {
     const { DesktopBackend } = await import("./desktop");
     const backend = new DesktopBackend();
     return { backend, session: await backend.session(), signInNeeded: false };
+  }
+  if (!isLoopbackHost(window.location.hostname)) {
+    return { backend: null, session: null, signInNeeded: false };
   }
   const token = takeToken();
   try {

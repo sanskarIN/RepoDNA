@@ -19,7 +19,7 @@ body:
     attributes:
       label: Area
       options:
-        - The security model or a safeguard (Git runner, archives, server, plugins, AI)
+        - The security model or a safeguard (Git runner, archives, server, plugins)
         - The secret or risky-pattern scanner
         - Privacy of stored or shared results
         - Something else

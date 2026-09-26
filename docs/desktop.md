@@ -38,6 +38,9 @@ To build it yourself, see [apps/desktop/README.md](../apps/desktop/README.md).
   artifact, the DNA card, or the full report folder through native save dialogs.
 - Every view, search, and keyboard shortcut of the [web interface](web.md) works the same
   way.
+- **About & support** shows the version, the project's links, and ways to support
+  RepoDNA; the Privacy Policy, the Terms of Use, and the licenses are linked at the bottom
+  of the sidebar.
 
 ## Privacy and security
 
@@ -52,5 +55,4 @@ To build it yourself, see [apps/desktop/README.md](../apps/desktop/README.md).
 
 The app uses the same storage and user configuration as the command line (see
 [privacy](privacy.md#what-is-stored-and-where)); `REPODNA_HOME` works for both. Settings
-and plugins enabled in your user configuration apply to analyses started from the app. AI
-explanations are available from the command line (`repodna explain`).
+and plugins enabled in your user configuration apply to analyses started from the app.

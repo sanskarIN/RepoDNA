@@ -51,13 +51,12 @@ Examples of what is in scope:
   links in archives or repositories
 - Git settings or URLs in an analyzed repository that make RepoDNA run commands, contact
   unexpected hosts, or read files outside the repository
-- A repository's `repodna.toml` enabling plugins, AI providers, command execution, or other
-  settings that only the user may enable
+- A repository's `repodna.toml` enabling plugins, command execution, or other settings that
+  only the user may enable
 - Secret values, absolute local paths, or credentials from URLs ending up in artifacts,
   reports, cards, or exports
 - Bypassing the session token, the origin checks, or the loopback-only binding of
   `repodna serve`
-- Evidence sent to an AI provider without the consent that RepoDNA requires
 
 Not vulnerabilities, but welcome as ordinary [issues](https://github.com/sanskarIN/RepoDNA/issues/new/choose):
 
@@ -72,4 +71,4 @@ Not vulnerabilities, but welcome as ordinary [issues](https://github.com/sanskar
 [The security documentation](docs/security.md#how-repodna-protects-you) describes the
 safeguards: the hardened Git runner, safe cloning and archive extraction, limits on file
 sizes and counts, linear-time regular expressions, the privacy of stored results, and the
-permissions of plugins and AI providers.
+permissions of plugins.

@@ -4,6 +4,7 @@ import { Shell } from "./components/Shell";
 import { NAV } from "./lib/nav";
 import { href, useRoute } from "./lib/router";
 import { AppProvider, useApp, type Dataset } from "./state";
+import { About } from "./views/About";
 import { Architecture } from "./views/Architecture";
 import { Compare } from "./views/Compare";
 import { Dependencies } from "./views/Dependencies";
@@ -12,6 +13,7 @@ import { Findings } from "./views/Findings";
 import { History } from "./views/History";
 import { Home } from "./views/Home";
 import { Hotspots } from "./views/Hotspots";
+import { Licenses, PrivacyPolicy, TermsOfUse } from "./views/Legal";
 import { Overview } from "./views/Overview";
 import { Project } from "./views/Project";
 import { Quality } from "./views/Quality";
@@ -36,6 +38,10 @@ const VIEWS: Record<string, () => ReactNode> = {
   "/reports": Reports,
   "/compare": Compare,
   "/settings": Settings,
+  "/about": About,
+  "/privacy": PrivacyPolicy,
+  "/terms": TermsOfUse,
+  "/licenses": Licenses,
 };
 
 function NotFound() {

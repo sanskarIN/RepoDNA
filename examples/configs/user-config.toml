@@ -1,13 +1,13 @@
 # Your user configuration (`repodna config path` prints where it lives).
-# Only this file, --config, and command-line options can enable plugins, command
-# execution, and AI providers; a repository's repodna.toml cannot.
+# Only this file, --config, and command-line options can enable plugins and command
+# execution; a repository's repodna.toml cannot.
 
 [analysis]
 profile = "standard"
 
 [privacy]
-# Allow AI providers on other machines. Keep false to use only local providers.
-remote_ai = false
+# Replace contributor names with pseudonyms in stored analyses.
+anonymize_contributors = false
 
 [performance]
 parallelism = "auto"
@@ -21,8 +21,3 @@ enabled = ["license-headers"]
 allow_build_commands = false
 allow_test_commands = true
 timeout_seconds = 600
-
-[ai]
-# A local model through a program that reads the prompt on standard input.
-provider = "command"
-command = ["ollama", "run", "llama3.2"]

@@ -49,10 +49,12 @@ every conclusion backed by evidence.
 
 - `repodna` with `analyze` (alias `scan`), `report`, `architecture`, `dependencies`,
   `history`, `hotspots`, `timeline`, `findings`, `show`, `compare`, `card`, `badge`,
-  `onboarding`, `explain`, `ci`, `export`, `import`, `list` (alias `ls`), `init`, `config`,
-  `plugins`, `cache`, `clean`, `doctor`, `version`, `serve`, `schema`, and `completions`.
+  `onboarding`, `ci`, `export`, `import`, `list` (alias `ls`), `init`, `config`, `plugins`,
+  `cache`, `clean`, `doctor`, `version`, `serve`, `schema`, and `completions`.
 - `repodna ci` with `--fail-on`, baselines, `--new-only`, GitHub Actions annotations, and
   step summaries; documented exit codes.
+- `repodna doctor` checks the installation, and `--export` writes a diagnostics bundle for
+  bug reports that contains no source code.
 
 ### Reports and sharing
 
@@ -69,21 +71,20 @@ every conclusion backed by evidence.
   part of the analysis, with search, a command palette, keyboard shortcuts, light and dark
   themes, a table view for every chart, and a bundled demo that works offline.
 - A desktop app for Linux, macOS, and Windows, built with Tauri on the same Rust core.
+- About & support, Privacy Policy, Terms of Use, and Licenses pages in the web interface
+  and the desktop app; every download includes the licenses of the third-party software it
+  contains (`THIRD-PARTY-NOTICES.txt`).
 
 ### Extensibility
 
-- Optional AI explanations built from the analysis evidence, through a local command, an
-  OpenAI-compatible server, or the Anthropic API, off by default, with a dry run, explicit
-  consent for remote endpoints, and recorded provenance.
 - Plugins: declarative language definitions and analyzers in any language that exchange
   JSON with RepoDNA, enabled only by the user; two example plugins.
 - Configuration in `repodna.toml` and a user configuration file, validated strictly; a
-  repository's own configuration cannot enable plugins, AI, or command execution.
+  repository's own configuration cannot enable plugins or command execution.
 
 ### Safety and privacy
 
-- No telemetry and no network use except cloning a URL you give and an AI provider you
-  configure.
+- No telemetry, no AI, and no network use except cloning a Git URL you give.
 - A hardened Git runner, restricted clone URLs, safe archive extraction with limits,
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.

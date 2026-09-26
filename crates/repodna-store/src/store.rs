@@ -451,7 +451,7 @@ impl Store {
         let connection = self.lock();
         let mut statement = connection.prepare(&format!(
             "SELECT {SCAN_COLUMNS} FROM scans WHERE repository_id = ?1
-             ORDER BY generated_at DESC, id DESC LIMIT ?2"
+             ORDER BY generated_at DESC, rowid DESC LIMIT ?2"
         ))?;
         let rows = statement.query_map(params![repository_id, count(limit)], scan_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -494,7 +494,7 @@ impl Store {
         let connection = self.lock();
         let mut statement = connection.prepare(
             "SELECT s.generated_at, m.value FROM metrics m JOIN scans s ON s.id = m.scan_id
-             WHERE s.repository_id = ?1 AND m.metric = ?2 ORDER BY s.generated_at, s.id",
+             WHERE s.repository_id = ?1 AND m.metric = ?2 ORDER BY s.generated_at, s.rowid",
         )?;
         let rows = statement.query_map(params![repository_id, metric], |row| {
             Ok((Timestamp::from_unix(row.get(0)?), row.get(1)?))
@@ -679,6 +679,19 @@ pub(crate) mod tests {
         assert_eq!(changes.added.len(), 1);
         assert_eq!(changes.added[0].title, "c.rs is large");
         assert_eq!(changes.resolved[0].title, "a.rs is large");
+    }
+
+    #[test]
+    fn the_latest_of_two_scans_in_one_second_is_the_last_recorded() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(StorePaths::new(dir.path())).unwrap();
+        // Timestamps have one-second resolution; identifiers carry no order.
+        for id in ["ffff0000", "0000ffff"] {
+            store.record(&artifact(id, 3, &[]), &location()).unwrap();
+        }
+        let scans = store.scans(&location().id(), 10).unwrap();
+        let ids: Vec<&str> = scans.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, vec!["0000ffff", "ffff0000"]);
     }
 
     #[test]

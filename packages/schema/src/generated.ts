@@ -164,7 +164,7 @@ export type AgeClass = "ancient" | "established" | "growing" | "recent" | "new";
 /**
  * A preset trading analysis depth for speed.
  *
- * All profiles are deterministic unless an AI provider is explicitly enabled.
+ * All profiles are deterministic.
  *
  * This interface was referenced by `RepositoryDna`'s JSON-Schema
  * via the `definition` "AnalysisProfile".

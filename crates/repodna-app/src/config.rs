@@ -1,6 +1,6 @@
 //! The effective configuration: defaults, the user configuration, an explicit file, the
-//! repository's own `repodna.toml` (which cannot enable AI, plugins, or command
-//! execution), and finally command-line overrides.
+//! repository's own `repodna.toml` (which cannot enable plugins or command execution),
+//! and finally command-line overrides.
 
 use std::path::{Path, PathBuf};
 
@@ -21,8 +21,6 @@ pub struct Overrides {
     pub anonymize_contributors: Option<bool>,
     /// Keep commit subjects in the artifact.
     pub include_commit_messages: Option<bool>,
-    /// Allow AI providers that send data off this machine.
-    pub remote_ai: Option<bool>,
     /// Plugins to enable in addition to the configured ones.
     pub plugins: Vec<String>,
     /// Extra plugin search directories.
@@ -79,9 +77,6 @@ pub fn load_config(
     }
     if let Some(messages) = o.include_commit_messages {
         config.privacy.include_commit_messages = messages;
-    }
-    if let Some(remote) = o.remote_ai {
-        config.privacy.remote_ai = remote;
     }
     for plugin in &o.plugins {
         if !config.plugins.enabled.contains(plugin) {
@@ -155,9 +150,9 @@ mod tests {
         assert_eq!(loaded.sources.last().unwrap(), "command line");
         assert!(!loaded.sources.iter().any(|s| s.starts_with("project")));
 
-        std::fs::write(&paths.config_file, "[ai]\nprovider = \"command\"\n").unwrap();
+        std::fs::write(&paths.config_file, "[analysis]\nsnapshots = 500\n").unwrap();
         let error = load_config(&paths, None, &ConfigOptions::default()).unwrap_err();
         assert_eq!(error.exit_code(), 4);
-        assert!(error.message.contains("ai.command"));
+        assert!(error.message.contains("analysis.snapshots"));
     }
 }

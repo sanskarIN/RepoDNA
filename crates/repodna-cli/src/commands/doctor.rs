@@ -1,15 +1,14 @@
-//! `repodna doctor`: checks the installation, storage, tools, and configuration. It never
-//! uses the network.
+//! `repodna doctor`: checks the installation, storage, tools, and configuration, and with
+//! `--export` writes a diagnostics bundle for bug reports. It never uses the network.
 
 use repodna_app::{AppError, ErrorKind, load_config};
-use repodna_core::config::AiProviderKind;
 use repodna_core::model::metadata::SCHEMA_VERSION;
 use repodna_git::GitRunner;
 use repodna_parser::builtin_languages;
 use repodna_plugin::discover;
 use serde::Serialize;
 
-use super::{Ctx, print, to_json};
+use super::{Ctx, diagnostics, print, to_json};
 use crate::cli::{AnalysisArgs, DoctorCmd};
 
 /// Outcome of one check.
@@ -178,32 +177,6 @@ fn checks(ctx: &Ctx) -> Vec<Check> {
 
     if let Ok(loaded) = &user {
         let config = &loaded.config;
-        if config.ai.provider == AiProviderKind::None {
-            checks.push(check(
-                "ai",
-                Status::Ok,
-                "off (optional; every other feature works without it)",
-                ErrorKind::Config,
-            ));
-        } else {
-            match repodna_app::explain::provider(config, false) {
-                Ok(provider) => checks.push(check(
-                    "ai",
-                    Status::Ok,
-                    format!(
-                        "{} / {} at {} ({}; not contacted by this check)",
-                        provider.id(),
-                        provider.model(),
-                        provider.destination(),
-                        if provider.remote() { "remote" } else { "local" }
-                    ),
-                    ErrorKind::Config,
-                )),
-                Err(error) => {
-                    checks.push(check("ai", Status::Warn, error.message, ErrorKind::Config))
-                }
-            }
-        }
         let dirs = ctx.paths.plugin_dirs(&config.plugins.directories, &[]);
         let discovery = discover(&dirs);
         let mut problems = Vec::new();
@@ -239,7 +212,7 @@ fn checks(ctx: &Ctx) -> Vec<Check> {
     checks.push(check(
         "network",
         Status::Ok,
-        "not checked: RepoDNA uses the network only to clone URLs you pass and to reach AI providers you configure",
+        "not checked: RepoDNA uses the network only to clone Git URLs you pass",
         ErrorKind::External,
     ));
     checks
@@ -261,6 +234,15 @@ pub fn run(ctx: &Ctx, cmd: &DoctorCmd) -> Result<(), AppError> {
             out.push_str(&format!("{symbol} {:<26}{}\n", c.name, c.detail));
         }
         print(&out)?;
+    }
+    if let Some(path) = &cmd.export {
+        let results =
+            serde_json::to_value(&checks).map_err(|error| AppError::internal(error.to_string()))?;
+        diagnostics::export(ctx, results, path, cmd.force)?;
+        ctx.note(&format!(
+            "Wrote diagnostics to {}. They contain no source code, and your home directory is shown as ~; read them before you share them.",
+            path.display()
+        ));
     }
     let failed: Vec<&Check> = checks.iter().filter(|c| c.status == Status::Fail).collect();
     match failed.first() {

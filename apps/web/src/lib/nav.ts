@@ -5,7 +5,8 @@ export interface NavItem {
   label: string;
   /** Needs an open analysis. */
   needsData: boolean;
-  group: "Explore" | "Health" | "Share" | "App";
+  /** `Legal` pages are linked from the sidebar footer instead of its list. */
+  group: "Explore" | "Health" | "Share" | "App" | "Legal";
 }
 
 export const NAV: NavItem[] = [
@@ -23,5 +24,9 @@ export const NAV: NavItem[] = [
   { path: "/reports", label: "Reports & export", needsData: true, group: "Share" },
   { path: "/compare", label: "Compare", needsData: true, group: "Share" },
   { path: "/", label: "Open or analyze", needsData: false, group: "App" },
-  { path: "/settings", label: "Settings & about", needsData: false, group: "App" },
+  { path: "/settings", label: "Settings", needsData: false, group: "App" },
+  { path: "/about", label: "About & support", needsData: false, group: "App" },
+  { path: "/privacy", label: "Privacy Policy", needsData: false, group: "Legal" },
+  { path: "/terms", label: "Terms of Use", needsData: false, group: "Legal" },
+  { path: "/licenses", label: "Licenses", needsData: false, group: "Legal" },
 ];

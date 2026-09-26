@@ -22,8 +22,8 @@ pub const USER_CONFIG_TEMPLATE: &str = r#"# RepoDNA user configuration.
 # Documentation: https://github.com/sanskarIN/RepoDNA/blob/main/docs/configuration.md
 #
 # These settings apply to every analysis. A repository's own repodna.toml is applied on
-# top of them, but it can never enable AI, plugins, or command execution: only this file
-# (or a file passed with --config) can.
+# top of them, but it can never enable plugins or command execution: only this file (or a
+# file passed with --config) can.
 
 [analysis]
 # quick | standard | deep | history-only | architecture-only | dependencies-only | security-only
@@ -32,8 +32,6 @@ profile = "standard"
 [privacy]
 # RepoDNA never collects telemetry; this setting exists to make that explicit.
 telemetry = false
-# Allow AI providers that send evidence to another machine.
-remote_ai = false
 # Replace contributor names with pseudonyms in artifacts.
 anonymize_contributors = false
 # Keep commit subject lines in artifacts.
@@ -42,23 +40,6 @@ include_commit_messages = true
 [performance]
 # Reuse per-file analysis results between runs of unchanged files.
 cache = true
-
-# Optional AI explanations (`repodna explain`). Nothing is sent anywhere unless a
-# provider is configured here. See docs/ai.md.
-[ai]
-provider = "none"
-# A local program that reads the prompt on standard input:
-#   provider = "command"
-#   command = ["ollama", "run", "llama3.2"]
-# An OpenAI-compatible server, such as a local runtime:
-#   provider = "openai-compatible"
-#   endpoint = "http://127.0.0.1:11434/v1"
-#   model = "llama3.2"
-#   api_key_env = "MY_PROVIDER_KEY"    # only for services that need a key
-# The Anthropic API (also set remote_ai = true above, or pass --allow-remote-ai):
-#   provider = "anthropic"
-#   model = "MODEL_ID"                 # a model your account can use
-#   api_key_env = "ANTHROPIC_API_KEY"
 
 [plugins]
 # Plugins run only when enabled by name here or with --plugin. See docs/plugins.md.
@@ -152,21 +133,6 @@ pub fn run_config(ctx: &Ctx, cmd: &ConfigCmd) -> Result<(), AppError> {
     }
 }
 
-fn count_explanations(dir: &Path) -> (u64, u64) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return (0, 0);
-    };
-    entries
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
-        .fold((0, 0), |(count, size), entry| {
-            (
-                count + 1,
-                size + entry.metadata().map_or(0, |meta| meta.len()),
-            )
-        })
-}
-
 /// Runs `repodna cache`.
 pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
     let action = cmd
@@ -177,8 +143,6 @@ pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
         CacheAction::Stats { json } => {
             let store = ctx.paths.open_store()?;
             let stats = store.stats()?;
-            let (explanations, explanation_bytes) =
-                count_explanations(&ctx.paths.explanation_dir());
             if *json {
                 return print(&to_json(&json!({
                     "home": stats.home,
@@ -189,32 +153,26 @@ pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
                     "artifactBytes": stats.artifact_bytes,
                     "cacheEntries": stats.cache.entries,
                     "cacheBytes": stats.cache.bytes,
-                    "explanations": explanations,
-                    "explanationBytes": explanation_bytes,
                 }))?);
             }
             print(&format!(
-                "Storage: {}\n  Repositories         {}\n  Stored analyses      {} ({})\n  Database             {}\n  File analysis cache  {} entries ({})\n  Cached explanations  {} ({})\n",
+                "Storage: {}\n  Repositories         {}\n  Stored analyses      {} ({})\n  Database             {}\n  File analysis cache  {} entries ({})\n",
                 stats.home.display(),
                 thousands(stats.repositories),
                 thousands(stats.scans),
                 bytes(stats.artifact_bytes),
                 bytes(stats.database_bytes),
                 thousands(stats.cache.entries),
-                bytes(stats.cache.bytes),
-                thousands(explanations),
-                bytes(explanation_bytes)
+                bytes(stats.cache.bytes)
             ))
         }
         CacheAction::Clear => {
             let store = ctx.paths.open_store()?;
             let cleared = store.clear_cache()?;
-            let explanations = repodna_app::explain::clear_explanations(&ctx.paths)?;
             print(&format!(
-                "Cleared {} cached file analyses ({}) and {} cached explanations. Stored analyses were kept.",
+                "Cleared {} cached file analyses ({}). Stored analyses were kept.",
                 thousands(cleared.entries),
-                bytes(cleared.bytes),
-                explanations
+                bytes(cleared.bytes)
             ))
         }
         CacheAction::Repair => {
@@ -246,11 +204,9 @@ pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
                 ));
             }
             let report = repodna_store::reset(&StorePaths::new(&ctx.paths.data_home))?;
-            let explanations = repodna_app::explain::clear_explanations(&ctx.paths)?;
             print(&format!(
-                "Removed {} database files and {} cached explanations. Your repositories were not touched.",
-                report.removed.len(),
-                explanations
+                "Removed {} database files. Your repositories were not touched.",
+                report.removed.len()
             ))
         }
     }
@@ -322,8 +278,8 @@ pub fn run_clean(ctx: &Ctx, cmd: &CleanCmd) -> Result<(), AppError> {
     ))
 }
 
-/// Build information recorded at compile time.
-fn build_commit() -> Option<&'static str> {
+/// The commit RepoDNA was built from, when the build recorded it.
+pub(crate) fn build_commit() -> Option<&'static str> {
     option_env!("REPODNA_BUILD_COMMIT").filter(|commit| !commit.is_empty())
 }
 
@@ -378,6 +334,6 @@ mod tests {
     fn user_template_parses_and_validates() {
         let config: Config = toml::from_str(USER_CONFIG_TEMPLATE).unwrap();
         assert!(config.validate().is_empty());
-        assert!(!config.privacy.remote_ai);
+        assert!(!config.privacy.telemetry);
     }
 }

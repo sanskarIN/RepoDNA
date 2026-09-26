@@ -20,14 +20,20 @@ impl Env {
         }
     }
 
-    fn run(&self, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_repodna"))
+    fn command(&self, args: &[&str]) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_repodna"));
+        command
             .args(args)
             .current_dir(self.work.path())
             .env("REPODNA_HOME", self.home.path())
             .env("NO_COLOR", "1")
             .env("SOURCE_DATE_EPOCH", "1790000000")
-            .env_remove("COLUMNS")
+            .env_remove("COLUMNS");
+        command
+    }
+
+    fn run(&self, args: &[&str]) -> Output {
+        self.command(args)
             .output()
             .expect("the repodna binary runs")
     }
@@ -251,9 +257,6 @@ fn errors_explain_what_to_do() {
 
     let repo = env.work("widget");
     sample_repo(&repo, true);
-    let explain = env.run(&["explain", &path(&repo), "-q"]);
-    assert_eq!(code(&explain), 4);
-    assert!(stderr(&explain).contains("AI features are off"));
 
     assert_eq!(code(&env.run(&["cache", "reset"])), 2);
     assert_eq!(code(&env.run(&["init", &path(&repo)])), 0);
@@ -325,32 +328,72 @@ fn manages_configuration_cache_and_plugins() {
     assert!(stdout(&env.run(&["list"])).contains("No stored analyses"));
 }
 
-#[cfg(unix)]
 #[test]
-fn explains_with_a_local_command_provider() {
+fn doctor_exports_diagnostics_without_the_home_directory() {
     let env = Env::new();
-    std::fs::write(
-        env.home.path().join("config.toml"),
-        r#"[ai]
-provider = "command"
-command = ["sh", "-c", "cat >/dev/null; printf '%s' '{\"summary\":\"A widget library.\",\"points\":[{\"text\":\"It is named widget.\",\"evidence\":[\"E1\"]}],\"confidence\":\"medium\",\"limitations\":[]}'"]
-"#,
-    )
-    .unwrap();
-    let repo = env.work("widget");
-    sample_repo(&repo, true);
-    let dry = env.run(&["explain", &path(&repo), "--dry-run", "-q"]);
-    assert_eq!(code(&dry), 0, "{}", stderr(&dry));
-    assert!(stdout(&dry).contains("Dry run: nothing was sent."));
-    assert!(stdout(&dry).contains("<evidence>"));
-    let explained = env.run(&["explain", &path(&repo), "-q"]);
-    assert_eq!(code(&explained), 0, "{}", stderr(&explained));
-    let text = stdout(&explained);
-    assert!(text.contains("(AI-generated)"), "{text}");
-    assert!(text.contains("A widget library."), "{text}");
-    let json = env.run(&["explain", &path(&repo), "--format", "json", "-q"]);
-    let value: serde_json::Value = serde_json::from_str(&stdout(&json)).unwrap();
-    assert_eq!(value["format"], "repodna-explanation/1");
+    // The storage directory lies inside the home directory, so its path must be redacted.
+    let home = env.home.path().parent().expect("a parent directory");
+    let export = |args: &[&str]| {
+        env.command(args)
+            .env("HOME", home)
+            .env("USERPROFILE", home)
+            .output()
+            .expect("the repodna binary runs")
+    };
+    let written = export(&["doctor", "--export", "diagnostics.zip"]);
+    assert_eq!(code(&written), 0, "{}", stderr(&written));
+    assert!(stderr(&written).contains("Wrote diagnostics to diagnostics.zip"));
+
+    let file = std::fs::File::open(env.work("diagnostics.zip")).unwrap();
+    let mut archive = zip::ZipArchive::new(file).unwrap();
+    let names: Vec<String> = archive.file_names().map(str::to_owned).collect();
+    let expected = [
+        "README.txt",
+        "doctor.json",
+        "environment.json",
+        "configuration.json",
+        "storage.json",
+        "plugins.json",
+    ];
+    assert_eq!(
+        names,
+        expected.map(|name| format!("repodna-diagnostics/{name}"))
+    );
+    let home_text = home.to_string_lossy().into_owned();
+    for name in &names {
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut archive.by_name(name).unwrap(), &mut text).unwrap();
+        assert!(
+            !text.contains(&home_text),
+            "{name} names the home directory"
+        );
+        if let Some(json) = name.strip_suffix(".json") {
+            let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+            if json.ends_with("storage") {
+                assert_eq!(value["analyses"], 0);
+                assert!(value["directory"].as_str().unwrap().starts_with('~'));
+            }
+            if json.ends_with("environment") {
+                assert_eq!(value["repodna"]["version"], env!("CARGO_PKG_VERSION"));
+            }
+        }
+    }
+
+    // RepoDNA replaces its own bundle, but not a file it did not write, unless forced.
+    assert_eq!(code(&export(&["doctor", "--export", "diagnostics.zip"])), 0);
+    std::fs::write(env.work("notes.zip"), "not a diagnostics bundle").unwrap();
+    let refused = export(&["doctor", "--export", "notes.zip"]);
+    assert_eq!(code(&refused), 3);
+    assert!(stderr(&refused).contains("refusing to overwrite"));
+    assert_eq!(
+        std::fs::read_to_string(env.work("notes.zip")).unwrap(),
+        "not a diagnostics bundle"
+    );
+    assert_eq!(
+        code(&export(&["doctor", "--export", "notes.zip", "--force"])),
+        0
+    );
+    assert_eq!(code(&env.run(&["doctor", "--force"])), 2);
 }
 
 #[test]

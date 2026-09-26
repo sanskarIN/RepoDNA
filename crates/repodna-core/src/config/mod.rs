@@ -3,8 +3,8 @@
 //! Configuration is layered: built-in defaults, then the user configuration file, then an
 //! explicit `--config` file, then the repository's own `repodna.toml`, and finally
 //! command-line flags. Repository configuration is *untrusted* — it comes from the code being
-//! analyzed — so it may tune analysis scope and thresholds but can never enable AI
-//! providers, plugins, command execution, or network access. See [`load`].
+//! analyzed — so it may tune analysis scope and thresholds but can never enable plugins,
+//! command execution, or network access. See [`load`].
 
 use std::fmt;
 
@@ -62,8 +62,6 @@ pub struct Config {
     pub suppressions: Vec<SuppressionRule>,
     /// Report defaults.
     pub report: ReportConfig,
-    /// Optional AI provider (user configuration only).
-    pub ai: AiConfig,
     /// Plugins (user configuration only).
     pub plugins: PluginConfig,
     /// Build and test execution (user configuration only).
@@ -140,8 +138,6 @@ impl Default for AnalysisConfig {
 pub struct PrivacyConfig {
     /// Always `false`: RepoDNA does not collect telemetry.
     pub telemetry: bool,
-    /// Allow AI providers that send data to remote endpoints.
-    pub remote_ai: bool,
     /// Replace contributor names with pseudonyms in artifacts.
     pub anonymize_contributors: bool,
     /// Store commit subject lines in artifacts.
@@ -154,7 +150,6 @@ impl Default for PrivacyConfig {
     fn default() -> Self {
         Self {
             telemetry: false,
-            remote_ai: false,
             anonymize_contributors: false,
             include_commit_messages: true,
             redact_paths_in_logs: false,
@@ -412,88 +407,6 @@ impl Default for ReportConfig {
     }
 }
 
-/// AI provider kind.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum AiProviderKind {
-    /// AI features are disabled.
-    #[default]
-    None,
-    /// A local command that reads a prompt on standard input (e.g. `ollama run <model>`).
-    Command,
-    /// An OpenAI-compatible HTTP API (local servers or cloud providers).
-    OpenaiCompatible,
-    /// An Anthropic-compatible Messages API.
-    Anthropic,
-}
-
-impl AiProviderKind {
-    /// Identifier.
-    pub const fn id(self) -> &'static str {
-        match self {
-            AiProviderKind::None => "none",
-            AiProviderKind::Command => "command",
-            AiProviderKind::OpenaiCompatible => "openai-compatible",
-            AiProviderKind::Anthropic => "anthropic",
-        }
-    }
-}
-
-/// Optional AI provider. Only honored from user configuration or command-line flags.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
-pub struct AiConfig {
-    /// Provider kind.
-    pub provider: AiProviderKind,
-    /// Model identifier passed to the provider. Required for `openai-compatible` and
-    /// `anthropic`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    /// Base URL for HTTP providers. Required for `openai-compatible`; the `anthropic`
-    /// provider defaults to `https://api.anthropic.com`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint: Option<String>,
-    /// Name of the environment variable holding the API key (keys are never stored in files).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub api_key_env: Option<String>,
-    /// Command line for the `command` provider.
-    pub command: Vec<String>,
-    /// Maximum estimated tokens of repository context sent per request.
-    pub max_context_tokens: u32,
-    /// Maximum tokens the model may generate, including any reasoning tokens. When unset,
-    /// `anthropic` uses 16000 (its limit also covers thinking) and other providers 2000.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_output_tokens: Option<u32>,
-    /// Request timeout in seconds.
-    pub timeout_seconds: u64,
-    /// Price per million input tokens, used only for cost estimates you configure yourself.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub input_cost_per_million: Option<f64>,
-    /// Price per million output tokens, used only for cost estimates you configure yourself.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub output_cost_per_million: Option<f64>,
-    /// Allow short source excerpts in prompts (off by default; evidence metadata only).
-    pub include_source_excerpts: bool,
-}
-
-impl Default for AiConfig {
-    fn default() -> Self {
-        Self {
-            provider: AiProviderKind::None,
-            model: None,
-            endpoint: None,
-            api_key_env: None,
-            command: Vec::new(),
-            max_context_tokens: 6_000,
-            max_output_tokens: None,
-            timeout_seconds: 120,
-            input_cost_per_million: None,
-            output_cost_per_million: None,
-            include_source_excerpts: false,
-        }
-    }
-}
-
 /// Plugins. Only honored from user configuration or command-line flags.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
@@ -611,31 +524,6 @@ impl Config {
                     .to_owned(),
             );
         }
-        match self.ai.provider {
-            AiProviderKind::None => {}
-            AiProviderKind::Command => {
-                if self.ai.command.is_empty() {
-                    problems
-                        .push("ai.command must be set when ai.provider = \"command\"".to_owned());
-                }
-            }
-            AiProviderKind::OpenaiCompatible => {
-                for (key, value) in [("model", &self.ai.model), ("endpoint", &self.ai.endpoint)] {
-                    if value.as_deref().is_none_or(str::is_empty) {
-                        problems.push(format!(
-                            "ai.{key} must be set when ai.provider = \"openai-compatible\""
-                        ));
-                    }
-                }
-            }
-            AiProviderKind::Anthropic => {}
-        }
-        if self.ai.max_output_tokens.is_some_and(|tokens| tokens < 256) {
-            problems.push("ai.max_output_tokens must be at least 256".to_owned());
-        }
-        if self.ai.max_context_tokens < 500 {
-            problems.push("ai.max_context_tokens must be at least 500".to_owned());
-        }
         if self.analysis.max_file_bytes == 0 {
             problems.push("analysis.max_file_bytes must be greater than 0".to_owned());
         }
@@ -662,8 +550,8 @@ pub const CONFIG_TEMPLATE: &str = r#"# RepoDNA project configuration.
 # Documentation: https://github.com/sanskarIN/RepoDNA/blob/main/docs/configuration.md
 #
 # This file is read from the repository being analyzed, so it can only tune what is
-# analyzed. AI providers, plugins, and command execution can only be enabled in your
-# user configuration (see `repodna config path`).
+# analyzed. Plugins and command execution can only be enabled in your user
+# configuration (see `repodna config path`).
 
 [analysis]
 # quick | standard | deep | history-only | architecture-only | dependencies-only | security-only
@@ -720,8 +608,6 @@ mod tests {
         let config = Config::default();
         assert!(config.validate().is_empty());
         assert!(!config.privacy.telemetry);
-        assert!(!config.privacy.remote_ai);
-        assert_eq!(config.ai.provider, AiProviderKind::None);
         assert!(!config.execution.allow_build_commands);
         assert!(!config.execution.allow_test_commands);
     }
@@ -757,14 +643,11 @@ mod tests {
     fn validation_reports_problems() {
         let mut config = Config::default();
         config.privacy.telemetry = true;
-        config.ai.provider = AiProviderKind::OpenaiCompatible;
-        config.ai.max_output_tokens = Some(10);
+        config.analysis.snapshots = 500;
         config.classification.generated = vec!["[bad".into()];
         let problems = config.validate();
         assert!(problems.iter().any(|p| p.contains("telemetry")));
-        assert!(problems.iter().any(|p| p.contains("ai.model")));
-        assert!(problems.iter().any(|p| p.contains("ai.endpoint")));
-        assert!(problems.iter().any(|p| p.contains("ai.max_output_tokens")));
+        assert!(problems.iter().any(|p| p.contains("analysis.snapshots")));
         assert!(problems.iter().any(|p| p.contains("classification")));
     }
 

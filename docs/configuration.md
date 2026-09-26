@@ -21,10 +21,9 @@ patterns, classification, suppressions, and report defaults. The following are h
 **only** from your user configuration, `--config`, or the command line, and are ignored
 (with a warning) when they appear in a repository's `repodna.toml`:
 
-- `[ai]`: AI providers
 - `[plugins]`: which plugins run
 - `[execution]`: running detected build and test commands
-- `privacy.remote_ai` and `privacy.telemetry`
+- `privacy.telemetry`
 
 ## Getting started
 
@@ -81,10 +80,6 @@ parallelism = 8
 
 [plugins]
 enabled = ["license-headers"]
-
-[ai]
-provider = "command"
-command = ["ollama", "run", "llama3.2"]
 ```
 
 ## Reference
@@ -182,7 +177,6 @@ Rule identifiers are listed in [the rules reference](repository-dna.md#rules).
 | Key | Default | Meaning |
 |---|---|---|
 | `telemetry` | `false` | Always `false`: RepoDNA collects no telemetry. The key exists to make that explicit. |
-| `remote_ai` | `false` | Allow AI providers that send data to other machines (user configuration only). |
 | `anonymize_contributors` | `false` | Replace contributor names with pseudonyms in artifacts. |
 | `include_commit_messages` | `true` | Store commit subject lines in artifacts. |
 | `redact_paths_in_logs` | `false` | Replace repository paths in log output with hashes. |
@@ -217,20 +211,3 @@ RepoDNA detects build and test commands but never runs them unless you allow it 
 | `max_output_lines` | `200` | Lines of output kept per command. |
 
 See [tests and build](tests-and-build.md#running-commands).
-
-### `[ai]` (user configuration only)
-
-| Key | Default | Meaning |
-|---|---|---|
-| `provider` | `"none"` | `none`, `command`, `openai-compatible`, or `anthropic`. |
-| `command` | `[]` | Command line for the `command` provider. |
-| `endpoint` | none | Base URL for HTTP providers (required for `openai-compatible`; `anthropic` defaults to `https://api.anthropic.com`). |
-| `model` | none | Model identifier (required for `openai-compatible` and `anthropic`). |
-| `api_key_env` | none | Name of the environment variable that holds the API key. Keys are never stored in files. |
-| `max_context_tokens` | `6000` | Most estimated tokens of repository context per request. |
-| `max_output_tokens` | none | Most tokens the model may generate (default 16000 for `anthropic`, 2000 for the others). |
-| `timeout_seconds` | `120` | Request time limit. |
-| `input_cost_per_million`, `output_cost_per_million` | none | Prices you set yourself, used only for cost estimates. |
-| `include_source_excerpts` | `false` | Allow short source excerpts in prompts. |
-
-See [AI](ai.md).

@@ -108,6 +108,6 @@ See [DNA cards](dna-cards.md).
 ## Overwriting safely
 
 Report directories are marked with a `.repodna-output` file. RepoDNA writes into an existing
-directory only if it created it or it is empty, replaces a single file only if RepoDNA
-generated it, and never writes reports into the root of a Git working tree. `--force`
-overrides the first two checks.
+directory only if it created it or every file in it is RepoDNA output (as when the marker
+was not committed), replaces a single file only if RepoDNA generated it, and never writes
+reports into the root of a Git working tree. `--force` overrides the first two checks.
