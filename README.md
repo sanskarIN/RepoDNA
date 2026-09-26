@@ -369,7 +369,9 @@ See [the analysis engine](docs/analysis-engine.md).
 - **A local server that stays local.** `repodna serve` listens on 127.0.0.1 only and
   requires a session token.
 
-Where everything is stored, and how to delete it: [privacy](docs/privacy.md).
+Where everything is stored, and how to delete it: [privacy](docs/privacy.md). The
+[Privacy Policy](PRIVACY.md) and the [Terms of Use](TERMS.md) apply to the command line,
+the desktop app, and the web version.
 
 ## AI explanations (next release)
 
@@ -529,7 +531,7 @@ its contributors.
 RepoDNA is free, and every feature works without paying for anything. If it helps you,
 you can support its development:
 
-- [Buy Me A Coffee](https://www.buymeacoffee.com/sanskarIN)
+- [Buy Me a Coffee](https://www.buymeacoffee.com/sanskarIN)
 - [Razorpay](https://www.razorpay.me/@sanskarIN)
 
 <div align="center">
