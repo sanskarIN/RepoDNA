@@ -1,5 +1,5 @@
-//! `repodna doctor`: checks the installation, storage, tools, and configuration. It never
-//! uses the network.
+//! `repodna doctor`: checks the installation, storage, tools, and configuration, and with
+//! `--export` writes a diagnostics bundle for bug reports. It never uses the network.
 
 use repodna_app::{AppError, ErrorKind, load_config};
 use repodna_core::model::metadata::SCHEMA_VERSION;
@@ -8,7 +8,7 @@ use repodna_parser::builtin_languages;
 use repodna_plugin::discover;
 use serde::Serialize;
 
-use super::{Ctx, print, to_json};
+use super::{Ctx, diagnostics, print, to_json};
 use crate::cli::{AnalysisArgs, DoctorCmd};
 
 /// Outcome of one check.
@@ -234,6 +234,15 @@ pub fn run(ctx: &Ctx, cmd: &DoctorCmd) -> Result<(), AppError> {
             out.push_str(&format!("{symbol} {:<26}{}\n", c.name, c.detail));
         }
         print(&out)?;
+    }
+    if let Some(path) = &cmd.export {
+        let results =
+            serde_json::to_value(&checks).map_err(|error| AppError::internal(error.to_string()))?;
+        diagnostics::export(ctx, results, path, cmd.force)?;
+        ctx.note(&format!(
+            "Wrote diagnostics to {}. They contain no source code, and your home directory is shown as ~; read them before you share them.",
+            path.display()
+        ));
     }
     let failed: Vec<&Check> = checks.iter().filter(|c| c.status == Status::Fail).collect();
     match failed.first() {

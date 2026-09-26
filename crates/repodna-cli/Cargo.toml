@@ -32,6 +32,7 @@ clap.workspace = true
 clap_complete.workspace = true
 ctrlc.workspace = true
 terminal_size.workspace = true
+zip.workspace = true
 
 # musl's allocator makes multi-threaded analysis several times slower.
 [target.'cfg(target_env = "musl")'.dependencies]

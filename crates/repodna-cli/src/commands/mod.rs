@@ -3,6 +3,7 @@
 pub mod analyze;
 pub mod ci;
 pub mod compare;
+pub mod diagnostics;
 pub mod doctor;
 pub mod manage;
 pub mod plugins;

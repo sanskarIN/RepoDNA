@@ -278,8 +278,8 @@ pub fn run_clean(ctx: &Ctx, cmd: &CleanCmd) -> Result<(), AppError> {
     ))
 }
 
-/// Build information recorded at compile time.
-fn build_commit() -> Option<&'static str> {
+/// The commit RepoDNA was built from, when the build recorded it.
+pub(crate) fn build_commit() -> Option<&'static str> {
     option_env!("REPODNA_BUILD_COMMIT").filter(|commit| !commit.is_empty())
 }
 

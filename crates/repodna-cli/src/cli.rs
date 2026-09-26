@@ -785,6 +785,13 @@ pub struct DoctorCmd {
     /// Print JSON.
     #[arg(long)]
     pub json: bool,
+    /// Also write a ZIP file for a bug report: the results, the environment, the effective
+    /// configuration, and a summary of storage and plugins. It contains no source code.
+    #[arg(long, value_name = "FILE")]
+    pub export: Option<PathBuf>,
+    /// Replace an existing file that RepoDNA did not create.
+    #[arg(long, requires = "export")]
+    pub force: bool,
 }
 
 /// `repodna version`.

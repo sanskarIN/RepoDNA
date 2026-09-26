@@ -927,6 +927,7 @@ dependencies = [
  "terminal_size",
  "toml",
  "toml_edit",
+ "zip",
 ]
 
 [[package]]

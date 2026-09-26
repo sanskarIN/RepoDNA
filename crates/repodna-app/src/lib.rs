@@ -21,6 +21,7 @@ pub use analysis::{
 pub use config::{ConfigOptions, Overrides, load_config};
 pub use error::{AppError, ErrorKind};
 pub use export::{
-    OUTPUT_MARKER, OutputFile, artifact_file_name, report_bundle, write_bundle, write_file,
+    DIAGNOSTICS_FOLDER, OUTPUT_MARKER, OutputFile, artifact_file_name, report_bundle, write_bundle,
+    write_file,
 };
 pub use paths::AppPaths;
