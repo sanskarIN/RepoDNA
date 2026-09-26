@@ -1,0 +1,45 @@
+# Analyze the repository with RepoDNA in GitHub Actions.
+#
+# Copy this file to .github/workflows/repodna.yml in your repository. On every pull request
+# and every push to main it installs a RepoDNA release, analyzes the repository, adds a
+# summary to the job page, annotates findings in the pull request, and fails the job when a
+# finding at warning severity or above is found. Accept known findings with a reason in
+# repodna.toml ([[suppress]]).
+#
+# See https://github.com/sanskarIN/RepoDNA/blob/main/docs/cli.md for `repodna ci`.
+
+name: RepoDNA
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  repodna:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The full history, for the history, hotspot, and evolution analyses.
+          fetch-depth: 0
+
+      - name: Install RepoDNA
+        env:
+          VERSION: 1.0.0
+        run: |
+          set -euo pipefail
+          name="repodna-$VERSION-x86_64-unknown-linux-musl"
+          base="https://github.com/sanskarIN/RepoDNA/releases/download/v$VERSION"
+          curl -fsSLO "$base/$name.tar.gz"
+          curl -fsSLO "$base/SHA256SUMS.txt"
+          sha256sum --check --ignore-missing SHA256SUMS.txt
+          tar -xzf "$name.tar.gz"
+          sudo install -m 0755 "$name/repodna" /usr/local/bin/repodna
+          repodna --version
+
+      - name: Analyze
+        run: repodna ci . --fail-on warning --format github --summary-file "$GITHUB_STEP_SUMMARY"
