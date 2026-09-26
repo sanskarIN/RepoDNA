@@ -109,7 +109,7 @@ pub struct AnalysisArgs {
     /// Allow cloning over unencrypted http:// and git:// URLs.
     #[arg(long)]
     pub allow_insecure_urls: bool,
-    /// Record zero durations so repeated runs produce identical artifacts.
+    /// Record zero durations; with SOURCE_DATE_EPOCH set, repeated runs produce identical artifacts.
     #[arg(long)]
     pub reproducible: bool,
 }

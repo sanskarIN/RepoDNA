@@ -29,7 +29,8 @@ pub struct AnalyzeOptions {
     pub fetch: FetchOptions,
     /// Do not record the analysis in local storage (and do not use the cache).
     pub no_store: bool,
-    /// Record zero durations so repeated runs produce identical artifacts.
+    /// Record zero durations; with `SOURCE_DATE_EPOCH` set, repeated runs produce identical
+    /// artifacts.
     pub reproducible: bool,
     /// Time the analysis is measured against (defaults to now or `SOURCE_DATE_EPOCH`).
     pub reference_time: Option<Timestamp>,

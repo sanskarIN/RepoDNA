@@ -70,7 +70,7 @@ Options that control how an analysis runs (accepted by every command that may an
 | `--clone-depth N` | Clone URLs with at most this many commits of history. |
 | `--allow-private-hosts` | Allow cloning from hosts on private networks. |
 | `--allow-insecure-urls` | Allow cloning over unencrypted `http://` and `git://`. |
-| `--reproducible` | Record zero durations so repeated runs produce identical artifacts. |
+| `--reproducible` | Record zero durations; with `SOURCE_DATE_EPOCH` set, repeated runs produce identical artifacts. |
 
 Privacy presets, used by `--privacy` on the commands that print or write output:
 
