@@ -1,6 +1,6 @@
 # RepoDNA analyzing itself
 
-RepoDNA's analysis of its own repository at revision `9fc68be`, made with the deep profile
+RepoDNA's analysis of its own repository at revision `35af2a9`, made with the deep profile
 from a clean clone. It is the same analysis that the web interface opens as its demo
 ([`apps/web/public/demo/repodna.json`](../../apps/web/public/demo/repodna.json)).
 
