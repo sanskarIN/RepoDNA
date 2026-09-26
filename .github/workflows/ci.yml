@@ -64,6 +64,11 @@ jobs:
         run: npm ci
       - name: Check formatting
         run: npm run format:check
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check the third-party notices
+        # The licenses of the crates and npm packages that downloads include.
+        run: cargo xtask notices --check
       - name: Check the generated schema types
         run: npm run check-generated -w @repodna/schema
       - name: Type-check

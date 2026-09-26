@@ -1,6 +1,6 @@
 [package]
 name = "xtask"
-description = "Development tasks for the RepoDNA repository: fixtures and benchmarks."
+description = "Development tasks for the RepoDNA repository: setup, fixtures, benchmarks, and license notices."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
