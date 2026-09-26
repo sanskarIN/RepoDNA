@@ -53,6 +53,8 @@ every conclusion backed by evidence.
   `cache`, `clean`, `doctor`, `version`, `serve`, `schema`, and `completions`.
 - `repodna ci` with `--fail-on`, baselines, `--new-only`, GitHub Actions annotations, and
   step summaries; documented exit codes.
+- `repodna doctor` checks the installation, and `--export` writes a diagnostics bundle for
+  bug reports that contains no source code.
 
 ### Reports and sharing
 

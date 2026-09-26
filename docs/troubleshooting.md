@@ -114,5 +114,7 @@ Raise `[plugins] timeout_seconds` for slow analyzers.
 ## Reporting a problem
 
 Include the output of `repodna version --json` and `repodna doctor --json`, the command you
-ran, and what you expected. Use the [issue templates](https://github.com/sanskarIN/RepoDNA/issues/new/choose).
+ran, and what you expected. `repodna doctor --export diagnostics.zip` collects the checks,
+your environment, and your configuration in one file you can attach, without any source
+code; read it before you share it. Use the [issue templates](https://github.com/sanskarIN/RepoDNA/issues/new/choose).
 Report security vulnerabilities privately, as described in [SECURITY.md](../SECURITY.md).

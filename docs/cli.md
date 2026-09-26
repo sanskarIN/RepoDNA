@@ -310,10 +310,18 @@ Repositories themselves are never touched. Storage locations are described in
 | `repodna plugins enable NAME` / `disable NAME` | Changes your user configuration. |
 | `repodna plugins check DIR` | Validates a plugin directory without running it. |
 | `repodna plugins path` | Prints the user plugin directory. |
-| `repodna doctor` | Checks the installation, storage, Git, configuration, and plugins (`--json`). |
+| `repodna doctor` | Checks the installation, storage, Git, configuration, and plugins (`--json`). `--export FILE` also writes a diagnostics bundle for bug reports; see below. |
 | `repodna version` | Prints version information (`--json`). |
 | `repodna schema [artifact\|config]` | Prints the JSON Schema of the artifact or of the configuration file. |
 | `repodna completions SHELL` | Prints a completion script for `bash`, `elvish`, `fish`, `powershell`, or `zsh`. |
+
+`repodna doctor --export diagnostics.zip` writes a ZIP file with the results of the checks,
+the environment (versions, operating system, and the environment variables RepoDNA reads),
+the effective configuration in the current directory, and summaries of storage and plugins.
+It contains no source code, file contents, analysis results, or names of stored
+repositories, and your home directory is shown as `~`. Read it before you attach it to an
+issue; `--no-project-config` leaves out the current directory's `repodna.toml`. Like other
+outputs, it replaces an existing file only if RepoDNA wrote it, unless you pass `--force`.
 
 ```sh
 repodna completions bash > ~/.local/share/bash-completion/completions/repodna

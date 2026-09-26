@@ -63,6 +63,11 @@ body:
     attributes:
       label: Output of `repodna doctor --json`
       render: json
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (optional)
+      description: Drop the file written by `repodna doctor --export diagnostics.zip` here. It contains no source code, but please read it before you share it.
   - type: dropdown
     id: os
     attributes:
