@@ -95,5 +95,5 @@ with its contributors. See [MAINTAINERS.md](../MAINTAINERS.md).
 **How can I help?**
 Report bugs, suggest features, add a language or an ecosystem, improve the documentation,
 or share RepoDNA with others. See [CONTRIBUTING.md](../CONTRIBUTING.md). You can also
-support the project through [Buy Me A Coffee](https://www.buymeacoffee.com/sanskarIN) or
+support the project through [Buy Me a Coffee](https://www.buymeacoffee.com/sanskarIN) or
 [Razorpay](https://www.razorpay.me/@sanskarIN).
