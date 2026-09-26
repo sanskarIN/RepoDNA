@@ -53,6 +53,14 @@ impl BadgeKind {
             BadgeKind::Dna => "dna",
         }
     }
+
+    /// The text after "RepoDNA" on the badge.
+    pub const fn label(self) -> &'static str {
+        match self {
+            BadgeKind::Dna => "DNA",
+            other => other.id(),
+        }
+    }
 }
 
 impl FromStr for BadgeKind {
@@ -86,7 +94,7 @@ pub struct Badge {
 /// The badge content for an artifact.
 pub fn badge(dna: &RepositoryDna, kind: BadgeKind) -> Badge {
     let facts = facts(dna);
-    let label = format!("RepoDNA {}", kind.id());
+    let label = format!("RepoDNA {}", kind.label());
     let not_analyzed = || ("not analyzed".to_owned(), NEUTRAL_COLOR);
     let (value, color) = match kind {
         BadgeKind::Languages => {
@@ -154,7 +162,7 @@ pub fn render_badge(badge: &Badge) -> String {
 pub fn markdown_snippet(kind: BadgeKind, image_path: &str) -> String {
     format!(
         "[![RepoDNA {}]({image_path})](https://github.com/sanskarIN/RepoDNA)",
-        kind.id()
+        kind.label()
     )
 }
 
