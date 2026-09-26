@@ -380,7 +380,7 @@
       "type": "object"
     },
     "AnalysisProfile": {
-      "description": "A preset trading analysis depth for speed.\n\nAll profiles are deterministic unless an AI provider is explicitly enabled.",
+      "description": "A preset trading analysis depth for speed.\n\nAll profiles are deterministic.",
       "oneOf": [
         {
           "const": "quick",

@@ -1,6 +1,6 @@
 [package]
 name = "repodna-app"
-description = "RepoDNA application services shared by the CLI, local server, and desktop app: configuration, stored analyses, exports, and explanations."
+description = "RepoDNA application services shared by the CLI, local server, and desktop app: configuration, stored analyses, and exports."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,7 +15,6 @@ repodna-git.workspace = true
 repodna-engine.workspace = true
 repodna-store.workspace = true
 repodna-report.workspace = true
-repodna-ai.workspace = true
 repodna-plugin.workspace = true
 serde.workspace = true
 serde_json.workspace = true

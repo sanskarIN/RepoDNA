@@ -9,7 +9,7 @@ same interface runs in three places:
 |---|---|---|
 | `repodna serve` | A local server on 127.0.0.1 | Browse stored analyses, start new ones, download reports |
 | The [desktop app](desktop.md) | A native window | The same, with native folder pickers and save dialogs |
-| Any static web server | The built files in `apps/web/dist` | Open the bundled demo and analysis files; no stored analyses or new scans |
+| The [web version](https://sanskarin.github.io/RepoDNA/), or any static web server | The built files in `apps/web/dist` | Open the bundled demo and analysis files; no stored analyses or new scans |
 
 ![The Overview of RepoDNA's own analysis](images/overview.png)
 
@@ -57,7 +57,9 @@ Open the printed link. The start page lets you:
 | Findings | Every finding with its evidence, method, and limitations, filtered by severity and category and searchable by title, rule, path, and evidence |
 | Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark; the desktop app also saves the full report folder |
 | Compare | This analysis next to another one |
-| Settings & about | Theme, privacy notes, version, and links |
+| Settings | Theme, privacy notes, keyboard shortcuts, and version information |
+| About & support | The version, ways to support RepoDNA, the project's links, and the legal documents |
+| Privacy Policy, Terms of Use, Licenses | The policies, RepoDNA's license, and the licenses of the third-party software it includes, linked at the bottom of the sidebar |
 
 Every chart has a table view, and severity is always written out, never shown by color
 alone.
@@ -122,17 +124,34 @@ curl -s -H "X-RepoDNA-Token: $TOKEN" http://127.0.0.1:7878/api/repositories
 `{id}` is a repository identifier, name, or path, as for `repodna` targets. The artifact
 format is described by [`schemas/repodna-artifact.schema.json`](../schemas/repodna-artifact.schema.json).
 
-## Hosting the interface statically
+## The web version
 
-The build in `apps/web/dist` uses relative paths, so it can be served by any static web
-server. Without a RepoDNA server behind it, the interface opens the bundled demo and
-analysis files chosen in the browser; files are read in the page and never uploaded.
+<https://sanskarin.github.io/RepoDNA/> is the interface hosted on GitHub Pages. It opens the
+bundled demo and analysis files you choose (`repodna.json` from `repodna analyze --format
+json` or `repodna report`, or a `.repodna` export); files are read in the page and never
+uploaded. To analyze a repository, use the command line or the desktop app, then open the
+result here or share it with others.
+
+The [Web version workflow](../.github/workflows/pages.yml) builds and publishes it whenever
+the interface changes on `main`, and can be started by hand from the Actions tab. GitHub
+Pages must be turned on once, in the repository's **Settings > Pages**, with **GitHub
+Actions** as the source.
+
+## Hosting the interface yourself
+
+The build in `apps/web/dist` uses relative paths and hash-based routing, so any static web
+host can serve it from any path, with no server configuration:
 
 ```sh
 npm ci
 npm run build -w @repodna/web
 npm run preview -w @repodna/web      # or serve apps/web/dist with any static file server
 ```
+
+On a hosting service such as Cloudflare Pages, Netlify, or Vercel, use
+`npm ci && npm run build -w @repodna/web` as the build command and `apps/web/dist` as the
+output directory. The build includes `LICENSE.txt`, `NOTICE.txt`, and
+`THIRD-PARTY-NOTICES.txt`, which the Licenses page shows.
 
 ## Developing the interface
 

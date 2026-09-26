@@ -1,7 +1,8 @@
 # Installation
 
 RepoDNA is one command-line program, `repodna`, with the web interface built in. A desktop
-app is also available. Everything runs on your machine.
+app is also available. Everything runs on your machine. To look at analyses without
+installing anything, use the [web version](web.md#the-web-version).
 
 - [Prebuilt binaries](#prebuilt-binaries)
 - [The desktop app](#the-desktop-app)
@@ -116,7 +117,7 @@ repodna doctor
 ```
 
 `repodna doctor` checks storage, the cache, Git, the language definitions, your
-configuration, plugins, and AI settings, and says what to do about anything that is wrong.
+configuration, and plugins, and says what to do about anything that is wrong.
 
 ## Uninstall
 

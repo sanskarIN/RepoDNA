@@ -1,0 +1,59 @@
+name: Web version
+
+# Publishes the web interface to GitHub Pages at https://sanskarin.github.io/RepoDNA/.
+# It needs GitHub Pages turned on once: Settings > Pages > Build and deployment >
+# Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/web/**
+      - packages/**
+      - package.json
+      - package-lock.json
+      - PRIVACY.md
+      - TERMS.md
+      - LICENSE
+      - NOTICE
+      - THIRD-PARTY-NOTICES.txt
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits instead of cancelling a deployment.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @repodna/web
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

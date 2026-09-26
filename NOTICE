@@ -5,7 +5,9 @@ This product is licensed under the Apache License, Version 2.0 (see LICENSE).
 
 Made by the Sanskar.
 
-This product bundles the DejaVu Sans fonts (crates/repodna-report/assets/fonts), used to
-render PNG images. The fonts are Copyright (c) 2003 by Bitstream, Inc. (Bitstream Vera
-license); DejaVu changes are in the public domain; glyphs imported from Arev fonts are
-Copyright (c) 2006 by Tavmjong Bah. See crates/repodna-report/assets/fonts/LICENSE-DejaVu.txt.
+This product includes third-party software, listed with its licenses in
+THIRD-PARTY-NOTICES.txt. Among it are the DejaVu Sans fonts
+(crates/repodna-report/assets/fonts), used to render PNG images. The fonts are
+Copyright (c) 2003 by Bitstream, Inc. (Bitstream Vera license); DejaVu changes are in the
+public domain; glyphs imported from Arev fonts are Copyright (c) 2006 by Tavmjong Bah. See
+crates/repodna-report/assets/fonts/LICENSE-DejaVu.txt.

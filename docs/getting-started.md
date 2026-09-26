@@ -132,4 +132,3 @@ See the [example workflow](../examples/ci/repodna.yml).
 - Learn what each part of the analysis does, starting with
   [the analysis engine](analysis-engine.md).
 - Add languages or analyzers with [plugins](plugins.md).
-- Optionally, [ask an AI model](ai.md) to explain the analysis in prose.

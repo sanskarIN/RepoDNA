@@ -154,7 +154,7 @@ impl StageSet {
 
 /// A preset trading analysis depth for speed.
 ///
-/// All profiles are deterministic unless an AI provider is explicitly enabled.
+/// All profiles are deterministic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum AnalysisProfile {

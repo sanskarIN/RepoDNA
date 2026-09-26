@@ -64,6 +64,11 @@ jobs:
         run: npm ci
       - name: Check formatting
         run: npm run format:check
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check the third-party notices
+        # The licenses of the crates and npm packages that downloads include.
+        run: cargo xtask notices --check
       - name: Check the generated schema types
         run: npm run check-generated -w @repodna/schema
       - name: Type-check
@@ -155,7 +160,8 @@ jobs:
           out="$RUNNER_TEMP/out"
           repodna() { ./target/release/repodna "$@"; }
           repodna --version
-          repodna doctor
+          repodna doctor --export "$out/diagnostics.zip"
+          test -s "$out/diagnostics.zip"
           for fixture in fixtures/generated/*/; do
             repodna analyze "$fixture" --quiet > /dev/null
           done
@@ -195,6 +201,8 @@ jobs:
           done
           page=$(curl -fsS http://127.0.0.1:7788/)
           grep -q '<div id="root">' <<< "$page"
+          notices=$(curl -fsS http://127.0.0.1:7788/THIRD-PARTY-NOTICES.txt)
+          grep -q 'Third-party software in RepoDNA' <<< "$notices"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7788/api/repositories)" = 401
           token=$(grep -o 'token=[0-9a-f]*' "$log" | head -n 1 | cut -d= -f2)
           repositories=$(curl -fsS -H "X-RepoDNA-Token: $token" http://127.0.0.1:7788/api/repositories)

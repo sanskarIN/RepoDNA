@@ -3,7 +3,7 @@
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::{AnalyzerStatus, DataSourceKind};
 use repodna_core::severity::Severity;
-use repodna_core::text::unit_for;
+use repodna_core::text::{count, unit_for};
 
 use super::{confidence, heading};
 use crate::doc::{Block, Blocks, Inline, Table, code, plain, truncate};
@@ -333,21 +333,19 @@ pub(super) fn metadata(blocks: &mut Blocks, dna: &RepositoryDna) {
             plain(format!("{:.1} s", metadata.duration_ms as f64 / 1000.0)),
         );
     }
-    row(
-        "AI",
-        plain(metadata.ai.as_ref().map_or_else(
-            || "Not used".to_owned(),
-            |ai| {
-                format!(
-                    "{} {} ({} requests{})",
-                    ai.provider,
-                    ai.model,
-                    ai.requests,
-                    if ai.remote { ", remote" } else { ", local" }
-                )
-            },
-        )),
-    );
+    // Artifacts from later versions may record AI use; this version never uses AI.
+    if let Some(ai) = &metadata.ai {
+        row(
+            "AI",
+            plain(format!(
+                "{} {} ({}, {})",
+                ai.provider,
+                ai.model,
+                count(u64::from(ai.requests), "request", "requests"),
+                if ai.remote { "remote" } else { "local" }
+            )),
+        );
+    }
     blocks.table(table);
     blocks.heading(3, "Analysis stages", None);
     let mut table = Table::new(&["Stage", "Status", "Duration#", "Details"]);
@@ -383,12 +381,10 @@ pub(super) fn metadata(blocks: &mut Blocks, dna: &RepositoryDna) {
         } else {
             "The network was not used during the analysis."
         }),
-        plain(if privacy.remote_ai {
-            "A remote AI provider received data."
-        } else {
-            "No data was sent to a remote AI provider."
-        }),
     ];
+    if privacy.remote_ai {
+        items.push(plain("A remote AI provider received data."));
+    }
     items.extend(privacy.redactions.iter().map(|r| plain(r.clone())));
     blocks.list(items);
     if let Ok(serde_json::Value::Object(thresholds)) = serde_json::to_value(&metadata.thresholds) {
@@ -429,7 +425,7 @@ mod tests {
     use repodna_core::finding::{Finding, FindingCategory};
     use repodna_core::model::artifact::RepositoryDna;
     use repodna_core::model::identity::RepositoryIdentity;
-    use repodna_core::model::metadata::AnalysisMetadata;
+    use repodna_core::model::metadata::{AiUsage, AnalysisMetadata};
     use repodna_core::severity::Severity;
 
     #[test]
@@ -470,5 +466,22 @@ mod tests {
         assert!(markdown.contains("\"revision\": \"abc\""));
         assert!(markdown.contains("Telemetry: none."));
         assert!(markdown.contains("`large_file_lines`"));
+        assert!(!markdown.contains("AI"), "this version records no AI use");
+    }
+
+    #[test]
+    fn describes_ai_use_recorded_by_later_versions() {
+        let mut dna =
+            RepositoryDna::new(RepositoryIdentity::default(), AnalysisMetadata::default());
+        dna.analysis_metadata.ai = Some(AiUsage {
+            provider: "command".into(),
+            model: "local-model".into(),
+            remote: false,
+            requests: 1,
+        });
+        dna.analysis_metadata.privacy.remote_ai = true;
+        let markdown = render(&section(&dna, Section::Metadata, ContentOptions::default()));
+        assert!(markdown.contains("| AI | command local-model (1 request, local) |"));
+        assert!(markdown.contains("A remote AI provider received data."));
     }
 }

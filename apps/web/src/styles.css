@@ -239,6 +239,67 @@ code,
   font-size: 12px;
 }
 
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-bottom: 8px;
+}
+
+.footer-links a {
+  color: var(--muted);
+}
+
+.footer-links a:hover,
+.footer-links a[aria-current="page"] {
+  color: var(--accent-ink);
+}
+
+/* Long-form documents: the privacy policy and the terms of use. */
+.document {
+  max-width: 72ch;
+  line-height: 1.6;
+}
+
+.document h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+}
+
+.document h2 {
+  margin: 28px 0 8px;
+  font-size: 17px;
+}
+
+.document h3 {
+  margin: 20px 0 6px;
+  font-size: 15px;
+}
+
+.document ul {
+  padding-left: 22px;
+}
+
+.document li {
+  margin: 4px 0;
+}
+
+.license-text {
+  max-height: 60vh;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .main {
   min-width: 0;
   display: flex;

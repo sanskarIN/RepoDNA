@@ -19,7 +19,6 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 - [Reports](reports.md) and [Project DNA cards](dna-cards.md)
 - [Configuration](configuration.md)
 - [Privacy](privacy.md)
-- [AI explanations](ai.md) (optional)
 - [Plugins](plugins.md)
 - [Troubleshooting](troubleshooting.md)
 
@@ -49,6 +48,8 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 - [Roadmap](../ROADMAP.md) and [changelog](../CHANGELOG.md)
 - [Security policy](../SECURITY.md), [support](../SUPPORT.md), and the
   [code of conduct](../CODE_OF_CONDUCT.md)
+- [Privacy Policy](../PRIVACY.md), [Terms of Use](../TERMS.md), and the
+  [third-party notices](../THIRD-PARTY-NOTICES.txt)
 - [Governance](../GOVERNANCE.md) and [maintainers](../MAINTAINERS.md)
 
 RepoDNA is made by [Sanskar](https://github.com/sanskarIN) and licensed under the

@@ -25,7 +25,8 @@ tested, and what deserves a closer look, and for every conclusion it shows the f
 lines, commits, and measurements behind it. It runs on your machine, needs no account, and
 sends nothing anywhere unless you ask it to.
 
-**[Install](#installation) · [Quick start](#quick-start) · [Demo](#demo) ·
+**[Install](#installation) · [Quick start](#quick-start) ·
+[Web version](https://sanskarin.github.io/RepoDNA/) · [Demo](#demo) ·
 [Documentation](docs/index.md) · [Contributing](CONTRIBUTING.md)**
 
 ## Contents
@@ -41,7 +42,7 @@ sends nothing anywhere unless you ask it to.
 - [Project DNA cards and badges](#project-dna-cards-and-badges)
 - [Supported languages](#supported-languages)
 - [Privacy](#privacy)
-- [AI explanations (optional)](#ai-explanations-optional)
+- [AI explanations (next release)](#ai-explanations-next-release)
 - [Performance](#performance)
 - [Configuration](#configuration)
 - [Plugins](#plugins)
@@ -56,7 +57,8 @@ sends nothing anywhere unless you ask it to.
 ## Demo
 
 The web interface ships with a demo: RepoDNA's analysis of its own repository. It works
-offline and needs no repository of your own.
+offline and needs no repository of your own. Try it in your browser in the
+[web version](https://sanskarin.github.io/RepoDNA/), or locally:
 
 ```sh
 repodna serve
@@ -146,17 +148,13 @@ same analysis.
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations.
 
-**Optional AI explanations.** Explanations in prose, built only from the analysis evidence,
-through a local program or an API you configure. Off by default.
-
 **Plugins.** Teach RepoDNA a new language with a data file, or add findings with an analyzer
 written in any language.
 
 ## Architecture
 
 The analysis produces one versioned artifact, the RepositoryDNA, and everything else reads
-it: the terminal views, reports, cards, the web interface, comparisons, and AI
-explanations.
+it: the terminal views, reports, cards, the web interface, and comparisons.
 
 ```mermaid
 flowchart TB
@@ -166,7 +164,7 @@ flowchart TB
         server["repodna serve<br/>+ web interface"]
         desktop["Desktop app"]
     end
-    app["repodna-app<br/>configuration · storage · plugins · reports · AI"]
+    app["repodna-app<br/>configuration · storage · plugins · reports"]
     inputs["Directory · Git URL · Archive"]
     subgraph Engine["repodna-engine: analysis stages"]
         direction LR
@@ -178,19 +176,19 @@ flowchart TB
     artifact[("RepositoryDNA<br/>artifact")]
     store[("Local store<br/>SQLite + JSON")]
     reports["Reports · cards<br/>badges · CSV"]
-    ai["AI explanations<br/>(optional)"]
+    compare["Comparisons<br/>onboarding guides"]
     Frontends --> app
     app --> Engine
     inputs --> Engine
     Engine --> artifact
     artifact --> store
     artifact --> reports
-    artifact --> ai
+    artifact --> compare
 ```
 
 RepoDNA is a Rust workspace of focused crates (discovery, parsing, Git, dependencies,
 architecture, quality, security, project conventions, evolution, the engine, storage,
-reports, AI, and plugins), a React and TypeScript web interface, and a Tauri desktop app.
+reports, and plugins), a React and TypeScript web interface, and a Tauri desktop app.
 See [the architecture guide](docs/architecture.md).
 
 ## Installation
@@ -208,6 +206,10 @@ repodna --version
 
 **The desktop app.** Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows
 (`.msi`, `.exe`) are attached to each release. See [the desktop app](docs/desktop.md).
+
+**The web version.** <https://sanskarin.github.io/RepoDNA/> needs no installation: it opens
+analyses (`repodna.json` or `.repodna` files) in your browser, without uploading them, and
+includes the demo. Analyzing a repository needs the command line or the desktop app.
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
 toolchain, and [Node.js](https://nodejs.org/) 20.19 or newer:
@@ -363,42 +365,27 @@ See [the analysis engine](docs/analysis-engine.md).
   code that could.
 - **No uploads.** Analyses, reports, and cards are local files. Nothing is published unless
   you publish it.
-- **The network is used only when you ask:** to clone a Git URL you give it, and to reach
-  an AI provider you configured (endpoints off your machine need your explicit consent).
+- **The network is used only when you ask:** to clone a Git URL you give it.
 - **No secret values are stored.** Possible credentials are recorded by rule, file, line,
   and fingerprint.
 - **No absolute local paths in artifacts.** Paths are relative to the repository.
 - **Sharing presets.** `--privacy share` removes commit messages, the text of TODO-style
-  comments, and command output; `--privacy public` also replaces contributor names with pseudonyms and removes
-  remote URLs and symbol names.
+  comments, and command output; `--privacy public` also replaces contributor names with
+  pseudonyms and removes remote URLs and symbol names.
 - **A local server that stays local.** `repodna serve` listens on 127.0.0.1 only and
   requires a session token.
 
-Where everything is stored, and how to delete it: [privacy](docs/privacy.md).
+Where everything is stored, and how to delete it: [privacy](docs/privacy.md). The
+[Privacy Policy](PRIVACY.md) and the [Terms of Use](TERMS.md) apply to the command line,
+the desktop app, and the web version.
 
-## AI explanations (optional)
+## AI explanations (next release)
 
-The analysis never needs AI. If you want explanations in prose, `repodna explain` sends a
-selection of evidence from the analysis (never your whole code base) to a provider you
-configure in your user configuration:
-
-| Provider | What it is |
-|---|---|
-| `none` | The default: AI features are off. |
-| `command` | A program on your machine that reads the prompt on standard input, such as `ollama run llama3.2`. |
-| `openai-compatible` | Any OpenAI-compatible server: local runtimes (Ollama, llama.cpp, LM Studio, vLLM) or hosted services. |
-| `anthropic` | The Anthropic Messages API. |
-
-```sh
-repodna explain --dry-run                  # show exactly what would be sent, and send nothing
-repodna explain --about architecture       # explain one area of the analysis
-```
-
-Answers cite the evidence they are based on, record the provider, model, and token use, and
-never replace the analysis itself. Remote endpoints are refused unless you allow them with
-`privacy.remote_ai = true` or `--allow-remote-ai`; API keys are read only from an
-environment variable you name. A repository's own configuration can never turn AI on. See
-[AI](docs/ai.md).
+RepoDNA 1.0 does not use AI: every result comes from deterministic analysis of your files
+and history. Optional explanations in prose are planned for the next release. They will be
+built only from the evidence in an analysis, work with a local model or an API you choose,
+show exactly what would be sent before anything is sent, and stay off unless you turn them
+on. See the [roadmap](ROADMAP.md).
 
 ## Performance
 
@@ -440,7 +427,7 @@ reason = "Intentional fake credentials used by tests"
 
 Settings come from defaults, your user configuration, the repository's `repodna.toml`, a
 file passed with `--config`, and command-line flags, in that order. For safety, a
-repository's own configuration can never enable plugins, AI, or command execution.
+repository's own configuration can never enable plugins or command execution.
 `repodna config show` prints every effective value and where it came from. See
 [configuration](docs/configuration.md) for every setting.
 
@@ -482,7 +469,7 @@ npm run dev -w @repodna/desktop                   # the desktop app
 
 | Path | What lives there |
 |---|---|
-| `crates/` | The Rust workspace: the model, analyzers, engine, storage, reports, AI, plugins, server, and CLI |
+| `crates/` | The Rust workspace: the model, analyzers, engine, storage, reports, plugins, server, and CLI |
 | `apps/web` | The React and TypeScript web interface |
 | `apps/desktop` | The Tauri desktop app |
 | `packages/` | Generated TypeScript types for the artifact, and chart helpers |
@@ -491,7 +478,7 @@ npm run dev -w @repodna/desktop                   # the desktop app
 | `fixtures/`, `benchmarks/`, `xtask/` | Test repositories, benchmark results, and the tasks that make them |
 
 The [development guide](docs/development.md) explains where to make common changes: a new
-language, ecosystem, finding, metric, chart, report section, or AI provider.
+language, ecosystem, finding, metric, chart, or report section.
 
 ## Testing
 
@@ -526,15 +513,17 @@ public issues.
 
 ## Roadmap
 
-Next on the list are lexical analysis for more languages, deeper import resolution, pull
-request analysis in CI, an official GitHub Action, and installation through package
-managers; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
+Next on the list are optional AI explanations, lexical analysis for more languages, deeper
+import resolution, pull request analysis in CI, an official GitHub Action, and installation
+through package managers; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
 now, next, later, and under exploration, and the [changelog](CHANGELOG.md) what each
 release changed.
 
 ## License
 
-RepoDNA is licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE).
+RepoDNA is licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE),
+and [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) for the licenses of the third-party
+software that the downloads include.
 
 ## Creator and support
 
@@ -548,7 +537,7 @@ its contributors.
 RepoDNA is free, and every feature works without paying for anything. If it helps you,
 you can support its development:
 
-- [Buy Me A Coffee](https://www.buymeacoffee.com/sanskarIN)
+- [Buy Me a Coffee](https://www.buymeacoffee.com/sanskarIN)
 - [Razorpay](https://www.razorpay.me/@sanskarIN)
 
 <div align="center">

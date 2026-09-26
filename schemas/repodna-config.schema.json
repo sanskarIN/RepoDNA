@@ -1,115 +1,5 @@
 {
   "$defs": {
-    "AiConfig": {
-      "additionalProperties": false,
-      "description": "Optional AI provider. Only honored from user configuration or command-line flags.",
-      "properties": {
-        "api_key_env": {
-          "description": "Name of the environment variable holding the API key (keys are never stored in files).",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "command": {
-          "default": [],
-          "description": "Command line for the `command` provider.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "endpoint": {
-          "description": "Base URL for HTTP providers. Required for `openai-compatible`; the `anthropic`\nprovider defaults to `https://api.anthropic.com`.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "include_source_excerpts": {
-          "default": false,
-          "description": "Allow short source excerpts in prompts (off by default; evidence metadata only).",
-          "type": "boolean"
-        },
-        "input_cost_per_million": {
-          "description": "Price per million input tokens, used only for cost estimates you configure yourself.",
-          "format": "double",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "max_context_tokens": {
-          "default": 6000,
-          "description": "Maximum estimated tokens of repository context sent per request.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "max_output_tokens": {
-          "description": "Maximum tokens the model may generate, including any reasoning tokens. When unset,\n`anthropic` uses 16000 (its limit also covers thinking) and other providers 2000.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "model": {
-          "description": "Model identifier passed to the provider. Required for `openai-compatible` and\n`anthropic`.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "output_cost_per_million": {
-          "description": "Price per million output tokens, used only for cost estimates you configure yourself.",
-          "format": "double",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "provider": {
-          "$ref": "#/$defs/AiProviderKind",
-          "default": "none",
-          "description": "Provider kind."
-        },
-        "timeout_seconds": {
-          "default": 120,
-          "description": "Request timeout in seconds.",
-          "format": "uint64",
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "type": "object"
-    },
-    "AiProviderKind": {
-      "description": "AI provider kind.",
-      "oneOf": [
-        {
-          "const": "none",
-          "description": "AI features are disabled.",
-          "type": "string"
-        },
-        {
-          "const": "command",
-          "description": "A local command that reads a prompt on standard input (e.g. `ollama run <model>`).",
-          "type": "string"
-        },
-        {
-          "const": "openai-compatible",
-          "description": "An OpenAI-compatible HTTP API (local servers or cloud providers).",
-          "type": "string"
-        },
-        {
-          "const": "anthropic",
-          "description": "An Anthropic-compatible Messages API.",
-          "type": "string"
-        }
-      ]
-    },
     "AnalysisConfig": {
       "additionalProperties": false,
       "description": "What to analyze.",
@@ -215,7 +105,7 @@
       "type": "object"
     },
     "AnalysisProfile": {
-      "description": "A preset trading analysis depth for speed.\n\nAll profiles are deterministic unless an AI provider is explicitly enabled.",
+      "description": "A preset trading analysis depth for speed.\n\nAll profiles are deterministic.",
       "oneOf": [
         {
           "const": "quick",
@@ -438,11 +328,6 @@
         "redact_paths_in_logs": {
           "default": false,
           "description": "Replace repository paths in log output with hashes.",
-          "type": "boolean"
-        },
-        "remote_ai": {
-          "default": false,
-          "description": "Allow AI providers that send data to remote endpoints.",
           "type": "boolean"
         },
         "telemetry": {
@@ -669,17 +554,6 @@
   "additionalProperties": false,
   "description": "The complete configuration.",
   "properties": {
-    "ai": {
-      "$ref": "#/$defs/AiConfig",
-      "default": {
-        "command": [],
-        "include_source_excerpts": false,
-        "max_context_tokens": 6000,
-        "provider": "none",
-        "timeout_seconds": 120
-      },
-      "description": "Optional AI provider (user configuration only)."
-    },
     "analysis": {
       "$ref": "#/$defs/AnalysisConfig",
       "default": {
@@ -756,7 +630,6 @@
         "anonymize_contributors": false,
         "include_commit_messages": true,
         "redact_paths_in_logs": false,
-        "remote_ai": false,
         "telemetry": false
       },
       "description": "Privacy switches."

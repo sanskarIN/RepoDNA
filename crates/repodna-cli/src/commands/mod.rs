@@ -3,8 +3,8 @@
 pub mod analyze;
 pub mod ci;
 pub mod compare;
+pub mod diagnostics;
 pub mod doctor;
-pub mod explain;
 pub mod manage;
 pub mod plugins;
 pub mod report;
@@ -55,7 +55,6 @@ impl Ctx {
                 cache: analysis.no_cache.then_some(false),
                 anonymize_contributors: analysis.anonymize.then_some(true),
                 include_commit_messages: analysis.no_commit_messages.then_some(false),
-                remote_ai: None,
                 plugins: analysis.plugins.clone(),
                 plugin_dirs: analysis.plugin_dirs.clone(),
                 threads: analysis.threads,

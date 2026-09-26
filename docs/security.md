@@ -118,7 +118,7 @@ would if you ran them yourself.)
 
 **No commands run by default.** Build and test commands are detected, never run, unless
 you enable execution in your user configuration. A repository's `repodna.toml` cannot
-enable execution, plugins, or AI.
+enable execution or plugins.
 
 **Hardened Git.** RepoDNA runs the `git` executable with settings that stop a repository's
 own configuration from running programs: `core.fsmonitor` is disabled, text-conversion
@@ -146,10 +146,6 @@ limits; they still run with your permissions, so enable only plugins you trust. 
 token, refuses unexpected `Host` headers (which defeats DNS rebinding) and state-changing
 requests from other origins, and sends a restrictive Content Security Policy. See
 [the web interface](web.md#security).
-
-**AI** is off by default. Repository text in prompts is marked as data, never instructions;
-answers are checked against the evidence that was sent; and providers off this machine need
-your consent. See [AI](ai.md).
 
 **Linear-time patterns.** Built-in and plugin regular expressions use the Rust `regex`
 crate, which cannot backtrack catastrophically on crafted input.
