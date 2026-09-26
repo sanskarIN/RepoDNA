@@ -5,6 +5,9 @@ import { shorten, useWidth } from "./size";
 /** Horizontal room per dependency layer, enough for a module name under each node. */
 const MIN_COLUMN_WIDTH = 150;
 
+/** Graphs at most this much wider than their panel are scaled down instead of scrolling. */
+const MAX_SHRINK = 1.15;
+
 export interface GraphModule {
   id: string;
   name: string;
@@ -52,6 +55,8 @@ export function ArchitectureGraph({
       { width: Math.max(320, width, columns * MIN_COLUMN_WIDTH), rowGap: 46, padding: 80 },
     );
   }, [modules, dependencies, width]);
+  // Slightly too wide: shrink to fit, keeping labels legible. Much too wide: scroll.
+  const scale = layout.width <= width * MAX_SHRINK ? Math.min(1, width / layout.width) : 1;
   const focus = hovered ?? selected;
   const related = useMemo(() => {
     const set = new Set<string>();
@@ -76,8 +81,11 @@ export function ArchitectureGraph({
       <div className="graph-scroll">
         <svg
           className="chart"
-          width={layout.width}
-          height={layout.height}
+          width={layout.width * scale}
+          height={layout.height * scale}
+          // Charts fill their panel by default; this one keeps its size so it can scroll.
+          style={{ width: layout.width * scale }}
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
           role="group"
           aria-label={label}
           onClick={(event) => {
