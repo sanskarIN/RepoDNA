@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 use repodna_core::config::ReportTheme;
 use repodna_core::model::artifact::RepositoryDna;
+use repodna_core::text::unit_for;
 
 use crate::charts::{Share, share_bar};
 use crate::doc::{Blocks, Inline, Table, plain};
@@ -341,8 +342,11 @@ pub fn compare(artifacts: &[RepositoryDna]) -> Comparison {
                 .map(|dna| {
                     let c = dna.finding_counts();
                     format!(
-                        "{} critical, {} warning, {} attention, {} info",
-                        c.critical, c.warning, c.attention, c.info
+                        "{} critical, {}, {} attention, {} info",
+                        c.critical,
+                        counted(c.warning as u64, "warning", "warnings"),
+                        c.attention,
+                        c.info
                     )
                 })
                 .collect(),
@@ -366,7 +370,12 @@ pub fn compare(artifacts: &[RepositoryDna]) -> Comparison {
                     Some(d)
                         if d.confidence != repodna_core::confidence::Confidence::Unavailable =>
                     {
-                        format!("{} ({} {})", number(d.value), number(d.raw), d.unit)
+                        format!(
+                            "{} ({} {})",
+                            number(d.value),
+                            number(d.raw),
+                            unit_for(d.raw, &d.unit)
+                        )
                     }
                     _ => "not measured".to_owned(),
                 })

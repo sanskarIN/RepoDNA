@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RepositoryDna } from "@repodna/schema";
 import { continuousDays } from "./activity";
 import { artifactFileName } from "./download";
-import { contributorNamer, count, languageNamer } from "./names";
+import { contributorNamer, count, languageNamer, unitFor } from "./names";
 import { href, parseHash } from "./router";
 
 describe("router", () => {
@@ -73,5 +73,19 @@ describe("activity", () => {
       ]),
     ).toBeNull();
     expect(continuousDays([{ date: "yesterday", commits: 1, churn: 1 }])).toBeNull();
+  });
+});
+
+describe("units", () => {
+  it("puts units in the singular for one", () => {
+    expect(unitFor(1, "files")).toBe("file");
+    expect(unitFor(2, "files")).toBe("files");
+    expect(unitFor(1.001, "effective languages")).toBe("effective language");
+    expect(unitFor(1, "checks met")).toBe("check met");
+    expect(unitFor(1.5, "checks met")).toBe("checks met");
+    expect(unitFor(1, "dependencies")).toBe("dependency");
+    expect(unitFor(1, "branches")).toBe("branch");
+    expect(unitFor(1, "ratio")).toBe("ratio");
+    expect(unitFor(1, "share of code files")).toBe("share of code files");
   });
 });

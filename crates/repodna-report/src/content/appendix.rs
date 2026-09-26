@@ -3,6 +3,7 @@
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::{AnalyzerStatus, DataSourceKind};
 use repodna_core::severity::Severity;
+use repodna_core::text::unit_for;
 
 use super::{confidence, heading};
 use crate::doc::{Block, Blocks, Inline, Table, code, plain, truncate};
@@ -188,7 +189,11 @@ pub(super) fn metrics(blocks: &mut Blocks, dna: &RepositoryDna) {
             table.row(vec![
                 plain(dimension.label.clone()),
                 plain(number(dimension.value)),
-                plain(format!("{} {}", number(dimension.raw), dimension.unit)),
+                plain(format!(
+                    "{} {}",
+                    number(dimension.raw),
+                    unit_for(dimension.raw, &dimension.unit)
+                )),
                 plain(confidence(dimension.confidence)),
                 plain(dimension.description.clone()),
             ]);
@@ -231,7 +236,11 @@ pub(super) fn metrics(blocks: &mut Blocks, dna: &RepositoryDna) {
                     Inline::Text(" ".to_owned()),
                     Inline::Code(metric.id.clone()),
                 ],
-                plain(format!("{} {}", number(metric.value), metric.unit)),
+                plain(format!(
+                    "{} {}",
+                    number(metric.value),
+                    unit_for(metric.value, &metric.unit)
+                )),
                 plain(confidence(metric.confidence)),
                 plain(metric.definition.clone()),
                 plain(metric.method.clone()),

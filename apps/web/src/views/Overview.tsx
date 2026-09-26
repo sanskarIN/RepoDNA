@@ -4,7 +4,7 @@ import { ShareBar } from "../charts/ShareBar";
 import { Chip, Note, PageHeader, Panel, SectionStatus, Tile } from "../components/common";
 import { DataTable } from "../components/DataTable";
 import { FindingItem } from "../components/FindingItem";
-import { count, languageNamer } from "../lib/names";
+import { count, languageNamer, unitFor } from "../lib/names";
 import { href } from "../lib/router";
 import { originLabel, useApp, useDataset } from "../state";
 
@@ -157,7 +157,7 @@ export function Overview() {
                 {
                   key: "raw",
                   header: "Measured",
-                  cell: (d) => `${Number(d.raw.toFixed(2))} ${d.unit}`,
+                  cell: (d) => `${Number(d.raw.toFixed(2))} ${unitFor(d.raw, d.unit)}`,
                   numeric: true,
                 },
                 {

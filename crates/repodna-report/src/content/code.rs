@@ -6,6 +6,7 @@ use repodna_core::model::architecture::CycleLevel;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::dependencies::{DependencyScope, ManifestKind, ParseStatus};
 use repodna_core::model::quality::{FunctionSignal, MarkerKind};
+use repodna_core::text::unit_for;
 
 use super::{ContentOptions, confidence, heading, not_analyzed, notes};
 use crate::charts::{GraphNode, bars, columns, layered_graph};
@@ -613,7 +614,11 @@ pub(super) fn complexity(blocks: &mut Blocks, dna: &RepositoryDna, options: Cont
         for file in rows {
             table.row(vec![
                 code(file.path.clone()),
-                plain(format!("{} {}", thousands(file.value), file.unit)),
+                plain(format!(
+                    "{} {}",
+                    thousands(file.value),
+                    unit_for(file.value as f64, &file.unit)
+                )),
                 plain(thousands(file.threshold)),
             ]);
         }
@@ -669,7 +674,11 @@ pub(super) fn complexity(blocks: &mut Blocks, dna: &RepositoryDna, options: Cont
         for signal in &report.maintainability {
             table.row(vec![
                 plain(signal.label.clone()),
-                plain(format!("{} {}", number(signal.value), signal.unit)),
+                plain(format!(
+                    "{} {}",
+                    number(signal.value),
+                    unit_for(signal.value, &signal.unit)
+                )),
                 plain(signal.description.clone()),
             ]);
         }

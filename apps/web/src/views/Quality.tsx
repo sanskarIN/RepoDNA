@@ -13,7 +13,7 @@ import {
   Tile,
 } from "../components/common";
 import { DataTable } from "../components/DataTable";
-import { languageNamer } from "../lib/names";
+import { languageNamer, unitFor } from "../lib/names";
 import { useDataset } from "../state";
 
 const MARKERS: Record<MarkerKind, string> = {
@@ -258,7 +258,7 @@ export function Quality() {
               {
                 key: "value",
                 header: "Size",
-                cell: (f) => `${thousands(f.value)} ${f.unit}`,
+                cell: (f) => `${thousands(f.value)} ${unitFor(f.value, f.unit)}`,
                 sort: (f) => f.value,
                 numeric: true,
               },
@@ -275,7 +275,7 @@ export function Quality() {
               {
                 key: "value",
                 header: "Value",
-                cell: (s) => `${Number(s.value.toFixed(2))} ${s.unit}`,
+                cell: (s) => `${Number(s.value.toFixed(2))} ${unitFor(s.value, s.unit)}`,
                 numeric: true,
               },
               { key: "description", header: "Meaning", cell: (s) => s.description },

@@ -141,9 +141,9 @@ pub fn evaluate(
     values.push((
         "Findings".to_owned(),
         format!(
-            "{} critical, {} warning, {} attention, {} informational",
+            "{} critical, {}, {} attention, {} informational",
             count(Severity::Critical),
-            count(Severity::Warning),
+            counted(count(Severity::Warning) as u64, "warning", "warnings"),
             count(Severity::Attention),
             count(Severity::Info)
         ),

@@ -5,6 +5,7 @@ import { Chip, ErrorBox, Note, PageHeader, Panel, Select } from "../components/c
 import { DataTable } from "../components/DataTable";
 import type { PrivacyPreset, ReportFormat, ReportTheme, SaveFormat } from "../lib/backend";
 import { artifactFileName, downloadText } from "../lib/download";
+import { unitFor } from "../lib/names";
 import { useApp, useDataset } from "../state";
 
 const THEMES: readonly (readonly [ReportTheme, string])[] = [
@@ -436,7 +437,7 @@ export function Reports() {
             {
               key: "value",
               header: "Value",
-              cell: (m) => `${Number(m.value.toFixed(2))} ${m.unit}`,
+              cell: (m) => `${Number(m.value.toFixed(2))} ${unitFor(m.value, m.unit)}`,
               numeric: true,
             },
             { key: "confidence", header: "Confidence", cell: (m) => confidenceLabel(m.confidence) },
