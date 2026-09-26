@@ -51,10 +51,6 @@ export function Settings() {
               it is served by <code>repodna serve</code>.
             </li>
             <li>Files you open here are read on this machine and never uploaded.</li>
-            <li>
-              AI explanations are off unless you configure a provider; remote providers need your
-              explicit consent.
-            </li>
           </ul>
         </Panel>
       </div>

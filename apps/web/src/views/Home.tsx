@@ -401,7 +401,7 @@ export function Home() {
                 Charts always have a table view; severity is shown with words, not only color.
               </li>
               <li>Commands found in a repository are shown as detected, never run.</li>
-              <li>AI explanations are optional and off unless you configure a provider.</li>
+              <li>Nothing is uploaded, and no telemetry is collected.</li>
             </ul>
           </section>
         </div>

@@ -276,8 +276,8 @@ export function Reports() {
           </dd>
           <dt>Privacy</dt>
           <dd>
-            {meta.privacy.preset} preset · network {meta.privacy.networkUsed ? "used" : "not used"}{" "}
-            · remote AI {meta.privacy.remoteAi ? "used" : "not used"} · telemetry{" "}
+            {meta.privacy.preset} preset · network {meta.privacy.networkUsed ? "used" : "not used"}
+            {meta.privacy.remoteAi ? " · remote AI used" : ""} · telemetry{" "}
             {meta.privacy.telemetry ? "on" : "none"}
             {meta.privacy.redactions.length > 0 ? (
               <ul className="evidence">
