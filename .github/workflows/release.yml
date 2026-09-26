@@ -101,6 +101,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      - name: Record the commit
+        # Shown by `repodna version --json`.
+        shell: bash
+        run: echo "REPODNA_BUILD_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Build
         env:
           # Link the C runtime statically so the Windows binary needs no Visual C++ runtime.
