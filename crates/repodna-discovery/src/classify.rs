@@ -680,7 +680,10 @@ fn classify_default(path: &str, language_kind: Option<LanguageKind>) -> Classifi
     {
         return category(FileCategory::Build);
     }
-    if paths::depth(path) <= 2 && name_has_prefix(name, LICENSE_PREFIXES) {
+    // Conventional names such as LICENSE, HISTORY, or SECURITY mark documents, not program
+    // source that happens to share the name (license.rs, History.tsx, security.py).
+    let is_program = language_kind == Some(LanguageKind::Programming);
+    if !is_program && paths::depth(path) <= 2 && name_has_prefix(name, LICENSE_PREFIXES) {
         return category(FileCategory::License);
     }
     let is_code = matches!(
@@ -690,7 +693,7 @@ fn classify_default(path: &str, language_kind: Option<LanguageKind>) -> Classifi
     if is_test_path(path) && !ASSET_EXTENSIONS.contains(&ext) && !BINARY_EXTENSIONS.contains(&ext) {
         return category(FileCategory::Test);
     }
-    if name_has_prefix(name, DOC_PREFIXES)
+    if (!is_program && name_has_prefix(name, DOC_PREFIXES))
         || (has_dir(path, DOC_DIRS)
             && (DOC_EXTENSIONS.contains(&ext) || language_kind == Some(LanguageKind::Prose)))
         || (DOC_EXTENSIONS.contains(&ext) && ext != "txt")
@@ -853,6 +856,31 @@ mod tests {
             FileCategory::Documentation
         );
         assert_eq!(category("CONTRIBUTING", None), FileCategory::Documentation);
+        assert_eq!(
+            category("HISTORY.rst", Some(Prose)),
+            FileCategory::Documentation
+        );
+        assert_eq!(
+            category("SECURITY.md", Some(Prose)),
+            FileCategory::Documentation
+        );
+        // Source files named like conventional documents are still source.
+        assert_eq!(
+            category("src/views/History.tsx", Some(Programming)),
+            FileCategory::Source
+        );
+        assert_eq!(
+            category("crates/core/src/security.rs", Some(Programming)),
+            FileCategory::Source
+        );
+        assert_eq!(
+            category("db/migration_001.sql", Some(Programming)),
+            FileCategory::Source
+        );
+        assert_eq!(
+            category("src/license.rs", Some(Programming)),
+            FileCategory::Source
+        );
         assert_eq!(category(".editorconfig", None), FileCategory::Configuration);
         assert_eq!(
             category("tsconfig.base.json", Some(Data)),
