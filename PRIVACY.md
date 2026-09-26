@@ -32,9 +32,10 @@ author of RepoDNA or to anyone else.
   and `--no-store` analyzes without storing anything.
 - Reports, cards, badges, exports, and diagnostics files are created only when you ask for
   them, where you choose.
-- The web interface keeps your theme choice in your browser's local storage and, when it is
-  served by `repodna serve`, the sign-in token of the current tab in session storage. It
-  sets no cookies.
+- The web interface keeps your theme choice in your browser's local storage. When it is
+  served by `repodna serve`, your browser also keeps the sign-in token for that local
+  server, in a session cookie or the tab's session storage. The web version sets no
+  cookies.
 - Files you open in the web version are read in your browser and are not uploaded.
 
 ## When RepoDNA uses the network

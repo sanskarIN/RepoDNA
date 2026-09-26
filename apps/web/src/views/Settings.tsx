@@ -39,8 +39,8 @@ export function Settings() {
           <ul className="evidence">
             <li>RepoDNA analyzes repositories on this machine and sends no telemetry.</li>
             <li>
-              This interface stores only your theme choice, and the sign-in token of this tab when
-              it is served by <code>repodna serve</code>.
+              This interface stores only your theme choice and, when it is served by{" "}
+              <code>repodna serve</code>, the sign-in token for that server.
             </li>
             <li>Files you open here are read on this machine and never uploaded.</li>
           </ul>
