@@ -513,7 +513,9 @@ release changed.
 
 ## License
 
-RepoDNA is licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE).
+RepoDNA is licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE),
+and [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) for the licenses of the third-party
+software that the downloads include.
 
 ## Creator and support
 

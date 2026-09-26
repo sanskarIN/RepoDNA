@@ -98,6 +98,12 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-p
 Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny):
 `cargo deny check` and `cargo deny --manifest-path apps/desktop/src-tauri/Cargo.toml check`.
 
+`THIRD-PARTY-NOTICES.txt` lists the licenses of the Rust crates and npm packages that the
+downloads include, and ships with the command line, the desktop app, and the web interface.
+After adding, removing, or updating a dependency, regenerate it with `cargo xtask notices`
+(it needs `npm ci` first); CI fails with `cargo xtask notices --check` when it is out of
+date. A dependency under a license the task does not know makes it stop and say so.
+
 `npm run format` formats the TypeScript code; `cargo fmt --all` formats the Rust code.
 
 ## Tests
@@ -217,7 +223,8 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
    `apps/web`, `apps/desktop`, `packages/schema`, `packages/visualization`). Run
    `cargo build` and `npm install` to update the lockfiles.
 2. Add a section for the version to `CHANGELOG.md`.
-3. Regenerate the schemas and the bundled demo analysis if the model changed.
+3. Regenerate the schemas and the bundled demo analysis if the model changed, and the
+   third-party notices (`cargo xtask notices`) if dependencies changed.
 4. Commit, then create and push an annotated tag: `git tag -a v1.1.0 -m "RepoDNA 1.1.0"` and
    `git push origin v1.1.0`.
 
