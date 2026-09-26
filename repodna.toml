@@ -10,3 +10,10 @@ profile = "standard"
 rule = "security.tls-verification-disabled"
 path = "crates/repodna-security/src/**"
 reason = "Detection patterns and their tests contain the settings they detect."
+
+# The fixture repositories contain insecure settings on purpose, so that tests can check
+# that RepoDNA finds them.
+[[suppress]]
+rule = "security.tls-verification-disabled"
+path = "crates/repodna-testkit/src/fixtures.rs"
+reason = "Fixture repositories contain insecure settings on purpose for tests."
