@@ -1,7 +1,8 @@
 # Installation
 
 RepoDNA is one command-line program, `repodna`, with the web interface built in. A desktop
-app is also available. Everything runs on your machine.
+app is also available. Everything runs on your machine. To look at analyses without
+installing anything, use the [web version](web.md#the-web-version).
 
 - [Prebuilt binaries](#prebuilt-binaries)
 - [The desktop app](#the-desktop-app)

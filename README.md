@@ -25,7 +25,8 @@ tested, and what deserves a closer look, and for every conclusion it shows the f
 lines, commits, and measurements behind it. It runs on your machine, needs no account, and
 sends nothing anywhere unless you ask it to.
 
-**[Install](#installation) · [Quick start](#quick-start) · [Demo](#demo) ·
+**[Install](#installation) · [Quick start](#quick-start) ·
+[Web version](https://sanskarin.github.io/RepoDNA/) · [Demo](#demo) ·
 [Documentation](docs/index.md) · [Contributing](CONTRIBUTING.md)**
 
 ## Contents
@@ -56,7 +57,8 @@ sends nothing anywhere unless you ask it to.
 ## Demo
 
 The web interface ships with a demo: RepoDNA's analysis of its own repository. It works
-offline and needs no repository of your own.
+offline and needs no repository of your own. Try it in your browser in the
+[web version](https://sanskarin.github.io/RepoDNA/), or locally:
 
 ```sh
 repodna serve
@@ -204,6 +206,10 @@ repodna --version
 
 **The desktop app.** Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows
 (`.msi`, `.exe`) are attached to each release. See [the desktop app](docs/desktop.md).
+
+**The web version.** <https://sanskarin.github.io/RepoDNA/> needs no installation: it opens
+analyses (`repodna.json` or `.repodna` files) in your browser, without uploading them, and
+includes the demo. Analyzing a repository needs the command line or the desktop app.
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
 toolchain, and [Node.js](https://nodejs.org/) 20.19 or newer:
