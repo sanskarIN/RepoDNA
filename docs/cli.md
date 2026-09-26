@@ -14,7 +14,6 @@ repodna <command> [options] [target]
   `history`, `hotspots`, `timeline`, `findings`
 - [Reports and sharing](#reports-and-sharing): `report`, `card`, `badge`, `onboarding`,
   `compare`, `export`, `import`
-- [AI explanations](#ai-explanations): `explain`
 - [Local storage](#local-storage): `list`, `clean`, `cache`
 - [Setup and diagnostics](#setup-and-diagnostics): `init`, `config`, `plugins`, `doctor`,
   `version`, `schema`, `completions`
@@ -278,33 +277,6 @@ repodna import public.repodna
 
 Imported analyses are listed with the location `imported:<name>`.
 
-## AI explanations
-
-### `repodna explain`
-
-Explains a repository with an optional AI provider. It is off until you configure a
-provider; see [AI](ai.md).
-
-```sh
-repodna explain --dry-run                      # show what would be sent; nothing is sent
-repodna explain
-repodna explain --about architecture
-repodna explain --module crates/repodna-engine
-repodna explain --hotspot src/app.rs
-repodna explain --ask "Where is authentication handled?"
-repodna explain --format json -o explanation.json
-```
-
-| Option | Meaning |
-|---|---|
-| `--about repository\|architecture\|history\|dependencies\|onboarding` | What to explain. |
-| `--module PATH`, `--hotspot PATH`, `--ask QUESTION` | Explain one module, one file, or answer a question. |
-| `--dry-run` | Print the prompt, the evidence, and the size estimate without contacting any provider. |
-| `--allow-remote-ai` | Allow a provider that sends evidence off this machine, for this run. |
-| `--fresh` | Ask again instead of reusing a cached explanation. |
-| `--format text\|markdown\|json` | `json` includes provenance. |
-| `-o FILE`, `--force` | Write to a file. |
-
 ## Local storage
 
 | Command | What it does |
@@ -312,7 +284,7 @@ repodna explain --format json -o explanation.json
 | `repodna list` (alias `ls`) | Lists stored repositories (`--format text\|json`). |
 | `repodna clean TARGET` | Shows which stored analyses would be deleted; `--yes` deletes them. `--all` cleans every repository and `--keep N` keeps the newest N analyses of each. |
 | `repodna cache stats` | Shows storage and cache sizes. |
-| `repodna cache clear` | Clears the per-file analysis cache and cached explanations. |
+| `repodna cache clear` | Clears the per-file analysis cache. |
 | `repodna cache repair` | Checks the database, sets a damaged one aside, and rebuilds the index from stored artifacts. |
 | `repodna cache reset` | Deletes the database and cache; stored artifacts are kept and can be re-indexed. |
 
@@ -378,7 +350,7 @@ See [the web interface](web.md).
 | 4 | Invalid configuration |
 | 5 | CI policy violated (findings at or above `--fail-on`) |
 | 6 | Local storage could not be read or written |
-| 7 | An external tool or service failed (Git, the network, an AI provider) |
+| 7 | An external tool or service failed (Git or the network) |
 | 130 | Cancelled (Ctrl+C) |
 
 Errors are printed with a `hint:` line when RepoDNA knows what to do next.

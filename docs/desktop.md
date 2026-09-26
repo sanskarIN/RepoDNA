@@ -52,5 +52,4 @@ To build it yourself, see [apps/desktop/README.md](../apps/desktop/README.md).
 
 The app uses the same storage and user configuration as the command line (see
 [privacy](privacy.md#what-is-stored-and-where)); `REPODNA_HOME` works for both. Settings
-and plugins enabled in your user configuration apply to analyses started from the app. AI
-explanations are available from the command line (`repodna explain`).
+and plugins enabled in your user configuration apply to analyses started from the app.

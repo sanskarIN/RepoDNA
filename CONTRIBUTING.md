@@ -85,7 +85,7 @@ at `http://localhost:5173`; for the desktop app, run `npm run dev -w @repodna/de
 
 Create a branch, then change the code. [The development guide](docs/development.md) shows
 how the repository is organized and where to make common changes: a language, an
-ecosystem, a finding, a metric, a chart, a report section, or an AI provider.
+ecosystem, a finding, a metric, a chart, or a report section.
 
 Keep these principles in mind:
 

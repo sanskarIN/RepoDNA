@@ -16,6 +16,10 @@ Making 1.0 solid.
 
 ## Next
 
+- **AI explanations (optional).** Explanations in prose built only from the evidence in an
+  analysis, through a local model or an API you choose, off by default. RepoDNA will show
+  exactly what would be sent before anything is sent, remote services will need your
+  explicit consent, and a repository's own configuration will never be able to turn them on.
 - **Lexical analysis for more languages.** Imports, symbols, and complexity for languages
   that RepoDNA only counts lines for today, starting with Haskell, Erlang, Clojure, Julia,
   F#, and OCaml.

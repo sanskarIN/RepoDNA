@@ -19,7 +19,6 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 - [Reports](reports.md) and [Project DNA cards](dna-cards.md)
 - [Configuration](configuration.md)
 - [Privacy](privacy.md)
-- [AI explanations](ai.md) (optional)
 - [Plugins](plugins.md)
 - [Troubleshooting](troubleshooting.md)
 

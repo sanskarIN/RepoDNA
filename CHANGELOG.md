@@ -49,8 +49,8 @@ every conclusion backed by evidence.
 
 - `repodna` with `analyze` (alias `scan`), `report`, `architecture`, `dependencies`,
   `history`, `hotspots`, `timeline`, `findings`, `show`, `compare`, `card`, `badge`,
-  `onboarding`, `explain`, `ci`, `export`, `import`, `list` (alias `ls`), `init`, `config`,
-  `plugins`, `cache`, `clean`, `doctor`, `version`, `serve`, `schema`, and `completions`.
+  `onboarding`, `ci`, `export`, `import`, `list` (alias `ls`), `init`, `config`, `plugins`,
+  `cache`, `clean`, `doctor`, `version`, `serve`, `schema`, and `completions`.
 - `repodna ci` with `--fail-on`, baselines, `--new-only`, GitHub Actions annotations, and
   step summaries; documented exit codes.
 
@@ -72,18 +72,14 @@ every conclusion backed by evidence.
 
 ### Extensibility
 
-- Optional AI explanations built from the analysis evidence, through a local command, an
-  OpenAI-compatible server, or the Anthropic API, off by default, with a dry run, explicit
-  consent for remote endpoints, and recorded provenance.
 - Plugins: declarative language definitions and analyzers in any language that exchange
   JSON with RepoDNA, enabled only by the user; two example plugins.
 - Configuration in `repodna.toml` and a user configuration file, validated strictly; a
-  repository's own configuration cannot enable plugins, AI, or command execution.
+  repository's own configuration cannot enable plugins or command execution.
 
 ### Safety and privacy
 
-- No telemetry and no network use except cloning a URL you give and an AI provider you
-  configure.
+- No telemetry, no AI, and no network use except cloning a Git URL you give.
 - A hardened Git runner, restricted clone URLs, safe archive extraction with limits,
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.

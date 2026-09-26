@@ -1,5 +1,5 @@
 # repodna.toml at the root of a repository: settings that tune what is analyzed.
-# A repository's own configuration cannot enable plugins, AI, or command execution.
+# A repository's own configuration cannot enable plugins or command execution.
 # Reference: https://github.com/sanskarIN/RepoDNA/blob/main/docs/configuration.md
 
 [analysis]

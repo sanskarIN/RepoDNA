@@ -49,7 +49,6 @@ crates/
   repodna-engine        the pipeline: input preparation, stages, insights, fingerprint
   repodna-store         SQLite index, stored artifacts, per-file cache
   repodna-report        Markdown, HTML, cards, badges, CSV, CI summaries, comparisons
-  repodna-ai            optional AI explanations
   repodna-plugin        plugin discovery, manifests, and the analyzer protocol
   repodna-app           services shared by the CLI, the server, and the desktop app
   repodna-server        the local server behind `repodna serve`
@@ -195,12 +194,6 @@ alone. Charts in HTML reports are rendered in Rust in `crates/repodna-report/src
 Sections are listed in `crates/repodna-report/src/sections.rs`, and their content is built
 in `crates/repodna-report/src/content/` as format-independent blocks, which the Markdown,
 HTML, and terminal renderers turn into output.
-
-### Adding an AI provider
-
-Implement the `AiProvider` trait in `crates/repodna-ai/src/provider/`, add the provider
-kind to `AiProviderKind` in `crates/repodna-core/src/config/mod.rs`, and build it in
-`build_provider`. Report `remote()` honestly: remote providers need the user's consent.
 
 ### Database migrations
 

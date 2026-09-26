@@ -1,9 +1,9 @@
 # The RepositoryDNA model
 
 Every analysis produces one **RepositoryDNA artifact**: a versioned JSON document that
-describes a repository snapshot. Reports, cards, badges, the web interface, comparisons,
-and AI explanations are all generated from the artifact alone, so they can be regenerated
-later, on another machine, and without the repository.
+describes a repository snapshot. Reports, cards, badges, the web interface, and
+comparisons are all generated from the artifact alone, so they can be regenerated later, on
+another machine, and without the repository.
 
 ```sh
 repodna analyze . --format json > repodna.json    # the artifact

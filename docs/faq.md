@@ -14,12 +14,13 @@ without an account, a subscription, or a network connection.
 
 **Does it upload my code?**
 No. Analysis runs on your machine and results are stored on your machine. RepoDNA uses the
-network only to clone a Git URL you give it and, if you configure one, to reach an AI
-provider. It collects no telemetry. See [privacy](privacy.md).
+network only to clone a Git URL you give it. It collects no telemetry. See
+[privacy](privacy.md).
 
-**Does it need AI?**
-No. The analysis is deterministic. AI explanations are an optional extra, off by default;
-see [AI](ai.md).
+**Does it use AI?**
+No. RepoDNA 1.0 does not use AI: the analysis is deterministic, and every conclusion comes
+with the files, commits, and measurements behind it. Optional AI explanations built from
+that evidence are planned for a later release; see the [roadmap](../ROADMAP.md).
 
 **Which languages does it support?**
 65 built-in languages: 25 with lexical analysis (imports, symbols, complexity) and 40 with

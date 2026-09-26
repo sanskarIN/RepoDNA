@@ -7,7 +7,7 @@ repodna doctor
 ```
 
 It checks the installation, storage, the cache, Git, language definitions, configuration,
-plugins, and AI settings, and says what to do about each problem. Every error message
+and plugins, and says what to do about each problem. Every error message
 names what went wrong, and most end with a `hint:` line. Exit codes are listed in
 [the CLI reference](cli.md#exit-codes).
 
@@ -62,9 +62,9 @@ If you think the rule itself is wrong, [open an issue](https://github.com/sanska
 **`invalid configuration` (exit code 4).** The message names the file and the key.
 Unknown keys are errors, which catches typos. Run `repodna config validate`.
 
-**A setting in `repodna.toml` has no effect.** `[ai]`, `[plugins]`, `[execution]`,
-`privacy.remote_ai`, and `privacy.telemetry` are ignored in a repository's configuration,
-with a warning; set them in your user configuration (`repodna config path`).
+**A setting in `repodna.toml` has no effect.** `[plugins]`, `[execution]`, and
+`privacy.telemetry` are ignored in a repository's configuration, with a warning; set them in
+your user configuration (`repodna config path`).
 `repodna config show` prints every effective value and where it came from.
 
 ## Storage
@@ -101,17 +101,6 @@ Ubuntu, `webkit2gtk4.1` on Fedora).
 
 **macOS or Windows refuses to open it.** The app is not code-signed; see
 [unsigned binaries](installation.md#unsigned-binaries).
-
-## AI explanations
-
-| Message | What to do |
-|---|---|
-| AI features are off | Configure `[ai]` in your user configuration; see [AI](ai.md). |
-| Remote providers are not allowed | Set `privacy.remote_ai = true` or pass `--allow-remote-ai`. |
-| The API key is missing | Export the variable named by `ai.api_key_env`. |
-| The request timed out | Raise `ai.timeout_seconds`, or use a smaller model. |
-
-`repodna explain --dry-run` shows what would be sent without contacting anything.
 
 ## Plugins
 
