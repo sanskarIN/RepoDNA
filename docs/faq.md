@@ -65,8 +65,8 @@ execution in your own configuration. See [security](security.md#how-repodna-prot
 
 **How big a repository can it handle?**
 The fixture with 5,000 files and 120 commits takes under a second with the standard
-profile on a four-core machine; see the [benchmarks](../benchmarks/README.md). Limits such
-as `max_commits` and `max_file_bytes` keep very large repositories manageable.
+profile on a machine with four logical CPUs; see the [benchmarks](../benchmarks/README.md).
+Limits such as `max_commits` and `max_file_bytes` keep very large repositories manageable.
 
 **Can I use it in CI?**
 Yes: `repodna ci --fail-on warning` exits with code 5 when findings at that severity exist,
