@@ -156,7 +156,7 @@ same files have the same hash, whatever the time, machine, or configuration.
 - An older **major** version is upgraded on read.
 - A newer **major** version is rejected with an error that names both versions.
 
-Settings & about in the web interface shows the version as, for example,
+The Settings page of the web interface shows the versions as, for example,
 "RepoDNA v1.0.0" and "Analysis schema v1".
 
 Artifacts are written atomically (to a temporary file that is then renamed), so an
