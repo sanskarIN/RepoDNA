@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/sanskarIN/RepoDNA/security/advisories/new
+    about: Please report vulnerabilities privately, never in a public issue. See SECURITY.md.
+  - name: Read the documentation
+    url: https://github.com/sanskarIN/RepoDNA/blob/main/docs/index.md
+    about: Installation, every command, configuration, troubleshooting, and the FAQ.

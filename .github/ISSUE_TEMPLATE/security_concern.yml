@@ -1,0 +1,33 @@
+name: Security concern (not a vulnerability)
+description: A question or suggestion about RepoDNA's security model or hardening. Vulnerabilities go to private reporting.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not use this form for vulnerabilities.** Anything that could harm users if it were public must be reported privately through [GitHub's private reporting form](https://github.com/sanskarIN/RepoDNA/security/advisories/new), as described in [SECURITY.md](https://github.com/sanskarIN/RepoDNA/blob/main/SECURITY.md).
+
+        This form is for public discussion: questions about how RepoDNA protects you, hardening ideas, or a secret or risky pattern that the scanner misses or reports wrongly.
+  - type: checkboxes
+    id: not-a-vulnerability
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is not a vulnerability, and publishing it cannot harm RepoDNA's users.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - The security model or a safeguard (Git runner, archives, server, plugins, AI)
+        - The secret or risky-pattern scanner
+        - Privacy of stored or shared results
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: concern
+    attributes:
+      label: Your question or suggestion
+    validations:
+      required: true

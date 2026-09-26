@@ -1,0 +1,44 @@
+name: Performance issue
+description: An analysis, a view, or the web interface is slower or uses more memory than it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Timings for reference are in the [benchmarks](https://github.com/sanskarIN/RepoDNA/blob/main/benchmarks/README.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What is slow?
+      description: The exact command, or what you did in the web interface or the desktop app.
+      placeholder: repodna analyze . --profile deep
+    validations:
+      required: true
+  - type: textarea
+    id: numbers
+    attributes:
+      label: Measurements
+      description: How long it took (for example with `time`), memory use if you know it, and how long you expected. The per-stage times printed by `repodna analyze` show where the time goes.
+    validations:
+      required: true
+  - type: textarea
+    id: repository
+    attributes:
+      label: Size of the repository
+      description: Files, code lines, and commits (from the analysis summary), or a public repository that shows the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: machine
+    attributes:
+      label: Machine
+      description: Operating system, CPU cores, memory, and disk type (SSD or HDD).
+    validations:
+      required: true
+  - type: textarea
+    id: version
+    attributes:
+      label: Output of `repodna version --json`
+      render: json
+    validations:
+      required: true

@@ -1,0 +1,76 @@
+name: Bug report
+description: RepoDNA crashes, fails, or gives a wrong or missing result.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a problem. Please do not report security vulnerabilities here; follow [SECURITY.md](https://github.com/sanskarIN/RepoDNA/blob/main/SECURITY.md) instead. Remove anything private (code, names, paths) from what you paste.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - A crash or an error message
+        - A wrong result or a false positive
+        - A missed result (something RepoDNA should have found)
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Command line
+        - Web interface (repodna serve)
+        - Desktop app
+        - Reports, cards, or badges
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include the full output or error message, and a screenshot for the web interface or the desktop app.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: The exact command you ran, and a public repository, a fixture (`cargo xtask fixtures`), or a small sample that shows the problem.
+      placeholder: |
+        repodna analyze https://github.com/owner/repo --profile deep
+    validations:
+      required: true
+  - type: textarea
+    id: version
+    attributes:
+      label: Output of `repodna version --json`
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `repodna doctor --json`
+      render: json
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true

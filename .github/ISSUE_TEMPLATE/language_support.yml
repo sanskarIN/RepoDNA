@@ -1,0 +1,49 @@
+name: Language support request
+description: Ask RepoDNA to recognize a language, or to analyze one more deeply.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        RepoDNA recognizes 65 languages; 25 of them get lexical analysis (imports, symbols, and complexity) and the others line counting. See the [supported languages](https://github.com/sanskarIN/RepoDNA#supported-languages). A language can also be added without changing RepoDNA, as a [plugin](https://github.com/sanskarIN/RepoDNA/blob/main/docs/plugins.md#language-definitions).
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: Zig
+    validations:
+      required: true
+  - type: dropdown
+    id: today
+    attributes:
+      label: What RepoDNA does with it today
+      options:
+        - It is not recognized
+        - It is recognized, but only lines are counted
+        - It is analyzed, but imports, symbols, or complexity are wrong
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: File extensions and file names
+      placeholder: .zig, .zon, build.zig
+    validations:
+      required: true
+  - type: textarea
+    id: syntax
+    attributes:
+      label: Syntax RepoDNA needs to know
+      description: How comments, strings, imports, and function or type declarations look. Short examples help most.
+      render: text
+  - type: input
+    id: sample
+    attributes:
+      label: A public repository written in it
+      description: Used to test the analysis on real code.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to add it myself (see "Adding or improving a language" in docs/development.md).

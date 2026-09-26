@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a new capability or an improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the [roadmap](https://github.com/sanskarIN/RepoDNA/blob/main/ROADMAP.md) and existing issues first. For a new language, use the language support template.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would it solve?
+      description: Describe what you are trying to do and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like RepoDNA to do?
+      description: Commands, views, or output you imagine. For a new signal or finding, say what evidence it would be based on.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Fit with the project
+      options:
+        - label: The feature works locally, without sending code or data anywhere by default.
+        - label: I would like to help build it.
