@@ -40,7 +40,13 @@ pub fn percent(ratio: f64) -> String {
     if !ratio.is_finite() {
         return "–".to_owned();
     }
-    format!("{:.1}%", ratio * 100.0)
+    let text = format!("{:.1}%", ratio * 100.0);
+    // A share too small to show is still not zero.
+    if ratio > 0.0 && text == "0.0%" {
+        "<0.1%".to_owned()
+    } else {
+        text
+    }
 }
 
 /// Formats a byte count with a binary unit, e.g. `1.5 MiB`.
@@ -210,5 +216,8 @@ mod tests {
         assert_eq!(whole_percent(0.004), "<1%");
         assert_eq!(whole_percent(0.0), "0%");
         assert_eq!(whole_percent(0.005), "1%");
+        assert_eq!(percent(0.8674), "86.7%");
+        assert_eq!(percent(0.0004), "<0.1%");
+        assert_eq!(percent(0.0), "0.0%");
     }
 }

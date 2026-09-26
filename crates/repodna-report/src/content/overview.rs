@@ -209,7 +209,18 @@ pub(super) fn identity(blocks: &mut Blocks, dna: &RepositoryDna) {
         plain(if identity.primary_languages.is_empty() {
             "None detected".to_owned()
         } else {
-            identity.primary_languages.join(", ")
+            identity
+                .primary_languages
+                .iter()
+                .map(|id| {
+                    dna.languages
+                        .languages
+                        .iter()
+                        .find(|language| language.id == *id)
+                        .map_or_else(|| id.clone(), |language| language.name.clone())
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
         }),
     );
     if let Some(description) = &identity.description {
