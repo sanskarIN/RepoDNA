@@ -4,6 +4,7 @@ import { ShareBar } from "../charts/ShareBar";
 import { Chip, Note, PageHeader, Panel, SectionStatus, Tile } from "../components/common";
 import { DataTable } from "../components/DataTable";
 import { FindingItem } from "../components/FindingItem";
+import { highlights } from "../lib/findings";
 import { count, languageNamer, unitFor } from "../lib/names";
 import { href } from "../lib/router";
 import { originLabel, useApp, useDataset } from "../state";
@@ -237,7 +238,7 @@ export function Overview() {
           }
         >
           {active.length === 0 ? <p className="muted">No findings.</p> : null}
-          {active.slice(0, 4).map((finding) => (
+          {highlights(active, 4).map((finding) => (
             <FindingItem key={finding.id} finding={finding} />
           ))}
         </Panel>

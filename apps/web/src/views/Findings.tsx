@@ -48,18 +48,19 @@ export function Findings() {
   );
   const filtered = useMemo(() => {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return dna.findings
-      .filter(
-        (f) =>
-          (showSuppressed || !isSuppressed(f)) &&
-          (severity === "all" || f.severity === severity) &&
-          (category === "all" || f.category === category) &&
-          terms.every((term) => (texts.get(f.id) ?? "").includes(term)),
-      )
-      .sort(
-        (a, b) =>
-          severityRank(b.severity) - severityRank(a.severity) || a.title.localeCompare(b.title),
-      );
+    return (
+      dna.findings
+        .filter(
+          (f) =>
+            (showSuppressed || !isSuppressed(f)) &&
+            (severity === "all" || f.severity === severity) &&
+            (category === "all" || f.category === category) &&
+            terms.every((term) => (texts.get(f.id) ?? "").includes(term)),
+        )
+        // Findings are stored in display order (by severity, category, and rule, each rule in
+        // its analyzer's order), so a stable sort by severity keeps that order.
+        .sort((a, b) => severityRank(b.severity) - severityRank(a.severity))
+    );
   }, [dna.findings, query, severity, category, showSuppressed, texts]);
   const suppressed = dna.findings.filter(isSuppressed).length;
 

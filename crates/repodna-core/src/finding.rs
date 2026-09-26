@@ -1,6 +1,7 @@
 //! Findings: evidence-backed observations produced by analyzers.
 
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::fmt;
 
 use schemars::JsonSchema;
@@ -246,20 +247,39 @@ impl Finding {
         self.suppressed.is_some()
     }
 
-    /// Deterministic ordering: most severe first, then category, rule, and identifier.
+    /// Display ordering: most severe first, then category and rule. Use it with a stable
+    /// sort, so findings of one rule keep the order their analyzer gave them (hotspots by
+    /// rank, functions by complexity); analyzers emit findings in a deterministic order.
     pub fn display_order(a: &Finding, b: &Finding) -> Ordering {
         b.severity
             .cmp(&a.severity)
             .then_with(|| a.category.cmp(&b.category))
             .then_with(|| a.rule.cmp(&b.rule))
-            .then_with(|| a.id.cmp(&b.id))
     }
 }
 
-/// Sorts findings deterministically and removes duplicates with the same identifier.
+/// Sorts findings for display (a stable sort by [`Finding::display_order`]) and keeps only
+/// the first finding with each identifier.
 pub fn normalize_findings(findings: &mut Vec<Finding>) {
     findings.sort_by(Finding::display_order);
-    findings.dedup_by(|a, b| a.id == b.id);
+    let mut seen = HashSet::new();
+    findings.retain(|finding| seen.insert(finding.id.clone()));
+}
+
+/// Up to `limit` findings worth looking at first, from findings in display order: the
+/// first of each rule, so one kind of finding does not crowd out the others, then the
+/// remaining ones in order. Suppressed findings are skipped.
+pub fn highlights(findings: &[Finding], limit: usize) -> Vec<&Finding> {
+    let active: Vec<&Finding> = findings.iter().filter(|f| !f.is_suppressed()).collect();
+    let mut rules = HashSet::new();
+    let (mut picked, rest): (Vec<&Finding>, Vec<&Finding>) = active
+        .iter()
+        .partition(|finding| rules.insert(finding.rule.as_str()));
+    picked.truncate(limit);
+    let room = limit - picked.len();
+    picked.extend(rest.into_iter().take(room));
+    picked.sort_by(|a, b| Finding::display_order(a, b));
+    picked
 }
 
 #[cfg(test)]
@@ -274,6 +294,18 @@ mod tests {
             severity,
             Confidence::High,
             "Sample",
+        )
+    }
+
+    /// A finding whose title is its subject, to check orderings.
+    fn titled(rule: &str, subject: &str, severity: Severity) -> Finding {
+        Finding::new(
+            rule,
+            subject,
+            FindingCategory::Architecture,
+            severity,
+            Confidence::High,
+            subject,
         )
     }
 
@@ -320,5 +352,41 @@ mod tests {
         normalize_findings(&mut findings);
         let rules: Vec<_> = findings.iter().map(|f| f.rule.as_str()).collect();
         assert_eq!(rules, vec!["a.rule", "c.rule", "b.rule"]);
+    }
+
+    #[test]
+    fn normalization_keeps_the_analyzer_order_within_a_rule() {
+        let mut findings = vec![
+            titled("a.rule", "rank 1", Severity::Attention),
+            titled("a.rule", "rank 2", Severity::Attention),
+            titled("b.rule", "x", Severity::Warning),
+            titled("a.rule", "rank 3", Severity::Attention),
+        ];
+        normalize_findings(&mut findings);
+        let subjects: Vec<_> = findings.iter().map(|f| f.title.as_str()).collect();
+        assert_eq!(subjects, vec!["x", "rank 1", "rank 2", "rank 3"]);
+    }
+
+    #[test]
+    fn highlights_take_one_finding_per_rule_first() {
+        let findings = vec![
+            titled("a.rule", "1", Severity::Warning),
+            titled("a.rule", "2", Severity::Warning),
+            titled("a.rule", "3", Severity::Warning),
+            titled("b.rule", "1", Severity::Attention),
+            titled("c.rule", "1", Severity::Info),
+        ];
+        let subjects = |limit| {
+            highlights(&findings, limit)
+                .iter()
+                .map(|f| format!("{} {}", f.rule, f.title))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(subjects(2), vec!["a.rule 1", "b.rule 1"]);
+        assert_eq!(
+            subjects(4),
+            vec!["a.rule 1", "a.rule 2", "b.rule 1", "c.rule 1"]
+        );
+        assert_eq!(subjects(9).len(), 5);
     }
 }

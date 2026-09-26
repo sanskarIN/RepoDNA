@@ -1,5 +1,6 @@
 //! Cover, executive summary, identity, languages, and structure.
 
+use repodna_core::finding::highlights;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::evolution::StatementKind;
 use repodna_core::model::languages::LanguageKind;
@@ -147,11 +148,9 @@ pub(super) fn summary(blocks: &mut Blocks, dna: &RepositoryDna) {
                 .collect(),
         );
     }
-    let urgent: Vec<_> = dna
-        .findings
-        .iter()
-        .filter(|f| !f.is_suppressed() && f.severity >= Severity::Attention)
-        .take(5)
+    let urgent: Vec<_> = highlights(&dna.findings, 5)
+        .into_iter()
+        .filter(|f| f.severity >= Severity::Attention)
         .collect();
     if !urgent.is_empty() {
         blocks.heading(3, "Look at first", None);

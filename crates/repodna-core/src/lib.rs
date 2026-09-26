@@ -30,7 +30,7 @@ pub use cancel::{CancellationToken, Cancelled};
 pub use confidence::Confidence;
 pub use error::{CoreError, Result};
 pub use evidence::Evidence;
-pub use finding::{Finding, FindingCategory, Suppression};
+pub use finding::{Finding, FindingCategory, Suppression, highlights};
 pub use metric::Metric;
 pub use model::artifact::{RepositoryDna, compute_dna_hash};
 pub use model::metadata::SCHEMA_VERSION;

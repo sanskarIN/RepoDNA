@@ -1,7 +1,7 @@
 //! `repodna analyze`: run an analysis, store it, and summarize it.
 
 use repodna_app::{AnalysisOutcome, AppError, report_bundle, run_analysis, write_bundle};
-use repodna_core::finding::Finding;
+use repodna_core::finding::highlights;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::{ReportOptions, json_report, markdown_report};
 
@@ -171,11 +171,11 @@ pub fn summary(
             changes.resolved.len()
         ));
     }
-    let mut top: Vec<&Finding> = dna.findings.iter().filter(|f| !f.is_suppressed()).collect();
-    top.sort_by(|a, b| Finding::display_order(a, b));
+    let active = dna.findings.iter().filter(|f| !f.is_suppressed()).count();
+    let top = highlights(&dna.findings, TOP_FINDINGS);
     if !top.is_empty() {
         out.push_str(&format!("\n{}\n", style.bold("Top findings")));
-        for finding in top.iter().take(TOP_FINDINGS) {
+        for finding in &top {
             out.push_str(&wrap(
                 &format!("{} {}", style.severity(finding.severity), finding.title),
                 width,
@@ -184,10 +184,10 @@ pub fn summary(
             ));
             out.push('\n');
         }
-        if top.len() > TOP_FINDINGS {
+        if active > top.len() {
             out.push_str(&style.dim(&format!(
                 "  … and {} more (`repodna findings` lists them all)\n",
-                top.len() - TOP_FINDINGS
+                active - top.len()
             )));
         }
     }
