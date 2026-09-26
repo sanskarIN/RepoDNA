@@ -33,28 +33,32 @@ export function TermsOfUse() {
 
 type Loaded = { state: "loading" } | { state: "loaded"; text: string } | { state: "failed" };
 
+/** Reads a text file published next to the web interface. */
+async function fetchText(file: string): Promise<string> {
+  const response = await fetch(`./${file}`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.text();
+}
+
 /** A text file published next to the web interface, such as the license notices. */
 function TextFile({ file, source, label }: { file: string; source: string; label: string }) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   useEffect(() => {
     let current = true;
-    const load = async () => {
-      try {
-        const response = await fetch(`./${file}`);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const text = await response.text();
+    fetchText(file).then(
+      (text) => {
         if (current) {
           setLoaded({ state: "loaded", text });
         }
-      } catch {
+      },
+      () => {
         if (current) {
           setLoaded({ state: "failed" });
         }
-      }
-    };
-    void load();
+      },
+    );
     return () => {
       current = false;
     };
