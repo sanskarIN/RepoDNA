@@ -219,6 +219,8 @@ fn check(
 fn community_file<'a>(files: &[ProjectFile<'a>], stems: &[&str]) -> Option<&'a str> {
     files
         .iter()
+        // A script named security.py or history.js is not a security policy or changelog.
+        .filter(|file| !matches!(file.category, FileCategory::Source | FileCategory::Test))
         .map(|file| file.path)
         .filter(|path| {
             let parent = paths::parent(path);
@@ -661,6 +663,8 @@ mod tests {
                 FileCategory::Configuration,
             ),
             file("src/lib.rs", FileCategory::Source),
+            // A script, not a changelog.
+            file("history.py", FileCategory::Source),
         ];
         let contents: BTreeMap<String, String> = [
             ("README.md", README),
