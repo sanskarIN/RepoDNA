@@ -1,10 +1,13 @@
 //! Development tasks for the RepoDNA repository.
 //!
 //! ```text
+//! cargo xtask setup
 //! cargo xtask fixtures [--out DIR] [--large-files N] [--large-commits N]
 //! cargo xtask bench [--repodna PATH] [--fixtures DIR] [--runs N]
 //! ```
 //!
+//! `setup` prepares a fresh clone for development: it checks the prerequisites, installs the
+//! web dependencies, builds the web interface and the command line, and writes the fixtures.
 //! `fixtures` writes every fixture repository (see `repodna_testkit::fixtures`) to
 //! `fixtures/generated/`. `bench` times `repodna analyze` on those fixtures and on this
 //! repository and prints a Markdown table for the benchmark notes.
@@ -24,12 +27,13 @@ type Result<T> = std::result::Result<T, String>;
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
+        Some("setup") => setup(),
         Some("fixtures") => fixtures(&args[1..]),
         Some("bench") => bench(&args[1..]),
         _ => {
             let _ = writeln!(
                 io::stderr(),
-                "usage:\n  cargo xtask fixtures [--out DIR] [--large-files N] [--large-commits N]\n  cargo xtask bench [--repodna PATH] [--fixtures DIR] [--runs N]"
+                "usage:\n  cargo xtask setup\n  cargo xtask fixtures [--out DIR] [--large-files N] [--large-commits N]\n  cargo xtask bench [--repodna PATH] [--fixtures DIR] [--runs N]"
             );
             return ExitCode::from(2);
         }
@@ -71,6 +75,93 @@ fn number(args: &[String], name: &str, default: usize) -> Result<usize> {
             .parse()
             .map_err(|_| format!("{name} must be a whole number, not {value}")),
     }
+}
+
+/// Oldest Node.js release that can build the web interface.
+const MIN_NODE: (u32, u32) = (20, 19);
+
+/// The npm executable (a batch file on Windows).
+fn npm() -> &'static str {
+    if cfg!(windows) { "npm.cmd" } else { "npm" }
+}
+
+/// The first line a program prints for `--version`, or `None` if it cannot run.
+fn version_of(program: &str) -> Option<String> {
+    let output = Command::new(program).arg("--version").output().ok()?;
+    output.status.success().then(|| {
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_owned()
+    })
+}
+
+/// Runs a command in the repository root, showing it first.
+fn run(program: &str, args: &[&str]) -> Result<()> {
+    let name = Path::new(program)
+        .file_stem()
+        .map_or_else(|| program.into(), |stem| stem.to_string_lossy());
+    say(&format!("\n$ {name} {}", args.join(" ")));
+    let status = Command::new(program)
+        .args(args)
+        .current_dir(root())
+        .status()
+        .map_err(|e| format!("could not run {program}: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("{program} {} failed ({status})", args.join(" ")))
+    }
+}
+
+fn setup() -> Result<()> {
+    say("Checking prerequisites");
+    let git = version_of("git");
+    let node = version_of("node");
+    let npm_version = version_of(npm());
+    say(&format!(
+        "  git   {}",
+        git.as_deref().unwrap_or("not found")
+    ));
+    say(&format!(
+        "  node  {}",
+        node.as_deref().unwrap_or("not found")
+    ));
+    say(&format!(
+        "  npm   {}",
+        npm_version.as_deref().unwrap_or("not found")
+    ));
+    if git.is_none() {
+        return Err("Git is required: install it from https://git-scm.com/".to_owned());
+    }
+    let node_version = node.as_deref().and_then(|text| {
+        let mut parts = text.trim_start_matches('v').split('.');
+        Some((
+            parts.next()?.parse::<u32>().ok()?,
+            parts.next()?.parse::<u32>().ok()?,
+        ))
+    });
+    match node_version {
+        Some(version) if version >= MIN_NODE && npm_version.is_some() => {}
+        _ => {
+            return Err(format!(
+                "Node.js {}.{} or newer with npm is required: install it from https://nodejs.org/",
+                MIN_NODE.0, MIN_NODE.1
+            ));
+        }
+    }
+    run(npm(), &["ci"])?;
+    run(npm(), &["run", "build", "-w", "@repodna/web"])?;
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
+    run(&cargo, &["build", "-p", "repodna-cli"])?;
+    say("\n$ cargo xtask fixtures");
+    fixtures(&[])?;
+    say(
+        "\nReady. Next:\n  cargo test --workspace     # Rust tests\n  npm test                   # web tests\n  cargo run -p repodna-cli -- serve   # open the printed link and choose \"Try the demo\"",
+    );
+    Ok(())
 }
 
 fn fixtures(args: &[String]) -> Result<()> {
