@@ -23,7 +23,7 @@ Point it at a directory, an archive, or a Git URL. It tells you how the code is 
 what depends on what, how the project grew, where change concentrates, how it is built and
 tested, and what deserves a closer look, and for every conclusion it shows the files,
 lines, commits, and measurements behind it. It runs on your machine, needs no account, and
-sends nothing anywhere.
+sends nothing anywhere unless you ask it to.
 
 **[Install](#installation) · [Quick start](#quick-start) · [Demo](#demo) ·
 [Documentation](docs/index.md) · [Contributing](CONTRIBUTING.md)**
@@ -102,7 +102,7 @@ RepoDNA answers with evidence instead:
 **Structure and languages.** 65 built-in [languages](#supported-languages), with each file
 classified as source, test, generated, vendored, documentation, configuration, and so on
 (`.gitattributes` and your own rules are honored). Lines of code, comments, symbols,
-entry points, and a map of the directory tree.
+entry points, and the directory tree.
 
 **Architecture.** Modules inferred from package manifests and directories, imports
 resolved to files and packages, the module dependency graph with layers, cycles, and
@@ -119,8 +119,8 @@ files that change often and are complex.
 
 **The Codebase Time Machine.** Snapshots of the repository at points in its history,
 rebuilt from Git without checking anything out, with epochs, notable events, the
-architecture at each snapshot, and the project's story, each statement marked as a fact or
-an interpretation.
+architecture at each snapshot (with the deep profile), and the project's story, each
+statement marked as a fact or an interpretation.
 
 **Quality signals.** Cyclomatic complexity, long and deeply nested functions, large files,
 duplicated and similar code, TODO and FIXME markers, and files that nothing appears to
