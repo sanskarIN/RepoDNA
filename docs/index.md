@@ -42,5 +42,14 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 - [Contributing](contributing.md)
 - [Benchmarks](../benchmarks/README.md) and [fixture repositories](../fixtures/README.md)
 
+## The project
+
+- [Examples](../examples/README.md): RepoDNA's analysis of itself, a CI workflow, and
+  configurations
+- [Roadmap](../ROADMAP.md) and [changelog](../CHANGELOG.md)
+- [Security policy](../SECURITY.md), [support](../SUPPORT.md), and the
+  [code of conduct](../CODE_OF_CONDUCT.md)
+- [Governance](../GOVERNANCE.md) and [maintainers](../MAINTAINERS.md)
+
 RepoDNA is made by [Sanskar](https://github.com/sanskarIN) and licensed under the
 [Apache License 2.0](../LICENSE).
