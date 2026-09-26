@@ -445,8 +445,8 @@ impl AiProviderKind {
 pub struct AiConfig {
     /// Provider kind.
     pub provider: AiProviderKind,
-    /// Model identifier passed to the provider. Required for `openai-compatible`; the
-    /// `anthropic` provider defaults to `claude-opus-5`.
+    /// Model identifier passed to the provider. Required for `openai-compatible` and
+    /// `anthropic`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     /// Base URL for HTTP providers. Required for `openai-compatible`; the `anthropic`

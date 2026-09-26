@@ -225,7 +225,7 @@ See [tests and build](tests-and-build.md#running-commands).
 | `provider` | `"none"` | `none`, `command`, `openai-compatible`, or `anthropic`. |
 | `command` | `[]` | Command line for the `command` provider. |
 | `endpoint` | none | Base URL for HTTP providers (required for `openai-compatible`; `anthropic` defaults to `https://api.anthropic.com`). |
-| `model` | none | Model identifier (required for `openai-compatible`; `anthropic` defaults to `claude-opus-5`). |
+| `model` | none | Model identifier (required for `openai-compatible` and `anthropic`). |
 | `api_key_env` | none | Name of the environment variable that holds the API key. Keys are never stored in files. |
 | `max_context_tokens` | `6000` | Most estimated tokens of repository context per request. |
 | `max_output_tokens` | none | Most tokens the model may generate (default 16000 for `anthropic`, 2000 for the others). |

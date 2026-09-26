@@ -57,7 +57,7 @@ provider = "none"
 #   api_key_env = "MY_PROVIDER_KEY"    # only for services that need a key
 # The Anthropic API (also set remote_ai = true above, or pass --allow-remote-ai):
 #   provider = "anthropic"
-#   model = "claude-opus-5"
+#   model = "MODEL_ID"                 # a model your account can use
 #   api_key_env = "ANTHROPIC_API_KEY"
 
 [plugins]

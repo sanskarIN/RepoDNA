@@ -11,7 +11,7 @@ use repodna_core::config::{AiConfig, AiProviderKind};
 
 use crate::error::AiError;
 
-pub use anthropic::{ANTHROPIC_ENDPOINT, AnthropicProvider, DEFAULT_ANTHROPIC_MODEL};
+pub use anthropic::{ANTHROPIC_ENDPOINT, AnthropicProvider};
 pub use command::CommandProvider;
 pub use http::Endpoint;
 pub use openai::OpenAiCompatibleProvider;
@@ -144,6 +144,9 @@ pub fn build_provider_with_env(
             )))
         }
         AiProviderKind::Anthropic => {
+            let model = non_empty(config.model.as_deref()).ok_or_else(|| {
+                AiError::Configuration("ai.model must be set for the anthropic provider".to_owned())
+            })?;
             let endpoint = Endpoint::parse(
                 non_empty(config.endpoint.as_deref()).unwrap_or(ANTHROPIC_ENDPOINT),
             )?;
@@ -157,7 +160,6 @@ pub fn build_provider_with_env(
                 Some(name) => Some(api_key(&name, env)?),
                 None => None,
             };
-            let model = non_empty(config.model.as_deref()).unwrap_or(DEFAULT_ANTHROPIC_MODEL);
             Ok(Box::new(AnthropicProvider::new(
                 endpoint,
                 model.to_owned(),
@@ -227,13 +229,18 @@ mod tests {
                 .remote()
         );
 
-        let anthropic = config(AiProviderKind::Anthropic);
+        let mut anthropic = config(AiProviderKind::Anthropic);
+        assert!(matches!(
+            build_provider_with_env(&anthropic, true, &env),
+            Err(AiError::Configuration(ref message)) if message.contains("ai.model")
+        ));
+        anthropic.model = Some("test-model".into());
         assert!(matches!(
             build_provider_with_env(&anthropic, false, &env),
             Err(AiError::RemoteNotAllowed { .. })
         ));
         let provider = build_provider_with_env(&anthropic, true, &env).unwrap();
-        assert_eq!(provider.model(), DEFAULT_ANTHROPIC_MODEL);
+        assert_eq!(provider.model(), "test-model");
         assert!(matches!(
             build_provider_with_env(&anthropic, true, &|_| None),
             Err(AiError::MissingApiKey(ref name)) if name == "ANTHROPIC_API_KEY"

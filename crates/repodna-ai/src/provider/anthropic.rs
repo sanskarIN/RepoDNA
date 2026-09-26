@@ -13,8 +13,6 @@ use crate::provider::{AiProvider, Completion, CompletionRequest};
 
 /// Default API base URL.
 pub const ANTHROPIC_ENDPOINT: &str = "https://api.anthropic.com";
-/// Model used when `ai.model` is not set.
-pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-opus-5";
 /// API version header value.
 const API_VERSION: &str = "2023-06-01";
 
@@ -153,7 +151,7 @@ mod tests {
         )]);
         let provider = AnthropicProvider::new(
             Endpoint::parse(&base).unwrap(),
-            DEFAULT_ANTHROPIC_MODEL.into(),
+            "test-model".into(),
             Some("key-value".into()),
             10,
         );
@@ -167,7 +165,7 @@ mod tests {
         assert_eq!(sent.header("x-api-key"), Some("key-value"));
         assert_eq!(sent.header("anthropic-version"), Some(API_VERSION));
         let body: Value = serde_json::from_str(&sent.body).unwrap();
-        assert_eq!(body["model"], DEFAULT_ANTHROPIC_MODEL);
+        assert_eq!(body["model"], "test-model");
         assert_eq!(body["max_tokens"], 16_000);
         assert_eq!(body["system"], "rules");
         assert_eq!(body["messages"][0]["role"], "user");

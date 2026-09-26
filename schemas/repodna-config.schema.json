@@ -56,7 +56,7 @@
           ]
         },
         "model": {
-          "description": "Model identifier passed to the provider. Required for `openai-compatible`; the\n`anthropic` provider defaults to `claude-opus-5`.",
+          "description": "Model identifier passed to the provider. Required for `openai-compatible` and\n`anthropic`.",
           "type": [
             "string",
             "null"

@@ -81,11 +81,12 @@ remote_ai = true
 
 [ai]
 provider = "anthropic"
+model = "MODEL_ID"                 # a model your account can use
 api_key_env = "ANTHROPIC_API_KEY"
-# model = "claude-opus-5"           # the default
 ```
 
-The key is read from the environment variable you name; keys are never stored in files.
+`model` is required; use an identifier from Anthropic's list of models. The key is read
+from the environment variable you name; keys are never stored in files.
 
 ## Remote providers need your consent
 
