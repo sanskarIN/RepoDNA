@@ -13,7 +13,7 @@ use std::fmt::Write;
 use repodna_core::model::artifact::RepositoryDna;
 
 use crate::facts::{Facts, LanguageShare, facts, folded_languages};
-use crate::fonts::{FONT_STACK, fit, text_width};
+use crate::fonts::{FONT_STACK, fit, text_width, wrap};
 use crate::palette::{DARK, LIGHT, Palette};
 use crate::text::{counted, escape_html as esc, thousands, whole_percent};
 
@@ -248,13 +248,13 @@ pub fn render_facts(facts: &Facts, options: CardOptions) -> String {
         .or_else(|| facts.location.clone())
         .or_else(|| facts.owner.clone())
         .unwrap_or_default();
-    if !subline.is_empty() {
+    for (index, line) in wrap(&subline, 20.0, false, 540.0, 2).iter().enumerate() {
         text(
             &mut out,
             64.0,
-            208.0,
+            208.0 + index as f64 * 26.0,
             Pen::new(20.0, false, palette.ink_secondary),
-            &fit(&subline, 20.0, false, 540.0),
+            line,
         );
     }
     // DNA visual and language legend.

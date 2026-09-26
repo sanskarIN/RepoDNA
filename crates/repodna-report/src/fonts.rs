@@ -61,6 +61,34 @@ pub fn fit(text: &str, size: f64, bold: bool, max_width: f64) -> String {
     String::new()
 }
 
+/// Wraps `text` at spaces into at most `max_lines` lines no wider than `max_width`; the last
+/// line ends with an ellipsis when the text does not fit.
+pub fn wrap(text: &str, size: f64, bold: bool, max_width: f64, max_lines: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut words = text.split_whitespace().peekable();
+    while words.peek().is_some() && lines.len() + 1 < max_lines {
+        let mut line = String::new();
+        while let Some(word) = words.peek() {
+            let candidate = if line.is_empty() {
+                (*word).to_owned()
+            } else {
+                format!("{line} {word}")
+            };
+            if !line.is_empty() && text_width(&candidate, size, bold) > max_width {
+                break;
+            }
+            line = candidate;
+            words.next();
+        }
+        lines.push(fit(&line, size, bold, max_width));
+    }
+    let rest: Vec<&str> = words.collect();
+    if !rest.is_empty() && max_lines > 0 {
+        lines.push(fit(&rest.join(" "), size, bold, max_width));
+    }
+    lines
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -75,6 +103,20 @@ mod tests {
         assert!(bold > regular);
         assert_eq!(text_width("", 12.0, false), 0.0);
         assert!((text_width("ab", 20.0, false) - 2.0 * text_width("ab", 10.0, false)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn wraps_text_into_lines() {
+        let text = "Open-source repository intelligence and code archaeology.";
+        let one = text_width(text, 20.0, false);
+        let lines = wrap(text, 20.0, false, one * 0.7, 2);
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines.join(" "), text);
+        let lines = wrap(text, 20.0, false, one * 0.4, 2);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[1].ends_with('…'), "{lines:?}");
+        assert_eq!(wrap(text, 20.0, false, one * 2.0, 2), vec![text.to_owned()]);
+        assert!(wrap("", 20.0, false, 100.0, 2).is_empty());
     }
 
     #[test]
