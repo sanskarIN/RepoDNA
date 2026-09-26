@@ -71,6 +71,9 @@ every conclusion backed by evidence.
   part of the analysis, with search, a command palette, keyboard shortcuts, light and dark
   themes, a table view for every chart, and a bundled demo that works offline.
 - A desktop app for Linux, macOS, and Windows, built with Tauri on the same Rust core.
+- About & support, Privacy Policy, Terms of Use, and Licenses pages in the web interface
+  and the desktop app; every download includes the licenses of the third-party software it
+  contains (`THIRD-PARTY-NOTICES.txt`).
 
 ### Extensibility
 

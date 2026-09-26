@@ -3,8 +3,11 @@ import type { Finding, RepositoryDna } from "@repodna/schema";
 import { continuousDays } from "./activity";
 import { artifactFileName } from "./download";
 import { highlights } from "./findings";
+import { parseMarkdown } from "./markdown";
 import { contributorNamer, count, languageNamer, unitFor } from "./names";
 import { href, parseHash } from "./router";
+import privacySource from "../../../../PRIVACY.md?raw";
+import termsSource from "../../../../TERMS.md?raw";
 
 describe("router", () => {
   it("parses paths and query parameters from the hash", () => {
@@ -109,5 +112,30 @@ describe("findings", () => {
     ];
     expect(highlights(findings, 2).map((f) => f.id)).toEqual(["a1", "c1"]);
     expect(highlights(findings, 4).map((f) => f.id)).toEqual(["a1", "a2", "c1", "d1"]);
+  });
+});
+
+describe("markdown", () => {
+  it("parses headings, paragraphs, and lists with wrapped items", () => {
+    const blocks = parseMarkdown(
+      "# Title\n\nFirst line\nsecond line.\n\n## Part\n\n- One\n  continued\n- Two\nAfter.\n",
+    );
+    expect(blocks).toEqual([
+      { kind: "heading", level: 1, text: "Title" },
+      { kind: "paragraph", text: "First line second line." },
+      { kind: "heading", level: 2, text: "Part" },
+      { kind: "list", items: ["One continued", "Two"] },
+      { kind: "paragraph", text: "After." },
+    ]);
+  });
+
+  it("reads the repository's policy documents", () => {
+    for (const source of [privacySource, termsSource]) {
+      const blocks = parseMarkdown(source);
+      expect(blocks[0]?.kind).toBe("heading");
+      expect(blocks.filter((block) => block.kind === "heading" && block.level === 1)).toHaveLength(
+        1,
+      );
+    }
   });
 });

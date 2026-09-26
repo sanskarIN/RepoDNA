@@ -91,6 +91,17 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="sidebar-footer">
+          <nav className="footer-links" aria-label="Legal">
+            {NAV.filter((item) => item.group === "Legal").map((item) => (
+              <a
+                key={item.path}
+                href={href(item.path)}
+                aria-current={route.path === item.path ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
           <p>
             Local-first · no telemetry
             <br />

@@ -57,7 +57,9 @@ Open the printed link. The start page lets you:
 | Findings | Every finding with its evidence, method, and limitations, filtered by severity and category and searchable by title, rule, path, and evidence |
 | Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark; the desktop app also saves the full report folder |
 | Compare | This analysis next to another one |
-| Settings & about | Theme, privacy notes, version, and links |
+| Settings | Theme, privacy notes, keyboard shortcuts, and version information |
+| About & support | The version, ways to support RepoDNA, the project's links, and the legal documents |
+| Privacy Policy, Terms of Use, Licenses | The policies, RepoDNA's license, and the licenses of the third-party software it includes, linked at the bottom of the sidebar |
 
 Every chart has a table view, and severity is always written out, never shown by color
 alone.

@@ -2,7 +2,7 @@
 // repository, so the views are exercised against complete data.
 
 import { act } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { parseArtifact } from "@repodna/schema";
 import { App } from "../App";
@@ -60,6 +60,54 @@ describe("views", () => {
     const search = await screen.findByLabelText("Search findings");
     fireEvent.change(search, { target: { value: "no finding has this text" } });
     expect(screen.getByText("No findings match these filters.")).toBeTruthy();
+  });
+
+  it("shows the privacy policy and links the other legal pages inside the app", async () => {
+    await renderAt("/privacy", dataset);
+    expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Privacy Policy");
+    const terms = screen.getAllByRole("link", { name: "Terms of Use" });
+    expect(terms.some((link) => link.getAttribute("href") === "#/terms")).toBe(true);
+    const legal = screen.getByRole("navigation", { name: "Legal" });
+    expect(legal.querySelector('a[href="#/licenses"]')).toBeTruthy();
+  });
+
+  it("offers every support link on the About page", async () => {
+    await renderAt("/about", null);
+    for (const url of [
+      "https://github.com/sanskarIN/RepoDNA",
+      "https://github.com/sanskarIN",
+      "https://sanskarIN.gumroad.com",
+      "https://www.buymeacoffee.com/sanskarIN",
+      "https://www.razorpay.me/@sanskarIN",
+    ]) {
+      expect(document.querySelector(`a[href="${url}"]`), url).toBeTruthy();
+    }
+  });
+
+  describe("licenses", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("shows the license notices published next to the interface", async () => {
+      const fetched: string[] = [];
+      vi.stubGlobal("fetch", async (url: string) => {
+        fetched.push(url);
+        return new Response(`text of ${url}`, { status: 200 });
+      });
+      await renderAt("/licenses", null);
+      expect(await screen.findByText("text of ./THIRD-PARTY-NOTICES.txt")).toBeTruthy();
+      expect(fetched).toContain("./LICENSE.txt");
+    });
+
+    it("points to GitHub when the notices cannot be loaded", async () => {
+      vi.stubGlobal("fetch", async () => new Response("", { status: 404 }));
+      await renderAt("/licenses", null);
+      const link = await screen.findByRole("link", { name: "THIRD-PARTY-NOTICES.txt" });
+      expect(link.getAttribute("href")).toBe(
+        "https://github.com/sanskarIN/RepoDNA/blob/main/THIRD-PARTY-NOTICES.txt",
+      );
+    });
   });
 
   it("opens the command palette with Ctrl+K and navigates with the keyboard", async () => {

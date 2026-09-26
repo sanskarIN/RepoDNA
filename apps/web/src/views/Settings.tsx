@@ -1,6 +1,7 @@
 import { SCHEMA_MAJOR, SCHEMA_MINOR } from "@repodna/schema";
-import { ExternalLink, PageHeader, Panel } from "../components/common";
+import { PageHeader, Panel } from "../components/common";
 import { ShortcutTable } from "../components/ShortcutHelp";
+import { href } from "../lib/router";
 import type { ThemePreference } from "../lib/theme";
 import { useApp } from "../state";
 
@@ -10,20 +11,11 @@ const THEMES: [ThemePreference, string][] = [
   ["dark", "Dark"],
 ];
 
-/** The project and its creator's links, as listed on the About screen. */
-export const LINKS: [string, string, string][] = [
-  ["Source code", "https://github.com/sanskarIN/RepoDNA", "Issues, releases, and discussions"],
-  ["GitHub", "https://github.com/sanskarIN", "The creator's profile"],
-  ["Programming learning", "https://sanskarIN.gumroad.com", "Programming learning on Gumroad"],
-  ["Buy Me A Coffee", "https://www.buymeacoffee.com/sanskarIN", "Support RepoDNA's development"],
-  ["Razorpay", "https://www.razorpay.me/@sanskarIN", "Support RepoDNA's development"],
-];
-
 export function Settings() {
   const { themePreference, setThemePreference, backend, session } = useApp();
   return (
     <>
-      <PageHeader title="Settings & about" />
+      <PageHeader title="Settings" />
       <div className="grid two">
         <Panel title="Appearance">
           <fieldset className="choices">
@@ -52,6 +44,11 @@ export function Settings() {
             </li>
             <li>Files you open here are read on this machine and never uploaded.</li>
           </ul>
+          <p className="muted">
+            Read the <a href={href("/privacy")}>Privacy Policy</a> and the{" "}
+            <a href={href("/terms")}>Terms of Use</a>, or learn more{" "}
+            <a href={href("/about")}>about RepoDNA and how to support it</a>.
+          </p>
         </Panel>
       </div>
       <div className="grid two" style={{ marginTop: 16 }}>
@@ -85,29 +82,6 @@ export function Settings() {
           </dl>
         </Panel>
       </div>
-      <Panel title="About" id="about">
-        <div className="about">
-          <img src="./favicon.svg" alt="" width={48} height={48} />
-          <div>
-            <h3 style={{ margin: 0 }}>RepoDNA</h3>
-            <p style={{ marginTop: 4 }}>
-              Open-source repository intelligence and code archaeology.
-            </p>
-          </div>
-        </div>
-        <ul className="list">
-          {LINKS.map(([label, url, description]) => (
-            <li key={url}>
-              <div>
-                <strong>{label}</strong>
-                <div className="muted">{description}</div>
-              </div>
-              <ExternalLink href={url}>{url.replace(/^https:\/\/(www\.)?/, "")}</ExternalLink>
-            </li>
-          ))}
-        </ul>
-        <p className="muted">Licensed under the Apache License 2.0. Made by the Sanskar.</p>
-      </Panel>
     </>
   );
 }
