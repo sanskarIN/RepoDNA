@@ -715,86 +715,187 @@ fn heading(out: &mut String, text: &str, underline: char) {
     out.push_str("\n\n");
 }
 
-/// Builds the notices from the components found.
-fn render(components: &Components) -> Result<String> {
-    let root = root();
-    let mut authors: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for component in components.values() {
-        authors
-            .entry(component.label())
-            .or_default()
-            .extend(component.authors.iter().cloned());
-    }
-    let mut groups: BTreeMap<(usize, String), Group> = BTreeMap::new();
-    let mut notices: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for component in components.values() {
-        let chosen = choose(&parse(&component.license)?);
-        let label = component.label();
-        let files: Vec<(String, String)> = component
-            .directories
-            .iter()
-            .flat_map(|directory| license_files(directory))
-            .collect();
-        for license in chosen {
-            if !PREFERENCE.contains(&license.as_str()) {
-                return Err(format!(
-                    "{label} is licensed under {license}, which xtask/src/notices.rs does not know; add it there"
-                ));
-            }
-            let group = groups.entry((rank(&license), license.clone())).or_default();
-            if license == "Apache-2.0" {
-                group.listed.entry(label.clone()).or_default();
-                for directory in &component.directories {
-                    for (_, text) in files_named(directory, &["notice"]) {
-                        notices.entry(text).or_default().insert(label.clone());
-                    }
-                }
-                continue;
-            }
-            let texts: Vec<&String> = files
+/// The components grouped by the license RepoDNA uses them under.
+#[derive(Debug, Default)]
+struct Notices {
+    /// Groups in order of license preference.
+    groups: BTreeMap<(usize, String), Group>,
+    /// NOTICE files of components used under the Apache License, and who ships each.
+    apache_notices: BTreeMap<String, BTreeSet<String>>,
+    /// Declared authors by component label.
+    authors: BTreeMap<String, BTreeSet<String>>,
+}
+
+impl Notices {
+    fn collect(components: &Components) -> Result<Self> {
+        let mut notices = Self::default();
+        for component in components.values() {
+            notices
+                .authors
+                .entry(component.label())
+                .or_default()
+                .extend(component.authors.iter().cloned());
+            let files: Vec<(String, String)> = component
+                .directories
                 .iter()
-                .filter(|(_, text)| classify(text) == Some(license.as_str()))
-                .map(|(_, text)| text)
+                .flat_map(|directory| license_files(directory))
                 .collect();
-            if texts.is_empty() {
-                group.missing.insert(label.clone(), component.source());
-                continue;
+            for license in choose(&parse(&component.license)?) {
+                notices.add(component, &license, &files)?;
             }
-            for text in texts {
-                match (license.as_str(), mit_copyrights(text)) {
-                    ("MIT", Some(copyrights)) => {
-                        let lines = group.listed.entry(label.clone()).or_default();
-                        for copyright in copyrights {
-                            if !lines.contains(&copyright) {
-                                lines.push(copyright);
-                            }
+        }
+        Ok(notices)
+    }
+
+    /// Records that `component` is used under `license`, with the texts it ships.
+    fn add(
+        &mut self,
+        component: &Component,
+        license: &str,
+        files: &[(String, String)],
+    ) -> Result<()> {
+        let label = component.label();
+        if !PREFERENCE.contains(&license) {
+            return Err(format!(
+                "{label} is licensed under {license}, which xtask/src/notices.rs does not know; add it there"
+            ));
+        }
+        let group = self
+            .groups
+            .entry((rank(license), license.to_owned()))
+            .or_default();
+        if license == "Apache-2.0" {
+            group.listed.entry(label.clone()).or_default();
+            let notice_files = component
+                .directories
+                .iter()
+                .flat_map(|directory| files_named(directory, &["notice"]));
+            for (_, text) in notice_files {
+                self.apache_notices
+                    .entry(text)
+                    .or_default()
+                    .insert(label.clone());
+            }
+            return Ok(());
+        }
+        let texts: Vec<&String> = files
+            .iter()
+            .filter(|(_, text)| classify(text) == Some(license))
+            .map(|(_, text)| text)
+            .collect();
+        if texts.is_empty() {
+            group.missing.insert(label, component.source());
+            return Ok(());
+        }
+        for text in texts {
+            match mit_copyrights(text).filter(|_| license == "MIT") {
+                Some(copyrights) => {
+                    let lines = group.listed.entry(label.clone()).or_default();
+                    for copyright in copyrights {
+                        if !lines.contains(&copyright) {
+                            lines.push(copyright);
                         }
                     }
-                    _ => {
-                        group
-                            .texts
-                            .entry(normalize(text))
-                            .or_insert_with(|| (text.clone(), BTreeSet::new()))
-                            .1
-                            .insert(label.clone());
-                    }
+                }
+                None => {
+                    group
+                        .texts
+                        .entry(normalize(text))
+                        .or_insert_with(|| (text.clone(), BTreeSet::new()))
+                        .1
+                        .insert(label.clone());
                 }
             }
         }
+        Ok(())
     }
 
-    let crates = components
+    fn write_apache(&self, out: &mut String, group: &Group) {
+        out.push_str(
+            "Used under the Apache License 2.0, whose text is at the end of this file:\n\n",
+        );
+        let names: Vec<String> = group.listed.keys().cloned().collect();
+        out.push_str(&wrap_list(&names));
+        if self.apache_notices.is_empty() {
+            return;
+        }
+        out.push_str("\nThe NOTICE files these components include:\n");
+        for (text, labels) in &self.apache_notices {
+            let labels: Vec<String> = labels.iter().cloned().collect();
+            out.push_str(&format!("\n{RULE}\n{}\n{text}\n", wrap_list(&labels)));
+        }
+    }
+
+    /// Writes a license other than Apache: the components credited by copyright line or
+    /// author above the license text, then the texts that components ship themselves.
+    fn write_group(&self, out: &mut String, license: &str, group: &Group) -> Result<()> {
+        if license == "MPL-2.0" {
+            out.push_str(
+                "The source code of these components is available from crates.io, as noted above.\n",
+            );
+        }
+        if !group.listed.is_empty() || !group.missing.is_empty() {
+            out.push_str(&format!(
+                "Used under the {} with these copyright notices; the license text follows them.\n\n",
+                title(license)
+            ));
+            for (label, copyrights) in &group.listed {
+                if copyrights.is_empty() {
+                    out.push_str(&format!("  {label}{}\n", by(&self.authors[label], None)));
+                }
+                for copyright in copyrights {
+                    out.push_str(&format!("  {label}: {copyright}\n"));
+                }
+            }
+            for (label, source) in &group.missing {
+                out.push_str(&format!(
+                    "  {label}{}\n",
+                    by(&self.authors[label], Some(source))
+                ));
+            }
+            out.push_str(&shared_text(license, group)?);
+        }
+        for (text, labels) in group.texts.values() {
+            let labels: Vec<String> = labels.iter().cloned().collect();
+            out.push_str(&format!("\n{RULE}\n{}\n{text}\n", wrap_list(&labels)));
+        }
+        Ok(())
+    }
+}
+
+/// The license text that applies to the credited components: the standard text, or for a
+/// license without one here, the copy another component ships.
+fn shared_text(license: &str, group: &Group) -> Result<String> {
+    match license {
+        "MIT" => Ok(format!("\n{MIT}\n")),
+        "BSD-3-Clause" => Ok(format!("\n{BSD_3_CLAUSE}\n")),
+        _ if !group.texts.is_empty() => Ok(
+            "\nThe components above ship no license text; the text below applies to them.\n"
+                .to_owned(),
+        ),
+        _ => Err(format!(
+            "no {license} text is available for {}",
+            group.missing.keys().cloned().collect::<Vec<_>>().join(", ")
+        )),
+    }
+}
+
+/// The number of distinct names from one ecosystem.
+fn count(components: &Components, ecosystem: Ecosystem) -> usize {
+    components
         .values()
-        .filter(|c| c.ecosystem == Ecosystem::Crate)
+        .filter(|c| c.ecosystem == ecosystem)
         .map(|c| &c.name)
         .collect::<BTreeSet<_>>()
-        .len();
-    let packages = components
-        .values()
-        .filter(|c| c.ecosystem == Ecosystem::Npm)
-        .map(|c| &c.name)
-        .collect::<BTreeSet<_>>()
-        .len();
+        .len()
+}
+
+/// Builds the notices from the components found.
+fn render(components: &Components) -> Result<String> {
+    let root = root();
+    let notices = Notices::collect(components)?;
+    let crates = count(components, Ecosystem::Crate);
+    let packages = count(components, Ecosystem::Npm);
     let mut out = String::new();
     out.push_str("Third-party software in RepoDNA\n===============================\n\n");
     out.push_str(&format!(
@@ -810,68 +911,12 @@ https://crates.io/crates/NAME.
 This file is generated by `cargo xtask notices`.
 "
     ));
-
-    for ((_, license), group) in &groups {
+    for ((_, license), group) in &notices.groups {
         heading(&mut out, title(license), '=');
         if license == "Apache-2.0" {
-            out.push_str(
-                "Used under the Apache License 2.0, whose text is at the end of this file:\n\n",
-            );
-            let names: Vec<String> = group.listed.keys().cloned().collect();
-            out.push_str(&wrap_list(&names));
-            if !notices.is_empty() {
-                out.push_str("\nThe NOTICE files these components include:\n");
-                for (text, labels) in &notices {
-                    let labels: Vec<String> = labels.iter().cloned().collect();
-                    out.push_str(&format!("\n{RULE}\n{}\n{text}\n", wrap_list(&labels)));
-                }
-            }
-            continue;
-        }
-        if license == "MPL-2.0" {
-            out.push_str(
-                "The source code of these components is available from crates.io, as noted above.\n",
-            );
-        }
-        if !group.listed.is_empty() || !group.missing.is_empty() {
-            out.push_str(&format!(
-                "Used under the {} with these copyright notices; the license text follows them.\n\n",
-                title(license)
-            ));
-            for (label, copyrights) in &group.listed {
-                if copyrights.is_empty() {
-                    out.push_str(&format!("  {label}{}\n", by(&authors[label], None)));
-                }
-                for copyright in copyrights {
-                    out.push_str(&format!("  {label}: {copyright}\n"));
-                }
-            }
-        }
-        for (label, source) in &group.missing {
-            out.push_str(&format!("  {label}{}\n", by(&authors[label], Some(source))));
-        }
-        let standard = match license.as_str() {
-            "MIT" => Some(MIT),
-            "BSD-3-Clause" => Some(BSD_3_CLAUSE),
-            _ => None,
-        };
-        if !group.listed.is_empty() || !group.missing.is_empty() {
-            match standard {
-                Some(text) => out.push_str(&format!("\n{text}\n")),
-                None if !group.texts.is_empty() => out.push_str(
-                    "\nThe components above ship no license text; the text below applies to them.\n",
-                ),
-                None => {
-                    return Err(format!(
-                        "no {license} text is available for {}",
-                        group.missing.keys().cloned().collect::<Vec<_>>().join(", ")
-                    ));
-                }
-            }
-        }
-        for (text, labels) in group.texts.values() {
-            let labels: Vec<String> = labels.iter().cloned().collect();
-            out.push_str(&format!("\n{RULE}\n{}\n{text}\n", wrap_list(&labels)));
+            notices.write_apache(&mut out, group);
+        } else {
+            notices.write_group(&mut out, license, group)?;
         }
     }
 
