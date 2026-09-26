@@ -6,8 +6,9 @@ use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::evolution::{
     AgeClass, EpochKind, SnapshotKind, StatementKind, StoryStatement,
 };
-use repodna_core::model::git::TimelineBucket;
+use repodna_core::model::git::{DailyActivity, TimelineBucket};
 use repodna_core::model::insights::ChangeKind;
+use repodna_core::time::Timestamp;
 
 use super::{ContentOptions, confidence, heading, not_analyzed, notes};
 use crate::charts::{Period, bars, columns, heatmap, line, timeline};
@@ -21,6 +22,41 @@ fn git_missing(blocks: &mut Blocks, dna: &RepositoryDna) -> bool {
         return false;
     }
     not_analyzed(blocks, git.status, &git.notes)
+}
+
+/// Longest span of days charted per day.
+const MAX_DAILY_SPAN: i64 = 120;
+
+/// Commits for every day from the first to the last day with commits, for histories too
+/// short for monthly columns to say much; `None` when the span is longer than
+/// [`MAX_DAILY_SPAN`] days or a date cannot be read.
+fn daily(days: &[DailyActivity]) -> Option<Vec<(String, f64)>> {
+    let parse = |date: &str| {
+        let mut parts = date.splitn(3, '-');
+        let year = parts.next()?.parse().ok()?;
+        let month = parts.next()?.parse().ok()?;
+        let day = parts.next()?.parse().ok()?;
+        Timestamp::from_ymd(year, month, day)
+    };
+    let mut commits = BTreeMap::new();
+    for day in days {
+        commits.insert(parse(&day.date)?.unix(), day.commits);
+    }
+    let first = Timestamp::from_unix(*commits.keys().next()?);
+    let last = Timestamp::from_unix(*commits.keys().next_back()?);
+    let span = first.days_until(last) + 1;
+    if span > MAX_DAILY_SPAN {
+        return None;
+    }
+    Some(
+        (0..span)
+            .map(|offset| {
+                let day = first.plus_days(offset);
+                let count = commits.get(&day.unix()).copied().unwrap_or(0);
+                (day.date_string(), f64::from(count))
+            })
+            .collect(),
+    )
 }
 
 /// Commit buckets at a readable granularity: months, quarters, or years.
@@ -83,7 +119,15 @@ pub(super) fn history(blocks: &mut Blocks, dna: &RepositoryDna, options: Content
             counted(activity.commits_last_365_days, "commit", "commits")
         )),
     ]);
-    let (points, period) = aggregate(&git.timeline);
+    let daily = if git.timeline.len() < 3 {
+        daily(&git.daily_activity)
+    } else {
+        None
+    };
+    let (points, period) = match daily {
+        Some(points) => (points, "day"),
+        None => aggregate(&git.timeline),
+    };
     if options.figures {
         // A chart of one or two bars says less than the table below it.
         if points.len() >= 3 {
@@ -671,6 +715,27 @@ mod tests {
         let (points, period) = aggregate(&months[..12]);
         assert_eq!(period, "month");
         assert_eq!(points.len(), 12);
+    }
+
+    #[test]
+    fn charts_short_histories_per_day() {
+        let day = |date: &str, commits| DailyActivity {
+            date: date.to_owned(),
+            commits,
+            churn: 0,
+        };
+        let points = daily(&[day("2024-02-28", 2), day("2024-03-01", 1)]).unwrap();
+        assert_eq!(
+            points,
+            vec![
+                ("2024-02-28".to_owned(), 2.0),
+                ("2024-02-29".to_owned(), 0.0),
+                ("2024-03-01".to_owned(), 1.0),
+            ]
+        );
+        assert!(daily(&[day("2024-01-01", 1), day("2024-06-01", 1)]).is_none());
+        assert!(daily(&[day("soon", 1)]).is_none());
+        assert!(daily(&[]).is_none());
     }
 
     #[test]

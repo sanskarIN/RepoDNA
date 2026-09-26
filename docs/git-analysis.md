@@ -41,7 +41,7 @@ measured against the analysis time, and the artifact records that time.
 
 | Result | Meaning |
 |---|---|
-| Timeline | Commits, authors, and lines added and removed per month, and daily activity. |
+| Timeline | Commits, authors, and lines added and removed per month, and commits per day. Histories shorter than three months are charted per day; reports chart long histories per quarter or year. |
 | Contributors | Per identity: commits, lines added and removed, first and last commit, active days, and main areas. |
 | Ownership | Share of commits by the top contributor, and how many contributors authored half of all commits. |
 | Activity level | `very-active` (at least 30 commits in the last 30 days), `active` (at least 5), `moderate` (at least one in 90 days), `low` (at least one in 365 days), or `dormant`. |

@@ -18,6 +18,7 @@ export function Columns({
   unit = "",
   height = 180,
   color = "var(--s1)",
+  labelWidth = 58,
 }: {
   points: ColumnPoint[];
   label: string;
@@ -25,6 +26,8 @@ export function Columns({
   unit?: string | readonly [string, string];
   height?: number;
   color?: string;
+  /** Horizontal room one x label needs, so labels are skipped before they collide. */
+  labelWidth?: number;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const tooltip = useTooltip();
@@ -36,7 +39,7 @@ export function Columns({
   const max = Math.max(0, ...points.map((p) => p.value));
   const y = linearScale(max, [plotHeight, 0]);
   const slots = bands(points.length, plotWidth);
-  const every = Math.max(1, Math.ceil((points.length * 58) / plotWidth));
+  const every = Math.max(1, Math.ceil((points.length * labelWidth) / plotWidth));
   return (
     <div ref={ref}>
       <svg className="chart" width={width} height={height} role="img" aria-label={label}>

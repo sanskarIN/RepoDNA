@@ -38,6 +38,11 @@ describe("views", () => {
     });
   }
 
+  it("charts a young repository's commits per day", async () => {
+    await renderAt("/history", dataset);
+    expect(await screen.findByRole("img", { name: "Commits per day" })).toBeTruthy();
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(

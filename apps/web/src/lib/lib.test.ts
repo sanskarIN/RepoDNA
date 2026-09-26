@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RepositoryDna } from "@repodna/schema";
+import { continuousDays } from "./activity";
 import { artifactFileName } from "./download";
 import { contributorNamer, count, languageNamer } from "./names";
 import { href, parseHash } from "./router";
@@ -46,5 +47,31 @@ describe("names", () => {
 
   it("names exported files like the command line", () => {
     expect(artifactFileName(dna)).toBe("repodna-demo-project-2026-09-24.repodna");
+  });
+});
+
+describe("activity", () => {
+  it("fills the days between commits", () => {
+    const days = continuousDays([
+      { date: "2026-02-27", commits: 2, churn: 10 },
+      { date: "2026-03-02", commits: 1, churn: 4 },
+    ]);
+    expect(days?.map((d) => [d.date, d.commits])).toEqual([
+      ["2026-02-27", 2],
+      ["2026-02-28", 0],
+      ["2026-03-01", 0],
+      ["2026-03-02", 1],
+    ]);
+  });
+
+  it("gives up on empty, long, or unreadable spans", () => {
+    expect(continuousDays([])).toBeNull();
+    expect(
+      continuousDays([
+        { date: "2025-01-01", commits: 1, churn: 1 },
+        { date: "2026-01-01", commits: 1, churn: 1 },
+      ]),
+    ).toBeNull();
+    expect(continuousDays([{ date: "yesterday", commits: 1, churn: 1 }])).toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { Columns } from "../charts/Columns";
 import { Heatmap } from "../charts/Heatmap";
 import { Note, Omittable, PageHeader, Panel, SectionStatus, Tile } from "../components/common";
 import { DataTable } from "../components/DataTable";
+import { MIN_MONTHS_FOR_MONTHLY_CHART, continuousDays } from "../lib/activity";
 import { contributorNamer, count } from "../lib/names";
 import { useDataset } from "../state";
 
@@ -54,6 +55,9 @@ export function History() {
   });
   const contributors = [...git.contributors].sort((a, b) => b.commits - a.commits);
   const author = contributorNamer(dna);
+  // One or two monthly columns say little about a young repository; show its days instead.
+  const days =
+    git.timeline.length < MIN_MONTHS_FOR_MONTHLY_CHART ? continuousDays(git.dailyActivity) : null;
 
   return (
     <>
@@ -99,57 +103,98 @@ export function History() {
         />
       </div>
 
-      <Panel
-        title="Commits over time"
-        description="Each column is one period; hover or focus a column for authors and lines changed."
-        table={
-          <DataTable
-            rows={git.timeline}
-            rowKey={(b) => b.start}
-            columns={[
-              { key: "period", header: "Period", cell: (b) => b.period, sort: (b) => b.start },
-              {
-                key: "commits",
-                header: "Commits",
-                cell: (b) => thousands(b.commits),
-                sort: (b) => b.commits,
-                numeric: true,
-              },
-              {
-                key: "authors",
-                header: "Authors",
-                cell: (b) => thousands(b.authors),
-                sort: (b) => b.authors,
-                numeric: true,
-              },
-              {
-                key: "insertions",
-                header: "Lines added",
-                cell: (b) => thousands(b.insertions),
-                sort: (b) => b.insertions,
-                numeric: true,
-              },
-              {
-                key: "deletions",
-                header: "Lines removed",
-                cell: (b) => thousands(b.deletions),
-                sort: (b) => b.deletions,
-                numeric: true,
-              },
-            ]}
+      {days ? (
+        <Panel
+          title="Commits over time"
+          description="Each column is one day (UTC); hover or focus a column for lines changed."
+          table={
+            <DataTable
+              rows={days}
+              rowKey={(d) => d.date}
+              columns={[
+                { key: "date", header: "Day", cell: (d) => d.date, sort: (d) => d.date },
+                {
+                  key: "commits",
+                  header: "Commits",
+                  cell: (d) => thousands(d.commits),
+                  sort: (d) => d.commits,
+                  numeric: true,
+                },
+                {
+                  key: "churn",
+                  header: "Lines changed",
+                  cell: (d) => thousands(d.churn),
+                  sort: (d) => d.churn,
+                  numeric: true,
+                },
+              ]}
+            />
+          }
+        >
+          <Columns
+            label="Commits per day"
+            points={days.map((d) => ({
+              label: d.date,
+              value: d.commits,
+              details: `${thousands(d.churn)} lines added or removed`,
+            }))}
+            unit={[" commit", " commits"]}
+            labelWidth={76}
           />
-        }
-      >
-        <Columns
-          label="Commits per period"
-          points={git.timeline.map((b) => ({
-            label: b.period,
-            value: b.commits,
-            details: `${count(b.authors, "author", "authors")} · +${thousands(b.insertions)} −${thousands(b.deletions)}`,
-          }))}
-          unit={[" commit", " commits"]}
-        />
-      </Panel>
+        </Panel>
+      ) : (
+        <Panel
+          title="Commits over time"
+          description="Each column is one month; hover or focus a column for authors and lines changed."
+          table={
+            <DataTable
+              rows={git.timeline}
+              rowKey={(b) => b.start}
+              columns={[
+                { key: "period", header: "Period", cell: (b) => b.period, sort: (b) => b.start },
+                {
+                  key: "commits",
+                  header: "Commits",
+                  cell: (b) => thousands(b.commits),
+                  sort: (b) => b.commits,
+                  numeric: true,
+                },
+                {
+                  key: "authors",
+                  header: "Authors",
+                  cell: (b) => thousands(b.authors),
+                  sort: (b) => b.authors,
+                  numeric: true,
+                },
+                {
+                  key: "insertions",
+                  header: "Lines added",
+                  cell: (b) => thousands(b.insertions),
+                  sort: (b) => b.insertions,
+                  numeric: true,
+                },
+                {
+                  key: "deletions",
+                  header: "Lines removed",
+                  cell: (b) => thousands(b.deletions),
+                  sort: (b) => b.deletions,
+                  numeric: true,
+                },
+              ]}
+            />
+          }
+        >
+          <Columns
+            label="Commits per period"
+            points={git.timeline.map((b) => ({
+              label: b.period,
+              value: b.commits,
+              details: `${count(b.authors, "author", "authors")} · +${thousands(b.insertions)} −${thousands(b.deletions)}`,
+            }))}
+            unit={[" commit", " commits"]}
+          />
+        </Panel>
+      )}
 
       <div className="grid two" style={{ marginTop: 16 }}>
         <Panel
