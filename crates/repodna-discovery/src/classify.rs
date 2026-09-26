@@ -693,7 +693,10 @@ fn classify_default(path: &str, language_kind: Option<LanguageKind>) -> Classifi
     if is_test_path(path) && !ASSET_EXTENSIONS.contains(&ext) && !BINARY_EXTENSIONS.contains(&ext) {
         return category(FileCategory::Test);
     }
-    if (!is_program && name_has_prefix(name, DOC_PREFIXES))
+    // SECURITY.md or HISTORY, but not security_concern.yml.
+    let document_format =
+        ext.is_empty() || DOC_EXTENSIONS.contains(&ext) || matches!(ext, "html" | "htm" | "cff");
+    if (!is_program && document_format && name_has_prefix(name, DOC_PREFIXES))
         || (has_dir(path, DOC_DIRS)
             && (DOC_EXTENSIONS.contains(&ext) || language_kind == Some(LanguageKind::Prose)))
         || (DOC_EXTENSIONS.contains(&ext) && ext != "txt")
@@ -880,6 +883,14 @@ mod tests {
         assert_eq!(
             category("src/license.rs", Some(Programming)),
             FileCategory::Source
+        );
+        assert_ne!(
+            category(".github/ISSUE_TEMPLATE/security_concern.yml", Some(Data)),
+            FileCategory::Documentation
+        );
+        assert_eq!(
+            category("CITATION.cff", Some(Data)),
+            FileCategory::Documentation
         );
         assert_eq!(category(".editorconfig", None), FileCategory::Configuration);
         assert_eq!(
