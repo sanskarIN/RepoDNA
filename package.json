@@ -1,0 +1,34 @@
+{
+  "name": "repodna-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open-source repository intelligence and code archaeology.",
+  "license": "Apache-2.0",
+  "author": "Sanskar",
+  "homepage": "https://github.com/sanskarIN/RepoDNA",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sanskarIN/RepoDNA.git"
+  },
+  "workspaces": [
+    "packages/schema",
+    "packages/visualization",
+    "apps/web",
+    "apps/desktop"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write \"apps/web/src/**/*.{ts,tsx,css}\" \"packages/*/src/**/*.ts\" \"packages/*/test/**/*.ts\"",
+    "format:check": "prettier --check \"apps/web/src/**/*.{ts,tsx,css}\" \"packages/*/src/**/*.ts\" \"packages/*/test/**/*.ts\""
+  },
+  "devDependencies": {
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "vitest": "5.0.1"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

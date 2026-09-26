@@ -1,0 +1,380 @@
+//! Per-file analysis entry point.
+
+use std::sync::LazyLock;
+
+use regex::Regex;
+use repodna_core::model::languages::{LanguageKind, ParserCapability};
+use repodna_core::model::structure::{FileAnalysisSummary, LineCounts};
+use serde::{Deserialize, Serialize};
+
+use crate::imports::{RawImport, extract_imports, extract_package};
+use crate::markers::{RawMarker, extract_markers};
+use crate::scanner::{ScannedFile, scan};
+use crate::spec::{ImportExtractor, LanguageSpec};
+use crate::symbols::{ParsedSymbol, extract_symbols};
+use crate::tokens::{Token, tokenize};
+
+/// Version of the per-file analysis output. Bump whenever results for the same input can
+/// change, so cached results are invalidated.
+pub const ANALYZER_VERSION: u32 = 2;
+
+/// Maximum string-literal file references recorded per file.
+const MAX_REFERENCES: usize = 500;
+
+/// A string literal that looks like a path to another repository file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RawReference {
+    /// The path as written.
+    pub path: String,
+    /// Line (1-based).
+    pub line: u32,
+}
+
+/// Everything lexical analysis learned about one file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileAnalysis {
+    /// Language identifier.
+    pub language: String,
+    /// Depth of analysis applied.
+    pub capability: ParserCapability,
+    /// Line counts.
+    pub lines: LineCounts,
+    /// Import statements.
+    #[serde(default)]
+    pub imports: Vec<RawImport>,
+    /// Symbols.
+    #[serde(default)]
+    pub symbols: Vec<ParsedSymbol>,
+    /// Marker comments.
+    #[serde(default)]
+    pub markers: Vec<RawMarker>,
+    /// String-literal references to other files.
+    #[serde(default)]
+    pub references: Vec<RawReference>,
+    /// Declared package or namespace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub package: Option<String>,
+    /// Decision points outside functions.
+    pub module_complexity: u32,
+    /// Deepest nesting inside any function.
+    pub max_nesting: u32,
+    /// The file contains a "run as a program" guard such as Python's
+    /// `if __name__ == "__main__":`, Node's `require.main === module`, or Ruby's
+    /// `if __FILE__ == $0`.
+    #[serde(default)]
+    pub main_guard: bool,
+}
+
+impl FileAnalysis {
+    /// Functions and methods with measured bodies.
+    pub fn functions(&self) -> impl Iterator<Item = &ParsedSymbol> {
+        self.symbols
+            .iter()
+            .filter(|symbol| symbol.is_function() && symbol.complexity.is_some())
+    }
+
+    /// Compact summary stored on the file record.
+    pub fn summary(&self) -> FileAnalysisSummary {
+        let mut summary = FileAnalysisSummary {
+            imports: u32::try_from(self.imports.len()).unwrap_or(u32::MAX),
+            symbols: u32::try_from(self.symbols.len()).unwrap_or(u32::MAX),
+            markers: u32::try_from(self.markers.len()).unwrap_or(u32::MAX),
+            max_nesting: self.max_nesting,
+            ..FileAnalysisSummary::default()
+        };
+        for function in self.functions() {
+            let complexity = function.complexity.unwrap_or(1);
+            summary.functions += 1;
+            summary.cyclomatic_total = summary.cyclomatic_total.saturating_add(complexity);
+            summary.cyclomatic_max = summary.cyclomatic_max.max(complexity);
+            summary.longest_function = summary.longest_function.max(function.length());
+        }
+        summary
+    }
+}
+
+static MAIN_GUARD: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"if\s+__name__\s*==\s*["']__main__["']|require\.main\s*===?\s*module|if\s+__FILE__\s*==\s*\$(?:0|PROGRAM_NAME)|import\.meta\.main"#,
+    )
+    .unwrap_or_else(|error| panic!("invalid main-guard pattern: {error}"))
+});
+
+static REFERENCE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"["'`]((?:\.{1,2}/)*[\w@.\-]+(?:/[\w@.\-]+)*\.(?:rs|py|js|mjs|cjs|jsx|ts|tsx|go|java|kt|c|h|cc|cpp|hpp|cs|php|rb|swift|dart|sh|sql|html|htm|css|scss|json|yaml|yml|toml|xml|md|proto|wasm|graphql|lua|vue|svelte))["'`]"#,
+    )
+    .unwrap_or_else(|error| panic!("invalid reference pattern: {error}"))
+});
+
+/// Analyzes source text with the given language specification.
+pub fn analyze_source(spec: &LanguageSpec, text: &str) -> FileAnalysis {
+    analyze_scanned(spec, &scan(text, &spec.syntax))
+}
+
+/// Analyzes source text and also returns its normalized token stream (for duplication and
+/// similarity detection), scanning the text only once.
+pub fn analyze_and_tokenize(spec: &LanguageSpec, text: &str) -> (FileAnalysis, Vec<Token>) {
+    let scanned = scan(text, &spec.syntax);
+    let tokens = tokenize(&scanned.lines);
+    (analyze_scanned(spec, &scanned), tokens)
+}
+
+fn analyze_scanned(spec: &LanguageSpec, scanned: &ScannedFile) -> FileAnalysis {
+    let lines = scanned.line_counts();
+    let imports = if spec.imports.is_empty() && spec.import_extractor == ImportExtractor::Patterns {
+        Vec::new()
+    } else {
+        extract_imports(spec, &scanned.lines)
+    };
+    let symbol_analysis = if spec.functions.is_empty() && spec.types.is_empty() {
+        None
+    } else {
+        Some(extract_symbols(spec, &scanned.lines))
+    };
+    let markers = extract_markers(&scanned.lines);
+    let references = if spec.kind == LanguageKind::Programming {
+        extract_references(&scanned.lines, &imports, spec.id == "rust")
+    } else {
+        Vec::new()
+    };
+    let package = extract_package(spec, &scanned.lines);
+    let main_guard = spec.kind == LanguageKind::Programming
+        && scanned
+            .lines
+            .iter()
+            .any(|line| MAIN_GUARD.is_match(&line.code));
+    let (symbols, module_complexity, max_nesting) = match symbol_analysis {
+        Some(analysis) => (
+            analysis.symbols,
+            analysis.module_complexity,
+            analysis.max_nesting,
+        ),
+        None => (Vec::new(), 0, 0),
+    };
+    FileAnalysis {
+        language: spec.id.clone(),
+        capability: spec.capability(),
+        lines,
+        imports,
+        symbols,
+        markers,
+        references,
+        package,
+        module_complexity,
+        max_nesting,
+        main_guard,
+    }
+}
+
+/// Tracks whether lines belong to a Rust `#[cfg(test)]` item, whose string literals are
+/// test fixtures rather than references the code depends on.
+#[derive(Default)]
+struct RustTestRegions {
+    depth: usize,
+    pending: bool,
+    body: Option<usize>,
+}
+
+impl RustTestRegions {
+    /// Consumes one masked line and returns `true` when it belongs to a test item.
+    fn in_test(&mut self, masked: &str) -> bool {
+        if self.body.is_none() && masked.trim_start().starts_with("#[cfg(test)]") {
+            self.pending = true;
+        }
+        let inside = self.pending || self.body.is_some();
+        for byte in masked.bytes() {
+            match byte {
+                b'{' => {
+                    if self.pending {
+                        self.body = Some(self.depth);
+                        self.pending = false;
+                    }
+                    self.depth += 1;
+                }
+                b'}' => {
+                    self.depth = self.depth.saturating_sub(1);
+                    if self.body == Some(self.depth) {
+                        self.body = None;
+                    }
+                }
+                b';' if self.pending => self.pending = false,
+                _ => {}
+            }
+        }
+        inside
+    }
+}
+
+/// Marks the lines of Rust source that belong to `#[cfg(test)]` items (usually the `tests`
+/// module). `lines` must come from scanning the file with the Rust syntax.
+pub fn rust_test_lines(lines: &[crate::scanner::ScannedLine]) -> Vec<bool> {
+    let mut regions = RustTestRegions::default();
+    lines
+        .iter()
+        .map(|line| regions.in_test(&line.masked))
+        .collect()
+}
+
+fn extract_references(
+    lines: &[crate::scanner::ScannedLine],
+    imports: &[RawImport],
+    rust: bool,
+) -> Vec<RawReference> {
+    let mut references = Vec::new();
+    let mut tests = RustTestRegions::default();
+    for (index, line) in lines.iter().enumerate() {
+        if rust && tests.in_test(&line.masked) {
+            continue;
+        }
+        if !line.code.contains(['"', '\'', '`']) {
+            continue;
+        }
+        let line_number = u32::try_from(index + 1).unwrap_or(u32::MAX);
+        let code = line.code.as_bytes();
+        let masked = line.masked.as_bytes();
+        for captures in REFERENCE.captures_iter(&line.code) {
+            let (Some(whole), Some(path)) = (captures.get(0), captures.get(1)) else {
+                continue;
+            };
+            // The opening quote must be a real delimiter, not text inside another string.
+            if masked.get(whole.start()) != code.get(whole.start()) {
+                continue;
+            }
+            let path = path.as_str();
+            let is_import = imports
+                .iter()
+                .any(|import| import.line == line_number && import.specifier == path);
+            if !is_import {
+                references.push(RawReference {
+                    path: path.to_owned(),
+                    line: line_number,
+                });
+            }
+            if references.len() >= MAX_REFERENCES {
+                return references;
+            }
+        }
+    }
+    references
+}
+
+/// Counts lines only, for files whose language has no lexical rules.
+pub fn count_lines(spec: &LanguageSpec, text: &str) -> LineCounts {
+    scan(text, &spec.syntax).line_counts()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::registry::LanguageRegistry;
+
+    fn analyze(language: &str, source: &str) -> FileAnalysis {
+        analyze_source(LanguageRegistry::builtin().get(language).unwrap(), source)
+    }
+
+    #[test]
+    fn summarizes_a_typescript_module() {
+        let source = "import { api } from './api';\n\n// TODO: cache results\nexport function load(id: string) {\n  if (!id) { return null; }\n  return fetch(`/items/${id}`);\n}\nconst template = './views/item.html';\n";
+        let analysis = analyze("typescript", source);
+        assert_eq!(analysis.capability, ParserCapability::Lexical);
+        assert_eq!(analysis.lines.total, 8);
+        assert_eq!(analysis.lines.comment, 1);
+        assert_eq!(analysis.lines.blank, 1);
+        assert_eq!(analysis.imports.len(), 1);
+        assert_eq!(analysis.markers.len(), 1);
+        assert_eq!(
+            analysis.references,
+            vec![RawReference {
+                path: "./views/item.html".into(),
+                line: 8
+            }]
+        );
+        let summary = analysis.summary();
+        assert_eq!(summary.functions, 1);
+        assert_eq!(summary.cyclomatic_max, 2);
+        assert_eq!(summary.longest_function, 4);
+        assert_eq!(summary.imports, 1);
+    }
+
+    #[test]
+    fn data_files_only_count_lines() {
+        let analysis = analyze("yaml", "# config\nname: demo\n\nitems:\n  - a\n");
+        assert_eq!(analysis.capability, ParserCapability::LineCount);
+        assert!(analysis.symbols.is_empty());
+        assert!(analysis.references.is_empty());
+        assert_eq!(
+            (
+                analysis.lines.code,
+                analysis.lines.comment,
+                analysis.lines.blank
+            ),
+            (3, 1, 1)
+        );
+    }
+
+    #[test]
+    fn analysis_round_trips_through_json_for_caching() {
+        let analysis = analyze(
+            "python",
+            "import os\n\ndef f(x):\n    return x if x else os.sep\n",
+        );
+        let json = serde_json::to_string(&analysis).unwrap();
+        let back: FileAnalysis = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, analysis);
+    }
+
+    #[test]
+    fn detects_main_guards() {
+        assert!(
+            analyze(
+                "python",
+                "def main():\n    pass\n\nif __name__ == \"__main__\":\n    main()\n"
+            )
+            .main_guard
+        );
+        assert!(analyze("javascript", "if (require.main === module) { run(); }\n").main_guard);
+        assert!(analyze("ruby", "run if __FILE__ == $0\n").main_guard);
+        assert!(!analyze("python", "# if __name__ == \"__main__\":\nx = 1\n").main_guard);
+        assert!(!analyze("python", "import os\n").main_guard);
+    }
+
+    #[test]
+    fn ignores_references_in_rust_test_items() {
+        let source = "const VIEW: &str = include_str!(\"../assets/view.html\");\n#[cfg(test)]\nmod tests {\n    fn fixture() { let _ = (\"src/main.rs\", \"{\"); }\n}\n#[cfg(test)]\nmod more;\nfn after() -> &'static str { \"config/app.json\" }\n";
+        let paths: Vec<String> = analyze("rust", source)
+            .references
+            .into_iter()
+            .map(|r| r.path)
+            .collect();
+        assert_eq!(paths, vec!["../assets/view.html", "config/app.json"]);
+    }
+
+    #[test]
+    fn imports_are_not_duplicated_as_references() {
+        let analysis = analyze("javascript", "const cfg = require('./config.json');\n");
+        assert_eq!(analysis.imports.len(), 1);
+        assert!(analysis.references.is_empty());
+    }
+    #[test]
+    fn analyze_and_tokenize_matches_separate_calls() {
+        let registry = crate::LanguageRegistry::builtin();
+        let spec = registry.get("python").unwrap();
+        let text = "import os\n# note\nx = 1  # trailing\nprint(\"hi\")\n";
+        let (analysis, tokens) = analyze_and_tokenize(spec, text);
+        assert_eq!(analysis, analyze_source(spec, text));
+        assert_eq!(tokens, tokenize(&scan(text, &spec.syntax).lines));
+        assert!(tokens.iter().all(|token| token.line != 2));
+    }
+
+    #[test]
+    fn marks_rust_test_lines() {
+        let rust = LanguageRegistry::builtin().get("rust").unwrap();
+        let source = "fn real() {}\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() { let s = \"}\"; }\n}\nfn after() {}\n";
+        let lines = scan(source, &rust.syntax).lines;
+        assert_eq!(
+            rust_test_lines(&lines),
+            vec![false, true, true, true, true, true, false]
+        );
+    }
+}

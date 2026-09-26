@@ -1,0 +1,32 @@
+[package]
+name = "repodna-engine"
+description = "The RepoDNA analysis pipeline: input resolution, stage orchestration, insights, and the DNA fingerprint."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+repodna-core.workspace = true
+repodna-parser.workspace = true
+repodna-discovery.workspace = true
+repodna-git.workspace = true
+repodna-dependencies.workspace = true
+repodna-architecture.workspace = true
+repodna-quality.workspace = true
+repodna-security.workspace = true
+repodna-project.workspace = true
+repodna-evolution.workspace = true
+rayon.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+repodna-testkit.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

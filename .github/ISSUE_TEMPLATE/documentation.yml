@@ -1,0 +1,22 @@
+name: Documentation issue
+description: Something in the documentation is wrong, unclear, or missing.
+labels: ["documentation"]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: The file or link, such as docs/configuration.md or a command's --help.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong, unclear, or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested wording
+      description: Optional. Pull requests for documentation are welcome too.

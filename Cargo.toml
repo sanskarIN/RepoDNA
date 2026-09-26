@@ -1,0 +1,108 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "xtask"]
+# The desktop shell has its own workspace so that the core CLI can be built and
+# tested without the platform WebView SDKs that Tauri requires.
+exclude = ["apps/desktop/src-tauri"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["Sanskar"]
+repository = "https://github.com/sanskarIN/RepoDNA"
+homepage = "https://github.com/sanskarIN/RepoDNA"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+repodna-core = { path = "crates/repodna-core", version = "1.0.0" }
+repodna-parser = { path = "crates/repodna-parser", version = "1.0.0" }
+repodna-discovery = { path = "crates/repodna-discovery", version = "1.0.0" }
+repodna-git = { path = "crates/repodna-git", version = "1.0.0" }
+repodna-dependencies = { path = "crates/repodna-dependencies", version = "1.0.0" }
+repodna-architecture = { path = "crates/repodna-architecture", version = "1.0.0" }
+repodna-quality = { path = "crates/repodna-quality", version = "1.0.0" }
+repodna-security = { path = "crates/repodna-security", version = "1.0.0" }
+repodna-project = { path = "crates/repodna-project", version = "1.0.0" }
+repodna-evolution = { path = "crates/repodna-evolution", version = "1.0.0" }
+repodna-engine = { path = "crates/repodna-engine", version = "1.0.0" }
+repodna-store = { path = "crates/repodna-store", version = "1.0.0" }
+repodna-report = { path = "crates/repodna-report", version = "1.0.0" }
+repodna-ai = { path = "crates/repodna-ai", version = "1.0.0" }
+repodna-plugin = { path = "crates/repodna-plugin", version = "1.0.0" }
+repodna-app = { path = "crates/repodna-app", version = "1.0.0" }
+repodna-server = { path = "crates/repodna-server", version = "1.0.0" }
+repodna-testkit = { path = "crates/repodna-testkit" }
+
+# Serialization and configuration
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+toml = "1.1.6"
+schemars = "1.2.2"
+
+# Errors
+thiserror = "2.0.21"
+anyhow = "1.0.104"
+
+# Hashing
+sha2 = "0.11.0"
+
+# Text processing
+regex = "1.13.1"
+yaml-rust2 = { version = "0.13.0", default-features = false }
+
+# File system and archives
+ignore = "0.4.33"
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
+tar = "0.4.46"
+flate2 = "1.1.10"
+
+# Storage
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+
+# Rendering (SVG to PNG with bundled fonts; no system fonts are loaded)
+resvg = { version = "0.48.1", default-features = false, features = ["text"] }
+skrifa = { version = "0.44.0", default-features = false, features = ["std"] }
+
+# Parallelism
+rayon = "1.12"
+
+# Memory allocator for static Linux (musl) builds, whose default allocator is slow
+mimalloc = { version = "0.1.52", default-features = false }
+
+# Command line
+clap = { version = "4.6.7", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4.6.11"
+ctrlc = "3.5.2"
+terminal_size = "0.4.4"
+
+# Local server (loopback only)
+tiny_http = "0.12.0"
+getrandom = "0.4.3"
+toml_edit = "0.25.15"
+
+# HTTP client for optional AI providers (rustls with bundled web PKI roots)
+ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
+
+# Testing
+tempfile = "3.27.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+unwrap_used = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = "symbols"

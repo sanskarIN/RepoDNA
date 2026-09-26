@@ -1,0 +1,27 @@
+# repodna.toml at the root of a repository: settings that tune what is analyzed.
+# A repository's own configuration cannot enable plugins, AI, or command execution.
+# Reference: https://github.com/sanskarIN/RepoDNA/blob/main/docs/configuration.md
+
+[analysis]
+profile = "standard"          # quick, standard, or deep
+max_commits = 20000           # enough history for most projects; 0 means all
+
+[ignore]
+# gitignore-style patterns, in addition to .gitignore and the default patterns.
+patterns = ["fixtures/large/", "*.snap"]
+
+[classification]
+generated = ["src/generated/**", "**/*.pb.go"]
+vendor = ["third_party/**"]
+
+[thresholds]
+large_file_lines = 1500       # this project keeps some large, cohesive modules
+high_complexity = 20
+
+[[suppress]]
+rule = "security.secret"
+path = "tests/fixtures/**"
+reason = "Intentional fake credentials used by tests"
+
+[report]
+theme = "technical"

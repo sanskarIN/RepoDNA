@@ -1,0 +1,17 @@
+[package]
+name = "repodna-quality"
+description = "Complexity, size, duplication, similarity, markers, dead-code candidates, and hotspots for RepoDNA."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+repodna-core.workspace = true
+repodna-parser.workspace = true
+
+[lints]
+workspace = true

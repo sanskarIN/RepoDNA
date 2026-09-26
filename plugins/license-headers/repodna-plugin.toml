@@ -1,0 +1,11 @@
+# Example analyzer plugin. See README.md for what it receives and how it runs.
+name = "license-headers"
+version = "1.0.0"
+description = "Reports which source files declare an SPDX license identifier near the top."
+api = 1
+# Runs without a shell from this directory. On Windows, use "python" or "py" if
+# "python3" is not on PATH.
+command = ["python3", "license_headers.py"]
+# Needed to open files in the checkout; without it the plugin only sees file metadata.
+permissions = ["repository-files"]
+license = "Apache-2.0"

@@ -1,0 +1,16 @@
+[package]
+name = "repodna-testkit"
+description = "Test helpers for RepoDNA: deterministic Git fixture repositories and file trees."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

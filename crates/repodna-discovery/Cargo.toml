@@ -1,0 +1,23 @@
+[package]
+name = "repodna-discovery"
+description = "Repository discovery for RepoDNA: gitignore-aware walking, file classification, safe reading, and safe archive extraction."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+repodna-core.workspace = true
+repodna-parser.workspace = true
+ignore.workspace = true
+zip.workspace = true
+tar.workspace = true
+flate2.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

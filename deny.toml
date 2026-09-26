@@ -1,0 +1,62 @@
+# cargo-deny checks dependencies for security advisories, licenses, duplicate or banned
+# crates, and unexpected sources: https://embarkstudios.github.io/cargo-deny/
+#
+#   cargo deny check
+#   cargo deny --manifest-path apps/desktop/src-tauri/Cargo.toml check
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+# Vulnerabilities fail the check wherever they are. Unmaintained crates fail it when RepoDNA
+# depends on them directly; deeper in the tree (such as the GTK bindings and URL pattern
+# crates under Tauri) replacing them is up to the crates that use them.
+unmaintained = "workspace"
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+# Permissive licenses compatible with distributing RepoDNA under Apache-2.0.
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+# Only the desktop app depends on these: Tauri uses the HTML and CSS parsers when it builds
+# the app and `option-ext` through `dirs`. MPL-2.0 is a file-level copyleft license; the
+# crates are used unmodified, which distribution under Apache-2.0 allows.
+exceptions = [
+    { allow = ["MPL-2.0"], crate = "cssparser" },
+    { allow = ["MPL-2.0"], crate = "cssparser-macros" },
+    { allow = ["MPL-2.0"], crate = "dtoa-short" },
+    { allow = ["MPL-2.0"], crate = "option-ext" },
+    { allow = ["MPL-2.0"], crate = "selectors" },
+]
+
+# The exceptions are only used by the desktop app, so do not warn when checking the rest.
+unused-license-exception = "allow"
+
+[licenses.private]
+# RepoDNA's own crates are not published; their license is the repository's.
+ignore = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

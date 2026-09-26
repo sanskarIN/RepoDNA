@@ -1,0 +1,803 @@
+{
+  "$defs": {
+    "AiConfig": {
+      "additionalProperties": false,
+      "description": "Optional AI provider. Only honored from user configuration or command-line flags.",
+      "properties": {
+        "api_key_env": {
+          "description": "Name of the environment variable holding the API key (keys are never stored in files).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "command": {
+          "default": [],
+          "description": "Command line for the `command` provider.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "endpoint": {
+          "description": "Base URL for HTTP providers. Required for `openai-compatible`; the `anthropic`\nprovider defaults to `https://api.anthropic.com`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "include_source_excerpts": {
+          "default": false,
+          "description": "Allow short source excerpts in prompts (off by default; evidence metadata only).",
+          "type": "boolean"
+        },
+        "input_cost_per_million": {
+          "description": "Price per million input tokens, used only for cost estimates you configure yourself.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max_context_tokens": {
+          "default": 6000,
+          "description": "Maximum estimated tokens of repository context sent per request.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "description": "Maximum tokens the model may generate, including any reasoning tokens. When unset,\n`anthropic` uses 16000 (its limit also covers thinking) and other providers 2000.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "model": {
+          "description": "Model identifier passed to the provider. Required for `openai-compatible` and\n`anthropic`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output_cost_per_million": {
+          "description": "Price per million output tokens, used only for cost estimates you configure yourself.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "provider": {
+          "$ref": "#/$defs/AiProviderKind",
+          "default": "none",
+          "description": "Provider kind."
+        },
+        "timeout_seconds": {
+          "default": 120,
+          "description": "Request timeout in seconds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AiProviderKind": {
+      "description": "AI provider kind.",
+      "oneOf": [
+        {
+          "const": "none",
+          "description": "AI features are disabled.",
+          "type": "string"
+        },
+        {
+          "const": "command",
+          "description": "A local command that reads a prompt on standard input (e.g. `ollama run <model>`).",
+          "type": "string"
+        },
+        {
+          "const": "openai-compatible",
+          "description": "An OpenAI-compatible HTTP API (local servers or cloud providers).",
+          "type": "string"
+        },
+        {
+          "const": "anthropic",
+          "description": "An Anthropic-compatible Messages API.",
+          "type": "string"
+        }
+      ]
+    },
+    "AnalysisConfig": {
+      "additionalProperties": false,
+      "description": "What to analyze.",
+      "properties": {
+        "artifact_commits": {
+          "default": 1000,
+          "description": "Maximum commits stored in the artifact.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "include_architecture": {
+          "default": true,
+          "description": "Infer architecture.",
+          "type": "boolean"
+        },
+        "include_build": {
+          "default": true,
+          "description": "Detect build systems and environment requirements.",
+          "type": "boolean"
+        },
+        "include_dependencies": {
+          "default": true,
+          "description": "Analyze manifests and lockfiles.",
+          "type": "boolean"
+        },
+        "include_docs": {
+          "default": true,
+          "description": "Analyze documentation.",
+          "type": "boolean"
+        },
+        "include_git": {
+          "default": true,
+          "description": "Analyze Git history.",
+          "type": "boolean"
+        },
+        "include_history": {
+          "default": true,
+          "description": "Reconstruct evolution (epochs, events, Time Machine snapshots).",
+          "type": "boolean"
+        },
+        "include_quality": {
+          "default": true,
+          "description": "Compute quality signals.",
+          "type": "boolean"
+        },
+        "include_security": {
+          "default": true,
+          "description": "Scan for security signals.",
+          "type": "boolean"
+        },
+        "include_tests": {
+          "default": true,
+          "description": "Detect tests.",
+          "type": "boolean"
+        },
+        "max_commits": {
+          "default": 50000,
+          "description": "Maximum commits to analyze (0 = unlimited).",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_file_bytes": {
+          "default": 2097152,
+          "description": "Files larger than this many bytes are classified but not read.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_file_edges": {
+          "default": 25000,
+          "description": "Maximum file-level edges stored in the artifact.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_symbols": {
+          "default": 25000,
+          "description": "Maximum symbols stored in the artifact.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "profile": {
+          "$ref": "#/$defs/AnalysisProfile",
+          "default": "standard",
+          "description": "Analysis profile."
+        },
+        "respect_gitignore": {
+          "default": true,
+          "description": "Respect `.gitignore`, `.ignore`, and Git exclude files.",
+          "type": "boolean"
+        },
+        "snapshots": {
+          "default": 12,
+          "description": "Number of Time Machine snapshots to sample.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AnalysisProfile": {
+      "description": "A preset trading analysis depth for speed.\n\nAll profiles are deterministic unless an AI provider is explicitly enabled.",
+      "oneOf": [
+        {
+          "const": "quick",
+          "description": "Structure, languages, basic metrics, and project conventions. No Git.",
+          "type": "string"
+        },
+        {
+          "const": "standard",
+          "description": "Adds Git history, dependencies, architecture, quality, security, evolution, and\nenabled plugins.",
+          "type": "string"
+        },
+        {
+          "const": "deep",
+          "description": "Adds duplication, similarity, and historical architecture.",
+          "type": "string"
+        },
+        {
+          "const": "history-only",
+          "description": "Git history and evolution only.",
+          "type": "string"
+        },
+        {
+          "const": "architecture-only",
+          "description": "Parsing, dependencies, and architecture only.",
+          "type": "string"
+        },
+        {
+          "const": "dependencies-only",
+          "description": "Manifests and lockfiles only.",
+          "type": "string"
+        },
+        {
+          "const": "security-only",
+          "description": "Security signals only.",
+          "type": "string"
+        }
+      ]
+    },
+    "ClassificationConfig": {
+      "additionalProperties": false,
+      "description": "Classification overrides as glob patterns. Later categories win over earlier ones.",
+      "properties": {
+        "docs": {
+          "default": [],
+          "description": "Paths to treat as documentation.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "generated": {
+          "default": [],
+          "description": "Paths to treat as generated code.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "default": [],
+          "description": "Paths to treat as first-party source even if they look generated or vendored.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tests": {
+          "default": [],
+          "description": "Paths to treat as tests.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "vendor": {
+          "default": [],
+          "description": "Paths to treat as vendored third-party code.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "ExecutionConfig": {
+      "additionalProperties": false,
+      "description": "Build and test execution. Off by default; only honored from user configuration or flags.",
+      "properties": {
+        "allow_build_commands": {
+          "default": false,
+          "description": "Allow running detected build commands.",
+          "type": "boolean"
+        },
+        "allow_test_commands": {
+          "default": false,
+          "description": "Allow running detected test commands.",
+          "type": "boolean"
+        },
+        "max_output_lines": {
+          "default": 200,
+          "description": "Lines of output kept per command.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "timeout_seconds": {
+          "default": 600,
+          "description": "Timeout per command in seconds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "IgnoreConfig": {
+      "additionalProperties": false,
+      "description": "Paths to exclude from discovery.",
+      "properties": {
+        "patterns": {
+          "default": [],
+          "description": "Additional gitignore-style patterns.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "use_default_patterns": {
+          "default": true,
+          "description": "Also exclude common dependency and tool-cache directories:\n`node_modules/`, `bower_components/`, `.venv/`, `__pycache__/`, `.tox/`, `.mypy_cache/`,\n`.pytest_cache/`, `.gradle/`, `.next/`, `.nuxt/`, `.turbo/`, and `.parcel-cache/`.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Parallelism": {
+      "anyOf": [
+        {
+          "enum": [
+            "auto"
+          ],
+          "type": "string"
+        },
+        {
+          "minimum": 1,
+          "type": "integer"
+        }
+      ],
+      "description": "\"auto\" or a positive number of worker threads."
+    },
+    "PerformanceConfig": {
+      "additionalProperties": false,
+      "description": "Performance tuning.",
+      "properties": {
+        "cache": {
+          "default": true,
+          "description": "Reuse cached per-file analysis results. Entries are keyed by file content, language\ndefinition, and RepoDNA version, so changed files are always analyzed again.",
+          "type": "boolean"
+        },
+        "parallelism": {
+          "$ref": "#/$defs/Parallelism",
+          "default": "auto",
+          "description": "Worker threads."
+        }
+      },
+      "type": "object"
+    },
+    "PluginConfig": {
+      "additionalProperties": false,
+      "description": "Plugins. Only honored from user configuration or command-line flags.",
+      "properties": {
+        "directories": {
+          "default": [],
+          "description": "Additional directories to search for plugins.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "enabled": {
+          "default": [],
+          "description": "Names of plugins to run.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "max_output_bytes": {
+          "default": 8388608,
+          "description": "Maximum bytes a plugin may write to standard output.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "timeout_seconds": {
+          "default": 60,
+          "description": "Per-plugin timeout in seconds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "PrivacyConfig": {
+      "additionalProperties": false,
+      "description": "Privacy switches. RepoDNA has no telemetry; `telemetry` exists so the setting is explicit.",
+      "properties": {
+        "anonymize_contributors": {
+          "default": false,
+          "description": "Replace contributor names with pseudonyms in artifacts.",
+          "type": "boolean"
+        },
+        "include_commit_messages": {
+          "default": true,
+          "description": "Store commit subject lines in artifacts.",
+          "type": "boolean"
+        },
+        "redact_paths_in_logs": {
+          "default": false,
+          "description": "Replace repository paths in log output with hashes.",
+          "type": "boolean"
+        },
+        "remote_ai": {
+          "default": false,
+          "description": "Allow AI providers that send data to remote endpoints.",
+          "type": "boolean"
+        },
+        "telemetry": {
+          "default": false,
+          "description": "Always `false`: RepoDNA does not collect telemetry.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "PrivacyPreset": {
+      "description": "How much identifying data exported reports contain.",
+      "oneOf": [
+        {
+          "const": "local",
+          "description": "Everything in the artifact (secret values and absolute paths are never included).",
+          "type": "string"
+        },
+        {
+          "const": "share",
+          "description": "Removes commit messages, marker comment text, and command output.",
+          "type": "string"
+        },
+        {
+          "const": "public",
+          "description": "Additionally anonymizes contributors and removes remote URLs (keeping the repository\nname and owner) and symbol names.",
+          "type": "string"
+        }
+      ]
+    },
+    "ReportConfig": {
+      "additionalProperties": false,
+      "description": "Report defaults.",
+      "properties": {
+        "branding": {
+          "default": true,
+          "description": "Show \"RepoDNA · Made by the Sanskar\" branding in generated visuals.",
+          "type": "boolean"
+        },
+        "privacy": {
+          "$ref": "#/$defs/PrivacyPreset",
+          "default": "local",
+          "description": "Privacy preset applied to exported reports."
+        },
+        "sections": {
+          "default": [],
+          "description": "Report sections to include (empty = all).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "theme": {
+          "$ref": "#/$defs/ReportTheme",
+          "default": "professional",
+          "description": "HTML theme."
+        }
+      },
+      "type": "object"
+    },
+    "ReportTheme": {
+      "description": "Visual theme of HTML reports.",
+      "oneOf": [
+        {
+          "const": "professional",
+          "description": "Balanced light theme.",
+          "type": "string"
+        },
+        {
+          "const": "minimal",
+          "description": "Reduced ornamentation.",
+          "type": "string"
+        },
+        {
+          "const": "technical",
+          "description": "Dense, monospace-leaning layout.",
+          "type": "string"
+        },
+        {
+          "const": "dark",
+          "description": "Dark theme.",
+          "type": "string"
+        }
+      ]
+    },
+    "SuppressionRule": {
+      "additionalProperties": false,
+      "description": "\"Ignore finding X in path Y\" — a user-defined suppression rule.",
+      "properties": {
+        "id": {
+          "description": "Optional exact finding identifier.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "Optional path glob; the rule then applies only to findings about matching paths.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "description": "Why the finding is suppressed. Required so suppressions stay explainable.",
+          "type": "string"
+        },
+        "rule": {
+          "default": "*",
+          "description": "Rule identifier or wildcard pattern, e.g. `security.secret` or `quality.*`.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the rule was defined; filled in when configuration is loaded.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "type": "object"
+    },
+    "Thresholds": {
+      "additionalProperties": false,
+      "description": "Thresholds used by analyzers to turn measurements into signals.",
+      "properties": {
+        "deep_nesting": {
+          "default": 5,
+          "description": "Block nesting depth above which a function is reported.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dependency_concentration": {
+          "default": 0.3,
+          "description": "Share of internal module edges (0–1) pointing at one module above which a\ndependency-concentration signal is reported.",
+          "format": "double",
+          "type": "number"
+        },
+        "dormant_days": {
+          "default": 90,
+          "description": "Minimum gap in days to report a dormant period.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "duplicate_min_tokens": {
+          "default": 70,
+          "description": "Minimum duplicated block size in normalized tokens.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "high_churn_share": {
+          "default": 0.3,
+          "description": "Share of recent churn (0–1) above which a directory is reported as a high-churn area.",
+          "format": "double",
+          "type": "number"
+        },
+        "high_complexity": {
+          "default": 15,
+          "description": "Approximate cyclomatic complexity above which a function is reported.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hotspot_min_commits": {
+          "default": 3,
+          "description": "Minimum commits for a file to be considered as a hotspot.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "large_binary_bytes": {
+          "default": 5242880,
+          "description": "Size in bytes above which a committed binary file is reported.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "large_file_lines": {
+          "default": 1000,
+          "description": "Code lines above which a file is reported as large.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "large_function_lines": {
+          "default": 80,
+          "description": "Lines above which a function is reported as large.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recent_days": {
+          "default": 90,
+          "description": "Size of the \"recent\" window in days (before the latest commit).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "similarity": {
+          "default": 0.8,
+          "description": "Minimum estimated Jaccard similarity (0–1) for similar-file pairs.",
+          "format": "double",
+          "type": "number"
+        },
+        "stale_manifest_days": {
+          "default": 730,
+          "description": "Days a manifest must be unchanged before a stale-declarations signal is reported.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/sanskarIN/RepoDNA/blob/main/schemas/repodna-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The complete configuration.",
+  "properties": {
+    "ai": {
+      "$ref": "#/$defs/AiConfig",
+      "default": {
+        "command": [],
+        "include_source_excerpts": false,
+        "max_context_tokens": 6000,
+        "provider": "none",
+        "timeout_seconds": 120
+      },
+      "description": "Optional AI provider (user configuration only)."
+    },
+    "analysis": {
+      "$ref": "#/$defs/AnalysisConfig",
+      "default": {
+        "artifact_commits": 1000,
+        "include_architecture": true,
+        "include_build": true,
+        "include_dependencies": true,
+        "include_docs": true,
+        "include_git": true,
+        "include_history": true,
+        "include_quality": true,
+        "include_security": true,
+        "include_tests": true,
+        "max_commits": 50000,
+        "max_file_bytes": 2097152,
+        "max_file_edges": 25000,
+        "max_symbols": 25000,
+        "profile": "standard",
+        "respect_gitignore": true,
+        "snapshots": 12
+      },
+      "description": "What to analyze."
+    },
+    "classification": {
+      "$ref": "#/$defs/ClassificationConfig",
+      "default": {
+        "docs": [],
+        "generated": [],
+        "source": [],
+        "tests": [],
+        "vendor": []
+      },
+      "description": "Classification overrides."
+    },
+    "execution": {
+      "$ref": "#/$defs/ExecutionConfig",
+      "default": {
+        "allow_build_commands": false,
+        "allow_test_commands": false,
+        "max_output_lines": 200,
+        "timeout_seconds": 600
+      },
+      "description": "Build and test execution (user configuration only)."
+    },
+    "ignore": {
+      "$ref": "#/$defs/IgnoreConfig",
+      "default": {
+        "patterns": [],
+        "use_default_patterns": true
+      },
+      "description": "Paths to exclude from discovery."
+    },
+    "performance": {
+      "$ref": "#/$defs/PerformanceConfig",
+      "default": {
+        "cache": true,
+        "parallelism": "auto"
+      },
+      "description": "Performance tuning."
+    },
+    "plugins": {
+      "$ref": "#/$defs/PluginConfig",
+      "default": {
+        "directories": [],
+        "enabled": [],
+        "max_output_bytes": 8388608,
+        "timeout_seconds": 60
+      },
+      "description": "Plugins (user configuration only)."
+    },
+    "privacy": {
+      "$ref": "#/$defs/PrivacyConfig",
+      "default": {
+        "anonymize_contributors": false,
+        "include_commit_messages": true,
+        "redact_paths_in_logs": false,
+        "remote_ai": false,
+        "telemetry": false
+      },
+      "description": "Privacy switches."
+    },
+    "report": {
+      "$ref": "#/$defs/ReportConfig",
+      "default": {
+        "branding": true,
+        "privacy": "local",
+        "sections": [],
+        "theme": "professional"
+      },
+      "description": "Report defaults."
+    },
+    "suppress": {
+      "description": "Suppression rules (`[[suppress]]` tables).",
+      "items": {
+        "$ref": "#/$defs/SuppressionRule"
+      },
+      "type": "array"
+    },
+    "thresholds": {
+      "$ref": "#/$defs/Thresholds",
+      "default": {
+        "deep_nesting": 5,
+        "dependency_concentration": 0.3,
+        "dormant_days": 90,
+        "duplicate_min_tokens": 70,
+        "high_churn_share": 0.3,
+        "high_complexity": 15,
+        "hotspot_min_commits": 3,
+        "large_binary_bytes": 5242880,
+        "large_file_lines": 1000,
+        "large_function_lines": 80,
+        "recent_days": 90,
+        "similarity": 0.8,
+        "stale_manifest_days": 730
+      },
+      "description": "Signal thresholds."
+    }
+  },
+  "title": "RepoDNA configuration",
+  "type": "object"
+}

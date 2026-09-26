@@ -1,0 +1,21 @@
+# Zig language definition for RepoDNA.
+#
+# Every pattern is a regular expression compiled by the Rust `regex` crate, which matches
+# in linear time. Patterns that capture a name or path need exactly one capture group.
+id = "zig"
+name = "Zig"
+kind = "programming"
+extensions = ["zig"]
+line_comments = ["//"]
+strings = [{ open = "\"", escape = "\\" }]
+imports = ['@import\("([^"]+)"\)']
+functions = ['^\s*(?:pub\s+)?(?:export\s+|extern\s+|inline\s+)?fn\s+([A-Za-z_]\w*)']
+types = [
+  { pattern = '^\s*(?:pub\s+)?const\s+([A-Z]\w*)\s*=\s*(?:extern\s+|packed\s+)?struct\b', kind = "struct" },
+  { pattern = '^\s*(?:pub\s+)?const\s+([A-Z]\w*)\s*=\s*(?:extern\s+)?enum\b', kind = "enum" },
+  { pattern = '^\s*(?:pub\s+)?const\s+([A-Z]\w*)\s*=\s*(?:extern\s+|packed\s+)?union\b', kind = "type" },
+  { pattern = '^\s*(?:pub\s+)?const\s+([A-Z]\w*)\s*=\s*error\s*\{', kind = "type" },
+]
+body = "braces"
+complexity_keywords = ["if", "for", "while", "switch", "catch", "orelse"]
+complexity_operators = ["and", "or"]

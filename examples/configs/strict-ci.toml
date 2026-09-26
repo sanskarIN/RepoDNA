@@ -1,0 +1,14 @@
+# Tighter thresholds for a CI gate, passed with --config:
+#
+#   repodna ci . --config strict-ci.toml --fail-on attention --format github
+#
+# Settings from --config apply on top of the repository's repodna.toml.
+
+[analysis]
+profile = "standard"
+
+[thresholds]
+large_file_lines = 800
+large_function_lines = 60
+high_complexity = 12
+deep_nesting = 4

@@ -1,0 +1,45 @@
+# Rust build output
+/target/
+**/target/
+
+# Node / frontend build output
+node_modules/
+apps/web/dist/
+apps/web/dist-report/
+apps/web/coverage/
+packages/*/dist/
+*.tsbuildinfo
+
+# Tauri build output
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# RepoDNA local output (reports and artifacts generated while developing)
+/repodna-report/
+/repodna-output/
+/.repodna/
+*.repodna.tmp
+
+# Generated fixture repositories (recreated by `cargo xtask fixtures`)
+/fixtures/generated/
+
+# Benchmark scratch data
+/benchmarks/work/
+
+# Python helpers
+__pycache__/
+*.pyc
+
+# Editors and operating systems
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Environment files must never be committed
+.env
+.env.*
+!.env.example
