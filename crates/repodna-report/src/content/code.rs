@@ -156,6 +156,16 @@ pub(super) fn architecture(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
                 .collect(),
         );
     }
+    let names: std::collections::HashMap<&str, &str> = report
+        .modules
+        .iter()
+        .map(|module| (module.id.as_str(), module.name.as_str()))
+        .collect();
+    let name = |id: &str| {
+        names
+            .get(id)
+            .map_or_else(|| id.to_owned(), |n| (*n).to_owned())
+    };
     if !report.module_edges.is_empty() {
         blocks.heading(3, "Strongest module dependencies", None);
         let mut edges: Vec<_> = report.module_edges.iter().collect();
@@ -167,16 +177,6 @@ pub(super) fn architecture(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
         });
         let mut table = Table::new(&["From", "To", "Imports#", "Confidence"]);
         table.omitted = truncate(&mut edges, 20);
-        let names: std::collections::HashMap<&str, &str> = report
-            .modules
-            .iter()
-            .map(|module| (module.id.as_str(), module.name.as_str()))
-            .collect();
-        let name = |id: &str| {
-            names
-                .get(id)
-                .map_or_else(|| id.to_owned(), |n| (*n).to_owned())
-        };
         for edge in edges {
             table.row(vec![
                 plain(name(&edge.from)),
@@ -197,7 +197,14 @@ pub(super) fn architecture(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
                 code(package.name.clone()),
                 plain(package.ecosystem.clone().unwrap_or_else(|| "–".to_owned())),
                 plain(thousands(u64::from(package.importers))),
-                plain(package.modules.join(", ")),
+                plain(
+                    package
+                        .modules
+                        .iter()
+                        .map(|id| name(id))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                ),
             ]);
         }
         blocks.table(table);
@@ -205,7 +212,12 @@ pub(super) fn architecture(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
     if !report.isolated_modules.is_empty() {
         blocks.text(format!(
             "Modules with no internal dependencies in either direction: {}.",
-            report.isolated_modules.join(", ")
+            report
+                .isolated_modules
+                .iter()
+                .map(|id| name(id))
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
     if let Some(workspace) = &report.workspace {
