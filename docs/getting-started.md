@@ -49,9 +49,8 @@ Stored as analysis 4f72dd572c00. `repodna report .` writes the full report.
 (This is the `polyglot` [fixture repository](../fixtures/README.md); you can generate it
 and the others with `cargo xtask fixtures` in a clone of RepoDNA.)
 
-The analysis is stored locally, so the commands below reuse it instead of analyzing again.
-Nothing in the repository was modified, nothing was executed, and nothing left your
-machine.
+The analysis is stored locally. Nothing in the repository was modified, nothing was
+executed, and nothing left your machine.
 
 Other inputs:
 
@@ -76,6 +75,11 @@ repodna show --section summary,tests,build
 
 Every finding says what was measured, why it matters, how it was measured, what the
 measurement cannot see, and what to do next.
+
+Given a directory (the default is the current one), these commands analyze it again, which
+is quick because results for unchanged files come from the cache. To read the stored
+analysis without analyzing anything, pass the repository's name instead, as listed by
+`repodna list`: for example `repodna findings some-project`.
 
 ## 4. Explore in the browser
 

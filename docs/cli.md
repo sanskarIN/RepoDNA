@@ -31,16 +31,16 @@ Most commands take one target (default: the current directory). A target can be:
 | A Git URL | `https://github.com/owner/repo` | Cloned into a temporary directory, analyzed, and deleted. |
 | An archive | `project.zip`, `project.tar.gz` | Extracted with safety limits into a temporary directory. |
 | An artifact file | `repodna.json`, `export.repodna` | Read as an existing analysis; nothing is analyzed. |
-| A stored repository | `polyglot`, its path, or its identifier | The latest stored analysis is used. |
+| A stored repository | `polyglot` or its identifier | The latest stored analysis is used; nothing is analyzed. |
 
-When a view command (`show`, `report`, `card`, and so on) is given a name or path that
-matches a stored repository, it reuses the latest stored analysis and says so:
+A directory is analyzed again every time, which is quick when little has changed because
+results for unchanged files come from the per-file cache. To read a stored analysis
+instead, give a view command (`show`, `report`, `card`, and so on) the repository's name
+from `repodna list`, or its identifier; it says which analysis it uses:
 
 ```text
 Using the stored analysis of polyglot from 2026-09-25 (revision 540e92db6965). Pass a path to analyze again.
 ```
-
-Pass the path of a directory to analyze it again instead.
 
 ## Options shared by most commands
 
