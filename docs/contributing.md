@@ -7,7 +7,7 @@ new ecosystems, new analyzers, and ideas. The full guide, with exact commands, i
 ```sh
 git clone https://github.com/sanskarIN/RepoDNA.git
 cd RepoDNA
-npm ci && cargo build              # set up
+cargo xtask setup                  # check prerequisites, install, build, and write fixtures
 cargo test --workspace             # run the Rust tests
 npm test                           # run the web tests
 cargo run -p repodna-cli -- serve  # try your change

@@ -12,8 +12,16 @@ with npm. For the desktop app, also Tauri's system libraries (on Debian and Ubun
 ```sh
 git clone https://github.com/sanskarIN/RepoDNA.git
 cd RepoDNA
+cargo xtask setup
+```
+
+`cargo xtask setup` checks the prerequisites and then does what you can also do step by
+step:
+
+```sh
 npm ci                              # web, schema, visualization, and desktop tooling
-cargo build                         # the Rust workspace
+npm run build -w @repodna/web       # the web interface, embedded in the binary
+cargo build -p repodna-cli          # the repodna binary
 cargo xtask fixtures                # fixture repositories in fixtures/generated/
 ```
 
