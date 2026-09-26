@@ -25,9 +25,10 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
     steps:
+      # Full tag refs everywhere: a branch with the same name as the tag must not be built.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
       - id: version
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
@@ -53,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.tag }}
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -87,7 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.tag }}
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
       # The binary embeds the web interface served by `repodna serve`.
       - uses: actions/download-artifact@v8
         with:
@@ -160,7 +161,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.tag }}
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
       - name: Install WebKitGTK
         if: runner.os == 'Linux'
         run: |
@@ -202,7 +203,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.tag }}
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
       - uses: actions/download-artifact@v8
         with:
           pattern: cli-*
