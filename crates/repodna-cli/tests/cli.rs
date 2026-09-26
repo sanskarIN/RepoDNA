@@ -251,9 +251,6 @@ fn errors_explain_what_to_do() {
 
     let repo = env.work("widget");
     sample_repo(&repo, true);
-    let explain = env.run(&["explain", &path(&repo), "-q"]);
-    assert_eq!(code(&explain), 4);
-    assert!(stderr(&explain).contains("AI features are off"));
 
     assert_eq!(code(&env.run(&["cache", "reset"])), 2);
     assert_eq!(code(&env.run(&["init", &path(&repo)])), 0);
@@ -323,34 +320,6 @@ fn manages_configuration_cache_and_plugins() {
     assert!(stdout(&dry).contains("Run again with --yes"));
     assert_eq!(code(&env.run(&["clean", "--all", "--yes"])), 0);
     assert!(stdout(&env.run(&["list"])).contains("No stored analyses"));
-}
-
-#[cfg(unix)]
-#[test]
-fn explains_with_a_local_command_provider() {
-    let env = Env::new();
-    std::fs::write(
-        env.home.path().join("config.toml"),
-        r#"[ai]
-provider = "command"
-command = ["sh", "-c", "cat >/dev/null; printf '%s' '{\"summary\":\"A widget library.\",\"points\":[{\"text\":\"It is named widget.\",\"evidence\":[\"E1\"]}],\"confidence\":\"medium\",\"limitations\":[]}'"]
-"#,
-    )
-    .unwrap();
-    let repo = env.work("widget");
-    sample_repo(&repo, true);
-    let dry = env.run(&["explain", &path(&repo), "--dry-run", "-q"]);
-    assert_eq!(code(&dry), 0, "{}", stderr(&dry));
-    assert!(stdout(&dry).contains("Dry run: nothing was sent."));
-    assert!(stdout(&dry).contains("<evidence>"));
-    let explained = env.run(&["explain", &path(&repo), "-q"]);
-    assert_eq!(code(&explained), 0, "{}", stderr(&explained));
-    let text = stdout(&explained);
-    assert!(text.contains("(AI-generated)"), "{text}");
-    assert!(text.contains("A widget library."), "{text}");
-    let json = env.run(&["explain", &path(&repo), "--format", "json", "-q"]);
-    let value: serde_json::Value = serde_json::from_str(&stdout(&json)).unwrap();
-    assert_eq!(value["format"], "repodna-explanation/1");
 }
 
 #[test]

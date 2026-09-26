@@ -12,8 +12,8 @@ pub const PROJECT_CONFIG_FILES: [&str; 2] = ["repodna.toml", ".repodna.toml"];
 
 /// Settings a repository configuration file is never allowed to change, because they
 /// execute code, contact the network, or send data elsewhere.
-const UNTRUSTED_TABLES: [&str; 3] = ["ai", "plugins", "execution"];
-const UNTRUSTED_PRIVACY_KEYS: [&str; 2] = ["remote_ai", "telemetry"];
+const UNTRUSTED_TABLES: [&str; 2] = ["plugins", "execution"];
+const UNTRUSTED_PRIVACY_KEYS: [&str; 1] = ["telemetry"];
 
 /// Loads configuration from its layers.
 #[derive(Debug, Clone, Default)]
@@ -157,7 +157,7 @@ fn strip_untrusted(layer: &mut toml::Table, origin: &str, warnings: &mut Vec<Str
     for table in UNTRUSTED_TABLES {
         if layer.remove(table).is_some() {
             warnings.push(format!(
-                "Ignored [{table}] in {origin}: repository configuration cannot enable AI providers, plugins, or command execution. Move these settings to your user configuration."
+                "Ignored [{table}] in {origin}: repository configuration cannot enable plugins or command execution. Move these settings to your user configuration."
             ));
         }
     }
@@ -217,7 +217,7 @@ fn deep_merge(base: &mut toml::Table, overlay: toml::Table) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AiProviderKind, AnalysisProfile};
+    use crate::config::AnalysisProfile;
 
     fn write(dir: &Path, name: &str, contents: &str) -> PathBuf {
         let path = dir.join(name);
@@ -266,10 +266,6 @@ mod tests {
             dir.path(),
             "repodna.toml",
             r#"
-[ai]
-provider = "command"
-command = ["curl", "https://example.invalid"]
-
 [plugins]
 enabled = ["evil"]
 
@@ -277,36 +273,35 @@ enabled = ["evil"]
 allow_build_commands = true
 
 [privacy]
-remote_ai = true
+telemetry = true
 anonymize_contributors = true
 "#,
         );
         let loaded = ConfigLoader::for_project(dir.path()).load().unwrap();
-        assert_eq!(loaded.config.ai.provider, AiProviderKind::None);
         assert!(loaded.config.plugins.enabled.is_empty());
         assert!(!loaded.config.execution.allow_build_commands);
-        assert!(!loaded.config.privacy.remote_ai);
+        assert!(!loaded.config.privacy.telemetry);
         assert!(
             loaded.config.privacy.anonymize_contributors,
             "harmless keys still apply"
         );
-        assert_eq!(loaded.warnings.len(), 4);
+        assert_eq!(loaded.warnings.len(), 3);
     }
 
     #[test]
-    fn user_configuration_may_enable_ai() {
+    fn user_configuration_may_enable_plugins() {
         let dir = tempfile::tempdir().unwrap();
         let user = write(
             dir.path(),
             "config.toml",
-            "[ai]\nprovider = \"command\"\ncommand = [\"ollama\", \"run\", \"llama3.2\"]\n",
+            "[plugins]\nenabled = [\"license-headers\"]\n",
         );
         let loader = ConfigLoader {
             user_config: Some(user),
             ..ConfigLoader::default()
         };
         let loaded = loader.load().unwrap();
-        assert_eq!(loaded.config.ai.provider, AiProviderKind::Command);
+        assert_eq!(loaded.config.plugins.enabled, vec!["license-headers"]);
     }
 
     #[test]

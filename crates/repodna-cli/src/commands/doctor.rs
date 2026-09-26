@@ -2,7 +2,6 @@
 //! uses the network.
 
 use repodna_app::{AppError, ErrorKind, load_config};
-use repodna_core::config::AiProviderKind;
 use repodna_core::model::metadata::SCHEMA_VERSION;
 use repodna_git::GitRunner;
 use repodna_parser::builtin_languages;
@@ -178,32 +177,6 @@ fn checks(ctx: &Ctx) -> Vec<Check> {
 
     if let Ok(loaded) = &user {
         let config = &loaded.config;
-        if config.ai.provider == AiProviderKind::None {
-            checks.push(check(
-                "ai",
-                Status::Ok,
-                "off (optional; every other feature works without it)",
-                ErrorKind::Config,
-            ));
-        } else {
-            match repodna_app::explain::provider(config, false) {
-                Ok(provider) => checks.push(check(
-                    "ai",
-                    Status::Ok,
-                    format!(
-                        "{} / {} at {} ({}; not contacted by this check)",
-                        provider.id(),
-                        provider.model(),
-                        provider.destination(),
-                        if provider.remote() { "remote" } else { "local" }
-                    ),
-                    ErrorKind::Config,
-                )),
-                Err(error) => {
-                    checks.push(check("ai", Status::Warn, error.message, ErrorKind::Config))
-                }
-            }
-        }
         let dirs = ctx.paths.plugin_dirs(&config.plugins.directories, &[]);
         let discovery = discover(&dirs);
         let mut problems = Vec::new();
@@ -239,7 +212,7 @@ fn checks(ctx: &Ctx) -> Vec<Check> {
     checks.push(check(
         "network",
         Status::Ok,
-        "not checked: RepoDNA uses the network only to clone URLs you pass and to reach AI providers you configure",
+        "not checked: RepoDNA uses the network only to clone Git URLs you pass",
         ErrorKind::External,
     ));
     checks

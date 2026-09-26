@@ -1,4 +1,4 @@
-//! Where RepoDNA keeps user configuration, plugins, stored analyses, and explanations.
+//! Where RepoDNA keeps user configuration, plugins, and stored analyses.
 
 use std::path::{Path, PathBuf};
 
@@ -44,11 +44,6 @@ impl AppPaths {
         self.config_dir().join("plugins")
     }
 
-    /// Where generated explanations are cached.
-    pub fn explanation_dir(&self) -> PathBuf {
-        self.data_home.join("explanations")
-    }
-
     /// Plugin search directories: command-line directories first, then the user plugin
     /// directory, then directories from the configuration.
     pub fn plugin_dirs(&self, configured: &[String], extra: &[PathBuf]) -> Vec<PathBuf> {
@@ -83,10 +78,6 @@ mod tests {
         let paths = AppPaths::in_directory("/tmp/rdna");
         assert_eq!(paths.config_file, PathBuf::from("/tmp/rdna/config.toml"));
         assert_eq!(paths.plugin_dir(), PathBuf::from("/tmp/rdna/plugins"));
-        assert_eq!(
-            paths.explanation_dir(),
-            PathBuf::from("/tmp/rdna/explanations")
-        );
         let dirs = paths.plugin_dirs(
             &["extra".into(), "/abs/plugins".into()],
             &[PathBuf::from("cli")],

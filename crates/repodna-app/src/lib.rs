@@ -5,13 +5,12 @@
 //! around it that front ends need in the same way: locating user configuration, plugins,
 //! and storage; assembling the effective configuration; running analyses with the cache,
 //! plugins, and local history; loading earlier analyses from files or storage; writing
-//! reports without overwriting files RepoDNA did not create; and optional AI
-//! explanations. Front ends only parse input and present results.
+//! reports without overwriting files RepoDNA did not create. Front ends only parse input
+//! and present results.
 
 pub mod analysis;
 pub mod config;
 pub mod error;
-pub mod explain;
 pub mod export;
 pub mod paths;
 
@@ -21,7 +20,6 @@ pub use analysis::{
 };
 pub use config::{ConfigOptions, Overrides, load_config};
 pub use error::{AppError, ErrorKind};
-pub use explain::{ExplainOutcome, ExplainRequest, explain, plan_explanation};
 pub use export::{
     OUTPUT_MARKER, OutputFile, artifact_file_name, report_bundle, write_bundle, write_file,
 };
