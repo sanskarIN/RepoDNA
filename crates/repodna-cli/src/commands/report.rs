@@ -134,10 +134,16 @@ pub fn run_badge(ctx: &Ctx, cmd: &BadgeCmd) -> Result<(), AppError> {
         "Badges written to {}. Markdown for your README:\n\n",
         cmd.output.display()
     );
+    // README links are relative, so show the directory relative to the current one.
+    let directory = std::env::current_dir()
+        .ok()
+        .and_then(|current| cmd.output.strip_prefix(current).ok().map(PathBuf::from))
+        .filter(|relative| !relative.as_os_str().is_empty())
+        .unwrap_or_else(|| cmd.output.clone());
     for kind in kinds {
         let path = format!(
             "{}/{}.svg",
-            cmd.output.to_string_lossy().replace('\\', "/"),
+            directory.to_string_lossy().replace('\\', "/"),
             kind.id()
         );
         out.push_str(&markdown_snippet(kind, &path));
