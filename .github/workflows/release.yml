@@ -1,15 +1,19 @@
 name: Release
 
-# Builds and publishes a release when a version tag is pushed. Running it by hand for an
-# existing tag rebuilds that tag's code with this workflow and updates the release's files.
+# Builds and publishes a release when a version tag is pushed: the command line for every
+# platform, the desktop installers, and the container image on ghcr.io. Running it by hand
+# with an existing tag rebuilds that tag's code and updates the release's files. Running it
+# by hand without a tag is a trial: it builds every file from the selected branch and keeps
+# them as downloads of the run, without publishing anything.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to build and publish, for example v1.0.0
-        required: true
+        description: Existing tag to build and publish, such as v1.0.0. Leave it empty for a trial build of the selected branch.
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -22,30 +26,43 @@ jobs:
     name: Check the version
     runs-on: ubuntu-latest
     outputs:
+      # Empty for a trial. Every job builds refs/tags/<tag>, never a branch of the same name,
+      # or for a trial the commit the run started from.
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
     steps:
-      # Full tag refs everywhere: a branch with the same name as the tag must not be built.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
       - id: version
         env:
-          TAG: ${{ inputs.tag || github.ref_name }}
+          # Empty for a trial started by hand without a tag.
+          TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
         run: |
           set -euo pipefail
-          version="${TAG#v}"
           workspace=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "repodna-cli") | .version')
-          if [ "$version" != "$workspace" ]; then
-            echo "The tag $TAG does not match the workspace version $workspace."
-            exit 1
+          if [ -n "$TAG" ]; then
+            version="${TAG#v}"
+            if [ "$version" != "$workspace" ]; then
+              echo "The tag $TAG does not match the workspace version $workspace."
+              exit 1
+            fi
+            publish=true
+          else
+            version="$workspace"
+            publish=false
+            echo "Trial build of $version from $GITHUB_REF_NAME at $GITHUB_SHA; nothing is published."
           fi
           if ! grep -q "^## \[$version\]" CHANGELOG.md; then
             echo "CHANGELOG.md has no section for $version."
             exit 1
           fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$TAG"
+            echo "version=$version"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
 
   web:
     name: Web interface
@@ -54,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -88,7 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       # The binary embeds the web interface served by `repodna serve`.
       - uses: actions/download-artifact@v8
         with:
@@ -161,7 +178,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       - name: Install WebKitGTK
         if: runner.os == 'Linux'
         run: |
@@ -178,6 +195,14 @@ jobs:
       # Builds the web interface first (Tauri's beforeBuildCommand) and embeds it.
       - name: Build the installers
         run: npm run bundle -w @repodna/desktop -- ${{ matrix.bundle-args }}
+      - name: Check the app signature
+        # The ad-hoc signature must cover the whole bundle: macOS reports a downloaded app
+        # without one as damaged, instead of offering to open it from Privacy & Security.
+        if: runner.os == 'macOS'
+        run: |
+          app=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/RepoDNA.app
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --verbose=2 "$app"
       - name: Collect the installers
         shell: bash
         run: |
@@ -194,16 +219,89 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  container:
+    name: Container image
+    needs: [prepare, cli]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*-linux-musl
+          path: archives
+          merge-multiple: true
+      - name: Prepare the build context
+        # The static Linux binaries of this release, and the license files.
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          context="$RUNNER_TEMP/image"
+          for pair in amd64:x86_64 arm64:aarch64; do
+            arch="${pair%%:*}"
+            name="repodna-$VERSION-${pair#*:}-unknown-linux-musl"
+            tar -xzf "archives/$name.tar.gz" -C "$RUNNER_TEMP"
+            mkdir -p "$context/$arch"
+            cp "$RUNNER_TEMP/$name/repodna" "$context/$arch/repodna"
+          done
+          cp LICENSE NOTICE THIRD-PARTY-NOTICES.txt "$context/"
+          echo "CONTEXT=$context" >> "$GITHUB_ENV"
+      - name: Set up emulation and Buildx
+        # Installing Git into the arm64 image runs under emulation on this x86_64 runner.
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          docker buildx create --use --name repodna
+      - name: Test the image
+        run: |
+          set -euo pipefail
+          docker buildx build --platform linux/amd64 --load --tag repodna:test \
+            --file packaging/container/Dockerfile "$CONTEXT"
+          docker run --rm repodna:test --version
+          docker run --rm --volume "$PWD:/work" repodna:test analyze . --profile quick --no-store --quiet > /dev/null
+      - name: Log in to the GitHub Container Registry
+        if: needs.prepare.outputs.publish == 'true'
+        env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build for amd64 and arm64, and push a release
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PUBLISH: ${{ needs.prepare.outputs.publish }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/repodna"
+          tags=(--tag "$image:$VERSION")
+          if [[ "$VERSION" != *-* ]]; then
+            major="${VERSION%%.*}"
+            minor="${VERSION#*.}"
+            minor="${minor%%.*}"
+            tags+=(--tag "$image:$major.$minor" --tag "$image:$major" --tag "$image:latest")
+          fi
+          push=()
+          if [ "$PUBLISH" = true ]; then
+            push=(--push)
+          fi
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION="$VERSION" --build-arg REVISION="$(git rev-parse HEAD)" \
+            --label org.opencontainers.image.created="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "${tags[@]}" "${push[@]}" --file packaging/container/Dockerfile "$CONTEXT"
+
   publish:
     name: Publish the release
-    needs: [prepare, cli, desktop]
+    needs: [prepare, cli, desktop, container]
+    if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       - uses: actions/download-artifact@v8
         with:
           pattern: cli-*
@@ -225,9 +323,11 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
+          # The version's section of the changelog, without the link definitions at its end.
           awk -v version="$VERSION" '
             index($0, "## [" version "]") == 1 { found = 1; next }
             found && /^## \[/ { exit }
+            found && /^\[[^]]+\]: / { next }
             found { print }
           ' CHANGELOG.md > notes.md
           cat >> notes.md <<'EOF'
@@ -239,10 +339,13 @@ jobs:
           - `RepoDNA_<version>_amd64.deb`, `RepoDNA-<version>-1.x86_64.rpm`,
             `RepoDNA_<version>_universal.dmg`, `RepoDNA_<version>_x64_en-US.msi`, and
             `RepoDNA_<version>_x64-setup.exe`: the desktop app.
+          - `ghcr.io/sanskarin/repodna:<version>`: a container image with the command line and
+            Git, for CI jobs: `docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .`
           - `SHA256SUMS.txt`: checksums of every file.
 
           EOF
           echo "The binaries are not code-signed, so macOS and Windows ask for confirmation the first time they start; see the [installation guide](https://github.com/sanskarIN/RepoDNA/blob/$TAG/docs/installation.md)." >> notes.md
+          sed -i "s/<version>/$VERSION/g" notes.md
           cat notes.md
       - name: Create or update the release
         env:

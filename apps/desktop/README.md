@@ -35,6 +35,10 @@ This builds the web interface, embeds it, and writes installers for your platfor
 `.dmg` on macOS, and `.msi` and `.exe` installers on Windows. Choose formats with
 `npm run bundle -w @repodna/desktop -- --bundles deb`.
 
+On macOS the app is signed ad hoc (`bundle.macOS.signingIdentity` is `-` in
+[tauri.conf.json](src-tauri/tauri.conf.json)): Macs with Apple silicon report a downloaded
+app whose signature does not cover the whole bundle as damaged, and refuse to open it.
+
 Without the Tauri command line, `cargo build --release --features custom-protocol` in
 `src-tauri/` builds the app binary with the interface embedded (build the web interface
 first with `npm run build -w @repodna/web` from the repository root).

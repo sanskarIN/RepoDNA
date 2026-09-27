@@ -6,6 +6,7 @@ installing anything, use the [web version](web.md#the-web-version).
 
 - [Prebuilt binaries](#prebuilt-binaries)
 - [The desktop app](#the-desktop-app)
+- [Container image](#container-image)
 - [Build from source](#build-from-source)
 - [Check the installation](#check-the-installation)
 - [Uninstall](#uninstall)
@@ -57,11 +58,14 @@ Get-FileHash .\repodna-1.0.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # co
 
 ### Unsigned binaries
 
-The binaries and installers are not code-signed.
+The binaries and installers are not signed with a developer certificate.
 
-- **macOS** blocks unsigned programs downloaded from the internet. For the command line,
-  remove the quarantine attribute: `xattr -d com.apple.quarantine /usr/local/bin/repodna`.
-  For the desktop app, Control-click it in Finder, choose **Open**, and confirm.
+- **macOS** blocks programs downloaded from the internet that Apple has not checked. For the
+  command line, remove the quarantine attribute:
+  `xattr -d com.apple.quarantine /usr/local/bin/repodna`. For the desktop app, open it once
+  and close the warning, then open **System Settings > Privacy & Security**, choose
+  **Open Anyway** next to the message about RepoDNA, and confirm. On macOS 14 and earlier,
+  you can instead Control-click the app in Finder and choose **Open**.
 - **Windows** SmartScreen may say "Windows protected your PC". Choose **More info**, then
   **Run anyway**.
 
@@ -69,6 +73,27 @@ The binaries and installers are not code-signed.
 
 Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows (`.msi`, `.exe`) are
 attached to each release. See [the desktop app](desktop.md).
+
+## Container image
+
+Each release is also published as a container image with the command line and Git, for CI
+jobs and machines where you would rather not install anything. It runs on `linux/amd64` and
+`linux/arm64`:
+
+```sh
+docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .
+docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" \
+  ghcr.io/sanskarin/repodna report . --output repodna-report
+```
+
+The current directory is mounted as `/work`, and `--user` makes the files RepoDNA writes
+yours. Tags follow the releases: `1.0.0`, `1.0`, `1`, and `latest`. Stored analyses live in
+`/tmp/repodna` inside the container and disappear with it; mount a volume there
+(`-v repodna-data:/tmp/repodna`) to keep them. `repodna serve` in a container listens on the
+container's own loopback address, so use an installed binary or the desktop app for the web
+interface. The image is based on Alpine Linux; the Alpine packages in it, such as Git, keep
+their own licenses, and their sources are available from
+[Alpine Linux](https://gitlab.alpinelinux.org/alpine/aports).
 
 ## Build from source
 
