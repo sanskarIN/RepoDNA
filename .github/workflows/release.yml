@@ -319,9 +319,11 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
+          # The version's section of the changelog, without the link definitions at its end.
           awk -v version="$VERSION" '
             index($0, "## [" version "]") == 1 { found = 1; next }
             found && /^## \[/ { exit }
+            found && /^\[[^]]+\]: / { next }
             found { print }
           ' CHANGELOG.md > notes.md
           cat >> notes.md <<'EOF'
@@ -339,6 +341,7 @@ jobs:
 
           EOF
           echo "The binaries are not code-signed, so macOS and Windows ask for confirmation the first time they start; see the [installation guide](https://github.com/sanskarIN/RepoDNA/blob/$TAG/docs/installation.md)." >> notes.md
+          sed -i "s/<version>/$VERSION/g" notes.md
           cat notes.md
       - name: Create or update the release
         env:
