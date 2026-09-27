@@ -58,11 +58,14 @@ Get-FileHash .\repodna-1.0.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # co
 
 ### Unsigned binaries
 
-The binaries and installers are not code-signed.
+The binaries and installers are not signed with a developer certificate.
 
-- **macOS** blocks unsigned programs downloaded from the internet. For the command line,
-  remove the quarantine attribute: `xattr -d com.apple.quarantine /usr/local/bin/repodna`.
-  For the desktop app, Control-click it in Finder, choose **Open**, and confirm.
+- **macOS** blocks programs downloaded from the internet that Apple has not checked. For the
+  command line, remove the quarantine attribute:
+  `xattr -d com.apple.quarantine /usr/local/bin/repodna`. For the desktop app, open it once
+  and close the warning, then open **System Settings > Privacy & Security**, choose
+  **Open Anyway** next to the message about RepoDNA, and confirm. On macOS 14 and earlier,
+  you can instead Control-click the app in Finder and choose **Open**.
 - **Windows** SmartScreen may say "Windows protected your PC". Choose **More info**, then
   **Run anyway**.
 

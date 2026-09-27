@@ -199,6 +199,14 @@ jobs:
       # Builds the web interface first (Tauri's beforeBuildCommand) and embeds it.
       - name: Build the installers
         run: npm run bundle -w @repodna/desktop -- ${{ matrix.bundle-args }}
+      - name: Check the app signature
+        # The ad-hoc signature must cover the whole bundle: macOS reports a downloaded app
+        # without one as damaged, instead of offering to open it from Privacy & Security.
+        if: runner.os == 'macOS'
+        run: |
+          app=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/RepoDNA.app
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --verbose=2 "$app"
       - name: Collect the installers
         shell: bash
         run: |

@@ -20,9 +20,10 @@ Installers are attached to each [release](https://github.com/sanskarIN/RepoDNA/r
 On Linux the app needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), which the packages declare
 as a dependency. The Linux packages are built on Ubuntu 24.04.
 
-The installers are not code-signed. macOS asks for confirmation the first time: open the
-app from Finder with Control-click, **Open**. Windows SmartScreen may show "Windows
-protected your PC": choose **More info**, then **Run anyway**. See
+The installers are not signed with a developer certificate, so the system asks for
+confirmation the first time. On macOS, open the app once, then choose **Open Anyway** in
+**System Settings > Privacy & Security**. Windows SmartScreen may show "Windows protected
+your PC": choose **More info**, then **Run anyway**. See
 [installation](installation.md#unsigned-binaries).
 
 To build it yourself, see [apps/desktop/README.md](../apps/desktop/README.md).
