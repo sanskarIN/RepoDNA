@@ -26,16 +26,15 @@ jobs:
     name: Check the version
     runs-on: ubuntu-latest
     outputs:
+      # Empty for a trial. Every job builds refs/tags/<tag>, never a branch of the same name,
+      # or for a trial the commit the run started from.
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
-      # What every job builds: the full tag ref (never a branch of the same name) or, for a
-      # trial, the exact commit.
-      ref: ${{ steps.version.outputs.ref }}
       publish: ${{ steps.version.outputs.publish }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
       - id: version
         env:
           # Empty for a trial started by hand without a tag.
@@ -49,13 +48,11 @@ jobs:
               echo "The tag $TAG does not match the workspace version $workspace."
               exit 1
             fi
-            ref="refs/tags/$TAG"
             publish=true
           else
             version="$workspace"
-            ref=$(git rev-parse HEAD)
             publish=false
-            echo "Trial build of $version from $GITHUB_REF_NAME at $ref; nothing is published."
+            echo "Trial build of $version from $GITHUB_REF_NAME at $GITHUB_SHA; nothing is published."
           fi
           if ! grep -q "^## \[$version\]" CHANGELOG.md; then
             echo "CHANGELOG.md has no section for $version."
@@ -64,7 +61,6 @@ jobs:
           {
             echo "tag=$TAG"
             echo "version=$version"
-            echo "ref=$ref"
             echo "publish=$publish"
           } >> "$GITHUB_OUTPUT"
 
@@ -75,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.ref }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -109,7 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.ref }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       # The binary embeds the web interface served by `repodna serve`.
       - uses: actions/download-artifact@v8
         with:
@@ -182,7 +178,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.ref }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       - name: Install WebKitGTK
         if: runner.os == 'Linux'
         run: |
@@ -233,7 +229,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.ref }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       - uses: actions/download-artifact@v8
         with:
           pattern: cli-*-linux-musl
@@ -305,7 +301,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.ref }}
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
       - uses: actions/download-artifact@v8
         with:
           pattern: cli-*
