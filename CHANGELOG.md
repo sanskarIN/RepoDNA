@@ -6,7 +6,7 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-09-26
+## [1.0.0] - 2026-09-27
 
 The first stable release: local-first repository intelligence and code archaeology, with
 every conclusion backed by evidence.
@@ -71,6 +71,8 @@ every conclusion backed by evidence.
   part of the analysis, with search, a command palette, keyboard shortcuts, light and dark
   themes, a table view for every chart, and a bundled demo that works offline.
 - A desktop app for Linux, macOS, and Windows, built with Tauri on the same Rust core.
+- A container image with the command line and Git, `ghcr.io/sanskarin/repodna`, for
+  `linux/amd64` and `linux/arm64`.
 - About & support, Privacy Policy, Terms of Use, and Licenses pages in the web interface
   and the desktop app; every download includes the licenses of the third-party software it
   contains (`THIRD-PARTY-NOTICES.txt`).

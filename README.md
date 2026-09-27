@@ -207,6 +207,10 @@ repodna --version
 **The desktop app.** Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows
 (`.msi`, `.exe`) are attached to each release. See [the desktop app](docs/desktop.md).
 
+**Container image.** `docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .`
+runs the command line with Git, on `linux/amd64` and `linux/arm64`. See
+[the container image](docs/installation.md#container-image).
+
 **The web version.** <https://sanskarin.github.io/RepoDNA/> needs no installation: it opens
 analyses (`repodna.json` or `.repodna` files) in your browser, without uploading them, and
 includes the demo. Analyzing a repository needs the command line or the desktop app.
