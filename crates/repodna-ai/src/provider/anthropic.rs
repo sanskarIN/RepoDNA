@@ -3,16 +3,21 @@
 //! Requests contain the model, the output limit, the instructions as the system prompt,
 //! and one user message. Thinking is left at the model's default, so the output limit
 //! (16000 unless configured) also leaves room for reasoning tokens. Only `text` blocks of
-//! the reply are read.
+//! the reply are read. A declined request arrives as a successful response whose
+//! `stop_reason` is `refusal`; it is reported with the category the API gives, if any.
 
 use serde_json::{Value, json};
 
 use crate::error::AiError;
 use crate::provider::http::{Client, Endpoint};
 use crate::provider::{AiProvider, Completion, CompletionRequest};
+use crate::text::single_line;
 
 /// Default API base URL.
 pub const ANTHROPIC_ENDPOINT: &str = "https://api.anthropic.com";
+/// Host of the default API, the only one that receives `ANTHROPIC_API_KEY` unless another
+/// variable is configured.
+pub const ANTHROPIC_HOST: &str = "api.anthropic.com";
 /// API version header value.
 const API_VERSION: &str = "2023-06-01";
 
@@ -89,11 +94,11 @@ impl AiProvider for AnthropicProvider {
         });
         let value = self
             .client
-            .post(&self.url, &headers, &body)?
+            .post(&self.url, &headers, &body, request.cancel)?
             .check()?
             .json()?;
         match value.get("stop_reason").and_then(Value::as_str) {
-            Some("refusal") => return Err(AiError::Refused),
+            Some("refusal") => return Err(AiError::Refused(refusal_detail(&value))),
             Some("max_tokens") => {
                 return Err(AiError::Truncated {
                     limit: request.max_output_tokens,
@@ -126,6 +131,27 @@ impl AiProvider for AnthropicProvider {
                 .and_then(Value::as_u64),
         })
     }
+}
+
+/// The category, explanation, and suggested model of a refusal, as far as the response
+/// gives them; `stop_details` is informational and may be missing or null.
+fn refusal_detail(value: &Value) -> String {
+    let field = |name: &str| {
+        value
+            .pointer(&format!("/stop_details/{name}"))
+            .and_then(Value::as_str)
+            .map(|text| single_line(text, 300))
+            .filter(|text| !text.is_empty())
+    };
+    let mut parts = Vec::new();
+    if let Some(category) = field("category") {
+        parts.push(format!("category: {category}"));
+    }
+    parts.extend(field("explanation"));
+    if let Some(model) = field("recommended_model") {
+        parts.push(format!("the API suggests trying {model}"));
+    }
+    parts.join("; ")
 }
 
 #[cfg(test)]
@@ -178,7 +204,12 @@ mod tests {
             (
                 200,
                 "",
-                r#"{"content":[],"stop_reason":"refusal","usage":{"input_tokens":1,"output_tokens":0}}"#.to_owned(),
+                r#"{"content":[],"stop_reason":"refusal","stop_details":{"type":"refusal","category":"cyber","explanation":"Security\ntopic."},"usage":{"input_tokens":1,"output_tokens":0}}"#.to_owned(),
+            ),
+            (
+                200,
+                "",
+                r#"{"content":[],"stop_reason":"refusal","stop_details":null}"#.to_owned(),
             ),
             (
                 200,
@@ -197,9 +228,17 @@ mod tests {
             None,
             10,
         );
+        let refused = provider.complete(&request()).unwrap_err();
+        assert!(
+            matches!(&refused, AiError::Refused(detail) if detail == "category: cyber; Security topic.")
+        );
+        assert_eq!(
+            refused.to_string(),
+            "the model declined to answer this request (category: cyber; Security topic.)"
+        );
         assert!(matches!(
             provider.complete(&request()),
-            Err(AiError::Refused)
+            Err(AiError::Refused(ref detail)) if detail.is_empty()
         ));
         assert!(matches!(
             provider.complete(&request()),

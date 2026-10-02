@@ -151,10 +151,12 @@ pub fn build_provider_with_env(
                 non_empty(config.endpoint.as_deref()).unwrap_or(ANTHROPIC_ENDPOINT),
             )?;
             check_remote(&endpoint, "anthropic", allow_remote)?;
+            // Without api_key_env, ANTHROPIC_API_KEY is sent only to Anthropic's own host.
             let key_name = non_empty(config.api_key_env.as_deref())
                 .map(str::to_owned)
                 .or_else(|| {
-                    (endpoint.base == ANTHROPIC_ENDPOINT).then(|| "ANTHROPIC_API_KEY".to_owned())
+                    (endpoint.host == anthropic::ANTHROPIC_HOST)
+                        .then(|| "ANTHROPIC_API_KEY".to_owned())
                 });
             let key = match key_name {
                 Some(name) => Some(api_key(&name, env)?),
@@ -245,6 +247,17 @@ mod tests {
             build_provider_with_env(&anthropic, true, &|_| None),
             Err(AiError::MissingApiKey(ref name)) if name == "ANTHROPIC_API_KEY"
         ));
+        anthropic.endpoint = Some("https://api.anthropic.com/v1".into());
+        assert!(matches!(
+            build_provider_with_env(&anthropic, true, &|_| None),
+            Err(AiError::MissingApiKey(ref name)) if name == "ANTHROPIC_API_KEY"
+        ));
+        anthropic.endpoint = Some("https://gateway.example.com".into());
+        let gateway = build_provider_with_env(&anthropic, true, &|_| None).unwrap();
+        assert_eq!(
+            gateway.destination(),
+            "https://gateway.example.com/v1/messages"
+        );
     }
 
     #[test]

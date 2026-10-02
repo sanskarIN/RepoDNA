@@ -76,8 +76,8 @@
           "description": "Provider kind."
         },
         "timeout_seconds": {
-          "default": 120,
-          "description": "Request timeout in seconds.",
+          "default": 300,
+          "description": "Request timeout in seconds. Models that reason before answering can take several\nminutes to use their whole output limit, and a request that times out may still be\nbilled.",
           "format": "uint64",
           "minimum": 0,
           "type": "integer"
@@ -215,7 +215,7 @@
       "type": "object"
     },
     "AnalysisProfile": {
-      "description": "A preset trading analysis depth for speed.\n\nAll profiles are deterministic unless an AI provider is explicitly enabled.",
+      "description": "A preset trading analysis depth for speed.\n\nAll profiles are deterministic.",
       "oneOf": [
         {
           "const": "quick",
@@ -676,7 +676,7 @@
         "include_source_excerpts": false,
         "max_context_tokens": 6000,
         "provider": "none",
-        "timeout_seconds": 120
+        "timeout_seconds": 300
       },
       "description": "Optional AI provider (user configuration only)."
     },

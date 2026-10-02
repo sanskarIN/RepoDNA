@@ -53,7 +53,7 @@ provider = "command"
 command = ["ollama", "run", "llama3.2"]
 ```
 
-The program runs without a shell, with a time limit (`timeout_seconds`, default 120).
+The program runs without a shell, with a time limit (`timeout_seconds`, default 300).
 RepoDNA treats it as local; what the program itself does with the prompt is up to the
 program.
 
@@ -86,7 +86,17 @@ api_key_env = "ANTHROPIC_API_KEY"
 ```
 
 `model` is required; use an identifier from Anthropic's list of models. The key is read
-from the environment variable you name; keys are never stored in files.
+from the environment variable you name; keys are never stored in files. Without
+`api_key_env`, RepoDNA reads `ANTHROPIC_API_KEY`, and only when `endpoint` is Anthropic's
+own; a gateway or proxy you set as `endpoint` gets a key only from a variable you name.
+
+RepoDNA leaves thinking and effort at the model's defaults. On models that think before
+answering, the output limit (16000 tokens unless you set `max_output_tokens`) also covers
+the thinking, and an answer can take a few minutes.
+
+Some models decline requests that their safety checks flag, which can happen with
+security-related evidence. RepoDNA then reports the reason the API gives; another model,
+or a narrower request such as `--module`, may be answered.
 
 ## Remote providers need your consent
 
@@ -111,8 +121,9 @@ repodna explain --format markdown -o EXPLANATION.md
 repodna explain --format json                    # with provenance: provider, model, revision, cited evidence, token use
 ```
 
-Explanations are cached: asking the same provider and model the same question with the same
-evidence reuses the earlier answer instead of sending a request. `--fresh` asks the
+Explanations are cached: asking the same model, at the same endpoint or through the same
+command, the same question with the same evidence reuses the earlier answer instead of
+sending a request. `--fresh` asks the
 provider again, and `repodna cache clear` removes cached explanations.
 
 ## Costs

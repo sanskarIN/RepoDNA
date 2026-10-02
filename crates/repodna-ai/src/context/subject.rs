@@ -102,6 +102,14 @@ pub(super) fn read_excerpt(root: &Path, path: &str) -> Option<String> {
     if !metadata.is_file() {
         return None;
     }
+    // A symbolic link to a directory on the way could lead out of the checkout.
+    if !full
+        .canonicalize()
+        .ok()?
+        .starts_with(root.canonicalize().ok()?)
+    {
+        return None;
+    }
     let mut bytes = Vec::new();
     File::open(&full)
         .ok()?

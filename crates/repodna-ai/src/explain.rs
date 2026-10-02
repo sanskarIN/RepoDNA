@@ -109,7 +109,10 @@ pub fn plan(
     })
 }
 
-/// A cache key for an explanation: identical prompts to the same model share it.
+/// A cache key for an explanation: identical prompts to the same model, reached the same
+/// way, share it. The destination is part of the key because the model name alone does not
+/// identify the model: a `command` provider is labeled with its program name whatever model
+/// its arguments select, and different servers can use the same model name.
 pub fn cache_key(plan: &Plan, provider: &dyn AiProvider) -> String {
     let mut hasher = StableHasher::new();
     hasher
@@ -117,6 +120,7 @@ pub fn cache_key(plan: &Plan, provider: &dyn AiProvider) -> String {
         .str_field(PROMPT_VERSION)
         .str_field(provider.id())
         .str_field(provider.model())
+        .str_field(&provider.destination())
         .str_field(&plan.max_output_tokens.to_string())
         .str_field(&plan.prompt.system)
         .str_field(&plan.prompt.user);
@@ -280,6 +284,7 @@ pub(crate) mod tests {
     pub(crate) struct Scripted {
         pub reply: String,
         pub seen: Mutex<Vec<String>>,
+        pub destination: &'static str,
     }
 
     impl AiProvider for Scripted {
@@ -293,7 +298,7 @@ pub(crate) mod tests {
             false
         }
         fn destination(&self) -> String {
-            "test".into()
+            self.destination.into()
         }
         fn complete(&self, request: &CompletionRequest<'_>) -> Result<Completion, AiError> {
             self.seen.lock().unwrap().push(request.user.to_owned());
@@ -321,6 +326,7 @@ pub(crate) mod tests {
         let provider = Scripted {
             reply: r#"{"summary": "A layered Rust library.", "points": [{"text": "Networking code lives in src/net.", "evidence": ["E1", "E3"]}, {"text": "It is probably an HTTP client.", "evidence": ["E3"], "inference": true}], "confidence": "medium", "limitations": ["No tests were described."]}"#.into(),
             seen: Mutex::new(Vec::new()),
+            destination: "test",
         };
         explain(&sample(), &AiTask::Repository, &provider, &options(), None).unwrap()
     }
@@ -355,6 +361,7 @@ pub(crate) mod tests {
         let provider = Scripted {
             reply: String::new(),
             seen: Mutex::new(Vec::new()),
+            destination: "ollama run llama3.2",
         };
         assert!(provider.seen.lock().unwrap().is_empty());
         assert!(first.estimated_input_tokens > 0);
@@ -363,6 +370,14 @@ pub(crate) mod tests {
         assert_eq!(cache_key(&first, &provider), cache_key(&again, &provider));
         let other = plan(&dna, &AiTask::History, &options()).unwrap();
         assert_ne!(cache_key(&first, &provider), cache_key(&other, &provider));
+        // Same label, different model behind it: never share answers.
+        let switched = Scripted {
+            reply: String::new(),
+            seen: Mutex::new(Vec::new()),
+            destination: "ollama run qwen2.5",
+        };
+        assert_eq!(provider.model(), switched.model());
+        assert_ne!(cache_key(&first, &provider), cache_key(&first, &switched));
         let cancel = CancellationToken::new();
         cancel.cancel();
         assert!(matches!(

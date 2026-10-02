@@ -203,6 +203,9 @@ impl From<AiError> for AppError {
                 "AI is optional; every other command works without it. See docs/ai.md to configure a provider.",
             ),
             AiError::Timeout(_) => Some("Raise ai.timeout_seconds in your user configuration."),
+            AiError::Refused(_) => Some(
+                "Models differ in what they decline. Try another model (ai.model in your user configuration), or a narrower request such as --module or --hotspot.",
+            ),
             _ => None,
         };
         let mut app = AppError::new(kind, error.to_string());

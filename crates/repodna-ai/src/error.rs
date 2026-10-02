@@ -40,9 +40,9 @@ pub enum AiError {
     /// The provider's response could not be understood.
     #[error("unexpected response from the AI provider: {0}")]
     InvalidResponse(String),
-    /// The model declined to answer.
-    #[error("the model declined to answer this request")]
-    Refused,
+    /// The model declined to answer, with the provider's reason when it gave one.
+    #[error("the model declined to answer this request{}", parenthesized(.0))]
+    Refused(String),
     /// The answer was cut off by the output limit.
     #[error(
         "the model's answer was cut off at {limit} output tokens; raise ai.max_output_tokens in your user configuration"
@@ -63,4 +63,13 @@ pub enum AiError {
     /// The explanation subject does not exist in the analysis.
     #[error("{0}")]
     UnknownSubject(String),
+}
+
+/// ` (text)`, or nothing when `text` is empty.
+fn parenthesized(text: &str) -> String {
+    if text.is_empty() {
+        String::new()
+    } else {
+        format!(" ({text})")
+    }
 }

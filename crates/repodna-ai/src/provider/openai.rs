@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 use crate::error::AiError;
 use crate::provider::http::{Client, Endpoint};
 use crate::provider::{AiProvider, Completion, CompletionRequest};
+use crate::text::single_line;
 
 /// Talks to `<endpoint>/chat/completions`.
 pub struct OpenAiCompatibleProvider {
@@ -90,7 +91,9 @@ impl AiProvider for OpenAiCompatibleProvider {
             "max_tokens": request.max_output_tokens,
             "stream": false,
         });
-        let mut reply = self.client.post(&self.url, &headers, &body)?;
+        let mut reply = self
+            .client
+            .post(&self.url, &headers, &body, request.cancel)?;
         // Some hosted models accept only `max_completion_tokens`.
         if reply.status == 400 && reply.body.contains("max_completion_tokens") {
             if let Some(object) = body.as_object_mut() {
@@ -100,22 +103,30 @@ impl AiProvider for OpenAiCompatibleProvider {
                     json!(request.max_output_tokens),
                 );
             }
-            reply = self.client.post(&self.url, &headers, &body)?;
+            reply = self
+                .client
+                .post(&self.url, &headers, &body, request.cancel)?;
         }
         let value = reply.check()?.json()?;
         let choice = value
             .pointer("/choices/0")
             .ok_or_else(|| AiError::InvalidResponse("the response has no choices".to_owned()))?;
         let text = content_text(choice.pointer("/message/content").unwrap_or(&Value::Null));
+        let finish_reason = choice.get("finish_reason").and_then(Value::as_str);
+        if finish_reason == Some("content_filter") {
+            return Err(AiError::Refused(
+                "the provider's content filter stopped the answer".to_owned(),
+            ));
+        }
         if text.trim().is_empty() {
-            if choice
+            if let Some(refusal) = choice
                 .pointer("/message/refusal")
                 .and_then(Value::as_str)
-                .is_some_and(|refusal| !refusal.is_empty())
+                .filter(|refusal| !refusal.trim().is_empty())
             {
-                return Err(AiError::Refused);
+                return Err(AiError::Refused(single_line(refusal, 300)));
             }
-            if choice.get("finish_reason").and_then(Value::as_str) == Some("length") {
+            if finish_reason == Some("length") {
                 return Err(AiError::Truncated {
                     limit: request.max_output_tokens,
                 });
@@ -124,7 +135,7 @@ impl AiProvider for OpenAiCompatibleProvider {
                 "the response contains no text".to_owned(),
             ));
         }
-        if choice.get("finish_reason").and_then(Value::as_str) == Some("length") {
+        if finish_reason == Some("length") {
             return Err(AiError::Truncated {
                 limit: request.max_output_tokens,
             });
@@ -211,16 +222,27 @@ mod tests {
 
     #[test]
     fn reports_refusals() {
-        let (base, _seen) = fake::serve(vec![(
-            200,
-            "",
-            r#"{"choices":[{"message":{"content":null,"refusal":"I can't help with that."},"finish_reason":"stop"}]}"#.to_owned(),
-        )]);
+        let (base, _seen) = fake::serve(vec![
+            (
+                200,
+                "",
+                r#"{"choices":[{"message":{"content":null,"refusal":"I can't help with that."},"finish_reason":"stop"}]}"#.to_owned(),
+            ),
+            (
+                200,
+                "",
+                r#"{"choices":[{"message":{"content":"{\"summ"},"finish_reason":"content_filter"}]}"#.to_owned(),
+            ),
+        ]);
         let provider =
             OpenAiCompatibleProvider::new(Endpoint::parse(&base).unwrap(), "m".into(), None, 10);
         assert!(matches!(
             provider.complete(&request()),
-            Err(AiError::Refused)
+            Err(AiError::Refused(ref detail)) if detail == "I can't help with that."
+        ));
+        assert!(matches!(
+            provider.complete(&request()),
+            Err(AiError::Refused(ref detail)) if detail.contains("content filter")
         ));
     }
 }

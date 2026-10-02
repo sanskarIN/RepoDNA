@@ -349,4 +349,22 @@ mod tests {
         assert!(!excerpt.detail.contains(&key));
         assert!(subject::read_excerpt(dir.path(), "../outside.rs").is_none());
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn excerpts_never_follow_links_out_of_the_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let (root, outside) = (dir.path().join("repo"), dir.path().join("outside"));
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(root.join("src/lib.rs"), "fn inside() {}\n").unwrap();
+        std::fs::write(outside.join("id_ed25519"), "not for the model\n").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("keys")).unwrap();
+        std::os::unix::fs::symlink(root.join("src"), root.join("alias")).unwrap();
+        std::os::unix::fs::symlink(outside.join("id_ed25519"), root.join("key")).unwrap();
+        assert!(subject::read_excerpt(&root, "src/lib.rs").is_some());
+        assert!(subject::read_excerpt(&root, "alias/lib.rs").is_some());
+        assert!(subject::read_excerpt(&root, "keys/id_ed25519").is_none());
+        assert!(subject::read_excerpt(&root, "key").is_none());
+    }
 }

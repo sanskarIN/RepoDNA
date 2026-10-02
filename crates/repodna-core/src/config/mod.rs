@@ -464,7 +464,9 @@ pub struct AiConfig {
     /// `anthropic` uses 16000 (its limit also covers thinking) and other providers 2000.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
-    /// Request timeout in seconds.
+    /// Request timeout in seconds. Models that reason before answering can take several
+    /// minutes to use their whole output limit, and a request that times out may still be
+    /// billed.
     pub timeout_seconds: u64,
     /// Price per million input tokens, used only for cost estimates you configure yourself.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -486,7 +488,7 @@ impl Default for AiConfig {
             command: Vec::new(),
             max_context_tokens: 6_000,
             max_output_tokens: None,
-            timeout_seconds: 120,
+            timeout_seconds: 300,
             input_cost_per_million: None,
             output_cost_per_million: None,
             include_source_excerpts: false,

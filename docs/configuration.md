@@ -226,10 +226,10 @@ See [tests and build](tests-and-build.md#running-commands).
 | `command` | `[]` | Command line for the `command` provider. |
 | `endpoint` | none | Base URL for HTTP providers (required for `openai-compatible`; `anthropic` defaults to `https://api.anthropic.com`). |
 | `model` | none | Model identifier (required for `openai-compatible` and `anthropic`). |
-| `api_key_env` | none | Name of the environment variable that holds the API key. Keys are never stored in files. |
+| `api_key_env` | none | Name of the environment variable that holds the API key. Keys are never stored in files. When unset, `anthropic` reads `ANTHROPIC_API_KEY`, but only for Anthropic's own endpoint. |
 | `max_context_tokens` | `6000` | Most estimated tokens of repository context per request. |
 | `max_output_tokens` | none | Most tokens the model may generate (default 16000 for `anthropic`, 2000 for the others). |
-| `timeout_seconds` | `120` | Request time limit. |
+| `timeout_seconds` | `300` | Request time limit. Models that reason before answering can need minutes. |
 | `input_cost_per_million`, `output_cost_per_million` | none | Prices you set yourself, used only for cost estimates. |
 | `include_source_excerpts` | `false` | Allow short source excerpts in prompts. |
 

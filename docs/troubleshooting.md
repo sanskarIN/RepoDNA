@@ -110,8 +110,12 @@ Ubuntu, `webkit2gtk4.1` on Fedora).
 | Remote providers are not allowed | Set `privacy.remote_ai = true` or pass `--allow-remote-ai`. |
 | The API key is missing | Export the variable named by `ai.api_key_env`. |
 | The request timed out | Raise `ai.timeout_seconds`, or use a smaller model. |
+| The model declined to answer | The message gives the provider's reason when there is one. Models differ in what they decline: try another `ai.model`, or a narrower request such as `--module`. |
+| Could not reach the AI provider: a certificate error | RepoDNA checks the provider's certificate against the Mozilla root certificates built into it, not the operating system's store, so a proxy that re-signs HTTPS traffic is rejected. Ask for the provider's host to be exempted, or use a local gateway as `ai.endpoint`. |
 
-`repodna explain --dry-run` shows what would be sent without contacting anything.
+`repodna explain --dry-run` shows what would be sent without contacting anything. HTTP
+providers use the proxy named by `ALL_PROXY`, `HTTPS_PROXY`, or `HTTP_PROXY` and honor
+`NO_PROXY`; endpoints on this machine are always reached directly.
 
 ## Plugins
 

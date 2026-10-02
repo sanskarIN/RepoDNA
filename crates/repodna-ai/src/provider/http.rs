@@ -2,8 +2,9 @@
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use repodna_core::CancellationToken;
 use serde_json::Value;
 
 use crate::error::AiError;
@@ -15,6 +16,8 @@ const MAX_RETRIES: u32 = 2;
 const MAX_RETRY_AFTER: u64 = 30;
 /// Largest response body read, in bytes.
 const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
+/// How often a wait between retries checks for cancellation.
+const CANCEL_POLL: Duration = Duration::from_millis(100);
 
 /// A validated provider endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -197,12 +200,14 @@ impl Client {
         })
     }
 
-    /// Posts JSON, retrying rate-limit and overload responses with backoff.
+    /// Posts JSON, retrying rate-limit and overload responses with backoff. A cancelled
+    /// request is not retried; one already sent runs until it answers or times out.
     pub(crate) fn post(
         &self,
         url: &str,
         headers: &[(&str, &str)],
         body: &Value,
+        cancel: Option<&CancellationToken>,
     ) -> Result<Reply, AiError> {
         let body = body.to_string();
         let mut attempt = 0;
@@ -215,9 +220,26 @@ impl Client {
             let wait = reply
                 .retry_after
                 .map_or(2 << attempt, |seconds| seconds.min(MAX_RETRY_AFTER));
-            thread::sleep(Duration::from_secs(wait));
+            if !pause(Duration::from_secs(wait), cancel) {
+                return Err(AiError::Cancelled);
+            }
             attempt += 1;
         }
+    }
+}
+
+/// Waits for `wait`; returns `false` as soon as `cancel` is set.
+fn pause(wait: Duration, cancel: Option<&CancellationToken>) -> bool {
+    let deadline = Instant::now() + wait;
+    loop {
+        if cancel.is_some_and(CancellationToken::is_cancelled) {
+            return false;
+        }
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return true;
+        }
+        thread::sleep(left.min(CANCEL_POLL));
     }
 }
 
@@ -368,6 +390,7 @@ mod tests {
                 &endpoint.url("/x"),
                 &[("x-test", "1")],
                 &serde_json::json!({"a": 1}),
+                None,
             )
             .unwrap()
             .check()
@@ -381,6 +404,35 @@ mod tests {
     }
 
     #[test]
+    fn stops_retrying_once_cancelled() {
+        let (base, seen) = fake::serve(vec![(
+            429,
+            "retry-after: 30\r\n",
+            r#"{"error":{"message":"slow down"}}"#.to_owned(),
+        )]);
+        let endpoint = Endpoint::parse(&base).unwrap();
+        let cancel = CancellationToken::new();
+        let stopper = cancel.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(200));
+            stopper.cancel();
+        });
+        let started = Instant::now();
+        let error = Client::new(&endpoint, 10)
+            .post(
+                &endpoint.url("/x"),
+                &[],
+                &serde_json::json!({}),
+                Some(&cancel),
+            )
+            .unwrap_err();
+        assert!(matches!(error, AiError::Cancelled));
+        assert!(started.elapsed() < Duration::from_secs(10));
+        assert!(seen.recv().is_ok());
+        assert!(pause(Duration::ZERO, None));
+    }
+
+    #[test]
     fn reports_error_statuses() {
         let (base, _seen) = fake::serve(vec![(
             401,
@@ -389,7 +441,7 @@ mod tests {
         )]);
         let endpoint = Endpoint::parse(&base).unwrap();
         let error = Client::new(&endpoint, 10)
-            .post(&endpoint.url("/x"), &[], &serde_json::json!({}))
+            .post(&endpoint.url("/x"), &[], &serde_json::json!({}), None)
             .unwrap()
             .check()
             .unwrap_err();
