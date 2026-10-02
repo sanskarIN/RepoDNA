@@ -407,6 +407,7 @@ export function Home() {
               </li>
               <li>Commands found in a repository are shown as detected, never run.</li>
               <li>Nothing is uploaded, and no telemetry is collected.</li>
+              <li>AI explanations are optional and off unless you configure a provider.</li>
             </ul>
           </section>
         </div>

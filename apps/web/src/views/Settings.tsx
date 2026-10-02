@@ -43,6 +43,10 @@ export function Settings() {
               <code>repodna serve</code>, the sign-in token for that server.
             </li>
             <li>Files you open here are read on this machine and never uploaded.</li>
+            <li>
+              AI explanations are off unless you configure a provider; remote providers need your
+              explicit consent.
+            </li>
           </ul>
           <p className="muted">
             Read the <a href={href("/privacy")}>Privacy Policy</a> and the{" "}
