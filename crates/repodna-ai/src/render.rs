@@ -74,10 +74,16 @@ fn context_line(e: &Explanation) -> String {
     line
 }
 
-fn revision(e: &Explanation) -> String {
+/// `revision <short hash>`, with the hash formatted by `format`, or `revision unknown`.
+fn revision(e: &Explanation, format: fn(&str) -> String) -> String {
     e.revision.as_deref().map_or_else(
-        || "unknown revision".to_owned(),
-        |r| r.chars().take(12).collect(),
+        || "revision unknown".to_owned(),
+        |r| {
+            format!(
+                "revision {}",
+                format(&r.chars().take(12).collect::<String>())
+            )
+        },
     )
 }
 
@@ -90,9 +96,9 @@ pub fn markdown(e: &Explanation) -> String {
         out.push_str(&format!("**Subject:** {}\n\n", code(subject)));
     }
     out.push_str(&format!(
-        "**Repository:** {} · revision {} · analyzed {}  \n**Model:** {} / {} ({}) · **Confidence:** {}\n\n",
+        "**Repository:** {} · {} · analyzed {}  \n**Model:** {} / {} ({}) · **Confidence:** {}\n\n",
         escape(&e.repository),
-        code(&revision(e)),
+        revision(e, code),
         e.analyzed_at.date_string(),
         escape(&e.usage.ai.provider),
         escape(&e.usage.ai.model),
@@ -157,9 +163,9 @@ pub fn text(e: &Explanation) -> String {
     let a = &e.answer;
     let mut out = format!("{} (AI-generated)\n", e.title);
     out.push_str(&format!(
-        "{} · revision {} · {} / {} ({}) · confidence {}\n\n",
+        "{} · {} · {} / {} ({}) · confidence {}\n\n",
         e.repository,
-        revision(e),
+        revision(e, str::to_owned),
         e.usage.ai.provider,
         e.usage.ai.model,
         if e.usage.ai.remote { "remote" } else { "local" },
@@ -228,6 +234,17 @@ mod tests {
         assert!(out.contains("    evidence: E1 identity; E3 src/net\n"));
         assert!(out.contains("(model inference, not established by the analysis)"));
         assert!(out.contains("Limitations:\n  - No tests were described."));
+    }
+
+    #[test]
+    fn names_the_revision_once() {
+        let mut explanation = explained();
+        explanation.revision = None;
+        assert!(text(&explanation).contains("widget · revision unknown · "));
+        assert!(markdown(&explanation).contains("widget · revision unknown · analyzed"));
+        explanation.revision = Some("0123456789abcdef".into());
+        assert!(text(&explanation).contains("widget · revision 0123456789ab · "));
+        assert!(markdown(&explanation).contains("widget · revision `0123456789ab` · analyzed"));
     }
 
     #[test]
