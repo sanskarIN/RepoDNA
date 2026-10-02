@@ -142,7 +142,7 @@ repodna doctor
 ```
 
 `repodna doctor` checks storage, the cache, Git, the language definitions, your
-configuration, and plugins, and says what to do about anything that is wrong.
+configuration, plugins, and AI settings, and says what to do about anything that is wrong.
 
 ## Uninstall
 

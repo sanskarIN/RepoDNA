@@ -11,7 +11,7 @@ flowchart TB
         server["repodna serve<br/>+ web interface"]
         desktop["Desktop app"]
     end
-    app["repodna-app<br/>configuration · storage · plugins · reports"]
+    app["repodna-app<br/>configuration · storage · plugins · reports · AI"]
     inputs["Directory · Git URL · Archive"]
     subgraph Engine["repodna-engine: analysis stages"]
         direction LR
@@ -24,6 +24,7 @@ flowchart TB
     store[("Local store<br/>SQLite + JSON")]
     reports["Reports · cards<br/>badges · CSV"]
     compare["Comparisons<br/>onboarding guides"]
+    ai["AI explanations<br/>(optional)"]
     Frontends --> app
     app --> Engine
     inputs --> Engine
@@ -31,6 +32,7 @@ flowchart TB
     artifact --> store
     artifact --> reports
     artifact --> compare
+    artifact --> ai
 ```
 
 ## Layers
@@ -60,9 +62,9 @@ A stage that cannot run is recorded as unavailable instead of failing the analys
 
 **Services** used by every front end live in `repodna-app`: locating configuration,
 storage, and plugins; assembling the effective configuration; running analyses with the
-cache, plugins, and storage; loading earlier analyses; and writing reports without
-overwriting files RepoDNA did not create. Front ends only parse input and present results,
-so the CLI, the server, and the desktop app behave the same way.
+cache, plugins, and storage; loading earlier analyses; writing reports without overwriting
+files RepoDNA did not create; and AI explanations. Front ends only parse input and present
+results, so the CLI, the server, and the desktop app behave the same way.
 
 **Outputs** read the artifact alone:
 
@@ -70,6 +72,7 @@ so the CLI, the server, and the desktop app behave the same way.
 |---|---|
 | `repodna-store` | SQLite index, stored artifacts, and the per-file cache |
 | `repodna-report` | Markdown, HTML, DNA cards (SVG and PNG), badges, CSV, CI summaries, onboarding guides, comparisons |
+| `repodna-ai` | Evidence-grounded explanations through optional providers |
 | `repodna-plugin` | Plugin discovery, declarative languages, and the analyzer protocol |
 
 **Front ends**: `repodna-cli` (the `repodna` binary), `repodna-server` (the token-protected
@@ -91,16 +94,16 @@ the desktop app, or none (static hosting, where it opens files and the bundled d
   labeled with the depth of analysis behind it. Missing data is reported as missing, never
   as zero.
 - **Local-first and private.** No telemetry and no network use except for what you ask
-  (cloning a URL). Secret values are never stored.
+  (cloning a URL, an AI provider you configured). Secret values are never stored.
 - **Safe with untrusted repositories.** Read-only analysis, a hardened Git runner, safe
   archive extraction, no command execution by default, and linear-time regular expressions.
-  A repository's configuration cannot enable plugins or execution.
+  A repository's configuration cannot enable plugins, AI, or execution.
 - **Deterministic.** The same revision and configuration produce the same results; windows
   are measured from the latest commit; `--reproducible` and `SOURCE_DATE_EPOCH` make
   artifacts byte-identical.
 - **Degrade gracefully.** Without Git, without history, or with unparseable files, the rest
   of the analysis still runs, and the gaps are explained.
-- **The artifact is the contract.** Reports, the web interface, and comparisons all read
+- **The artifact is the contract.** Reports, the web interface, comparisons, and AI all read
   the artifact, so any of them can be regenerated later, elsewhere, and without the
   repository. The schema is versioned and readers ignore unknown fields.
 
