@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: September 26, 2026
+Last updated: October 2, 2026
 
 This policy explains how RepoDNA handles information. It covers the `repodna` command line,
 the RepoDNA desktop app, the web interface of `repodna serve`, and the web version at
@@ -12,8 +12,11 @@ its contributors, so everything described here can be checked in its
 
 - RepoDNA does not collect, sell, or share personal information. It has no accounts, no
   telemetry, no analytics, no advertising, and no tracking.
-- Your code is analyzed on your own device and is never uploaded.
-- RepoDNA does not use AI services.
+- Your code is analyzed on your own device and is not uploaded. The one exception is an
+  option you turn on yourself: short excerpts of source files sent to an AI provider you set
+  up (see "AI explanations" below).
+- AI explanations are optional and off by default. RepoDNA contacts an AI provider only if
+  you set one up and ask for an explanation.
 
 ## What RepoDNA reads
 
@@ -21,12 +24,13 @@ To analyze a repository, RepoDNA reads its files and Git history on your device:
 and contents, and commit details such as author names, dates, and messages. Author e-mail
 addresses are used only to tell contributors apart and are never stored. The results are
 shown to you and, unless you choose otherwise, stored on your device. Nothing is sent to the
-author of RepoDNA or to anyone else.
+author of RepoDNA or to anyone else, except what you choose to send to an AI provider, as
+described in "AI explanations" below.
 
 ## What is stored on your device
 
-- The command line and the desktop app store analyses, a cache of per-file results, and your
-  settings in a folder on your device. The
+- The command line and the desktop app store analyses, a cache of per-file results, the AI
+  explanations you ask for, and your settings in a folder on your device. The
   [privacy guide](https://github.com/sanskarIN/RepoDNA/blob/main/docs/privacy.md) says where
   it is and how to delete it; `repodna clean` and `repodna cache reset` remove stored data,
   and `--no-store` analyzes without storing anything.
@@ -44,10 +48,33 @@ Only when you ask it to:
 
 - To analyze a Git URL, RepoDNA clones the repository from the host you name, using Git on
   your device. That host sees the request as it would see any clone.
+- If you set up an online AI provider and ask for an explanation, RepoDNA sends the request
+  to that provider, as described in "AI explanations" below.
 - Links to websites, such as GitHub or the support pages, open in your browser.
 
 `repodna serve` accepts connections only from your own computer (127.0.0.1) and requires a
 session token.
+
+## AI explanations
+
+`repodna explain` can describe an analysis in prose with an AI model. It is off until you set
+up a provider in your RepoDNA user configuration: a program or server on your own device, or
+an online service such as the Anthropic API or a service compatible with the OpenAI API. A
+repository's own configuration cannot turn it on.
+
+When you ask for an explanation, RepoDNA sends the provider a selection of facts from the
+analysis, such as file, module, and dependency names, measurements, findings, and commit
+subjects, and your question if you ask one. It never sends contributor names or e-mail
+addresses. Source code is sent only if you turn on `ai.include_source_excerpts`, and then
+only the first lines of a few files, with likely secrets removed. `repodna explain --dry-run`
+shows exactly what would be sent, without sending anything.
+
+A provider that is not on your own computer is used only after you allow it, with
+`privacy.remote_ai = true` in your user configuration or `--allow-remote-ai` for one run.
+That provider receives your request and handles it under its own terms and privacy policy;
+RepoDNA's author does not receive it. Your API key is read from an environment variable when
+it is needed and is never stored by RepoDNA. Explanations are cached on your device, and
+`repodna cache clear` removes them.
 
 ## The web version
 

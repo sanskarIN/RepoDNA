@@ -1,6 +1,6 @@
 # Terms of Use
 
-Last updated: September 26, 2026
+Last updated: October 2, 2026
 
 These terms apply to RepoDNA: the `repodna` command line, the desktop app, the web interface
 of `repodna serve`, and the web version at <https://sanskarin.github.io/RepoDNA/>. RepoDNA is
@@ -28,11 +28,17 @@ incomplete or wrong. Findings about security, quality, dependencies, or licenses
 to review. They are not professional, legal, or security advice, and not a certification
 that a project is secure, correct, or compliant. Check important conclusions yourself.
 
+Explanations written by an AI model you set up are generated text, not part of RepoDNA's
+analysis. They can be wrong even when they cite evidence; RepoDNA labels the statements it
+cannot match to evidence, but check the evidence before you rely on an explanation.
+
 ## Your responsibilities
 
 - Analyze only code and repositories that you are allowed to access and use.
 - You are responsible for the reports, cards, and exports you create and share. Before you
   share them outside your team, choose a privacy preset such as `--privacy public`.
+- If you set up an AI provider, you are responsible for following its terms and for what you
+  allow RepoDNA to send to it.
 - Do not use the web version to disrupt it or the services it runs on.
 
 ## Name and logo
