@@ -175,7 +175,7 @@ mod tests {
         )]);
         let provider = OpenAiCompatibleProvider::new(
             Endpoint::parse(&format!("{base}/v1")).unwrap(),
-            "llama3.2".into(),
+            "local-model".into(),
             Some("secret".into()),
             10,
         );
@@ -189,7 +189,7 @@ mod tests {
         assert_eq!(sent.path, "/v1/chat/completions");
         assert_eq!(sent.header("authorization"), Some("Bearer secret"));
         let body: Value = serde_json::from_str(&sent.body).unwrap();
-        assert_eq!(body["model"], "llama3.2");
+        assert_eq!(body["model"], "local-model");
         assert_eq!(body["max_tokens"], 700);
         assert_eq!(body["messages"][0]["role"], "system");
         assert_eq!(body["messages"][1]["content"], "task");

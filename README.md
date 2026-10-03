@@ -399,7 +399,7 @@ configure in your user configuration:
 | Provider | What it is |
 |---|---|
 | `none` | The default: AI features are off. |
-| `command` | A program on your machine that reads the prompt on standard input, such as `ollama run llama3.2`. |
+| `command` | A program on your machine that reads the prompt on standard input, such as `ollama run <model>`. |
 | `openai-compatible` | Any OpenAI-compatible server: local runtimes (Ollama, llama.cpp, LM Studio, vLLM) or hosted services. |
 | `anthropic` | The Anthropic Messages API. |
 

@@ -299,7 +299,7 @@ anonymize_contributors = true
         let user = write(
             dir.path(),
             "config.toml",
-            "[ai]\nprovider = \"command\"\ncommand = [\"ollama\", \"run\", \"llama3.2\"]\n",
+            "[ai]\nprovider = \"command\"\ncommand = [\"ollama\", \"run\", \"local-model\"]\n",
         );
         let loader = ConfigLoader {
             user_config: Some(user),

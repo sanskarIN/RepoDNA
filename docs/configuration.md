@@ -84,7 +84,7 @@ enabled = ["license-headers"]
 
 [ai]
 provider = "command"
-command = ["ollama", "run", "llama3.2"]
+command = ["ollama", "run", "MODEL_ID"]  # a model you have installed
 ```
 
 ## Reference

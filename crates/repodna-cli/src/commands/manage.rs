@@ -49,11 +49,11 @@ cache = true
 provider = "none"
 # A local program that reads the prompt on standard input:
 #   provider = "command"
-#   command = ["ollama", "run", "llama3.2"]
+#   command = ["ollama", "run", "MODEL_ID"]  # a model you have installed
 # An OpenAI-compatible server, such as a local runtime:
 #   provider = "openai-compatible"
 #   endpoint = "http://127.0.0.1:11434/v1"
-#   model = "llama3.2"
+#   model = "MODEL_ID"                 # a model the server offers
 #   api_key_env = "MY_PROVIDER_KEY"    # only for services that need a key
 # The Anthropic API (also set remote_ai = true above, or pass --allow-remote-ai):
 #   provider = "anthropic"

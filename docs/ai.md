@@ -50,7 +50,7 @@ output, such as [Ollama](https://ollama.com):
 ```toml
 [ai]
 provider = "command"
-command = ["ollama", "run", "llama3.2"]
+command = ["ollama", "run", "MODEL_ID"]  # a model you have installed
 ```
 
 The program runs without a shell, with a time limit (`timeout_seconds`, default 300).
@@ -66,7 +66,7 @@ that implement the OpenAI chat completions API:
 [ai]
 provider = "openai-compatible"
 endpoint = "http://127.0.0.1:11434/v1"
-model = "llama3.2"
+model = "MODEL_ID"                  # a model the server offers
 # api_key_env = "MY_PROVIDER_KEY"   # only for services that need a key
 ```
 

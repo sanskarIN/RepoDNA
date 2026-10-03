@@ -361,7 +361,7 @@ pub(crate) mod tests {
         let provider = Scripted {
             reply: String::new(),
             seen: Mutex::new(Vec::new()),
-            destination: "ollama run llama3.2",
+            destination: "ollama run model-a",
         };
         assert!(provider.seen.lock().unwrap().is_empty());
         assert!(first.estimated_input_tokens > 0);
@@ -374,7 +374,7 @@ pub(crate) mod tests {
         let switched = Scripted {
             reply: String::new(),
             seen: Mutex::new(Vec::new()),
-            destination: "ollama run qwen2.5",
+            destination: "ollama run model-b",
         };
         assert_eq!(provider.model(), switched.model());
         assert_ne!(cache_key(&first, &provider), cache_key(&first, &switched));

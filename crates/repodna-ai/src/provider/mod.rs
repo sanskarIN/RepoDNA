@@ -196,7 +196,7 @@ mod tests {
 
         let mut command = config(AiProviderKind::Command);
         assert!(build_provider_with_env(&command, false, &env).is_err());
-        command.command = vec!["ollama".into(), "run".into(), "llama3.2".into()];
+        command.command = vec!["ollama".into(), "run".into(), "local-model".into()];
         let provider = build_provider_with_env(&command, false, &env).unwrap();
         assert_eq!(provider.id(), "command");
         assert!(!provider.remote());
@@ -205,7 +205,7 @@ mod tests {
         let mut local = config(AiProviderKind::OpenaiCompatible);
         local.endpoint = Some("http://127.0.0.1:11434/v1".into());
         assert!(build_provider_with_env(&local, false, &env).is_err());
-        local.model = Some("llama3.2".into());
+        local.model = Some("local-model".into());
         let provider = build_provider_with_env(&local, false, &env).unwrap();
         assert!(!provider.remote());
         assert_eq!(
