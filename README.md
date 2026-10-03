@@ -42,7 +42,7 @@ sends nothing anywhere unless you ask it to.
 - [Project DNA cards and badges](#project-dna-cards-and-badges)
 - [Supported languages](#supported-languages)
 - [Privacy](#privacy)
-- [AI explanations (next release)](#ai-explanations-next-release)
+- [AI explanations (optional)](#ai-explanations-optional)
 - [Performance](#performance)
 - [Configuration](#configuration)
 - [Plugins](#plugins)
@@ -148,13 +148,17 @@ same analysis.
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations.
 
+**Optional AI explanations.** Explanations in prose, built only from the analysis evidence,
+through a local program or an API you configure. Off by default.
+
 **Plugins.** Teach RepoDNA a new language with a data file, or add findings with an analyzer
 written in any language.
 
 ## Architecture
 
 The analysis produces one versioned artifact, the RepositoryDNA, and everything else reads
-it: the terminal views, reports, cards, the web interface, and comparisons.
+it: the terminal views, reports, cards, the web interface, comparisons, and AI
+explanations.
 
 ```mermaid
 flowchart TB
@@ -164,7 +168,7 @@ flowchart TB
         server["repodna serve<br/>+ web interface"]
         desktop["Desktop app"]
     end
-    app["repodna-app<br/>configuration · storage · plugins · reports"]
+    app["repodna-app<br/>configuration · storage · plugins · reports · AI"]
     inputs["Directory · Git URL · Archive"]
     subgraph Engine["repodna-engine: analysis stages"]
         direction LR
@@ -177,6 +181,7 @@ flowchart TB
     store[("Local store<br/>SQLite + JSON")]
     reports["Reports · cards<br/>badges · CSV"]
     compare["Comparisons<br/>onboarding guides"]
+    ai["AI explanations<br/>(optional)"]
     Frontends --> app
     app --> Engine
     inputs --> Engine
@@ -184,11 +189,12 @@ flowchart TB
     artifact --> store
     artifact --> reports
     artifact --> compare
+    artifact --> ai
 ```
 
 RepoDNA is a Rust workspace of focused crates (discovery, parsing, Git, dependencies,
 architecture, quality, security, project conventions, evolution, the engine, storage,
-reports, and plugins), a React and TypeScript web interface, and a Tauri desktop app.
+reports, AI, and plugins), a React and TypeScript web interface, and a Tauri desktop app.
 See [the architecture guide](docs/architecture.md).
 
 ## Installation
@@ -199,8 +205,8 @@ statically linked), macOS (Apple silicon and Intel), or Windows (x86_64). Each i
 `repodna` program with the web interface built in. For example, on Linux:
 
 ```sh
-tar -xzf repodna-1.0.0-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.0.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.1.0-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.1.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 repodna --version
 ```
 
@@ -369,7 +375,8 @@ See [the analysis engine](docs/analysis-engine.md).
   code that could.
 - **No uploads.** Analyses, reports, and cards are local files. Nothing is published unless
   you publish it.
-- **The network is used only when you ask:** to clone a Git URL you give it.
+- **The network is used only when you ask:** to clone a Git URL you give it, and to reach
+  an AI provider you configured (endpoints off your machine need your explicit consent).
 - **No secret values are stored.** Possible credentials are recorded by rule, file, line,
   and fingerprint.
 - **No absolute local paths in artifacts.** Paths are relative to the repository.
@@ -383,13 +390,29 @@ Where everything is stored, and how to delete it: [privacy](docs/privacy.md). Th
 [Privacy Policy](PRIVACY.md) and the [Terms of Use](TERMS.md) apply to the command line,
 the desktop app, and the web version.
 
-## AI explanations (next release)
+## AI explanations (optional)
 
-RepoDNA 1.0 does not use AI: every result comes from deterministic analysis of your files
-and history. Optional explanations in prose are planned for the next release. They will be
-built only from the evidence in an analysis, work with a local model or an API you choose,
-show exactly what would be sent before anything is sent, and stay off unless you turn them
-on. See the [roadmap](ROADMAP.md).
+The analysis never needs AI. If you want explanations in prose, `repodna explain` sends a
+selection of evidence from the analysis (never your whole code base) to a provider you
+configure in your user configuration:
+
+| Provider | What it is |
+|---|---|
+| `none` | The default: AI features are off. |
+| `command` | A program on your machine that reads the prompt on standard input, such as `ollama run <model>`. |
+| `openai-compatible` | Any OpenAI-compatible server: local runtimes (Ollama, llama.cpp, LM Studio, vLLM) or hosted services. |
+| `anthropic` | The Anthropic Messages API. |
+
+```sh
+repodna explain --dry-run                  # show exactly what would be sent, and send nothing
+repodna explain --about architecture       # explain one area of the analysis
+```
+
+Answers cite the evidence they are based on, record the provider, model, and token use, and
+never replace the analysis itself. Remote endpoints are refused unless you allow them with
+`privacy.remote_ai = true` or `--allow-remote-ai`; API keys are read only from an
+environment variable you name. A repository's own configuration can never turn AI on. See
+[AI](docs/ai.md).
 
 ## Performance
 
@@ -431,7 +454,7 @@ reason = "Intentional fake credentials used by tests"
 
 Settings come from defaults, your user configuration, the repository's `repodna.toml`, a
 file passed with `--config`, and command-line flags, in that order. For safety, a
-repository's own configuration can never enable plugins or command execution.
+repository's own configuration can never enable plugins, AI, or command execution.
 `repodna config show` prints every effective value and where it came from. See
 [configuration](docs/configuration.md) for every setting.
 
@@ -473,7 +496,7 @@ npm run dev -w @repodna/desktop                   # the desktop app
 
 | Path | What lives there |
 |---|---|
-| `crates/` | The Rust workspace: the model, analyzers, engine, storage, reports, plugins, server, and CLI |
+| `crates/` | The Rust workspace: the model, analyzers, engine, storage, reports, AI, plugins, server, and CLI |
 | `apps/web` | The React and TypeScript web interface |
 | `apps/desktop` | The Tauri desktop app |
 | `packages/` | Generated TypeScript types for the artifact, and chart helpers |
@@ -482,7 +505,7 @@ npm run dev -w @repodna/desktop                   # the desktop app
 | `fixtures/`, `benchmarks/`, `xtask/` | Test repositories, benchmark results, and the tasks that make them |
 
 The [development guide](docs/development.md) explains where to make common changes: a new
-language, ecosystem, finding, metric, chart, or report section.
+language, ecosystem, finding, metric, chart, report section, or AI provider.
 
 ## Testing
 
@@ -517,9 +540,9 @@ public issues.
 
 ## Roadmap
 
-Next on the list are optional AI explanations, lexical analysis for more languages, deeper
-import resolution, pull request analysis in CI, an official GitHub Action, and installation
-through package managers; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
+Next on the list are lexical analysis for more languages, deeper import resolution, pull
+request analysis in CI, an official GitHub Action, and installation through package
+managers; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
 now, next, later, and under exploration, and the [changelog](CHANGELOG.md) what each
 release changed.
 

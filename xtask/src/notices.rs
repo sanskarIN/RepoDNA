@@ -69,7 +69,7 @@ const BUNDLED_TOOLS: [&str; 1] = ["vite"];
 const FONT_LICENSE: &str = "crates/repodna-report/assets/fonts/LICENSE-DejaVu.txt";
 
 /// Licenses in order of preference when a component offers a choice.
-const PREFERENCE: [&str; 14] = [
+const PREFERENCE: [&str; 15] = [
     "Apache-2.0",
     "MIT",
     "BSD-3-Clause",
@@ -84,6 +84,7 @@ const PREFERENCE: [&str; 14] = [
     "BSL-1.0",
     "MPL-2.0",
     "Apache-2.0 WITH LLVM-exception",
+    "CDLA-Permissive-2.0",
 ];
 
 /// The standard MIT License text, without the copyright line.
@@ -516,6 +517,9 @@ fn classify(text: &str) -> Option<&'static str> {
             .filter(|&i| after(i, "version 2.0"))
             .map(|i| (i, "Apache-2.0")),
         at("mozilla public license").map(|i| (i, "MPL-2.0")),
+        at("community data license agreement")
+            .filter(|&i| after(i, "permissive") && after(i, "version 2.0"))
+            .map(|i| (i, "CDLA-Permissive-2.0")),
         at("unicode license")
             .or_else(|| at("unicode, inc"))
             .map(|i| (i, "Unicode-3.0")),
@@ -676,6 +680,7 @@ fn title(license: &str) -> &str {
         "Unicode-3.0" => "Unicode License v3",
         "BSL-1.0" => "Boost Software License 1.0",
         "MPL-2.0" => "Mozilla Public License 2.0",
+        "CDLA-Permissive-2.0" => "Community Data License Agreement - Permissive - Version 2.0",
         other => other,
     }
 }
@@ -1045,6 +1050,12 @@ mod tests {
             Some("Apache-2.0")
         );
         assert_eq!(classify("All rights reserved."), None);
+        assert_eq!(
+            classify(
+                "# Community Data License Agreement - Permissive - Version 2.0\n\nThis is the Community Data License Agreement - Permissive, Version\n2.0 (the \"agreement\")."
+            ),
+            Some("CDLA-Permissive-2.0")
+        );
     }
 
     #[test]

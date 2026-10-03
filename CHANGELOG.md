@@ -6,6 +6,52 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-02
+
+Optional AI explanations: prose about a repository, grounded in the analysis, checked
+against its evidence, and off until you configure a provider.
+
+### Explanations
+
+- `repodna explain` explains a repository (`--about repository`, `architecture`,
+  `history`, `dependencies`, or `onboarding`), one module (`--module`), one hotspot
+  (`--hotspot`), or answers a question (`--ask`), as text, Markdown, or JSON with its
+  provenance: provider, model, revision, cited evidence, and token use.
+- The model receives a numbered selection of evidence from the analysis, never the
+  repository, and its answer is checked against it: citations of evidence that was not
+  sent are removed, statements without a valid citation are labeled as not supported, and
+  statements the model marks as inferences are labeled as such.
+- Three providers: a local program that reads the prompt on standard input (for example
+  `ollama run <model>`), any OpenAI-compatible server (Ollama, llama.cpp, LM Studio, vLLM,
+  or a hosted service), and the Anthropic API.
+- `--dry-run` shows the exact prompt, the evidence, where it would be sent, and the
+  highest cost from prices you set, without contacting anything.
+- Answers are cached on this machine; `--fresh` asks again and `repodna cache clear`
+  removes them. When a model declines, RepoDNA reports the reason the provider gives.
+- `repodna doctor` reports the configured provider without contacting it.
+
+### Privacy and safety
+
+- AI is set only in your user configuration: a repository's own configuration cannot
+  enable it or allow remote providers.
+- A provider whose endpoint is not on this machine is refused unless you allow remote AI
+  with `privacy.remote_ai = true` or, for one run, `--allow-remote-ai`.
+- API keys are read from an environment variable you name and never stored. Without one,
+  `ANTHROPIC_API_KEY` is sent only to Anthropic's own endpoint.
+- No source code is sent unless you enable `ai.include_source_excerpts`: excerpts are a
+  few lines per file, have likely secrets redacted, and are never read through a link
+  that leads out of the checkout. Contributor names and email addresses are never sent.
+- The model gets no tools: it cannot run commands, read files, or use the network through
+  RepoDNA. Repository text is sent as data, and answers are cleaned of terminal control
+  sequences and escaped in Markdown.
+- RepoDNA uses the network only to clone a Git URL you give and to reach an AI provider
+  you configure.
+
+### Web interface and desktop app
+
+- The start page, the settings, and the analysis details say that explanations are
+  optional and need a provider you configure, and whether an analysis used remote AI.
+
 ## [1.0.0] - 2026-09-27
 
 The first stable release: local-first repository intelligence and code archaeology, with
@@ -91,5 +137,6 @@ every conclusion backed by evidence.
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.
 
-[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/sanskarIN/RepoDNA/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/sanskarIN/RepoDNA/releases/tag/v1.0.0
