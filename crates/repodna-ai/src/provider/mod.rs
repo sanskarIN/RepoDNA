@@ -82,11 +82,23 @@ fn check_remote(endpoint: &Endpoint, provider: &str, allow_remote: bool) -> Resu
     }
 }
 
-fn api_key(name: &str, env: &dyn Fn(&str) -> Option<String>) -> Result<String, AiError> {
-    env(name)
-        .map(|key| key.trim().to_owned())
-        .filter(|key| !key.is_empty())
-        .ok_or_else(|| AiError::MissingApiKey(name.to_owned()))
+/// The trimmed value of the environment variable `variable`, when it is set and not empty.
+fn variable_value(variable: &str, env: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+    env(variable)
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+/// The value of the environment variable that holds an API key. The error is built from
+/// the variable's name only, so it can be shown without exposing any part of a key.
+fn required_variable(
+    variable: &str,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Result<String, AiError> {
+    match variable_value(variable, env) {
+        Some(value) => Ok(value),
+        None => Err(AiError::MissingApiKey(variable.to_owned())),
+    }
 }
 
 /// Builds the configured provider, reading API keys from the process environment.
@@ -133,7 +145,7 @@ pub fn build_provider_with_env(
             let endpoint = Endpoint::parse(raw)?;
             check_remote(&endpoint, "openai-compatible", allow_remote)?;
             let key = match non_empty(config.api_key_env.as_deref()) {
-                Some(name) => Some(api_key(name, env)?),
+                Some(name) => Some(required_variable(name, env)?),
                 None => None,
             };
             Ok(Box::new(OpenAiCompatibleProvider::new(
@@ -159,7 +171,7 @@ pub fn build_provider_with_env(
                         .then(|| "ANTHROPIC_API_KEY".to_owned())
                 });
             let key = match key_name {
-                Some(name) => Some(api_key(&name, env)?),
+                Some(name) => Some(required_variable(&name, env)?),
                 None => None,
             };
             Ok(Box::new(AnthropicProvider::new(
