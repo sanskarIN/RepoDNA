@@ -2,7 +2,7 @@ Third-party software in RepoDNA
 ===============================
 
 RepoDNA is licensed under the Apache License 2.0 (see LICENSE and NOTICE). Its downloads
-include the third-party software listed here: 370 Rust crates compiled into the `repodna`
+include the third-party software listed here: 367 Rust crates compiled into the `repodna`
 command line and the desktop app, 5 npm packages bundled into the web interface
 (which the command line, the desktop app, and the web version all contain), and the DejaVu
 fonts. Each component is listed under the license RepoDNA uses it under; where a component
@@ -35,8 +35,8 @@ Used under the Apache License 2.0, whose text is at the end of this file:
   hybrid-array, ident_case, idna, idna_adapter, indexmap, is_terminal_polyfill, itoa,
   json-patch, jsonptr, keyboard-types, kurbo, libc, libdbus-sys, linux-raw-sys, lock_api,
   log, markup5ever, mime, miniz_oxide, muda, num-conv, objc2-app-kit,
-  objc2-core-foundation, objc2-exception-helper, objc2-web-kit, once_cell,
-  once_cell_polyfill, ordered-stream, parking, parking_lot, parking_lot_core,
+  objc2-core-foundation, objc2-exception-helper, objc2-quartz-core, objc2-web-kit,
+  once_cell, once_cell_polyfill, ordered-stream, parking, parking_lot, parking_lot_core,
   percent-encoding, pin-project-lite, piper, png, polling, polycool, powerfmt,
   proc-macro-crate, proc-macro-error, proc-macro2, quote, raw-window-handle, rayon,
   rayon-core, read-fonts, ref-cast, regex, regex-automata, regex-syntax, resvg, ring,
@@ -47,13 +47,12 @@ Used under the Apache License 2.0, whose text is at the end of this file:
   syn, tao, tar, tauri, tauri-codegen, tauri-plugin-dialog, tauri-plugin-fs,
   tauri-plugin-opener, tauri-runtime, tauri-runtime-wry, tauri-utils, tempfile, tendril,
   terminal_size, thiserror, time, time-core, tiny_http, tinyvec, toml, toml_datetime,
-  toml_edit, toml_parser, toml_writer, typed-path, typeid, typenum, unic-char-property,
-  unic-char-range, unic-common, unic-ucd-ident, unic-ucd-version, unicode-bidi,
+  toml_edit, toml_parser, toml_writer, typed-path, typeid, typenum, unicode-bidi,
   unicode-ident, unicode-script, unicode-segmentation, unicode-vo, ureq, ureq-proto, url,
-  usvg, utf8-zero, utf8_iter, utf8parse, uuid, web_atoms, window-vibrancy, windows,
-  windows-collections, windows-core, windows-future, windows-link, windows-numerics,
-  windows-result, windows-strings, windows-sys, windows-targets, windows-threading,
-  windows-version, windows_x86_64_msvc, wry, xattr, yaml-rust2, zeroize
+  usvg, utf8-zero, utf8_iter, utf8parse, uuid, web-time, web_atoms, window-vibrancy,
+  windows, windows-collections, windows-core, windows-future, windows-link,
+  windows-numerics, windows-result, windows-strings, windows-sys, windows-targets,
+  windows-threading, windows-version, windows_x86_64_msvc, wry, xattr, yaml-rust2, zeroize
 
 MIT License
 ===========

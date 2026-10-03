@@ -15,9 +15,6 @@
   "dependencies": {
     "@repodna/schema": "1.1.0",
     "@repodna/visualization": "1.1.0",
-    "@tauri-apps/api": "2.11.1",
-    "@repodna/schema": "1.0.0",
-    "@repodna/visualization": "1.0.0",
     "@tauri-apps/api": "2.12.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
