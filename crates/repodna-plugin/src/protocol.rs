@@ -32,6 +32,7 @@ use repodna_core::metric::Metric;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::paths::normalize_relative;
 use repodna_core::severity::Severity;
+use repodna_core::text::count;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -424,6 +425,16 @@ fn metric(plugin: &str, raw: RawMetric) -> Result<Metric, String> {
     .method(format!("Reported by the `{plugin}` plugin.")))
 }
 
+/// Says how many items past `limit` were dropped, such as "1 metric beyond the limit of
+/// 200 was dropped".
+fn dropped(extra: usize, one: &str, many: &str, limit: usize) -> String {
+    format!(
+        "{} beyond the limit of {limit} {} dropped",
+        count(extra as u64, one, many),
+        if extra == 1 { "was" } else { "were" }
+    )
+}
+
 /// Parses and validates the analyzer's output.
 pub fn parse_response(plugin: &str, output: &str) -> Result<Contribution, String> {
     let raw: RawResponse = serde_json::from_str(output.trim())
@@ -446,9 +457,11 @@ pub fn parse_response(plugin: &str, output: &str) -> Result<Contribution, String
         }
     }
     if findings > MAX_FINDINGS {
-        contribution.rejected.push(format!(
-            "{} findings beyond the limit of {MAX_FINDINGS} were dropped",
-            findings - MAX_FINDINGS
+        contribution.rejected.push(dropped(
+            findings - MAX_FINDINGS,
+            "finding",
+            "findings",
+            MAX_FINDINGS,
         ));
     }
     for value in raw.metrics.into_iter().take(MAX_METRICS) {
@@ -461,9 +474,11 @@ pub fn parse_response(plugin: &str, output: &str) -> Result<Contribution, String
         }
     }
     if metrics > MAX_METRICS {
-        contribution.rejected.push(format!(
-            "{} metrics beyond the limit of {MAX_METRICS} were dropped",
-            metrics - MAX_METRICS
+        contribution.rejected.push(dropped(
+            metrics - MAX_METRICS,
+            "metric",
+            "metrics",
+            MAX_METRICS,
         ));
     }
     contribution.notes = raw
@@ -577,6 +592,19 @@ mod tests {
             "{:?}",
             contribution.rejected
         );
+
+        let many = serde_json::json!({
+            "api": 1,
+            "findings": vec![serde_json::json!({"rule": "r", "title": "t"}); MAX_FINDINGS + 2],
+            "metrics": vec![serde_json::json!({"id": "m", "value": 1}); MAX_METRICS + 1],
+        });
+        let rejected = parse_response("demo", &many.to_string()).unwrap().rejected;
+        assert!(rejected.contains(&format!(
+            "2 findings beyond the limit of {MAX_FINDINGS} were dropped"
+        )));
+        assert!(rejected.contains(&format!(
+            "1 metric beyond the limit of {MAX_METRICS} was dropped"
+        )));
 
         assert!(parse_response("demo", "not json").is_err());
         assert!(
