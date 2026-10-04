@@ -147,6 +147,16 @@ describe("views", () => {
     expect(tips.some((text) => text.includes("1 function · highest"))).toBe(true);
   });
 
+  it("describes a one-line README in the singular", async () => {
+    const data = demo();
+    const { readme } = data.dna.docs;
+    if (!readme) throw new Error("the demo has a README");
+    readme.words = 1;
+    readme.lines = 1;
+    await renderAt("/project", data);
+    expect(await screen.findByText("1 word · 1 line")).toBeTruthy();
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(

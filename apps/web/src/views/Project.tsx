@@ -16,6 +16,7 @@ import {
   Tile,
 } from "../components/common";
 import { DataTable } from "../components/DataTable";
+import { count } from "../lib/names";
 import { useDataset } from "../state";
 
 const DOC_STATUS: Record<DocCheckStatus, { text: string; color: string }> = {
@@ -304,11 +305,11 @@ export function Project() {
         <Tile
           label="Documentation files"
           value={thousands(docs.docFiles)}
-          note={`${thousands(docs.docLines)} lines`}
+          note={count(docs.docLines, "line", "lines")}
         />
         <Tile
           label="README"
-          value={docs.readme ? `${thousands(docs.readme.words)} words` : "Not found"}
+          value={docs.readme ? count(docs.readme.words, "word", "words") : "Not found"}
           note={docs.readme?.path}
         />
         <Tile
@@ -356,7 +357,8 @@ export function Project() {
                 <dd className="path">{docs.readme.path}</dd>
                 <dt>Length</dt>
                 <dd>
-                  {thousands(docs.readme.words)} words · {thousands(docs.readme.lines)} lines
+                  {count(docs.readme.words, "word", "words")} ·{" "}
+                  {count(docs.readme.lines, "line", "lines")}
                 </dd>
                 <dt>Installation</dt>
                 <dd>{docs.readme.hasInstallation ? "Covered" : "Not found"}</dd>
