@@ -119,6 +119,20 @@ describe("views", () => {
     expect(await screen.findByText("1 finding was suppressed by these rules.")).toBeTruthy();
   });
 
+  it('says "1 line added or removed" for a day with one changed line', async () => {
+    const data = demo();
+    const [day] = data.dna.git.dailyActivity;
+    if (!day) throw new Error("the demo has daily activity");
+    day.churn = 1;
+    await renderAt("/history", data);
+    const chart = await screen.findByRole("img", { name: "Commits per day" });
+    const first = chart.querySelector(".mark");
+    if (!first) throw new Error("the chart has columns");
+    fireEvent.focus(first);
+    const tips = screen.getAllByRole("status").map((element) => element.textContent ?? "");
+    expect(tips.some((text) => text.includes("1 line added or removed"))).toBe(true);
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
