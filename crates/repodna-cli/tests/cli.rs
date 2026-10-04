@@ -99,9 +99,11 @@ fn prints_version_help_and_usage_errors() {
     let version = env.run(&["version"]);
     assert_eq!(code(&version), 0);
     assert!(stdout(&version).starts_with(&format!("RepoDNA {}", env!("CARGO_PKG_VERSION"))));
+    assert!(stdout(&version).contains("More open-source projects: https://sanskarin.github.io"));
     let json: serde_json::Value =
         serde_json::from_str(&stdout(&env.run(&["version", "--json"]))).unwrap();
     assert_eq!(json["schemaVersion"], "1.0");
+    assert_eq!(json["author"]["url"], "https://sanskarin.github.io");
 
     let help = env.run(&["--help"]);
     assert_eq!(code(&help), 0);

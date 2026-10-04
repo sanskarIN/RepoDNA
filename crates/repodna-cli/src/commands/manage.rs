@@ -341,10 +341,11 @@ pub fn run_version(cmd: &VersionCmd) -> Result<(), AppError> {
             "arch": std::env::consts::ARCH,
             "license": "Apache-2.0",
             "homepage": "https://github.com/sanskarIN/RepoDNA",
+            "author": { "name": "Sanskar", "url": "https://sanskarin.github.io" },
         }))?);
     }
     print(&format!(
-        "RepoDNA {version}\n  artifact schema  {SCHEMA_VERSION}\n  plugin api       {}\n  build            {}\n  platform         {}-{}\n  license          Apache-2.0\n  homepage         https://github.com/sanskarIN/RepoDNA\nMade by the Sanskar.",
+        "RepoDNA {version}\n  artifact schema  {SCHEMA_VERSION}\n  plugin api       {}\n  build            {}\n  platform         {}-{}\n  license          Apache-2.0\n  homepage         https://github.com/sanskarIN/RepoDNA\nMade by the Sanskar. More open-source projects: https://sanskarin.github.io",
         repodna_plugin::PLUGIN_API,
         build_commit().unwrap_or("local build"),
         std::env::consts::OS,
