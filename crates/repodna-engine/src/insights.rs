@@ -168,12 +168,16 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
                 .then_with(|| a.id.cmp(&b.id))
         });
         let names: Vec<String> = modules.iter().take(5).map(|m| m.name.clone()).collect();
-        let mut text = format!(
-            "{} modules; the largest are {}. Style: {} (inferred).",
-            dna.architecture.modules.len(),
-            list(&names),
-            dna.architecture.style
-        );
+        let organized = match names.as_slice() {
+            [] => "No modules were inferred".to_owned(),
+            [only] if modules.len() == 1 => format!("1 module: {only}"),
+            _ => format!(
+                "{} modules; the largest are {}",
+                modules.len(),
+                list(&names)
+            ),
+        };
+        let mut text = format!("{organized}. Style: {} (inferred).", dna.architecture.style);
         if let Some(signal) = dna.architecture.signals.first() {
             text.push_str(&format!(" {}", signal.description));
         }
@@ -755,12 +759,28 @@ mod tests {
         );
         assert!(insights.first_look[1].answer.contains("src/main.rs"));
         assert_eq!(
+            insights.first_look[2].answer,
+            "1 module: src. Style: Modular (inferred)."
+        );
+        assert_eq!(
             insights.first_look[3].answer,
             "Detected (not verified): cargo build."
         );
         assert_eq!(
             insights.first_look[5].answer,
             "No critical or warning findings."
+        );
+
+        let mut two = dna();
+        let mut lib = two.architecture.modules[0].clone();
+        lib.id = "lib".into();
+        lib.name = "lib".into();
+        lib.path = "lib".into();
+        lib.code_lines = 100;
+        two.architecture.modules.push(lib);
+        assert_eq!(
+            build_insights(&two, None).first_look[2].answer,
+            "2 modules; the largest are src and lib. Style: Modular (inferred)."
         );
     }
 
