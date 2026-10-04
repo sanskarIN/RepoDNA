@@ -103,6 +103,15 @@ describe("views", () => {
     expect(shown.some((element) => element.getAttribute("aria-live") === "polite")).toBe(true);
   });
 
+  it("counts a single dependency in the singular", async () => {
+    const data = demo();
+    const { dependencies } = data.dna;
+    dependencies.dependencies = dependencies.dependencies.slice(0, 1);
+    await renderAt("/dependencies", data);
+    const shown = await screen.findAllByText("1 dependency");
+    expect(shown.some((element) => element.getAttribute("aria-live") === "polite")).toBe(true);
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
