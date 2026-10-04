@@ -346,6 +346,7 @@ jobs:
 
           EOF
           echo "The binaries are not code-signed, so macOS and Windows ask for confirmation the first time they start; see the [installation guide](https://github.com/sanskarIN/RepoDNA/blob/$TAG/docs/installation.md)." >> notes.md
+          printf '\nMore open-source projects by Sanskar, the creator of RepoDNA: https://sanskarin.github.io\n' >> notes.md
           sed -i "s/<version>/$VERSION/g" notes.md
           cat notes.md
       - name: Create or update the release
