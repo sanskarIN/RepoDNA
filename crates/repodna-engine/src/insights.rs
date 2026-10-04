@@ -444,16 +444,16 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
     if !tests.is_empty() {
         steps.push(GuideStep {
             title: "Run the tests".to_owned(),
-            description: if dna.tests.inline_test_files > 0 {
-                format!(
-                    "{} and {} with inline tests were found.",
-                    count(dna.tests.test_files, "test file", "test files"),
-                    count(dna.tests.inline_test_files, "source file", "source files")
-                )
-            } else if dna.tests.test_files == 1 {
-                "1 test file was found.".to_owned()
-            } else {
-                format!("{} test files were found.", dna.tests.test_files)
+            description: match tests_found(dna) {
+                Some(found) => format!(
+                    "{found} {} found.",
+                    if dna.tests.test_files + dna.tests.inline_test_files == 1 {
+                        "was"
+                    } else {
+                        "were"
+                    }
+                ),
+                None => "No test files were detected; these commands were found in the repository's metadata and have not been run.".to_owned(),
             },
             paths: dna.tests.test_directories.iter().take(3).cloned().collect(),
             commands: tests,
@@ -880,5 +880,31 @@ mod tests {
         );
         assert_eq!(insights.glossary[0].term, "src");
         assert!(insights.glossary[0].definition.contains("mostly rust"));
+
+        let mut tested = dna();
+        tested.tests.commands = vec![CommandCandidate {
+            command: "cargo test".into(),
+            purpose: CommandPurpose::Test,
+            working_directory: String::new(),
+            source: "Cargo.toml".into(),
+            verified: false,
+            evidence: Vec::new(),
+        }];
+        let step = |dna: &RepositoryDna| {
+            build_insights(dna, None)
+                .onboarding
+                .into_iter()
+                .find(|step| step.title == "Run the tests")
+                .unwrap()
+                .description
+        };
+        assert!(step(&tested).starts_with("No test files were detected;"));
+        tested.tests.inline_test_files = 1;
+        assert_eq!(step(&tested), "1 source file with inline tests was found.");
+        tested.tests.test_files = 2;
+        assert_eq!(
+            step(&tested),
+            "2 test files and 1 source file with inline tests were found."
+        );
     }
 }
