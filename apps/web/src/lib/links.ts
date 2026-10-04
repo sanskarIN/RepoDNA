@@ -2,6 +2,8 @@
 
 export const REPOSITORY = "https://github.com/sanskarIN/RepoDNA";
 export const WEB_VERSION = "https://sanskarin.github.io/RepoDNA/";
+/** Sanskar's website, with more open-source projects. */
+export const WEBSITE = "https://sanskarin.github.io";
 
 export interface ProjectLink {
   label: string;
@@ -54,6 +56,11 @@ export const PROJECT: ProjectLink[] = [
     label: "Sanskar on GitHub",
     url: "https://github.com/sanskarIN",
     description: "The creator of RepoDNA.",
+  },
+  {
+    label: "More open-source projects",
+    url: WEBSITE,
+    description: "Sanskar's website, with other open-source projects by the creator of RepoDNA.",
   },
   {
     label: "Programming learning",
