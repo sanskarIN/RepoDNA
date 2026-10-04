@@ -84,7 +84,14 @@ export function Overview() {
           value={dna.architecture.style || "–"}
           note={
             dna.architecture.style
-              ? `${confidenceLabel(dna.architecture.styleConfidence)} confidence · ${dna.architecture.modules.length} modules`
+              ? [
+                  dna.architecture.styleConfidence === "unavailable"
+                    ? null
+                    : `${confidenceLabel(dna.architecture.styleConfidence)} confidence`,
+                  count(dna.architecture.modules.length, "module", "modules"),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
               : undefined
           }
         />
