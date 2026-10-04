@@ -215,8 +215,9 @@ pub fn classify_style(
             id: "flat".into(),
             label: "Flat".into(),
             description: format!(
-                "{member_files} code files in {module_count} module{}.",
-                if module_count == 1 { "" } else { "s" }
+                "{} in {}.",
+                count(member_files as u64, "code file", "code files"),
+                count(module_count as u64, "module", "modules")
             ),
             confidence: Confidence::Low,
             evidence: vec![Evidence::metric(
@@ -607,6 +608,16 @@ mod tests {
             ..ArchitectureReport::default()
         };
         assert_eq!(classify_style(&small, 100, 5).0, "Flat");
+        let flat = |files| {
+            let (_, _, signals) = classify_style(&small, 100, files);
+            signals
+                .into_iter()
+                .find(|signal| signal.id == "flat")
+                .unwrap()
+                .description
+        };
+        assert_eq!(flat(1), "1 code file in 1 module.");
+        assert_eq!(flat(5), "5 code files in 1 module.");
     }
 
     #[test]
