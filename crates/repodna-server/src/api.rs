@@ -6,6 +6,7 @@ use std::io::Read;
 use repodna_app::{AnalyzeOptions, AppPaths};
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
+use repodna_core::text::count;
 use repodna_report::card::{CardOptions, render as render_card};
 use repodna_report::compare;
 use repodna_report::compare::json_comparison;
@@ -236,10 +237,10 @@ fn builtin_page(state: &State, authenticated: bool) -> Reply {
             for r in repositories {
                 let id = escape(&r.id);
                 body.push_str(&format!(
-                    "<li><a href=\"/api/repositories/{id}/report\">{}</a> <small>{} · {} analyses · latest {} · <a href=\"/api/repositories/{id}/artifact\">JSON</a></small></li>",
+                    "<li><a href=\"/api/repositories/{id}/report\">{}</a> <small>{} · {} · latest {} · <a href=\"/api/repositories/{id}/artifact\">JSON</a></small></li>",
                     escape(&r.name),
                     escape(&r.location),
-                    r.scans,
+                    count(r.scans, "analysis", "analyses"),
                     r.last_scanned_at.date_string()
                 ));
             }
