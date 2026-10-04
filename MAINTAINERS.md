@@ -1,8 +1,8 @@
 # Maintainers
 
-| Name | GitHub | Role |
-|---|---|---|
-| Sanskar | [@sanskarIN](https://github.com/sanskarIN) | Creator and lead maintainer |
+| Name | GitHub | Website | Role |
+|---|---|---|---|
+| Sanskar | [@sanskarIN](https://github.com/sanskarIN) | [sanskarin.github.io](https://sanskarin.github.io), with more open-source projects | Creator and lead maintainer |
 
 Maintainers review and merge pull requests, triage issues, cut releases, handle security
 reports, and enforce the [Code of Conduct](CODE_OF_CONDUCT.md). How decisions are made and
