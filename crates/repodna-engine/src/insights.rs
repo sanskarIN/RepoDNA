@@ -506,26 +506,39 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
     if let Some(recent) = recent
         && recent.commits > 0
     {
+        // Changes to files at the top level are grouped under "(root)", which is not a path.
+        let directories: Vec<&str> = recent
+            .directories
+            .iter()
+            .take(3)
+            .map(|d| d.path.as_str())
+            .collect();
+        let places: Vec<String> = directories
+            .iter()
+            .map(|path| {
+                if *path == "(root)" {
+                    "the repository root".to_owned()
+                } else {
+                    format!("{path}/")
+                }
+            })
+            .collect();
+        let mut description = format!(
+            "{} in the last {} days",
+            count(recent.commits, "commit", "commits"),
+            recent.window_days
+        );
+        if !places.is_empty() {
+            description.push_str(&format!(", mostly in {}", list(&places)));
+        }
+        description.push('.');
         steps.push(GuideStep {
             title: "Review recent changes".to_owned(),
-            description: format!(
-                "{} commits in the last {} days, mostly in {}.",
-                recent.commits,
-                recent.window_days,
-                list(
-                    &recent
-                        .directories
-                        .iter()
-                        .take(3)
-                        .map(|d| format!("{}/", d.path))
-                        .collect::<Vec<_>>()
-                )
-            ),
-            paths: recent
-                .directories
-                .iter()
-                .take(3)
-                .map(|d| d.path.clone())
+            description,
+            paths: directories
+                .into_iter()
+                .filter(|path| *path != "(root)")
+                .map(str::to_owned)
                 .collect(),
             commands: Vec::new(),
         });
@@ -880,6 +893,30 @@ mod tests {
         );
         assert_eq!(insights.glossary[0].term, "src");
         assert!(insights.glossary[0].definition.contains("mostly rust"));
+
+        let recent = RecentChanges {
+            window_days: 90,
+            commits: 1,
+            directories: ["src", "(root)"]
+                .iter()
+                .map(|path| repodna_core::model::insights::DirectoryChange {
+                    path: (*path).into(),
+                    commits: 1,
+                    churn: 10,
+                })
+                .collect(),
+            ..RecentChanges::default()
+        };
+        let review = build_insights(&dna(), Some(recent))
+            .onboarding
+            .into_iter()
+            .find(|step| step.title == "Review recent changes")
+            .unwrap();
+        assert_eq!(
+            review.description,
+            "1 commit in the last 90 days, mostly in src/ and the repository root."
+        );
+        assert_eq!(review.paths, vec!["src"]);
 
         let mut tested = dna();
         tested.tests.commands = vec![CommandCandidate {
