@@ -52,6 +52,16 @@ describe("views", () => {
     expect(screen.queryByText(/Unavailable confidence/)).toBeNull();
   });
 
+  it("describes a one-file module in the singular", async () => {
+    const single = demo();
+    const [module] = single.dna.architecture.modules;
+    if (!module) throw new Error("the demo has modules");
+    module.files = 1;
+    module.codeLines = 1;
+    await renderAt(`/architecture?module=${encodeURIComponent(module.id)}`, single);
+    expect(await screen.findByText(/^1 file · 1 code line/)).toBeTruthy();
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
