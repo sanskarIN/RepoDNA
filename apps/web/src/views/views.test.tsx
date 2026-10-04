@@ -77,6 +77,14 @@ describe("views", () => {
     expect(unknown?.textContent).toContain("Inferred style: Unknown. Modules");
   });
 
+  it("labels a single import between modules in the singular", async () => {
+    const data = demo();
+    for (const edge of data.dna.architecture.moduleEdges) edge.weight = 1;
+    await renderAt("/architecture", data);
+    expect((await screen.findAllByText(/ \(1 import\)$/)).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(/ \(1 imports\)$/)).toHaveLength(0);
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
