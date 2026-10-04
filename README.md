@@ -92,8 +92,8 @@ RepoDNA answers with evidence instead:
   as zero.
 - **Descriptive, not judgmental.** The DNA fingerprint describes a repository; it is not a
   grade. Contributor statistics describe the recorded history, not anyone's value.
-- **Local-first and private.** No telemetry, no uploads, and no network use except what you
-  ask for.
+- **Local-first and private.** No telemetry and no network use except what you ask for:
+  cloning a URL, or reaching an AI provider you configured.
 - **Safe with code you do not trust.** Analysis is read-only, Git runs with hardened
   settings, archives are extracted with limits, and nothing from the repository is executed
   unless you enable it.
