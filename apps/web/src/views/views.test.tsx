@@ -95,6 +95,14 @@ describe("views", () => {
     expect(screen.getAllByText(/ · 1 commit by /).length).toBeGreaterThan(0);
   });
 
+  it("counts a single file in the singular on the Files view", async () => {
+    const data = demo();
+    data.dna.structure.files = data.dna.structure.files.slice(0, 1);
+    await renderAt("/files", data);
+    const shown = await screen.findAllByText("1 file");
+    expect(shown.some((element) => element.getAttribute("aria-live") === "polite")).toBe(true);
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
