@@ -62,6 +62,21 @@ describe("views", () => {
     expect(await screen.findByText(/^1 file · 1 code line/)).toBeTruthy();
   });
 
+  it("names the inferred architecture style with its confidence", async () => {
+    const data = demo();
+    data.dna.architecture.style = "Layered";
+    data.dna.architecture.styleConfidence = "medium";
+    await renderAt("/architecture", data);
+    const header = await screen.findByText(/Inferred style:/);
+    expect(header.textContent).toContain("Inferred style: Layered (medium confidence). Modules");
+
+    data.dna.architecture.style = "Unknown";
+    data.dna.architecture.styleConfidence = "unavailable";
+    await renderAt("/architecture", data);
+    const unknown = (await screen.findAllByText(/Inferred style:/)).at(-1);
+    expect(unknown?.textContent).toContain("Inferred style: Unknown. Modules");
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
