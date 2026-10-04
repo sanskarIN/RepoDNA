@@ -45,6 +45,23 @@ fn end_sentence(mut text: String) -> String {
     text
 }
 
+/// The tests that were found, such as "2 test files and 1 source file with inline tests",
+/// or `None` when there are none.
+fn tests_found(dna: &RepositoryDna) -> Option<String> {
+    let tests = &dna.tests;
+    let mut found = Vec::new();
+    if tests.test_files > 0 {
+        found.push(count(tests.test_files, "test file", "test files"));
+    }
+    if tests.inline_test_files > 0 {
+        found.push(format!(
+            "{} with inline tests",
+            count(tests.inline_test_files, "source file", "source files")
+        ));
+    }
+    (!found.is_empty()).then(|| list(&found))
+}
+
 fn answer(
     id: &str,
     question: &str,
@@ -241,21 +258,26 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     // How is it tested?
     let tests = &dna.tests;
     let frameworks: Vec<String> = tests.frameworks.iter().map(|f| f.name.clone()).collect();
-    let mut text = count(tests.test_files, "test file", "test files");
-    if tests.inline_test_files > 0 {
-        text.push_str(&format!(
-            " and {} with inline tests",
-            count(tests.inline_test_files, "source file", "source files")
-        ));
-    }
-    if !frameworks.is_empty() {
-        text.push_str(&format!(" using {}", list(&frameworks)));
-    }
-    text.push('.');
+    let found = tests_found(dna);
+    let mut text = match (&found, frameworks.is_empty()) {
+        (Some(found), true) => format!("{found}."),
+        (Some(found), false) => format!("{found} using {}.", list(&frameworks)),
+        (None, true) => "No test files were detected.".to_owned(),
+        (None, false) => format!(
+            "No test files were detected (frameworks: {}).",
+            list(&frameworks)
+        ),
+    };
     let test_commands = commands(dna, &[CommandPurpose::Test], 3);
     if !test_commands.is_empty() {
+        // "Run them" needs tests to refer to.
+        let lead = if found.is_some() {
+            "Run them with"
+        } else {
+            "Detected test commands (not verified):"
+        };
         text.push_str(&end_sentence(format!(
-            " Run them with {}",
+            " {lead} {}",
             join_alternatives(&test_commands)
         )));
     }
@@ -799,6 +821,21 @@ mod tests {
         assert_eq!(
             answers[4].answer,
             "1 test file. Run them with go test ./..."
+        );
+        python.tests.test_files = 0;
+        assert_eq!(
+            build_insights(&python, None).first_look[4].answer,
+            "No test files were detected. Detected test commands (not verified): go test ./..."
+        );
+        python.tests.inline_test_files = 2;
+        assert_eq!(
+            build_insights(&python, None).first_look[4].answer,
+            "2 source files with inline tests. Run them with go test ./..."
+        );
+        python.tests.test_files = 1;
+        assert_eq!(
+            build_insights(&python, None).first_look[4].answer,
+            "1 test file and 2 source files with inline tests. Run them with go test ./..."
         );
 
         let mut two = dna();
