@@ -342,6 +342,7 @@ jobs:
           - `ghcr.io/sanskarin/repodna:<version>`: a container image with the command line and
             Git, for CI jobs: `docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .`
           - `SHA256SUMS.txt`: checksums of every file.
+          - Web version: https://sanskarin.github.io/RepoDNA/ — open analyses and the demo in your browser, nothing to install.
 
           EOF
           echo "The binaries are not code-signed, so macOS and Windows ask for confirmation the first time they start; see the [installation guide](https://github.com/sanskarIN/RepoDNA/blob/$TAG/docs/installation.md)." >> notes.md
