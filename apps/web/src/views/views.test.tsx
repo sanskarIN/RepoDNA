@@ -76,6 +76,7 @@ describe("views", () => {
     for (const url of [
       "https://github.com/sanskarIN/RepoDNA",
       "https://github.com/sanskarIN",
+      "https://sanskarin.github.io",
       "https://sanskarIN.gumroad.com",
       "https://www.buymeacoffee.com/sanskarIN",
       "https://www.razorpay.me/@sanskarIN",
