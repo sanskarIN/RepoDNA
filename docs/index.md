@@ -54,4 +54,5 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 - [Governance](../GOVERNANCE.md) and [maintainers](../MAINTAINERS.md)
 
 RepoDNA is made by [Sanskar](https://github.com/sanskarIN) and licensed under the
-[Apache License 2.0](../LICENSE).
+[Apache License 2.0](../LICENSE). More open-source projects by Sanskar are at
+[sanskarin.github.io](https://sanskarin.github.io).
