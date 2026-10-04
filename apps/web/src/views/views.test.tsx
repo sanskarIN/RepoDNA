@@ -43,6 +43,15 @@ describe("views", () => {
     expect(await screen.findByRole("img", { name: "Commits per day" })).toBeTruthy();
   });
 
+  it("counts one module in the singular and leaves out an unavailable confidence", async () => {
+    const single = demo();
+    single.dna.architecture.modules = single.dna.architecture.modules.slice(0, 1);
+    single.dna.architecture.styleConfidence = "unavailable";
+    await renderAt("/overview", single);
+    expect(await screen.findByText("1 module")).toBeTruthy();
+    expect(screen.queryByText(/Unavailable confidence/)).toBeNull();
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
