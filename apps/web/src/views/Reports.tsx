@@ -397,7 +397,11 @@ export function Reports() {
         </Panel>
         <Panel
           title="Suppressions"
-          description={`${thousands(meta.suppressedFindings)} findings were suppressed by these rules.`}
+          description={`${
+            meta.suppressedFindings === 1
+              ? "1 finding was"
+              : `${thousands(meta.suppressedFindings)} findings were`
+          } suppressed by these rules.`}
         >
           {meta.suppressions.length === 0 ? (
             <p className="muted">No suppression rules were configured.</p>
