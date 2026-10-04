@@ -133,6 +133,20 @@ describe("views", () => {
     expect(tips.some((text) => text.includes("1 line added or removed"))).toBe(true);
   });
 
+  it('says "1 function" for a language with one function', async () => {
+    const data = demo();
+    for (const language of data.dna.codeQuality.complexity.byLanguage) language.functions = 1;
+    await renderAt("/quality", data);
+    const chart = await screen.findByRole("img", {
+      name: "Average cyclomatic complexity by language",
+    });
+    const first = chart.querySelector(".mark");
+    if (!first) throw new Error("the chart has bars");
+    fireEvent.focus(first);
+    const tips = screen.getAllByRole("status").map((element) => element.textContent ?? "");
+    expect(tips.some((text) => text.includes("1 function · highest"))).toBe(true);
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
