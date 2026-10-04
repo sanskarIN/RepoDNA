@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useApp, originLabel } from "../state";
+import { WEBSITE } from "../lib/links";
 import { NAV } from "../lib/nav";
 import { href, useRoute } from "../lib/router";
 import { CommandPalette } from "./CommandPalette";
+import { ExternalLink } from "./common";
 import { ShortcutHelp } from "./ShortcutHelp";
 
 function isTyping(target: EventTarget | null): boolean {
@@ -105,7 +107,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <p>
             Local-first · no telemetry
             <br />
-            Made by the Sanskar
+            <ExternalLink href={WEBSITE}>Made by the Sanskar</ExternalLink>
           </p>
         </div>
       </aside>
