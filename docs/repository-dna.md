@@ -111,7 +111,7 @@ Suppressed findings keep their place and carry the suppression's reason.
 | `quality.markers` | info | Work markers such as `TODO` and `FIXME` were found. |
 | `quality.dead-code` | info | Nothing in the repository appears to use a file. |
 | `security.secret` | attention, warning, or critical | A possible credential was found (see [security](security.md)). |
-| `security.<pattern>` | info, attention, or warning | A risky construct was found (see [security](security.md#risky-patterns-securityrule)). |
+| `security.<rule>` | info, attention, or warning | A risky construct was found (see [security](security.md#risky-patterns-securityrule)). |
 | `security.permission` | attention | A file is world-writable or has the setuid or setgid bit. |
 | `structure.large-binary` | info | A committed binary exceeds `large_binary_bytes`. |
 | `tests.none` | attention | No automated tests were detected. |
