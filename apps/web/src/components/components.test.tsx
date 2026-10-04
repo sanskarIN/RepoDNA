@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { Heatmap } from "../charts/Heatmap";
 import { DataTable } from "./DataTable";
 import { Tile } from "./common";
 
@@ -71,5 +72,19 @@ describe("Tile", () => {
     expect(screen.getByText("Files")).toBeTruthy();
     expect(screen.getByTitle("1,234").textContent).toBe("1,234");
     expect(screen.getByText("small repository").className).toBe("hint");
+  });
+});
+
+describe("Heatmap", () => {
+  it("counts one commit in the singular", () => {
+    const grid = Array.from({ length: 7 }, (_, row) =>
+      Array.from({ length: 24 }, (_, hour) => (row === 0 && hour === 0 ? 1 : 0)),
+    );
+    const { container } = render(<Heatmap grid={grid} label="Commits by weekday and hour" />);
+    const first = container.querySelector("rect.mark");
+    if (!first) throw new Error("the heatmap has cells");
+    fireEvent.focus(first);
+    expect(screen.getByRole("status").textContent).toContain("1 commit");
+    expect(screen.getByRole("status").textContent).not.toContain("1 commits");
   });
 });
