@@ -128,8 +128,12 @@ pub fn classify_style(
             id: "monorepo".into(),
             label: "Monorepo".into(),
             description: format!(
-                "{} packages are declared in one repository{}.",
-                packages.len(),
+                "{} declared in one repository{}.",
+                if packages.len() == 1 {
+                    "1 package is".to_owned()
+                } else {
+                    format!("{} packages are", packages.len())
+                },
                 if report.workspace.is_some() {
                     " with a workspace configuration"
                 } else {
@@ -590,6 +594,28 @@ mod tests {
             })
             .collect();
         assert_eq!(classify_style(&monorepo, 350, 12).0, "Monorepo");
+        let description = |report: &ArchitectureReport| {
+            let (_, _, signals) = classify_style(report, 350, 12);
+            signals
+                .into_iter()
+                .find(|signal| signal.id == "monorepo")
+                .unwrap()
+                .description
+        };
+        assert_eq!(
+            description(&monorepo),
+            "2 packages are declared in one repository."
+        );
+        monorepo.packages.truncate(1);
+        monorepo.workspace = Some(repodna_core::model::architecture::WorkspaceInfo {
+            tool: "npm-workspaces".into(),
+            manifest: "package.json".into(),
+            members: vec!["packages/*".into()],
+        });
+        assert_eq!(
+            description(&monorepo),
+            "1 package is declared in one repository with a workspace configuration."
+        );
 
         let empty = ArchitectureReport::default();
         assert_eq!(classify_style(&empty, 0, 0).0, "Unknown");
