@@ -1195,10 +1195,15 @@ fn section_confidence(dna: &RepositoryDna) -> Vec<SectionConfidence> {
     let structure_reason = if structure.skipped_files > 0 {
         (
             Confidence::Medium,
-            format!(
-                "{} files were over the size limit or unreadable, so their contents were not analyzed.",
-                structure.skipped_files
-            ),
+            if structure.skipped_files == 1 {
+                "1 file was over the size limit or unreadable, so its contents were not analyzed."
+                    .to_owned()
+            } else {
+                format!(
+                    "{} files were over the size limit or unreadable, so their contents were not analyzed.",
+                    structure.skipped_files
+                )
+            },
         )
     } else if structure.truncated {
         (
@@ -1502,6 +1507,18 @@ mod tests {
             .unwrap();
         assert_eq!(git.confidence, Confidence::Low);
         assert!(git.reason.contains("shallow"));
+        let structure = |skipped| {
+            let mut dna = artifact();
+            dna.structure.status = SectionStatus::Analyzed;
+            dna.structure.skipped_files = skipped;
+            section_confidence(&dna)
+                .into_iter()
+                .find(|c| c.section == "structure")
+                .unwrap()
+                .reason
+        };
+        assert!(structure(1).starts_with("1 file was over the size limit"));
+        assert!(structure(2).starts_with("2 files were over the size limit"));
         assert_eq!(value(&fp, "age").2, Confidence::Low);
         let signal_ids: Vec<&str> = report.signals.iter().map(|s| s.id.as_str()).collect();
         assert!(signal_ids.contains(&"recent-activity"));
