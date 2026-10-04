@@ -85,6 +85,16 @@ describe("views", () => {
     expect(screen.queryAllByText(/ \(1 imports\)$/)).toHaveLength(0);
   });
 
+  it("counts one commit and one event in the singular on the Time Machine", async () => {
+    const data = demo();
+    const { evolution } = data.dna;
+    evolution.events = evolution.events.slice(0, 1);
+    for (const epoch of evolution.epochs) epoch.commits = 1;
+    await renderAt("/time-machine", data);
+    expect(await screen.findByText("1 event, oldest first.")).toBeTruthy();
+    expect(screen.getAllByText(/ · 1 commit by /).length).toBeGreaterThan(0);
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
