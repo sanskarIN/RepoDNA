@@ -202,10 +202,12 @@ export function Architecture() {
       <PageHeader title="Architecture">
         {architecture.style ? (
           <>
-            Looks like a <strong>{architecture.style}</strong> (
-            {confidenceLabel(architecture.styleConfidence)} confidence). Modules come from package
-            manifests where they exist and from folders otherwise; dependencies come from imports
-            RepoDNA could resolve.
+            Inferred style: <strong>{architecture.style}</strong>
+            {architecture.styleConfidence === "unavailable"
+              ? ""
+              : ` (${confidenceLabel(architecture.styleConfidence).toLowerCase()} confidence)`}
+            . Modules come from package manifests where they exist and from folders otherwise;
+            dependencies come from imports RepoDNA could resolve.
           </>
         ) : (
           "Modules and the dependencies between them, from package manifests and resolved imports."
