@@ -36,6 +36,15 @@ fn list(items: &[String]) -> String {
     }
 }
 
+/// `text` ending with a period. A command that already ends in one, such as
+/// `pip install -e .`, gets no second period, which would change how it reads.
+fn end_sentence(mut text: String) -> String {
+    if !text.ends_with('.') {
+        text.push('.');
+    }
+    text
+}
+
 fn answer(
     id: &str,
     question: &str,
@@ -209,7 +218,7 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     let text = if run.is_empty() {
         "No build or run commands were detected.".to_owned()
     } else {
-        format!("Detected (not verified): {}.", run.join("; "))
+        end_sentence(format!("Detected (not verified): {}", run.join("; ")))
     };
     answers.push(answer(
         "run",
@@ -245,10 +254,10 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     text.push('.');
     let test_commands = commands(dna, &[CommandPurpose::Test], 3);
     if !test_commands.is_empty() {
-        text.push_str(&format!(
-            " Run them with {}.",
+        text.push_str(&end_sentence(format!(
+            " Run them with {}",
             join_alternatives(&test_commands)
-        ));
+        )));
     }
     if !tests.ci_commands.is_empty() {
         text.push_str(" CI runs tests.");
@@ -769,6 +778,27 @@ mod tests {
         assert_eq!(
             insights.first_look[5].answer,
             "No critical or warning findings."
+        );
+
+        let mut python = dna();
+        python.builds.commands[0].command = "pip install -e .".into();
+        python.tests.test_files = 1;
+        python.tests.commands = vec![CommandCandidate {
+            command: "go test ./...".into(),
+            purpose: CommandPurpose::Test,
+            working_directory: String::new(),
+            source: "go.mod".into(),
+            verified: false,
+            evidence: Vec::new(),
+        }];
+        let answers = build_insights(&python, None).first_look;
+        assert_eq!(
+            answers[3].answer,
+            "Detected (not verified): pip install -e ."
+        );
+        assert_eq!(
+            answers[4].answer,
+            "1 test file. Run them with go test ./..."
         );
 
         let mut two = dna();
