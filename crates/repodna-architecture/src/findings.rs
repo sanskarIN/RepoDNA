@@ -231,8 +231,8 @@ pub fn classify_style(
             id: "cycles".into(),
             label: "Module cycles".into(),
             description: format!(
-                "{module_cycles} group{} of modules depend on each other.",
-                if module_cycles == 1 { "" } else { "s" }
+                "{} of modules that depend on each other.",
+                count(module_cycles as u64, "group", "groups")
             ),
             confidence: Confidence::High,
             evidence: vec![Evidence::metric(
@@ -642,6 +642,12 @@ mod tests {
         assert_eq!(found.title, "Dependency cycle between api and services");
         assert!(found.summary.contains("api → services → api"));
         assert_eq!(found.paths, vec!["app/api", "app/services"]);
+        let (_, _, signals) = classify_style(&report, 350, 12);
+        let cycles = signals.iter().find(|signal| signal.id == "cycles").unwrap();
+        assert_eq!(
+            cycles.description,
+            "1 group of modules that depend on each other."
+        );
 
         report.cycles = vec![cycle(&["rust"])];
         let findings = architecture_findings(&report, 350);
