@@ -219,6 +219,24 @@ fn analyzes_views_reports_and_exports() {
 }
 
 #[test]
+fn leaves_out_confidence_when_no_architecture_is_inferred() {
+    let env = Env::new();
+    let repo = env.work("notes");
+    write_tree(
+        &repo,
+        &[
+            ("README.md", "# Notes\n\nPlain notes, no code.\n"),
+            ("notes.txt", "nothing to build\n"),
+        ],
+    );
+    let output = env.run(&["analyze", &path(&repo)]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.contains("Architecture  Unknown, 0 modules"), "{text}");
+    assert!(!text.contains("unavailable confidence"), "{text}");
+}
+
+#[test]
 fn ci_fails_only_when_asked() {
     let env = Env::new();
     let repo = env.work("widget");
