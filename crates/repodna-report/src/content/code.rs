@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 
+use repodna_core::confidence::Confidence;
 use repodna_core::model::architecture::CycleLevel;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::dependencies::{DependencyScope, ManifestKind, ParseStatus};
@@ -35,12 +36,16 @@ pub(super) fn architecture(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
     if not_analyzed(blocks, report.status, &report.notes) {
         return;
     }
+    // When no style could be inferred there is no confidence to report.
+    let style_confidence = match report.style_confidence {
+        Confidence::Unavailable => String::new(),
+        known => format!(" ({} confidence)", known.label().to_lowercase()),
+    };
     blocks.rich(vec![
         Inline::Text("Inferred style: ".to_owned()),
         Inline::Strong(report.style.clone()),
         Inline::Text(format!(
-            " ({} confidence). {}, {}, {}.",
-            report.style_confidence.label().to_lowercase(),
+            "{style_confidence}. {}, {}, {}.",
             counted(report.modules.len() as u64, "module", "modules"),
             counted(
                 report.module_edges.len() as u64,
@@ -835,6 +840,25 @@ mod tests {
         assert!(markdown.contains("Inferred style: **Layered** (medium confidence). 2 modules"));
         assert!(markdown.contains("| core | `core/` | 2 | 300 |"));
         assert!(markdown.contains("| app | core | 4 | High |"));
+    }
+
+    #[test]
+    fn leaves_out_the_confidence_of_an_unknown_style() {
+        let mut dna =
+            RepositoryDna::new(RepositoryIdentity::default(), AnalysisMetadata::default());
+        dna.architecture.status = SectionStatus::Analyzed;
+        dna.architecture.style = "Unknown".into();
+        dna.architecture.style_confidence = Confidence::Unavailable;
+        let markdown = render(&section(
+            &dna,
+            Section::Architecture,
+            ContentOptions::default(),
+        ));
+        assert!(
+            markdown.contains("Inferred style: **Unknown**. 0 modules"),
+            "{markdown}"
+        );
+        assert!(!markdown.contains("unavailable confidence"));
     }
 
     #[test]
