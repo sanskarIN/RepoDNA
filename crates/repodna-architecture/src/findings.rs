@@ -178,8 +178,12 @@ pub fn classify_style(
                 id: "modular".into(),
                 label: "Modular".into(),
                 description: format!(
-                    "{module_count} modules with {} dependencies between them; no module holds most of the code.",
-                    report.module_edges.len()
+                    "{module_count} modules with {} between them; no module holds most of the code.",
+                    count(
+                        report.module_edges.len() as u64,
+                        "dependency",
+                        "dependencies"
+                    )
                 ),
                 confidence: Confidence::Medium,
                 evidence: vec![
@@ -581,6 +585,20 @@ mod tests {
         assert_eq!(style, "Layered");
         assert_eq!(confidence, Confidence::Medium);
         assert!(signals.iter().any(|signal| signal.id == "modular"));
+        let mut one_edge = layered_report();
+        one_edge.module_edges.truncate(1);
+        let (_, _, signals) = classify_style(&one_edge, 350, 12);
+        let modular = signals
+            .iter()
+            .find(|signal| signal.id == "modular")
+            .unwrap();
+        assert!(
+            modular
+                .description
+                .contains(" with 1 dependency between them"),
+            "{}",
+            modular.description
+        );
 
         let mut monorepo = layered_report();
         monorepo.packages = ["a", "b"]
