@@ -278,10 +278,17 @@ fn errors_explain_what_to_do() {
 #[test]
 fn manages_configuration_cache_and_plugins() {
     let env = Env::new();
+    let config_path = env.home.path().join("config.toml");
+    let before = env.run(&["config", "path"]);
+    assert_eq!(code(&before), 0, "{}", stderr(&before));
+    assert_eq!(stdout(&before), format!("{}\n", config_path.display()));
+    assert!(stderr(&before).contains("does not exist yet"));
     let init = env.run(&["config", "init"]);
     assert_eq!(code(&init), 0, "{}", stderr(&init));
-    let config_path = env.home.path().join("config.toml");
     assert!(config_path.is_file());
+    let after = env.run(&["config", "path"]);
+    assert_eq!(stdout(&after), format!("{}\n", config_path.display()));
+    assert!(!stderr(&after).contains("does not exist yet"));
     let enable = env.run(&["plugins", "enable", "zig-language"]);
     assert_eq!(code(&enable), 0, "{}", stderr(&enable));
     let text = std::fs::read_to_string(&config_path).unwrap();
