@@ -1,9 +1,9 @@
 # The RepositoryDNA model
 
 Every analysis produces one **RepositoryDNA artifact**: a versioned JSON document that
-describes a repository snapshot. Reports, cards, badges, the web interface, and
-comparisons are all generated from the artifact alone, so they can be regenerated later, on
-another machine, and without the repository.
+describes a repository snapshot. Reports, cards, badges, the web interface, comparisons,
+and AI explanations are all generated from the artifact alone, so they can be regenerated
+later, on another machine, and without the repository.
 
 ```sh
 repodna analyze . --format json > repodna.json    # the artifact
@@ -157,7 +157,7 @@ same files have the same hash, whatever the time, machine, or configuration.
 - A newer **major** version is rejected with an error that names both versions.
 
 The Settings page of the web interface shows the versions as, for example,
-"RepoDNA v1.0.0" and "Analysis schema v1".
+"RepoDNA v1.1.0" and "Analysis schema v1".
 
 Artifacts are written atomically (to a temporary file that is then renamed), so an
 interrupted export never leaves a truncated file.

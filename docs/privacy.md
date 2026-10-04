@@ -23,6 +23,7 @@ Only in these cases, each of which you start:
 | Action | What is contacted |
 |---|---|
 | Analyzing a Git URL | The Git host, through your `git` installation, to clone the repository. |
+| `repodna explain` with a configured HTTP provider | That provider's endpoint, with the evidence shown by `--dry-run`. Endpoints off this machine also need your consent (`privacy.remote_ai` or `--allow-remote-ai`). |
 | Clicking a link in the web interface or desktop app | Your browser opens the link. |
 
 Cloning is restricted by default: `http://` and `git://` URLs (unencrypted) and hosts on
@@ -48,7 +49,8 @@ The data directory holds:
 - `repodna.db`: a SQLite database with the index of repositories, analyses, metrics, and
   findings, and the per-file analysis cache (keyed by file content, so unchanged files are
   not parsed again);
-- `artifacts/`: each stored analysis as a JSON file.
+- `artifacts/`: each stored analysis as a JSON file;
+- `explanations/`: cached AI explanations, if you use them.
 
 The analyzed repositories are never written to. Remove stored data with `repodna clean`,
 `repodna cache clear`, or `repodna cache reset`, or by deleting the directory. Use
@@ -105,7 +107,6 @@ include_commit_messages = false
 
 ## AI
 
-RepoDNA 1.0 does not use AI and sends nothing to AI services: every result comes from
-deterministic analysis on your machine. Optional AI explanations are planned for a later
-release; they will be off by default and will show exactly what would be sent before
-anything is sent.
+AI explanations are off by default. When configured, only the numbered evidence shown by
+`repodna explain --dry-run` is sent; source code is not sent unless you enable excerpts.
+See [AI](ai.md).
