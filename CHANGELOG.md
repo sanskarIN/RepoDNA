@@ -6,7 +6,7 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-10-02
+## [1.1.0] - 2026-10-04
 
 Optional AI explanations: prose about a repository, grounded in the analysis, checked
 against its evidence, and off until you configure a provider.
