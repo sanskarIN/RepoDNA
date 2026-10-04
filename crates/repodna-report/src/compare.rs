@@ -282,14 +282,17 @@ pub fn compare(artifacts: &[RepositoryDna]) -> Comparison {
             artifacts
                 .iter()
                 .map(|dna| {
-                    if dna.git.status.has_results() {
+                    let ownership = &dna.git.ownership;
+                    if !dna.git.status.has_results() {
+                        not()
+                    } else if ownership.contributors > 1 {
                         format!(
                             "{} (half of the commits by {})",
-                            dna.git.ownership.contributors,
-                            dna.git.ownership.contributors_for_half_of_commits
+                            ownership.contributors, ownership.contributors_for_half_of_commits
                         )
                     } else {
-                        not()
+                        // With one identity, "half of the commits by 1" says nothing.
+                        ownership.contributors.to_string()
                     }
                 })
                 .collect(),
@@ -614,6 +617,23 @@ mod tests {
         assert!(markdown.contains("| Measure | alpha | beta |"));
         assert!(!markdown.to_lowercase().contains("winner"));
         assert_eq!(json_comparison(&comparison)["repositories"][1], "beta");
+    }
+
+    #[test]
+    fn counts_contributors_without_a_trivial_half_of_the_commits() {
+        let mut solo = artifact("solo", 10, "Rust", 3);
+        solo.git.ownership.contributors = 1;
+        solo.git.ownership.contributors_for_half_of_commits = 1;
+        let mut team = artifact("team", 10, "Rust", 9);
+        team.git.ownership.contributors = 4;
+        team.git.ownership.contributors_for_half_of_commits = 2;
+        let comparison = compare(&[solo, team]);
+        let row = comparison
+            .rows
+            .iter()
+            .find(|r| r.measure == "Contributor identities")
+            .unwrap();
+        assert_eq!(row.values, vec!["1", "4 (half of the commits by 2)"]);
     }
 
     #[test]
