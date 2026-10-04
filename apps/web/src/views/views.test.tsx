@@ -112,6 +112,13 @@ describe("views", () => {
     expect(shown.some((element) => element.getAttribute("aria-live") === "polite")).toBe(true);
   });
 
+  it("says when one finding was suppressed", async () => {
+    const data = demo();
+    data.dna.analysisMetadata.suppressedFindings = 1;
+    await renderAt("/reports", data);
+    expect(await screen.findByText("1 finding was suppressed by these rules.")).toBeTruthy();
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
