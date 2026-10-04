@@ -559,6 +559,7 @@ its contributors.
 
 - Repository: [github.com/sanskarIN/RepoDNA](https://github.com/sanskarIN/RepoDNA)
 - GitHub: [github.com/sanskarIN](https://github.com/sanskarIN)
+- More open-source projects: [sanskarin.github.io](https://sanskarin.github.io)
 - Learn programming: [sanskarIN.gumroad.com](https://sanskarIN.gumroad.com)
 
 RepoDNA is free, and every feature works without paying for anything. If it helps you,
