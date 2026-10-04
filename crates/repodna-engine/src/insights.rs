@@ -399,9 +399,9 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
         steps.push(GuideStep {
             title: "Read the README".to_owned(),
             description: format!(
-                "It has {} words and {} sections.",
-                readme.words,
-                readme.headings.len()
+                "It has {} and {}.",
+                count(readme.words, "word", "words"),
+                count(readme.headings.len() as u64, "section", "sections")
             ),
             paths: vec![readme.path.clone()],
             commands: Vec::new(),
@@ -890,6 +890,10 @@ mod tests {
         assert_eq!(
             insights.important_files[2].reasons,
             vec!["2 files import it"]
+        );
+        assert_eq!(
+            insights.onboarding[0].description,
+            "It has 50 words and 1 section."
         );
         assert_eq!(insights.glossary[0].term, "src");
         assert!(insights.glossary[0].definition.contains("mostly rust"));
