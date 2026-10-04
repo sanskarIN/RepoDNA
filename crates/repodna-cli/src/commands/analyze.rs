@@ -1,6 +1,7 @@
 //! `repodna analyze`: run an analysis, store it, and summarize it.
 
 use repodna_app::{AnalysisOutcome, AppError, report_bundle, run_analysis, write_bundle};
+use repodna_core::confidence::Confidence;
 use repodna_core::finding::highlights;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::{ReportOptions, json_report, markdown_report};
@@ -92,12 +93,16 @@ pub fn summary(
     }
     let a = &dna.architecture;
     if !a.style.is_empty() {
+        // When no style could be inferred there is no confidence to report.
+        let confidence = match a.style_confidence {
+            Confidence::Unavailable => String::new(),
+            known => format!(" ({} confidence)", known.label().to_ascii_lowercase()),
+        };
         rows.push((
             "Architecture",
             format!(
-                "{} ({} confidence), {}",
+                "{}{confidence}, {}",
                 a.style,
-                a.style_confidence.label().to_ascii_lowercase(),
                 plural(a.modules.len() as u64, "module", "modules")
             ),
         ));
