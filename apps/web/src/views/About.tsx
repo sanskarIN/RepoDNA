@@ -1,5 +1,5 @@
 import { ExternalLink, PageHeader, Panel } from "../components/common";
-import { PROJECT, REPOSITORY, SUPPORT, displayUrl, type ProjectLink } from "../lib/links";
+import { PROJECT, REPOSITORY, SUPPORT, WEBSITE, displayUrl, type ProjectLink } from "../lib/links";
 import { href } from "../lib/router";
 
 function LinkList({ links }: { links: ProjectLink[] }) {
@@ -37,7 +37,8 @@ export function About() {
         </div>
         <p>
           Made by the Sanskar and developed in the open with its contributors. Licensed under the
-          Apache License 2.0.
+          Apache License 2.0. More open-source projects by Sanskar are on{" "}
+          <ExternalLink href={WEBSITE}>{displayUrl(WEBSITE)}</ExternalLink>.
         </p>
       </Panel>
       <div className="grid two" style={{ marginTop: 16 }}>

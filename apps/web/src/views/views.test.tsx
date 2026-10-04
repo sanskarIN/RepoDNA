@@ -85,6 +85,12 @@ describe("views", () => {
     }
   });
 
+  it("points to more open-source projects from the About page's introduction", async () => {
+    await renderAt("/about", null);
+    const introduction = screen.getByText(/More open-source projects by Sanskar/);
+    expect(introduction.querySelector('a[href="https://sanskarin.github.io"]')).toBeTruthy();
+  });
+
   describe("licenses", () => {
     afterEach(() => {
       vi.unstubAllGlobals();
