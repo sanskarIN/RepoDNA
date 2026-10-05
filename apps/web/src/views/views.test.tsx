@@ -321,6 +321,24 @@ describe("views", () => {
     expect(window.location.hash).toBe("#/time-machine");
   });
 
+  it("shows paths in the code font and views in the interface font in search", async () => {
+    await renderAt("/overview", dataset);
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    });
+    const input = await screen.findByRole("combobox", { name: "Search and run commands" });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "time machine" } });
+    });
+    expect(within(screen.getByRole("listbox")).getByText("Time Machine").className).toBe("");
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "apps/web/src/main.tsx" } });
+    });
+    expect(within(screen.getByRole("listbox")).getByText("apps/web/src/main.tsx").className).toBe(
+      "path",
+    );
+  });
+
   it("announces a search without matches outside the list of results", async () => {
     await renderAt("/overview", dataset);
     await act(async () => {
