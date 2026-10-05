@@ -10,7 +10,7 @@ repodna show --section time-machine,evolution
 repodna analyze . --profile deep     # also reconstructs the architecture at every snapshot
 ```
 
-![Time Machine view of RepoDNA's own analysis](images/time-machine.png)
+![Time Machine view of RepoDNA's own analysis](images/v1.2.0/desktop/time-machine-light.png)
 
 It needs Git history, and it runs in the `standard`, `deep`, and `history-only` profiles.
 Turn it off with `analysis.include_history = false`.
