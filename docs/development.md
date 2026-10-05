@@ -229,7 +229,10 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
    `apps/desktop/src-tauri/tauri.conf.json`, and the `package.json` files (root,
    `apps/web`, `apps/desktop`, `packages/schema`, `packages/visualization`). Run
    `cargo build` and `npm install` to update the lockfiles.
-2. Add a section for the version to `CHANGELOG.md`.
+2. Add a section for the version to `CHANGELOG.md`, and point the installation steps and
+   examples at it: `README.md`, `docs/installation.md`, `docs/plugins.md`,
+   `docs/repository-dna.md`, and `examples/ci/repodna.yml`. For a new minor or major
+   version, also name it in the supported versions of `SECURITY.md`.
 3. Regenerate the schemas and the bundled demo analysis if the model changed, and the
    third-party notices (`cargo xtask notices`) if dependencies changed.
 4. Commit, then create and push an annotated tag: `git tag -a v1.2.0 -m "RepoDNA 1.2.0"` and

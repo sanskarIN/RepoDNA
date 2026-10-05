@@ -63,6 +63,7 @@ web interface, the desktop app, and reports, above all on phones and in narrow w
 - The installation guide describes the web interface image and how to install the npm
   packages from GitHub Packages. The README and the web interface guide mention them, and
   the development guide lists the packages each release publishes and how to check them.
+- The release steps in the development guide list every file that names the version.
 - The security policy names 1.2.x as the version that receives security fixes; it still
   named 1.0.x.
 
