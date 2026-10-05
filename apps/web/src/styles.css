@@ -434,9 +434,16 @@ kbd {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
+}
+
+/* Six tiles read better as two rows of three than as a row of five and one left over. */
+@media (min-width: 560px) {
+  .tiles:has(> :nth-child(6):last-child) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .tile {
