@@ -66,3 +66,18 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+      # A warning on the run, until the setting that lets GitHub's own build replace the
+      # interface is changed.
+      - name: Check the Pages source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type) || {
+            echo "::notice::Could not read the GitHub Pages settings."
+            exit 0
+          }
+          if [ "$source" != workflow ]; then
+            message="GitHub Pages deploys from a branch, so every push to main briefly replaces the web version with the repository's files. Set Settings > Pages > Build and deployment > Source to GitHub Actions."
+            echo "::warning title=GitHub Pages source::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+          fi
