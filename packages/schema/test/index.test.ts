@@ -36,6 +36,8 @@ describe("loading artifacts", () => {
 
   it("rejects documents it cannot read", () => {
     expect(() => parseArtifact("{")).toThrow(ArtifactError);
+    expect(() => parseArtifact("{")).toThrow("not valid JSON, so it is not a RepoDNA analysis");
+    expect(() => parseArtifact(" \n")).toThrow("The file is empty.");
     expect(() => parseArtifact("[]")).toThrow("not a JSON object");
     expect(() => checkArtifact({})).toThrow("no schemaVersion");
     expect(() => checkArtifact(minimal("2.0"))).toThrow("newer RepoDNA");
