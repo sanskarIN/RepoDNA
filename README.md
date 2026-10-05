@@ -553,7 +553,8 @@ Next on the list are lexical analysis for more languages, deeper import resoluti
 request analysis in CI, an official GitHub Action, and installation through package
 managers; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
 now, next, later, and under exploration, and the [changelog](CHANGELOG.md) what each
-release changed.
+release changed. Each release also has its own folder in
+[`docs/releases`](docs/releases/README.md), with its notes, downloads, and install commands.
 
 ## License
 
