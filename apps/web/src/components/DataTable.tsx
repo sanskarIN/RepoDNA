@@ -10,6 +10,9 @@ export interface Column<T> {
   numeric?: boolean;
 }
 
+/** Orders text the way people read it: "file2" before "file10", "1.9" before "1.10". */
+const collator = new Intl.Collator(undefined, { numeric: true });
+
 /** A sortable table that shows the first `limit` rows until asked for all of them. */
 export function DataTable<T>({
   rows,
@@ -41,7 +44,7 @@ export function DataTable<T>({
       if (typeof x === "number" && typeof y === "number") {
         return (x - y) * direction;
       }
-      return String(x).localeCompare(String(y)) * direction;
+      return collator.compare(String(x), String(y)) * direction;
     });
   }, [rows, columns, sort]);
   const shown = expanded ? sorted : sorted.slice(0, limit);
