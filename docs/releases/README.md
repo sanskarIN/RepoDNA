@@ -12,6 +12,9 @@ downloads with their sizes, and the commands that install it. The same notes are
 | [1.1.0](v1.1.0/README.md) | 2026-10-04 | Optional AI explanations, grounded in the analysis and checked against its evidence |
 | [1.0.0](v1.0.0/README.md) | 2026-09-27 | The first stable release |
 
+Each release page shows screenshots of that version; all of them, side by side, are in
+[`docs/images`](../images/README.md).
+
 ## Where the files are
 
 - **Command line and desktop app:** attached to each
@@ -30,5 +33,6 @@ downloads with their sizes, and the commands that install it. The same notes are
 
 When a version is published, add a folder named after its tag, such as `v1.3.0`, with a
 `README.md` in the same shape as the others: its notes from the changelog, its downloads,
-and how to install it. Then add a row at the top of the table above. The
-[release steps](../development.md#releasing) list this with the rest.
+how to install it, and its screenshots, which go in `docs/images/v1.3.0`. Then add a row
+at the top of the table above. The [release steps](../development.md#releasing) list this
+with the rest.
