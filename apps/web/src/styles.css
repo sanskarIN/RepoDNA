@@ -558,6 +558,11 @@ kbd {
   background: color-mix(in srgb, var(--attention) 16%, transparent);
 }
 
+/* Commands keep their lines and scroll inside the box on a narrow screen. */
+pre.note {
+  overflow-x: auto;
+}
+
 .error-box {
   padding: 12px 14px;
   border-radius: var(--radius-small);
