@@ -17,6 +17,8 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   [`docs/images`](docs/images/README.md): each shows that release's own analysis of this
   repository at its tag, and a gallery page compares them side by side. The screenshots
   of the media kit moved there too.
+- The README and the guides show screenshots of 1.2.0, including the desktop app and the
+  web interface on a phone, instead of screenshots taken with 1.0.0.
 - The 1.1.1 entry of this changelog is dated on the day it was published.
 
 ## [1.2.0] - 2026-10-05
