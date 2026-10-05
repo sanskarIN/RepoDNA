@@ -232,8 +232,8 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
 2. Add a section for the version to `CHANGELOG.md`.
 3. Regenerate the schemas and the bundled demo analysis if the model changed, and the
    third-party notices (`cargo xtask notices`) if dependencies changed.
-4. Commit, then create and push an annotated tag: `git tag -a v1.1.1 -m "RepoDNA 1.1.1"` and
-   `git push origin v1.1.1`.
+4. Commit, then create and push an annotated tag: `git tag -a v1.2.0 -m "RepoDNA 1.2.0"` and
+   `git push origin v1.2.0`.
 
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
 workspace version and the changelog, builds the command line for Linux, macOS, and Windows
