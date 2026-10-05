@@ -1,6 +1,5 @@
-import { WEEKDAYS, heatCells } from "@repodna/visualization";
+import { WEEKDAYS, heatCells, thousands } from "@repodna/visualization";
 import { useTooltip } from "../components/Tooltip";
-import { count } from "../lib/names";
 import { useWidth } from "./size";
 
 /** Commits by weekday and hour on a single-hue ramp (more commits, darker). */
@@ -27,7 +26,7 @@ export function Heatmap({ grid, label }: { grid: number[][]; label: string }) {
           </text>
         ))}
         {cells.map((c) => {
-          const text = count(c.value, "commit", "commits");
+          const text = `${thousands(c.value)} commits`;
           const when = `${WEEKDAYS[c.row] ?? ""} ${String(c.column).padStart(2, "0")}:00–${String(c.column).padStart(2, "0")}:59`;
           return (
             <rect

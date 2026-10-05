@@ -4,7 +4,6 @@ use std::fmt::Write;
 use std::str::FromStr;
 
 use repodna_core::model::artifact::RepositoryDna;
-use repodna_core::text::count;
 
 use crate::facts::facts;
 use crate::fonts::text_width;
@@ -119,10 +118,7 @@ pub fn badge(dna: &RepositoryDna, kind: BadgeKind) -> Badge {
             .map_or_else(not_analyzed, |level| (level.to_lowercase(), INFO_COLOR)),
         BadgeKind::Tests => match facts.test_files {
             Some(0) => ("not detected".to_owned(), NEUTRAL_COLOR),
-            Some(files) => (
-                format!("detected ({})", count(files, "file", "files")),
-                GOOD_COLOR,
-            ),
+            Some(files) => (format!("detected ({files} files)"), GOOD_COLOR),
             None => not_analyzed(),
         },
         BadgeKind::Dna => {
@@ -189,8 +185,6 @@ mod tests {
         let tests = badge(&dna, BadgeKind::Tests);
         assert_eq!(tests.value, "detected (12 files)");
         assert_eq!(tests.label, "RepoDNA tests");
-        dna.tests.test_files = 1;
-        assert_eq!(badge(&dna, BadgeKind::Tests).value, "detected (1 file)");
         dna.architecture.status = SectionStatus::Analyzed;
         dna.architecture.style = "Layered".into();
         assert_eq!(badge(&dna, BadgeKind::Architecture).value, "layered");

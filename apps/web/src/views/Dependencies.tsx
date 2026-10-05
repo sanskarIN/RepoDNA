@@ -209,7 +209,7 @@ export function Dependencies() {
           />
           <span className="muted" aria-live="polite">
             {filtered.length === report.dependencies.length
-              ? count(filtered.length, "dependency", "dependencies")
+              ? `${thousands(filtered.length)} dependencies`
               : `${thousands(filtered.length)} of ${thousands(report.dependencies.length)}`}
           </span>
         </div>

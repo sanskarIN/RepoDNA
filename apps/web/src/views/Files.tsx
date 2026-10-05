@@ -176,7 +176,7 @@ export function Files() {
             bars={categories.map((c) => ({
               label: CATEGORY_LABELS[c.category],
               value: c.files,
-              details: `${count(c.lines, "line", "lines")} · ${bytes(c.bytes)}`,
+              details: `${thousands(c.lines)} lines · ${bytes(c.bytes)}`,
             }))}
           />
         </Panel>
@@ -305,7 +305,7 @@ export function Files() {
           />
           <span className="muted" aria-live="polite">
             {filtered.length === structure.files.length
-              ? count(filtered.length, "file", "files")
+              ? `${thousands(filtered.length)} files`
               : `${thousands(filtered.length)} of ${thousands(structure.files.length)} files`}
           </span>
         </div>

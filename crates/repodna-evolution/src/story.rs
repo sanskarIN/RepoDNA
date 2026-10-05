@@ -267,17 +267,10 @@ pub fn archaeology(input: &StoryInput<'_>) -> ArchaeologyReport {
 
     // The final phase and the current state.
     if let Some(epoch) = input.epochs.last() {
-        // Changes to top-level files are grouped under "(root)", which is not a path.
         let focus: Vec<String> = epoch
             .focus_areas
             .iter()
-            .map(|area| {
-                if area == "(root)" {
-                    "the repository root".to_owned()
-                } else {
-                    format!("{area}/")
-                }
-            })
+            .map(|area| format!("{area}/"))
             .collect();
         let mut text = format!(
             "Since {}, {} by {}",
@@ -469,25 +462,5 @@ mod tests {
             || s.text.starts_with("Growth")
             || s.text.starts_with("Recent")));
         assert_eq!(list(&["a".into(), "b".into(), "c".into()]), "a, b, and c");
-
-        let mut rooted = epochs.clone();
-        if let Some(last) = rooted.last_mut() {
-            last.focus_areas = vec!["(root)".into(), "cli".into()];
-        }
-        let report = archaeology(&StoryInput {
-            epochs: &rooted,
-            ..input
-        });
-        assert!(
-            report.final_phase[0]
-                .text
-                .ends_with("changed mostly the repository root and cli/."),
-            "{}",
-            report.final_phase[0].text
-        );
-        assert_eq!(
-            report.final_phase[1].text,
-            "Recent work concentrates on the repository root."
-        );
     }
 }

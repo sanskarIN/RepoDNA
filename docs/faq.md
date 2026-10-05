@@ -89,8 +89,7 @@ See [privacy](privacy.md#what-is-stored-and-where). `repodna list` shows them an
 
 **Who makes RepoDNA?**
 RepoDNA was created by [Sanskar](https://github.com/sanskarIN) and is developed in the open
-with its contributors. See [MAINTAINERS.md](../MAINTAINERS.md). More open-source projects by
-Sanskar are at [sanskarin.github.io](https://sanskarin.github.io).
+with its contributors. See [MAINTAINERS.md](../MAINTAINERS.md).
 
 **How can I help?**
 Report bugs, suggest features, add a language or an ecosystem, improve the documentation,

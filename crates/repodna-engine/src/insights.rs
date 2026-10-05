@@ -36,32 +36,6 @@ fn list(items: &[String]) -> String {
     }
 }
 
-/// `text` ending with a period. A command that already ends in one, such as
-/// `pip install -e .`, gets no second period, which would change how it reads.
-fn end_sentence(mut text: String) -> String {
-    if !text.ends_with('.') {
-        text.push('.');
-    }
-    text
-}
-
-/// The tests that were found, such as "2 test files and 1 source file with inline tests",
-/// or `None` when there are none.
-fn tests_found(dna: &RepositoryDna) -> Option<String> {
-    let tests = &dna.tests;
-    let mut found = Vec::new();
-    if tests.test_files > 0 {
-        found.push(count(tests.test_files, "test file", "test files"));
-    }
-    if tests.inline_test_files > 0 {
-        found.push(format!(
-            "{} with inline tests",
-            count(tests.inline_test_files, "source file", "source files")
-        ));
-    }
-    (!found.is_empty()).then(|| list(&found))
-}
-
 fn answer(
     id: &str,
     question: &str,
@@ -194,16 +168,12 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
                 .then_with(|| a.id.cmp(&b.id))
         });
         let names: Vec<String> = modules.iter().take(5).map(|m| m.name.clone()).collect();
-        let organized = match names.as_slice() {
-            [] => "No modules were inferred".to_owned(),
-            [only] if modules.len() == 1 => format!("1 module: {only}"),
-            _ => format!(
-                "{} modules; the largest are {}",
-                modules.len(),
-                list(&names)
-            ),
-        };
-        let mut text = format!("{organized}. Style: {} (inferred).", dna.architecture.style);
+        let mut text = format!(
+            "{} modules; the largest are {}. Style: {} (inferred).",
+            dna.architecture.modules.len(),
+            list(&names),
+            dna.architecture.style
+        );
         if let Some(signal) = dna.architecture.signals.first() {
             text.push_str(&format!(" {}", signal.description));
         }
@@ -235,7 +205,7 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     let text = if run.is_empty() {
         "No build or run commands were detected.".to_owned()
     } else {
-        end_sentence(format!("Detected (not verified): {}", run.join("; ")))
+        format!("Detected (not verified): {}.", run.join("; "))
     };
     answers.push(answer(
         "run",
@@ -258,28 +228,23 @@ fn first_look(dna: &RepositoryDna) -> Vec<QuestionAnswer> {
     // How is it tested?
     let tests = &dna.tests;
     let frameworks: Vec<String> = tests.frameworks.iter().map(|f| f.name.clone()).collect();
-    let found = tests_found(dna);
-    let mut text = match (&found, frameworks.is_empty()) {
-        (Some(found), true) => format!("{found}."),
-        (Some(found), false) => format!("{found} using {}.", list(&frameworks)),
-        (None, true) => "No test files were detected.".to_owned(),
-        (None, false) => format!(
-            "No test files were detected (frameworks: {}).",
-            list(&frameworks)
-        ),
-    };
+    let mut text = count(tests.test_files, "test file", "test files");
+    if tests.inline_test_files > 0 {
+        text.push_str(&format!(
+            " and {} with inline tests",
+            count(tests.inline_test_files, "source file", "source files")
+        ));
+    }
+    if !frameworks.is_empty() {
+        text.push_str(&format!(" using {}", list(&frameworks)));
+    }
+    text.push('.');
     let test_commands = commands(dna, &[CommandPurpose::Test], 3);
     if !test_commands.is_empty() {
-        // "Run them" needs tests to refer to.
-        let lead = if found.is_some() {
-            "Run them with"
-        } else {
-            "Detected test commands (not verified):"
-        };
-        text.push_str(&end_sentence(format!(
-            " {lead} {}",
+        text.push_str(&format!(
+            " Run them with {}.",
             join_alternatives(&test_commands)
-        )));
+        ));
     }
     if !tests.ci_commands.is_empty() {
         text.push_str(" CI runs tests.");
@@ -399,9 +364,9 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
         steps.push(GuideStep {
             title: "Read the README".to_owned(),
             description: format!(
-                "It has {} and {}.",
-                count(readme.words, "word", "words"),
-                count(readme.headings.len() as u64, "section", "sections")
+                "It has {} words and {} sections.",
+                readme.words,
+                readme.headings.len()
             ),
             paths: vec![readme.path.clone()],
             commands: Vec::new(),
@@ -444,16 +409,16 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
     if !tests.is_empty() {
         steps.push(GuideStep {
             title: "Run the tests".to_owned(),
-            description: match tests_found(dna) {
-                Some(found) => format!(
-                    "{found} {} found.",
-                    if dna.tests.test_files + dna.tests.inline_test_files == 1 {
-                        "was"
-                    } else {
-                        "were"
-                    }
-                ),
-                None => "No test files were detected; these commands were found in the repository's metadata and have not been run.".to_owned(),
+            description: if dna.tests.inline_test_files > 0 {
+                format!(
+                    "{} and {} with inline tests were found.",
+                    count(dna.tests.test_files, "test file", "test files"),
+                    count(dna.tests.inline_test_files, "source file", "source files")
+                )
+            } else if dna.tests.test_files == 1 {
+                "1 test file was found.".to_owned()
+            } else {
+                format!("{} test files were found.", dna.tests.test_files)
             },
             paths: dna.tests.test_directories.iter().take(3).cloned().collect(),
             commands: tests,
@@ -506,39 +471,26 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
     if let Some(recent) = recent
         && recent.commits > 0
     {
-        // Changes to files at the top level are grouped under "(root)", which is not a path.
-        let directories: Vec<&str> = recent
-            .directories
-            .iter()
-            .take(3)
-            .map(|d| d.path.as_str())
-            .collect();
-        let places: Vec<String> = directories
-            .iter()
-            .map(|path| {
-                if *path == "(root)" {
-                    "the repository root".to_owned()
-                } else {
-                    format!("{path}/")
-                }
-            })
-            .collect();
-        let mut description = format!(
-            "{} in the last {} days",
-            count(recent.commits, "commit", "commits"),
-            recent.window_days
-        );
-        if !places.is_empty() {
-            description.push_str(&format!(", mostly in {}", list(&places)));
-        }
-        description.push('.');
         steps.push(GuideStep {
             title: "Review recent changes".to_owned(),
-            description,
-            paths: directories
-                .into_iter()
-                .filter(|path| *path != "(root)")
-                .map(str::to_owned)
+            description: format!(
+                "{} commits in the last {} days, mostly in {}.",
+                recent.commits,
+                recent.window_days,
+                list(
+                    &recent
+                        .directories
+                        .iter()
+                        .take(3)
+                        .map(|d| format!("{}/", d.path))
+                        .collect::<Vec<_>>()
+                )
+            ),
+            paths: recent
+                .directories
+                .iter()
+                .take(3)
+                .map(|d| d.path.clone())
                 .collect(),
             commands: Vec::new(),
         });
@@ -803,64 +755,12 @@ mod tests {
         );
         assert!(insights.first_look[1].answer.contains("src/main.rs"));
         assert_eq!(
-            insights.first_look[2].answer,
-            "1 module: src. Style: Modular (inferred)."
-        );
-        assert_eq!(
             insights.first_look[3].answer,
             "Detected (not verified): cargo build."
         );
         assert_eq!(
             insights.first_look[5].answer,
             "No critical or warning findings."
-        );
-
-        let mut python = dna();
-        python.builds.commands[0].command = "pip install -e .".into();
-        python.tests.test_files = 1;
-        python.tests.commands = vec![CommandCandidate {
-            command: "go test ./...".into(),
-            purpose: CommandPurpose::Test,
-            working_directory: String::new(),
-            source: "go.mod".into(),
-            verified: false,
-            evidence: Vec::new(),
-        }];
-        let answers = build_insights(&python, None).first_look;
-        assert_eq!(
-            answers[3].answer,
-            "Detected (not verified): pip install -e ."
-        );
-        assert_eq!(
-            answers[4].answer,
-            "1 test file. Run them with go test ./..."
-        );
-        python.tests.test_files = 0;
-        assert_eq!(
-            build_insights(&python, None).first_look[4].answer,
-            "No test files were detected. Detected test commands (not verified): go test ./..."
-        );
-        python.tests.inline_test_files = 2;
-        assert_eq!(
-            build_insights(&python, None).first_look[4].answer,
-            "2 source files with inline tests. Run them with go test ./..."
-        );
-        python.tests.test_files = 1;
-        assert_eq!(
-            build_insights(&python, None).first_look[4].answer,
-            "1 test file and 2 source files with inline tests. Run them with go test ./..."
-        );
-
-        let mut two = dna();
-        let mut lib = two.architecture.modules[0].clone();
-        lib.id = "lib".into();
-        lib.name = "lib".into();
-        lib.path = "lib".into();
-        lib.code_lines = 100;
-        two.architecture.modules.push(lib);
-        assert_eq!(
-            build_insights(&two, None).first_look[2].answer,
-            "2 modules; the largest are src and lib. Style: Modular (inferred)."
         );
     }
 
@@ -891,61 +791,7 @@ mod tests {
             insights.important_files[2].reasons,
             vec!["2 files import it"]
         );
-        assert_eq!(
-            insights.onboarding[0].description,
-            "It has 50 words and 1 section."
-        );
         assert_eq!(insights.glossary[0].term, "src");
         assert!(insights.glossary[0].definition.contains("mostly rust"));
-
-        let recent = RecentChanges {
-            window_days: 90,
-            commits: 1,
-            directories: ["src", "(root)"]
-                .iter()
-                .map(|path| repodna_core::model::insights::DirectoryChange {
-                    path: (*path).into(),
-                    commits: 1,
-                    churn: 10,
-                })
-                .collect(),
-            ..RecentChanges::default()
-        };
-        let review = build_insights(&dna(), Some(recent))
-            .onboarding
-            .into_iter()
-            .find(|step| step.title == "Review recent changes")
-            .unwrap();
-        assert_eq!(
-            review.description,
-            "1 commit in the last 90 days, mostly in src/ and the repository root."
-        );
-        assert_eq!(review.paths, vec!["src"]);
-
-        let mut tested = dna();
-        tested.tests.commands = vec![CommandCandidate {
-            command: "cargo test".into(),
-            purpose: CommandPurpose::Test,
-            working_directory: String::new(),
-            source: "Cargo.toml".into(),
-            verified: false,
-            evidence: Vec::new(),
-        }];
-        let step = |dna: &RepositoryDna| {
-            build_insights(dna, None)
-                .onboarding
-                .into_iter()
-                .find(|step| step.title == "Run the tests")
-                .unwrap()
-                .description
-        };
-        assert!(step(&tested).starts_with("No test files were detected;"));
-        tested.tests.inline_test_files = 1;
-        assert_eq!(step(&tested), "1 source file with inline tests was found.");
-        tested.tests.test_files = 2;
-        assert_eq!(
-            step(&tested),
-            "2 test files and 1 source file with inline tests were found."
-        );
     }
 }

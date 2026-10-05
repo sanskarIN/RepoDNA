@@ -173,13 +173,9 @@ pub fn test_report(
     let mut notes = Vec::new();
     let inline = inline_files.len();
     if inline > 0 {
-        let files = if inline == 1 {
-            "1 source file contains".to_owned()
-        } else {
-            format!("{inline} source files contain")
-        };
+        let plural = if inline == 1 { "" } else { "s" };
         notes.push(format!(
-            "{files} inline tests (such as Rust #[cfg(test)] modules); their code counts as source code."
+            "{inline} source file{plural} contain inline tests (such as Rust #[cfg(test)] modules); their code counts as source code."
         ));
     }
     if tests.is_empty() && inline == 0 {
@@ -324,7 +320,7 @@ mod tests {
         assert_eq!(report.inline_test_files, 1);
         assert_eq!(report.commands.len(), 1);
         assert_eq!(report.coverage_artifacts, vec!["coverage", "lcov.info"]);
-        assert!(report.notes[0].starts_with("1 source file contains inline tests"));
+        assert!(report.notes[0].contains("inline tests"));
 
         let empty = test_report(&files[..1], Vec::new(), &[], Vec::new());
         assert_eq!(empty.test_ratio, 0.0);

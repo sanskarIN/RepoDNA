@@ -92,8 +92,8 @@ RepoDNA answers with evidence instead:
   as zero.
 - **Descriptive, not judgmental.** The DNA fingerprint describes a repository; it is not a
   grade. Contributor statistics describe the recorded history, not anyone's value.
-- **Local-first and private.** No telemetry and no network use except what you ask for:
-  cloning a URL, or reaching an AI provider you configured.
+- **Local-first and private.** No telemetry, no uploads, and no network use except what you
+  ask for.
 - **Safe with code you do not trust.** Analysis is read-only, Git runs with hardened
   settings, archives are extracted with limits, and nothing from the repository is executed
   unless you enable it.
@@ -205,8 +205,8 @@ statically linked), macOS (Apple silicon and Intel), or Windows (x86_64). Each i
 `repodna` program with the web interface built in. For example, on Linux:
 
 ```sh
-tar -xzf repodna-1.1.1-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.1.1-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.1.0-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.1.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 repodna --version
 ```
 
@@ -559,7 +559,6 @@ its contributors.
 
 - Repository: [github.com/sanskarIN/RepoDNA](https://github.com/sanskarIN/RepoDNA)
 - GitHub: [github.com/sanskarIN](https://github.com/sanskarIN)
-- More open-source projects: [sanskarin.github.io](https://sanskarin.github.io)
 - Learn programming: [sanskarIN.gumroad.com](https://sanskarIN.gumroad.com)
 
 RepoDNA is free, and every feature works without paying for anything. If it helps you,

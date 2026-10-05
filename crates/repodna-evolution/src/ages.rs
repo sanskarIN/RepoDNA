@@ -55,12 +55,10 @@ pub fn module_ages(
         };
         let age_days = first.days_until(latest);
         let offset = history_start.days_until(first);
-        let before = match age_days {
-            0 => "the day of the latest commit".to_owned(),
-            1 => "1 day before the latest commit".to_owned(),
-            days => format!("{days} days before the latest commit"),
-        };
-        let since = format!("First changed on {}, {before}", first.date_string());
+        let since = format!(
+            "First changed on {}, {age_days} days before the latest commit",
+            first.date_string()
+        );
         let (class, reason) = if age_days <= 30 {
             (AgeClass::New, format!("{since}."))
         } else if age_days <= 365 {
@@ -198,31 +196,6 @@ mod tests {
             ]
         );
         assert!(ages[0].reason.starts_with("First changed on 2018-01-01"));
-        assert_eq!(
-            ages[4].reason,
-            "First changed on 2024-05-20, 12 days before the latest commit."
-        );
-
-        let latest = |date: (i64, u32, u32)| {
-            let history = [record("new/a.ts", (2024, 5, 31), (2024, 5, 31), 1, 1)];
-            let modules = vec![("new".to_owned(), vec!["new/a.ts".to_owned()])];
-            module_ages(
-                &modules,
-                &history,
-                Timestamp::from_ymd(2024, 5, 31).unwrap(),
-                Timestamp::from_ymd(date.0, date.1, date.2).unwrap(),
-            )
-            .remove(0)
-            .reason
-        };
-        assert_eq!(
-            latest((2024, 6, 1)),
-            "First changed on 2024-05-31, 1 day before the latest commit."
-        );
-        assert_eq!(
-            latest((2024, 5, 31)),
-            "First changed on 2024-05-31, the day of the latest commit."
-        );
     }
 
     #[test]

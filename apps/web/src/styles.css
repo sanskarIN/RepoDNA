@@ -246,14 +246,12 @@ code,
   margin-bottom: 8px;
 }
 
-.footer-links a,
-.sidebar-footer p a {
+.footer-links a {
   color: var(--muted);
 }
 
 .footer-links a:hover,
-.footer-links a[aria-current="page"],
-.sidebar-footer p a:hover {
+.footer-links a[aria-current="page"] {
   color: var(--accent-ink);
 }
 
