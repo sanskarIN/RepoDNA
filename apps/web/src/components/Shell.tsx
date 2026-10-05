@@ -24,6 +24,13 @@ export function Shell({ children }: { children: ReactNode }) {
   const route = useRoute();
   const [palette, setPalette] = useState<"all" | "open" | null>(null);
   const [help, setHelp] = useState(false);
+  // The navigation is folded away on narrow screens until the Menu button opens it.
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Choosing a page closes the menu.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [route.path]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -47,6 +54,7 @@ export function Shell({ children }: { children: ReactNode }) {
       } else if (event.key === "Escape") {
         setPalette(null);
         setHelp(false);
+        setMenuOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -60,55 +68,68 @@ export function Shell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <aside className="sidebar" aria-label="Navigation">
-        <a className="brand" href={href(dataset ? "/overview" : "/")}>
-          <img src="./favicon.svg" alt="" />
-          RepoDNA
-        </a>
+        <div className="sidebar-top">
+          <a className="brand" href={href(dataset ? "/overview" : "/")}>
+            <img src="./favicon.svg" alt="" />
+            RepoDNA
+          </a>
+          <button
+            type="button"
+            className="ghost menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="sidebar-menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? "Close menu" : "Menu"}
+          </button>
+        </div>
         {dataset ? (
           <div className="dataset-label">
             <strong>{dataset.dna.identity.name}</strong>
             <span>{originLabel(dataset)}</span>
           </div>
         ) : null}
-        <nav className="nav">
-          {groups.map((group) => (
-            <div key={group}>
-              <div className="nav-heading">{group}</div>
-              {NAV.filter((item) => item.group === group).map((item) => {
-                const disabled = item.needsData && !dataset;
-                return (
-                  <a
-                    key={item.path}
-                    href={href(item.path)}
-                    className={disabled ? "disabled" : undefined}
-                    aria-disabled={disabled || undefined}
-                    tabIndex={disabled ? -1 : undefined}
-                    aria-current={route.path === item.path ? "page" : undefined}
-                  >
-                    {item.label}
-                  </a>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
-        <div className="sidebar-footer">
-          <nav className="footer-links" aria-label="Legal">
-            {NAV.filter((item) => item.group === "Legal").map((item) => (
-              <a
-                key={item.path}
-                href={href(item.path)}
-                aria-current={route.path === item.path ? "page" : undefined}
-              >
-                {item.label}
-              </a>
+        <div id="sidebar-menu" className="sidebar-menu" data-open={menuOpen || undefined}>
+          <nav className="nav">
+            {groups.map((group) => (
+              <div key={group}>
+                <div className="nav-heading">{group}</div>
+                {NAV.filter((item) => item.group === group).map((item) => {
+                  const disabled = item.needsData && !dataset;
+                  return (
+                    <a
+                      key={item.path}
+                      href={href(item.path)}
+                      className={disabled ? "disabled" : undefined}
+                      aria-disabled={disabled || undefined}
+                      tabIndex={disabled ? -1 : undefined}
+                      aria-current={route.path === item.path ? "page" : undefined}
+                    >
+                      {item.label}
+                    </a>
+                  );
+                })}
+              </div>
             ))}
           </nav>
-          <p>
-            Local-first · no telemetry
-            <br />
-            <ExternalLink href={WEBSITE}>Made by the Sanskar</ExternalLink>
-          </p>
+          <div className="sidebar-footer">
+            <nav className="footer-links" aria-label="Legal">
+              {NAV.filter((item) => item.group === "Legal").map((item) => (
+                <a
+                  key={item.path}
+                  href={href(item.path)}
+                  aria-current={route.path === item.path ? "page" : undefined}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+            <p>
+              Local-first · no telemetry
+              <br />
+              <ExternalLink href={WEBSITE}>Made by the Sanskar</ExternalLink>
+            </p>
+          </div>
         </div>
       </aside>
       <div className="main">
