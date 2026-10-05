@@ -52,6 +52,21 @@ describe("DataTable", () => {
     expect(names()).toEqual(["beta", "gamma", "alpha"]);
   });
 
+  it("sorts numbers inside text by their value", () => {
+    const files = ["file10.rs", "file2.rs", "file1.rs"].map((name) => ({ name, size: 1 }));
+    render(
+      <DataTable
+        rows={files}
+        rowKey={(row) => row.name}
+        columns={[
+          { key: "name", header: "Name", cell: (row) => row.name, sort: (row) => row.name },
+        ]}
+        initialSort={{ key: "name", descending: false }}
+      />,
+    );
+    expect(names()).toEqual(["file1.rs", "file2.rs", "file10.rs"]);
+  });
+
   it("shows the first rows until asked for all", () => {
     render(
       <DataTable
