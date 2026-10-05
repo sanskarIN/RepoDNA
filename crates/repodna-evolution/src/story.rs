@@ -86,8 +86,9 @@ fn snapshot_evidence(snapshot: &Snapshot) -> Evidence {
 
 fn event_statement(event: &EvolutionEvent) -> StoryStatement {
     let text = match event.kind {
+        // The description only repeats that the first files were added.
         EvolutionEventKind::ModuleIntroduced => format!(
-            "{} ({}).",
+            "{} on {}.",
             event.title.trim_end_matches('.'),
             event.date.date_string()
         ),
@@ -451,7 +452,7 @@ mod tests {
                 .any(|s| s.kind == StatementKind::Interpretation
                     && s.text.contains("between the first commit and 2020-02"))
         );
-        assert_eq!(report.expansions[0].text, "cli/ appeared (2020-02-01).");
+        assert_eq!(report.expansions[0].text, "cli/ appeared on 2020-02-01.");
         assert_eq!(
             report.inactivity[0].text,
             "No commits for 394 days, from 2020-02-01 to 2021-03-01."
