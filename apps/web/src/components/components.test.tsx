@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Heatmap } from "../charts/Heatmap";
 import { DataTable } from "./DataTable";
 import { useTooltip } from "./Tooltip";
@@ -123,5 +123,13 @@ describe("useTooltip", () => {
     const tooltip = focusMark(320, 640, 300, 100);
     expect(tooltip.textContent).toContain("12 commits");
     expect(tooltip.style.left).toBe("8px");
+  });
+
+  it("opens below a mark in the top half of the window and above one in the bottom half", () => {
+    const high = focusMark(1024, 768, 100, 100);
+    expect([high.style.top, high.style.bottom]).toEqual(["88px", ""]);
+    cleanup();
+    const low = focusMark(1024, 768, 100, 700);
+    expect([low.style.top, low.style.bottom]).toEqual(["", "56px"]);
   });
 });

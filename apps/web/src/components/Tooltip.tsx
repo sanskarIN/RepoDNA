@@ -45,7 +45,11 @@ export function useTooltip() {
       style={{
         // Beside the pointer, but never past either edge of a narrow window.
         left: Math.max(8, Math.min(state.at.x + 14, window.innerWidth - 340)),
-        top: Math.max(8, state.at.y - 12),
+        // Below the pointer in the top half of the window and above it in the bottom
+        // half, so the bottom edge does not cut off a tooltip near it.
+        ...(state.at.y < window.innerHeight / 2
+          ? { top: Math.max(8, state.at.y - 12) }
+          : { bottom: Math.max(8, window.innerHeight - state.at.y - 12) }),
       }}
     >
       <strong>{state.content.value}</strong>
