@@ -46,6 +46,8 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 
 - [Examples](../examples/README.md): RepoDNA's analysis of itself, a CI workflow, and
   configurations
+- [Media kit](media/README.md): screenshots, promo images, and Project DNA cards for posts
+  and talks
 - [Roadmap](../ROADMAP.md) and [changelog](../CHANGELOG.md)
 - [Security policy](../SECURITY.md), [support](../SUPPORT.md), and the
   [code of conduct](../CODE_OF_CONDUCT.md)
