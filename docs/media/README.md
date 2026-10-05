@@ -40,20 +40,21 @@ previews use: 2400 × 1260, about 1.91:1.
 
 2880 × 1620 (16:9), taken in a 1440 × 810 window at twice the resolution. The module map
 of the architecture view is 3360 × 1890, from a 1680 × 945 window, so that every module
-fits.
+fits. They are kept in [`docs/images/v1.2.0`](../images/v1.2.0), next to the
+screenshots of earlier versions.
 
 | | |
 |---|---|
-| ![Overview in the light theme: key numbers, the language map, and the Project DNA dimensions](desktop/overview-light.png) | ![Overview in the dark theme](desktop/overview-dark.png) |
-| `desktop/overview-light.png` | `desktop/overview-dark.png` |
-| ![Architecture in the dark theme: the module map in dependency layers](desktop/architecture-dark.png) | ![History in the light theme: commits over time and when commits happen](desktop/history-light.png) |
-| `desktop/architecture-dark.png` | `desktop/history-light.png` |
-| ![History in the dark theme](desktop/history-dark.png) | ![Time Machine in the light theme: a snapshot with its languages and largest areas](desktop/time-machine-light.png) |
-| `desktop/history-dark.png` | `desktop/time-machine-light.png` |
-| ![Hotspots in the dark theme: the hotspot map](desktop/hotspots-dark.png) | ![Findings in the dark theme: the severity filters and the findings](desktop/findings-dark.png) |
-| `desktop/hotspots-dark.png` | `desktop/findings-dark.png` |
-| ![Files in the light theme: what the files are and where the lines are](desktop/files-light.png) | ![Search in the dark theme: a view, files, and findings for one query](desktop/search-dark.png) |
-| `desktop/files-light.png` | `desktop/search-dark.png` |
+| ![Overview in the light theme: key numbers, the language map, and the Project DNA dimensions](../images/v1.2.0/desktop/overview-light.png) | ![Overview in the dark theme](../images/v1.2.0/desktop/overview-dark.png) |
+| [`overview-light.png`](../images/v1.2.0/desktop/overview-light.png) | [`overview-dark.png`](../images/v1.2.0/desktop/overview-dark.png) |
+| ![Architecture in the dark theme: the module map in dependency layers](../images/v1.2.0/desktop/architecture-dark.png) | ![History in the light theme: commits over time and when commits happen](../images/v1.2.0/desktop/history-light.png) |
+| [`architecture-dark.png`](../images/v1.2.0/desktop/architecture-dark.png) | [`history-light.png`](../images/v1.2.0/desktop/history-light.png) |
+| ![History in the dark theme](../images/v1.2.0/desktop/history-dark.png) | ![Time Machine in the light theme: a snapshot with its languages and largest areas](../images/v1.2.0/desktop/time-machine-light.png) |
+| [`history-dark.png`](../images/v1.2.0/desktop/history-dark.png) | [`time-machine-light.png`](../images/v1.2.0/desktop/time-machine-light.png) |
+| ![Hotspots in the dark theme: the hotspot map](../images/v1.2.0/desktop/hotspots-dark.png) | ![Findings in the dark theme: the severity filters and the findings](../images/v1.2.0/desktop/findings-dark.png) |
+| [`hotspots-dark.png`](../images/v1.2.0/desktop/hotspots-dark.png) | [`findings-dark.png`](../images/v1.2.0/desktop/findings-dark.png) |
+| ![Files in the light theme: what the files are and where the lines are](../images/v1.2.0/desktop/files-light.png) | ![Search in the dark theme: a view, files, and findings for one query](../images/v1.2.0/desktop/search-dark.png) |
+| [`files-light.png`](../images/v1.2.0/desktop/files-light.png) | [`search-dark.png`](../images/v1.2.0/desktop/search-dark.png) |
 
 ## Phone screenshots
 
@@ -62,10 +63,10 @@ portrait posts.
 
 | | | | |
 |---|---|---|---|
-| <img src="phone/overview-light.png" alt="Overview on a phone in the light theme" width="180"> | <img src="phone/menu-light.png" alt="The navigation menu open on a phone in the light theme" width="180"> | <img src="phone/history-light.png" alt="History on a phone in the light theme" width="180"> | <img src="phone/hotspots-light.png" alt="Hotspots on a phone in the light theme" width="180"> |
-| `phone/overview-light.png` | `phone/menu-light.png` | `phone/history-light.png` | `phone/hotspots-light.png` |
-| <img src="phone/overview-dark.png" alt="Overview on a phone in the dark theme" width="180"> | <img src="phone/menu-dark.png" alt="The navigation menu open on a phone in the dark theme" width="180"> | <img src="phone/history-dark.png" alt="History on a phone in the dark theme" width="180"> | <img src="phone/hotspots-dark.png" alt="Hotspots on a phone in the dark theme" width="180"> |
-| `phone/overview-dark.png` | `phone/menu-dark.png` | `phone/history-dark.png` | `phone/hotspots-dark.png` |
+| <img src="../images/v1.2.0/phone/overview-light.png" alt="Overview on a phone in the light theme" width="180"> | <img src="../images/v1.2.0/phone/menu-light.png" alt="The navigation menu open on a phone in the light theme" width="180"> | <img src="../images/v1.2.0/phone/history-light.png" alt="History on a phone in the light theme" width="180"> | <img src="../images/v1.2.0/phone/hotspots-light.png" alt="Hotspots on a phone in the light theme" width="180"> |
+| [`overview-light.png`](../images/v1.2.0/phone/overview-light.png) | [`menu-light.png`](../images/v1.2.0/phone/menu-light.png) | [`history-light.png`](../images/v1.2.0/phone/history-light.png) | [`hotspots-light.png`](../images/v1.2.0/phone/hotspots-light.png) |
+| <img src="../images/v1.2.0/phone/overview-dark.png" alt="Overview on a phone in the dark theme" width="180"> | <img src="../images/v1.2.0/phone/menu-dark.png" alt="The navigation menu open on a phone in the dark theme" width="180"> | <img src="../images/v1.2.0/phone/history-dark.png" alt="History on a phone in the dark theme" width="180"> | <img src="../images/v1.2.0/phone/hotspots-dark.png" alt="Hotspots on a phone in the dark theme" width="180"> |
+| [`overview-dark.png`](../images/v1.2.0/phone/overview-dark.png) | [`menu-dark.png`](../images/v1.2.0/phone/menu-dark.png) | [`history-dark.png`](../images/v1.2.0/phone/history-dark.png) | [`hotspots-dark.png`](../images/v1.2.0/phone/hotspots-dark.png) |
 
 ## How they were made
 
