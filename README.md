@@ -66,7 +66,7 @@ repodna serve
 
 Open the link it prints and choose **Try the demo**.
 
-![The Overview of RepoDNA's own analysis in the web interface](docs/images/overview.png)
+![The Overview of RepoDNA's own analysis in the web interface of RepoDNA 1.2.0](docs/images/v1.2.0/desktop/overview-light.png)
 
 Without installing anything, you can read what RepoDNA writes about itself in
 [`examples/self-analysis`](examples/self-analysis): the full
