@@ -43,120 +43,6 @@ describe("views", () => {
     expect(await screen.findByRole("img", { name: "Commits per day" })).toBeTruthy();
   });
 
-  it("counts one module in the singular and leaves out an unavailable confidence", async () => {
-    const single = demo();
-    single.dna.architecture.modules = single.dna.architecture.modules.slice(0, 1);
-    single.dna.architecture.styleConfidence = "unavailable";
-    await renderAt("/overview", single);
-    expect(await screen.findByText("1 module")).toBeTruthy();
-    expect(screen.queryByText(/Unavailable confidence/)).toBeNull();
-  });
-
-  it("describes a one-file module in the singular", async () => {
-    const single = demo();
-    const [module] = single.dna.architecture.modules;
-    if (!module) throw new Error("the demo has modules");
-    module.files = 1;
-    module.codeLines = 1;
-    await renderAt(`/architecture?module=${encodeURIComponent(module.id)}`, single);
-    expect(await screen.findByText(/^1 file · 1 code line/)).toBeTruthy();
-  });
-
-  it("names the inferred architecture style with its confidence", async () => {
-    const data = demo();
-    data.dna.architecture.style = "Layered";
-    data.dna.architecture.styleConfidence = "medium";
-    await renderAt("/architecture", data);
-    const header = await screen.findByText(/Inferred style:/);
-    expect(header.textContent).toContain("Inferred style: Layered (medium confidence). Modules");
-
-    data.dna.architecture.style = "Unknown";
-    data.dna.architecture.styleConfidence = "unavailable";
-    await renderAt("/architecture", data);
-    const unknown = (await screen.findAllByText(/Inferred style:/)).at(-1);
-    expect(unknown?.textContent).toContain("Inferred style: Unknown. Modules");
-  });
-
-  it("labels a single import between modules in the singular", async () => {
-    const data = demo();
-    for (const edge of data.dna.architecture.moduleEdges) edge.weight = 1;
-    await renderAt("/architecture", data);
-    expect((await screen.findAllByText(/ \(1 import\)$/)).length).toBeGreaterThan(0);
-    expect(screen.queryAllByText(/ \(1 imports\)$/)).toHaveLength(0);
-  });
-
-  it("counts one commit and one event in the singular on the Time Machine", async () => {
-    const data = demo();
-    const { evolution } = data.dna;
-    evolution.events = evolution.events.slice(0, 1);
-    for (const epoch of evolution.epochs) epoch.commits = 1;
-    await renderAt("/time-machine", data);
-    expect(await screen.findByText("1 event, oldest first.")).toBeTruthy();
-    expect(screen.getAllByText(/ · 1 commit by /).length).toBeGreaterThan(0);
-  });
-
-  it("counts a single file in the singular on the Files view", async () => {
-    const data = demo();
-    data.dna.structure.files = data.dna.structure.files.slice(0, 1);
-    await renderAt("/files", data);
-    const shown = await screen.findAllByText("1 file");
-    expect(shown.some((element) => element.getAttribute("aria-live") === "polite")).toBe(true);
-  });
-
-  it("counts a single dependency in the singular", async () => {
-    const data = demo();
-    const { dependencies } = data.dna;
-    dependencies.dependencies = dependencies.dependencies.slice(0, 1);
-    await renderAt("/dependencies", data);
-    const shown = await screen.findAllByText("1 dependency");
-    expect(shown.some((element) => element.getAttribute("aria-live") === "polite")).toBe(true);
-  });
-
-  it("says when one finding was suppressed", async () => {
-    const data = demo();
-    data.dna.analysisMetadata.suppressedFindings = 1;
-    await renderAt("/reports", data);
-    expect(await screen.findByText("1 finding was suppressed by these rules.")).toBeTruthy();
-  });
-
-  it('says "1 line added or removed" for a day with one changed line', async () => {
-    const data = demo();
-    const [day] = data.dna.git.dailyActivity;
-    if (!day) throw new Error("the demo has daily activity");
-    day.churn = 1;
-    await renderAt("/history", data);
-    const chart = await screen.findByRole("img", { name: "Commits per day" });
-    const first = chart.querySelector(".mark");
-    if (!first) throw new Error("the chart has columns");
-    fireEvent.focus(first);
-    const tips = screen.getAllByRole("status").map((element) => element.textContent ?? "");
-    expect(tips.some((text) => text.includes("1 line added or removed"))).toBe(true);
-  });
-
-  it('says "1 function" for a language with one function', async () => {
-    const data = demo();
-    for (const language of data.dna.codeQuality.complexity.byLanguage) language.functions = 1;
-    await renderAt("/quality", data);
-    const chart = await screen.findByRole("img", {
-      name: "Average cyclomatic complexity by language",
-    });
-    const first = chart.querySelector(".mark");
-    if (!first) throw new Error("the chart has bars");
-    fireEvent.focus(first);
-    const tips = screen.getAllByRole("status").map((element) => element.textContent ?? "");
-    expect(tips.some((text) => text.includes("1 function · highest"))).toBe(true);
-  });
-
-  it("describes a one-line README in the singular", async () => {
-    const data = demo();
-    const { readme } = data.dna.docs;
-    if (!readme) throw new Error("the demo has a README");
-    readme.words = 1;
-    readme.lines = 1;
-    await renderAt("/project", data);
-    expect(await screen.findByText("1 word · 1 line")).toBeTruthy();
-  });
-
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
@@ -190,25 +76,12 @@ describe("views", () => {
     for (const url of [
       "https://github.com/sanskarIN/RepoDNA",
       "https://github.com/sanskarIN",
-      "https://sanskarin.github.io",
       "https://sanskarIN.gumroad.com",
       "https://www.buymeacoffee.com/sanskarIN",
       "https://www.razorpay.me/@sanskarIN",
     ]) {
       expect(document.querySelector(`a[href="${url}"]`), url).toBeTruthy();
     }
-  });
-
-  it("links the sidebar credit to the creator's website", async () => {
-    await renderAt("/overview", dataset);
-    const credit = screen.getByRole("link", { name: "Made by the Sanskar" });
-    expect(credit.getAttribute("href")).toBe("https://sanskarin.github.io");
-  });
-
-  it("points to more open-source projects from the About page's introduction", async () => {
-    await renderAt("/about", null);
-    const introduction = screen.getByText(/More open-source projects by Sanskar/);
-    expect(introduction.querySelector('a[href="https://sanskarin.github.io"]')).toBeTruthy();
   });
 
   describe("licenses", () => {

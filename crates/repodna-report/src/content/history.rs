@@ -460,14 +460,8 @@ pub(super) fn time_machine(blocks: &mut Blocks, dna: &RepositoryDna, options: Co
                 .iter()
                 .take(8)
                 .map(|d| {
-                    // Changes to top-level files are grouped under "(root)", which is not a path.
-                    let place = if d.path == "(root)" {
-                        Inline::Text("Files at the repository root".to_owned())
-                    } else {
-                        Inline::Code(format!("{}/", d.path))
-                    };
                     vec![
-                        place,
+                        Inline::Code(format!("{}/", d.path)),
                         Inline::Text(format!(
                             ": {}, {} changed",
                             counted(d.commits, "commit", "commits"),
@@ -762,36 +756,5 @@ mod tests {
             ContentOptions::default(),
         ));
         assert!(history.contains("| Commits | 0 |"));
-    }
-
-    #[test]
-    fn names_the_repository_root_in_recent_changes() {
-        let mut dna =
-            RepositoryDna::new(RepositoryIdentity::default(), AnalysisMetadata::default());
-        dna.evolution.status = SectionStatus::Analyzed;
-        dna.insights.recent_changes = Some(repodna_core::model::insights::RecentChanges {
-            window_days: 90,
-            commits: 2,
-            directories: ["(root)", "src"]
-                .iter()
-                .map(|path| repodna_core::model::insights::DirectoryChange {
-                    path: (*path).into(),
-                    commits: 1,
-                    churn: 4,
-                })
-                .collect(),
-            ..repodna_core::model::insights::RecentChanges::default()
-        });
-        let markdown = render(&super::super::section(
-            &dna,
-            Section::TimeMachine,
-            ContentOptions::default(),
-        ));
-        assert!(
-            markdown.contains("- Files at the repository root: 1 commit, 4 lines changed"),
-            "{markdown}"
-        );
-        assert!(markdown.contains("- `src/`: 1 commit, 4 lines changed"));
-        assert!(!markdown.contains("(root)/"));
     }
 }

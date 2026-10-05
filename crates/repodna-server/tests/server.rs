@@ -297,7 +297,6 @@ fn protects_the_api_and_serves_analyses() {
             page.body
                 .contains("does not include the interactive web interface")
         );
-        assert!(page.body.contains(" · 1 analysis · "), "{}", page.body);
         assert_eq!(anonymous.status, 401);
     }
 

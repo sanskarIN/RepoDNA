@@ -94,11 +94,6 @@ the server starts.
 
 **The port is in use.** `repodna serve --port 0` picks a free port.
 
-**A copy of the web version on GitHub Pages shows the README instead of the interface.**
-GitHub Pages is publishing the repository's files from a branch. Set **Settings > Pages >
-Source** to **GitHub Actions** and run the Web version workflow from the Actions tab; see
-[the web version](web.md#the-web-version).
-
 ## Desktop app
 
 **It does not start on Linux.** Install WebKitGTK 4.1 (`libwebkit2gtk-4.1-0` on Debian and

@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 use repodna_core::CancellationToken;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::{AnalyzerStatus, PluginRunRecord};
-use repodna_core::text::count;
 use repodna_engine::Extension;
 
 use crate::discover::Plugin;
@@ -90,8 +89,8 @@ impl Extension for PluginExtension {
                 let mut messages = contribution.notes;
                 if !contribution.rejected.is_empty() {
                     messages.push(format!(
-                        "{} rejected: {}",
-                        count(contribution.rejected.len() as u64, "item", "items"),
+                        "{} items rejected: {}",
+                        contribution.rejected.len(),
                         contribution
                             .rejected
                             .iter()
@@ -183,17 +182,6 @@ mod tests {
             (1, 1, 0)
         );
         assert_eq!(record.message.as_deref(), Some("done"));
-
-        let script = r#"cat >/dev/null; printf '%s' '{"api":1,"findings":[{"rule":"hello","title":"Hello"},{"rule":"Bad Rule","title":"x"}]}'"#;
-        let extension = PluginExtension::new(plugin(dir.path(), script), limits(10, 4096), true);
-        let mut dna = self::dna();
-        extension
-            .run(dir.path(), &mut dna, &CancellationToken::new())
-            .unwrap();
-        let record = &dna.plugins[0];
-        assert_eq!(record.status, AnalyzerStatus::Partial);
-        let message = record.message.as_deref().unwrap();
-        assert!(message.starts_with("1 item rejected: "), "{message}");
     }
 
     #[test]
