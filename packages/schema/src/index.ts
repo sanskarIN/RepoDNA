@@ -69,11 +69,16 @@ export function checkArtifact(value: unknown): LoadedArtifact {
 
 /** Parses artifact JSON text. */
 export function parseArtifact(text: string): LoadedArtifact {
+  if (text.trim() === "") {
+    throw new ArtifactError("The file is empty.");
+  }
   let value: unknown;
   try {
     value = JSON.parse(text);
   } catch (error) {
-    throw new ArtifactError(`The file is not valid JSON: ${(error as Error).message}`);
+    throw new ArtifactError(
+      `The file is not valid JSON, so it is not a RepoDNA analysis (${(error as Error).message}).`,
+    );
   }
   return checkArtifact(value);
 }
