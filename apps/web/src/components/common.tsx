@@ -113,7 +113,7 @@ export function Note({ children, caution }: { children: ReactNode; caution?: boo
 }
 
 /** Commands to run, with a button that copies them. */
-export function Commands({
+export function CommandBox({
   lines,
   label = "Copy the commands",
 }: {
