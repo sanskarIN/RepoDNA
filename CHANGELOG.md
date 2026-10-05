@@ -6,6 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Documentation
+
+- A media kit in [`docs/media`](docs/media/README.md): screenshots of the web interface on
+  a desktop and a phone, in light and dark, promo images for the 1.2.0 release, and
+  RepoDNA's own Project DNA cards, sized for social networks.
+
 ## [1.2.0] - 2026-10-05
 
 More ways to get RepoDNA from GitHub Packages, and a round of fixes and refinements to the
