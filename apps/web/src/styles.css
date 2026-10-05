@@ -787,6 +787,11 @@ tbody tr:hover {
   background: var(--accent-wash);
 }
 
+/* Commands stay whole: a line break after the first hyphen of --format reads as "-". */
+.dropzone code {
+  white-space: nowrap;
+}
+
 .list {
   list-style: none;
   margin: 0;
