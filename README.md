@@ -330,9 +330,11 @@ On a phone, the interface fits the screen and the navigation folds behind a Menu
 <img src="docs/images/v1.2.0/phone/history-dark.png" alt="History on a phone, in the dark theme" width="230">
 </p>
 
-All screenshots show RepoDNA's analysis of its own repository. For posts and talks, the
-[media kit](docs/media/README.md) has larger screenshots on a desktop and a phone, in
-light and dark, along with promo images and Project DNA cards sized for social networks.
+All screenshots show RepoDNA 1.2.0 and its analysis of its own repository; the
+[screenshots of every release](docs/images/README.md) compare the versions side by side.
+For posts and talks, the [media kit](docs/media/README.md) has larger screenshots on a
+desktop and a phone, in light and dark, along with promo images and Project DNA cards
+sized for social networks.
 
 ## Project DNA cards and badges
 
