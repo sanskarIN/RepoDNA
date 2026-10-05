@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { Heatmap } from "../charts/Heatmap";
 import { DataTable } from "./DataTable";
+import { useTooltip } from "./Tooltip";
 import { Tile } from "./common";
 
 interface Row {
@@ -86,5 +87,41 @@ describe("Heatmap", () => {
     fireEvent.focus(first);
     expect(screen.getByRole("status").textContent).toContain("1 commit");
     expect(screen.getByRole("status").textContent).not.toContain("1 commits");
+  });
+});
+
+function TooltipProbe() {
+  const { bind, element } = useTooltip();
+  return (
+    <div>
+      <button type="button" {...bind({ value: "12 commits", label: "src/main.rs" })}>
+        mark
+      </button>
+      {element}
+    </div>
+  );
+}
+
+/** Focuses the probe's mark as if it sat at `left`, `top` in a window of `width` × `height`. */
+function focusMark(width: number, height: number, left: number, top: number): HTMLElement {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+  Object.defineProperty(window, "innerHeight", { configurable: true, value: height });
+  render(<TooltipProbe />);
+  const mark = screen.getByRole("button", { name: "mark" });
+  mark.getBoundingClientRect = () => new DOMRect(left, top, 10, 10);
+  fireEvent.focus(mark);
+  return screen.getByRole("status");
+}
+
+describe("useTooltip", () => {
+  afterEach(() => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 768 });
+  });
+
+  it("keeps the tooltip inside a narrow window", () => {
+    const tooltip = focusMark(320, 640, 300, 100);
+    expect(tooltip.textContent).toContain("12 commits");
+    expect(tooltip.style.left).toBe("8px");
   });
 });
