@@ -112,6 +112,39 @@ export function Note({ children, caution }: { children: ReactNode; caution?: boo
   return <p className={caution ? "note caution" : "note"}>{children}</p>;
 }
 
+/** Commands to run, with a button that copies them. */
+export function Commands({
+  lines,
+  label = "Copy the commands",
+}: {
+  lines: readonly string[];
+  label?: string;
+}) {
+  const [copied, setCopied] = useState<"yes" | "failed" | null>(null);
+  const text = lines.join("\n");
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied("yes");
+    } catch {
+      // No clipboard access, as on a page served over plain HTTP: the text can still be selected.
+      setCopied("failed");
+    }
+    window.setTimeout(() => setCopied(null), 2000);
+  };
+  return (
+    <div className="commands">
+      <pre className="note mono">{text}</pre>
+      <button type="button" className="ghost copy" aria-label={label} onClick={() => void copy()}>
+        {copied === "yes" ? "Copied" : copied === "failed" ? "Copy failed" : "Copy"}
+      </button>
+      <span role="status" className="visually-hidden">
+        {copied === "yes" ? "Copied to the clipboard." : ""}
+      </span>
+    </div>
+  );
+}
+
 export function ErrorBox({ children }: { children: ReactNode }) {
   return (
     <div className="error-box" role="alert">
