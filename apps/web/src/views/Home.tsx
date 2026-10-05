@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { thousands } from "@repodna/visualization";
-import { Commands, ErrorBox, ExternalLink, Note } from "../components/common";
+import { CommandBox, ErrorBox, ExternalLink, Note } from "../components/common";
 import type { JobState, RepositorySummary } from "../lib/backend";
 import { demoIndex, loadDemo, loadFile, type DemoEntry } from "../lib/demo";
 import { REPOSITORY } from "../lib/links";
@@ -363,7 +363,7 @@ export function Home() {
                 (the command line or the desktop app), then open a repository in the app or run one
                 of:
               </p>
-              <Commands
+              <CommandBox
                 lines={["repodna serve", "repodna analyze path/to/repo --output repodna-report"]}
               />
             </section>

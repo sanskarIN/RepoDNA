@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { confidenceLabel } from "@repodna/schema";
 import { date, thousands } from "@repodna/visualization";
-import { Chip, Commands, ErrorBox, Note, PageHeader, Panel, Select } from "../components/common";
+import { Chip, CommandBox, ErrorBox, Note, PageHeader, Panel, Select } from "../components/common";
 import { DataTable } from "../components/DataTable";
 import type { PrivacyPreset, ReportFormat, ReportTheme, SaveFormat } from "../lib/backend";
 import { artifactFileName, downloadText } from "../lib/download";
@@ -215,7 +215,7 @@ export function Reports() {
             </button>
           </p>
           <p>To create reports or a DNA card from the file, run:</p>
-          <Commands
+          <CommandBox
             lines={[
               `repodna report ${artifactFileName(dna)} --format html --output report.html`,
               `repodna card ${artifactFileName(dna)} --output dna-card.svg`,
