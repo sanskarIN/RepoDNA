@@ -727,8 +727,10 @@ tbody tr:hover {
 }
 
 .view-toggle {
+  flex-shrink: 0;
   font-size: 12.5px;
   padding: 4px 9px;
+  white-space: nowrap;
 }
 
 .meter {
