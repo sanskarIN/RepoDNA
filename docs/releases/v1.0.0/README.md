@@ -128,4 +128,11 @@ The [installation guide at v1.0.0](https://github.com/sanskarIN/RepoDNA/blob/v1.
 platform, checking the downloads against `SHA256SUMS.txt`, and opening the unsigned
 binaries on macOS and Windows.
 
+## Screenshots
+
+<a href="../../images/v1.0.0/desktop/overview-light.png"><img src="../../images/v1.0.0/desktop/overview-light.png" alt="The overview in RepoDNA 1.0.0" width="400"></a> <a href="../../images/v1.0.0/desktop/architecture-dark.png"><img src="../../images/v1.0.0/desktop/architecture-dark.png" alt="The module map in RepoDNA 1.0.0" width="400"></a>
+
+Twelve desktop views and the phone screens of this version, showing its own analysis of
+this repository at `v1.0.0`, are in [`docs/images/v1.0.0`](../../images/README.md#100).
+
 [All releases](../README.md)
