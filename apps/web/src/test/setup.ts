@@ -23,8 +23,10 @@ if (!window.matchMedia) {
     }) as MediaQueryList;
 }
 
-// jsdom defines scrollTo but only reports that it is not implemented.
+// jsdom defines scrollTo but only reports that it is not implemented, and has no
+// scrollIntoView.
 window.scrollTo = () => undefined;
+Element.prototype.scrollIntoView = () => undefined;
 
 // Lets React know updates in tests are wrapped in act().
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

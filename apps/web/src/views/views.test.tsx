@@ -3,7 +3,7 @@
 
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { parseArtifact } from "@repodna/schema";
 import { App } from "../App";
 import { NAV } from "../lib/nav";
@@ -319,5 +319,25 @@ describe("views", () => {
       fireEvent.keyDown(input, { key: "Enter" });
     });
     expect(window.location.hash).toBe("#/time-machine");
+  });
+
+  it("scrolls the highlighted search result into view", async () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    await renderAt("/overview", dataset);
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    });
+    const input = await screen.findByRole("combobox", { name: "Search and run commands" });
+    for (let step = 0; step < 3; step += 1) {
+      await act(async () => {
+        fireEvent.keyDown(input, { key: "ArrowDown" });
+      });
+    }
+    const results = screen.getByRole("listbox");
+    const highlighted = within(results).getByRole("option", { selected: true });
+    expect(highlighted.id).toBe("palette-3");
+    expect(scrolled.mock.contexts.at(-1)).toBe(highlighted);
+    expect(scrolled).toHaveBeenLastCalledWith({ block: "nearest" });
+    scrolled.mockRestore();
   });
 });

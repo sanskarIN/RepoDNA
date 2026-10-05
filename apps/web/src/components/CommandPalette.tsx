@@ -19,6 +19,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLUListElement>(null);
   const opener = useRef<Element | null>(document.activeElement);
 
   useEffect(() => {
@@ -114,6 +115,12 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
     return matching.slice(0, MAX_RESULTS);
   }, [items, query]);
 
+  // Keeps the highlighted result in view when the arrow keys move it past the scrolled part
+  // of the list.
+  useEffect(() => {
+    list.current?.children[active]?.scrollIntoView({ block: "nearest" });
+  }, [active, results]);
+
   const choose = (item: Item | undefined) => {
     if (item) {
       onClose();
@@ -165,7 +172,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
             }
           }}
         />
-        <ul id="palette-results" role="listbox">
+        <ul id="palette-results" role="listbox" ref={list}>
           {results.map((item, index) => (
             <li
               key={item.id}
