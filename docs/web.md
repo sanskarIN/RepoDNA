@@ -135,10 +135,11 @@ result here or share it with others.
 The [Web version workflow](../.github/workflows/pages.yml) builds and publishes it whenever
 the interface changes on `main`, and can be started by hand from the Actions tab. GitHub
 Pages must be turned on once, in the repository's **Settings > Pages**, with **GitHub
-Actions** as the source. With **Deploy from a branch** instead, GitHub also publishes the
-repository's own files on every push to `main`, and whichever deployment finishes last is
-what visitors get: often the README in place of the interface. Switching the source to
-**GitHub Actions** and running the workflow once from the Actions tab fixes it.
+Actions** as the source. With **Deploy from a branch** instead, GitHub also builds the
+branch on every push to `main` and publishes the repository's own files over the
+interface, so visitors get the README. The workflow then publishes the interface again as
+soon as that build finishes, and its runs carry a warning until the source is switched to
+**GitHub Actions**, which keeps the README from showing at all.
 
 ## Hosting the interface yourself
 
