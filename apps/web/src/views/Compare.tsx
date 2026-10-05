@@ -171,7 +171,7 @@ function Picker({ onPick }: { onPick: (side: Side) => void }) {
     try {
       onPick({ dna: await load(), label });
     } catch (reason) {
-      setError(message(reason));
+      setError(`Could not open ${label}: ${message(reason)}`);
     }
   };
 

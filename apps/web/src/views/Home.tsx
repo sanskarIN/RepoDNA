@@ -247,7 +247,7 @@ export function Home() {
       });
       navigate("/overview");
     } catch (reason) {
-      setError(message(reason));
+      setError(`Could not open ${file.name}: ${message(reason)}`);
     }
   };
 

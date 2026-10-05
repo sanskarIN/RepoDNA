@@ -178,6 +178,19 @@ describe("views", () => {
     expect(menu()?.hasAttribute("data-open")).toBe(false);
   });
 
+  it("names the file that could not be opened", async () => {
+    await renderAt("/", null);
+    const input = screen.getByLabelText("Open an analysis file");
+    await act(async () => {
+      fireEvent.change(input, {
+        target: { files: [new File(["not json"], "notes.json", { type: "application/json" })] },
+      });
+    });
+    expect(
+      await screen.findByText(/^Could not open notes\.json: The file is not valid JSON/),
+    ).toBeTruthy();
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
