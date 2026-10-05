@@ -219,7 +219,14 @@ runs the command line with Git, on `linux/amd64` and `linux/arm64`. See
 
 **The web version.** <https://sanskarin.github.io/RepoDNA/> needs no installation: it opens
 analyses (`repodna.json` or `.repodna` files) in your browser, without uploading them, and
-includes the demo. Analyzing a repository needs the command line or the desktop app.
+includes the demo. Analyzing a repository needs the command line or the desktop app. To run
+it on your own network, use the [web interface image](docs/installation.md#web-interface-image):
+`docker run --rm -p 8080:8080 ghcr.io/sanskarin/repodna-web`.
+
+**npm.** The command line (`@sanskarin/repodna`) and the TypeScript libraries for the
+analysis artifact (`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on
+GitHub Packages, which asks for a GitHub token to install them. See
+[the npm packages](docs/installation.md#npm-packages).
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
 toolchain, and [Node.js](https://nodejs.org/) 20.19 or newer:
