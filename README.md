@@ -322,6 +322,14 @@ environment variables.
 | ![Tests, build and docs view: a getting-started guide assembled from the repository, with commands to copy](docs/images/v1.2.0/desktop/project-light.png) | ![The desktop app's start page](docs/images/desktop.png) |
 | **Tests, build and docs:** how to set up, build, and test the project. | **Desktop app:** the same interface as a native app. |
 
+On a phone, the interface fits the screen and the navigation folds behind a Menu button:
+
+<p>
+<img src="docs/images/v1.2.0/phone/overview-light.png" alt="The overview on a phone, in the light theme" width="230">
+<img src="docs/images/v1.2.0/phone/menu-dark.png" alt="The navigation menu open on a phone, in the dark theme" width="230">
+<img src="docs/images/v1.2.0/phone/history-dark.png" alt="History on a phone, in the dark theme" width="230">
+</p>
+
 All screenshots show RepoDNA's analysis of its own repository. For posts and talks, the
 [media kit](docs/media/README.md) has larger screenshots on a desktop and a phone, in
 light and dark, along with promo images and Project DNA cards sized for social networks.
