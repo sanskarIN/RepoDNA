@@ -2,8 +2,8 @@
 
 Screenshots of the RepoDNA web interface in every release. Each one shows that release's
 own analysis of this repository at its tag, so the numbers, views, and layout are the
-ones a user of that version saw. The images at the top of this folder are the ones the
-[README](../../README.md#screenshots) shows.
+ones a user of that version saw. The [README](../../README.md#screenshots) and the guides
+show those of the latest release.
 
 | Version | Released | Folder | Release notes |
 |---|---|---|---|
