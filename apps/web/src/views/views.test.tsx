@@ -216,6 +216,16 @@ describe("views", () => {
     }
   });
 
+  it("offers to copy the commands of each onboarding step", async () => {
+    await renderAt("/project", dataset);
+    expect(
+      await screen.findByRole("button", {
+        name: "Copy the commands to install dependencies and build",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy the commands to run the tests" })).toBeTruthy();
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(

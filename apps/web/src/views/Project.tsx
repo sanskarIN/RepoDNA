@@ -8,6 +8,7 @@ import { thousands } from "@repodna/visualization";
 import { BarList } from "../charts/BarList";
 import {
   Chip,
+  CommandBox,
   EvidenceList,
   Note,
   PageHeader,
@@ -120,7 +121,10 @@ export function Project() {
                 <strong>{step.title}</strong>
                 <p>{step.description}</p>
                 {step.commands.length > 0 ? (
-                  <pre className="note mono">{step.commands.join("\n")}</pre>
+                  <CommandBox
+                    lines={step.commands}
+                    label={`Copy the commands to ${step.title.charAt(0).toLowerCase()}${step.title.slice(1)}`}
+                  />
                 ) : null}
                 {step.paths.length > 0 ? (
                   <p className="path muted">{step.paths.join(", ")}</p>
