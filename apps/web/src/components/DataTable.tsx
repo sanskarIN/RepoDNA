@@ -58,6 +58,7 @@ export function DataTable<T>({
             {columns.map((column) => {
               const active = sort?.key === column.key;
               const ariaSort = active ? (sort?.descending ? "descending" : "ascending") : undefined;
+              const arrow = active ? (sort?.descending ? " ↓" : " ↑") : null;
               return (
                 <th
                   key={column.key}
@@ -76,7 +77,11 @@ export function DataTable<T>({
                       }
                     >
                       {column.header}
-                      {active ? (sort?.descending ? " ↓" : " ↑") : ""}
+                      {arrow ?? (
+                        <span className="sort-hint" aria-hidden="true">
+                          {" ↕"}
+                        </span>
+                      )}
                     </button>
                   ) : (
                     column.header
