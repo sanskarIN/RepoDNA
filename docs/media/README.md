@@ -40,7 +40,7 @@ previews use: 2400 × 1260, about 1.91:1.
 
 2880 × 1620 (16:9), taken in a 1440 × 810 window at twice the resolution. The module map
 of the architecture view is 3360 × 1890, from a 1680 × 945 window, so that every module
-fits. They are kept in [`docs/images/v1.2.0`](../images/v1.2.0), next to the
+fits. They are kept in [`docs/images/v1.2.0`](../images/README.md#120), next to the
 screenshots of earlier versions.
 
 | | |
