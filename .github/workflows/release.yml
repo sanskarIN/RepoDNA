@@ -374,10 +374,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
+      # No dependency cache in a job that can publish: what it installs comes from the
+      # lockfile alone.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
           registry-url: https://npm.pkg.github.com
           scope: "@sanskarin"
       - run: npm ci
