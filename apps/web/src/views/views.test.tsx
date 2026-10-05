@@ -191,6 +191,14 @@ describe("views", () => {
     ).toBeTruthy();
   });
 
+  it("describes a single hotspot instead of mapping it", async () => {
+    const data = demo();
+    data.dna.git.hotSpots = data.dna.git.hotSpots.slice(0, 1);
+    await renderAt("/hotspots", data);
+    expect(await screen.findByText(/^Only one file is a hotspot/)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: /^Treemap of/ })).toBeNull();
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(

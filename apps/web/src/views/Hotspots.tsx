@@ -106,17 +106,25 @@ export function Hotspots() {
               />
             }
           >
-            <TreemapChart
-              label={`Treemap of ${hotspots.length} hotspots sized by lines and shaded by recent commits`}
-              data={hotspots.map((h) => ({
-                label: h.path,
-                size: Math.max(1, h.lines),
-                heat: h.recentCommits,
-                details: `rank ${h.rank} · ${thousands(h.commits)} commits · complexity ${thousands(h.complexity)}`,
-              }))}
-              sizeUnit="lines"
-              heatLabel={`commits in the last ${git.recentWindowDays} days`}
-            />
+            {hotspots.length > 1 ? (
+              <TreemapChart
+                label={`Treemap of ${hotspots.length} hotspots sized by lines and shaded by recent commits`}
+                data={hotspots.map((h) => ({
+                  label: h.path,
+                  size: Math.max(1, h.lines),
+                  heat: h.recentCommits,
+                  details: `rank ${h.rank} · ${thousands(h.commits)} commits · complexity ${thousands(h.complexity)}`,
+                }))}
+                sizeUnit="lines"
+                heatLabel={`commits in the last ${git.recentWindowDays} days`}
+              />
+            ) : (
+              // A map of one file is a single box: say so instead.
+              <p className="muted">
+                Only one file is a hotspot, so there is nothing to map it against. Its numbers are
+                in the table, and what makes it stand out is below.
+              </p>
+            )}
           </Panel>
 
           <Panel
