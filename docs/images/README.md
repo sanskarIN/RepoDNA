@@ -37,6 +37,8 @@ Released on 2026-10-05. [Release notes](../releases/v1.2.0/README.md) · folder 
 
 **Phone** (1170 × 2532): [Overview, light](v1.2.0/phone/overview-light.png) · [Overview, dark](v1.2.0/phone/overview-dark.png) · [Menu, light](v1.2.0/phone/menu-light.png) · [Menu, dark](v1.2.0/phone/menu-dark.png) · [History, light](v1.2.0/phone/history-light.png) · [History, dark](v1.2.0/phone/history-dark.png) · [Hotspots, light](v1.2.0/phone/hotspots-light.png) · [Hotspots, dark](v1.2.0/phone/hotspots-dark.png).
 
+**Desktop app** (2640 × 1720): [Start page](v1.2.0/desktop-app/start-light.png) · [Overview of a stored analysis](v1.2.0/desktop-app/overview-light.png).
+
 ## 1.1.1
 
 Released on 2026-10-05. [Release notes](../releases/v1.1.1/README.md) · folder [`v1.1.1`](v1.1.1).
@@ -75,6 +77,9 @@ Released on 2026-09-27. [Release notes](../releases/v1.0.0/README.md) · folder 
   phone views on a 390 × 844 screen at three times the resolution. They were rendered
   with the Inter and JetBrains Mono fonts; the interface itself uses the system font of
   the computer it runs on.
+- **The desktop app** of 1.2.0 was built from its tag and shown in its default 1320 × 860
+  window at twice the scale, with an analysis of this repository stored on that machine
+  and the same fonts.
 
 Screenshots of a new release go in a folder named after its tag, such as `v1.3.0`, with
 the same views, and a column and a section on this page.
