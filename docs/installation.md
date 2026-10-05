@@ -8,6 +8,7 @@ installing anything, use the [web version](web.md#the-web-version).
 - [The desktop app](#the-desktop-app)
 - [Container image](#container-image)
 - [Web interface image](#web-interface-image)
+- [npm packages](#npm-packages)
 - [Build from source](#build-from-source)
 - [Check the installation](#check-the-installation)
 - [Uninstall](#uninstall)
@@ -112,6 +113,32 @@ never uploads them; the server only sends the interface. It cannot analyze repos
 itself: use the command line or the desktop app for that. nginx serves it as an
 unprivileged user on port 8080, with the same security headers as `repodna serve`. Tags
 follow the releases, as for the command line image.
+
+## npm packages
+
+Each release is also published to the npm registry of GitHub Packages:
+
+| Package | What it is |
+|---|---|
+| `@sanskarin/repodna` | The `repodna` command line. npm adds the binary for your platform from `@sanskarin/repodna-linux-x64`, `-linux-arm64`, `-darwin-x64`, `-darwin-arm64`, or `-win32-x64`. |
+| `@sanskarin/repodna-schema` | TypeScript types for the analysis artifact, helpers to load and check it, and the JSON Schemas of the artifact and the configuration file. |
+| `@sanskarin/repodna-visualization` | The chart geometry the web interface and desktop app use: palettes, scales, treemaps, layered graphs, and heatmaps. |
+
+GitHub Packages asks for a token even to install public packages. Create a
+[personal access token (classic)](https://github.com/settings/tokens) with the
+`read:packages` scope, then:
+
+```sh
+npm config set @sanskarin:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken YOUR_TOKEN
+npm install --global @sanskarin/repodna
+repodna --version
+```
+
+Install the command line with optional dependencies, which npm includes by default:
+`--omit=optional` leaves out the platform package and the command cannot start. The
+binaries are the same as the [prebuilt binaries](#prebuilt-binaries), so the notes about
+unsigned binaries apply here too.
 
 ## Build from source
 
