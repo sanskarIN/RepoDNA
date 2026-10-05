@@ -43,7 +43,8 @@ export function useTooltip() {
       className="chart-tooltip"
       role="status"
       style={{
-        left: Math.min(state.at.x + 14, window.innerWidth - 340),
+        // Beside the pointer, but never past either edge of a narrow window.
+        left: Math.max(8, Math.min(state.at.x + 14, window.innerWidth - 340)),
         top: Math.max(8, state.at.y - 12),
       }}
     >
