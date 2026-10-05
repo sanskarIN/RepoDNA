@@ -237,6 +237,9 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
    third-party notices (`cargo xtask notices`) if dependencies changed.
 4. Commit, then create and push an annotated tag: `git tag -a v1.2.0 -m "RepoDNA 1.2.0"` and
    `git push origin v1.2.0`.
+5. Once the release is published, add its folder to [`docs/releases`](releases/README.md):
+   `docs/releases/v1.2.0/README.md` with its notes, its downloads and their sizes, and how
+   to install it, and a row for it in the table of `docs/releases/README.md`.
 
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
 workspace version and the changelog, builds the command line for Linux, macOS, and Windows
