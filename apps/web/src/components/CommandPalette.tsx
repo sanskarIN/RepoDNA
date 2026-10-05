@@ -8,6 +8,8 @@ interface Item {
   id: string;
   label: string;
   kind: string;
+  /** Set for paths and package names, which are shown in the code font. */
+  code?: boolean;
   run: () => void;
 }
 
@@ -71,6 +73,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
           id: `module:${module.id}`,
           label: module.path || module.name,
           kind: "Module",
+          code: true,
           run: () => navigate("/architecture", { module: module.id }),
         });
       }
@@ -79,6 +82,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
           id: `file:${file.path}`,
           label: file.path,
           kind: "File",
+          code: true,
           run: () => navigate("/files", { q: file.path }),
         });
       }
@@ -88,6 +92,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
             id: `dep:${dependency.ecosystem}:${dependency.name}`,
             label: dependency.name,
             kind: `${dependency.ecosystem} package`,
+            code: true,
             run: () => navigate("/dependencies", { q: dependency.name }),
           });
         }
@@ -183,7 +188,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
               onPointerEnter={() => setActive(index)}
               onClick={() => choose(item)}
             >
-              <span className="path">{item.label}</span>
+              <span className={item.code ? "path" : undefined}>{item.label}</span>
               <span className="kind">{item.kind}</span>
             </li>
           ))}
