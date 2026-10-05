@@ -335,6 +335,20 @@ describe("views", () => {
     expect(screen.getByRole("listbox").children).toHaveLength(0);
   });
 
+  it("says when the search shows only the first results", async () => {
+    await renderAt("/overview", dataset);
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    });
+    const input = await screen.findByRole("combobox", { name: "Search and run commands" });
+    const dialog = screen.getByRole("dialog", { name: "Search and commands" });
+    expect(within(dialog).getByText(/^Showing the first 60 of [\d,]+ results\./)).toBeTruthy();
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "time machine" } });
+    });
+    expect(within(dialog).queryByText(/^Showing the first/)).toBeNull();
+  });
+
   it("scrolls the highlighted search result into view", async () => {
     const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
     await renderAt("/overview", dataset);
