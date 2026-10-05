@@ -237,9 +237,21 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
 
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
 workspace version and the changelog, builds the command line for Linux, macOS, and Windows
-and the desktop installers, publishes them with checksums, and pushes the container image
-to `ghcr.io/sanskarin/repodna`. After the first release, make the image public once in the
-package's settings on GitHub (**Package settings > Change visibility**).
+and the desktop installers, and publishes them with checksums. It also publishes these
+packages to GitHub Packages:
+
+| Package | Built from |
+|---|---|
+| `ghcr.io/sanskarin/repodna` | `packaging/container`: the command line with Git |
+| `ghcr.io/sanskarin/repodna-web` | `packaging/web`: the web interface on nginx |
+| `@sanskarin/repodna` and `@sanskarin/repodna-<os>-<cpu>` | `packaging/npm`: a launcher and the binary for each platform |
+| `@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization` | `packages/schema`, `packages/visualization`, through `packaging/npm` |
+
+GitHub makes a new package private. After the first release that publishes it, make each
+package public once in its settings on GitHub (**Package settings > Change visibility**).
+To look at the npm packages before a release, stage them with
+`node packaging/npm/build.mjs` (add `--binaries DIR` for the command line packages) and
+test the scripts with `node --test "packaging/npm/test/*.test.mjs"`.
 
 To try a release before tagging it, run the Release workflow by hand from the Actions tab
 with an empty tag: it builds every file from the selected branch and keeps them as
