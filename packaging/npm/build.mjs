@@ -3,13 +3,18 @@
 //
 //   @sanskarin/repodna-schema         artifact types and helpers (packages/schema)
 //   @sanskarin/repodna-visualization  chart geometry (packages/visualization)
+//   @sanskarin/repodna                the command line: a launcher that runs the binary
+//   @sanskarin/repodna-<os>-<cpu>     the binary for one platform
 //
-// Usage: node packaging/npm/build.mjs [--version 1.2.0] [--out target/npm]
+// Usage: node packaging/npm/build.mjs [--version 1.2.0] [--out target/npm] [--binaries DIR]
 //
+// The command line packages are staged only with --binaries, a directory that holds
+// <target>/repodna (repodna.exe on Windows) for every target in launcher/lib/platforms.js.
 // Each package is written to <out>/<name without the scope>, ready for `npm publish`.
 
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -21,11 +26,12 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SCOPE } from "./launcher/lib/platforms.js";
+import { PLATFORMS, SCOPE, platformPackage } from "./launcher/lib/platforms.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
 const REPOSITORY = "https://github.com/sanskarIN/RepoDNA";
+const OS_LABELS = { linux: "Linux", darwin: "macOS", win32: "Windows" };
 const KEYWORDS = ["repodna", "repository", "code-analysis", "architecture", "git-history"];
 
 const LIBRARIES = [
@@ -40,7 +46,7 @@ const LIBRARIES = [
 
 function usage(message) {
   process.stderr.write(
-    `${message}\nUsage: node packaging/npm/build.mjs [--version X.Y.Z] [--out DIR]\n`,
+    `${message}\nUsage: node packaging/npm/build.mjs [--version X.Y.Z] [--out DIR] [--binaries DIR]\n`,
   );
   process.exit(2);
 }
@@ -49,6 +55,7 @@ function parseArgs(argv) {
   const options = {
     version: JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version,
     out: join(root, "target", "npm"),
+    binaries: null,
   };
   for (let index = 0; index < argv.length; index += 2) {
     const [flag, value] = [argv[index], argv[index + 1]];
@@ -59,6 +66,8 @@ function parseArgs(argv) {
       options.version = value;
     } else if (flag === "--out") {
       options.out = resolve(value);
+    } else if (flag === "--binaries") {
+      options.binaries = resolve(value);
     } else {
       usage(`Unknown option ${flag}.`);
     }
@@ -89,14 +98,18 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-function copyLegal(dir) {
-  for (const file of ["LICENSE", "NOTICE"]) {
+function copyLegal(dir, { notices = false } = {}) {
+  for (const file of ["LICENSE", "NOTICE", ...(notices ? ["THIRD-PARTY-NOTICES.txt"] : [])]) {
     copyFileSync(join(root, file), join(dir, file));
   }
 }
 
-function writeReadme(dir, template) {
-  copyFileSync(join(here, "readme", template), join(dir, "README.md"));
+function writeReadme(dir, template, values = {}) {
+  const text = readFileSync(join(here, "readme", template), "utf8").replace(
+    /\{\{(\w+)\}\}/g,
+    (_, key) => values[key] ?? "",
+  );
+  writeFileSync(join(dir, "README.md"), text);
 }
 
 function files(dir) {
@@ -181,10 +194,71 @@ function stageLibrary(library, options) {
   return dir;
 }
 
+function stagePlatform(platform, options) {
+  const label = `${OS_LABELS[platform.os]} ${platform.cpu}`;
+  const dir = join(options.out, `repodna-${platform.os}-${platform.cpu}`);
+  const binary = join(options.binaries, platform.target, platform.binary);
+  if (!existsSync(binary)) {
+    throw new Error(`${binary} is missing.`);
+  }
+  mkdirSync(join(dir, "bin"), { recursive: true });
+  copyFileSync(binary, join(dir, "bin", platform.binary));
+  chmodSync(join(dir, "bin", platform.binary), 0o755);
+  writeJson(join(dir, "package.json"), {
+    ...manifest(
+      platformPackage(platform),
+      `The repodna command line for ${label}. Install @sanskarin/repodna, which uses it.`,
+      "packaging/npm",
+      options.version,
+    ),
+    os: [platform.os],
+    cpu: [platform.cpu],
+    files: ["bin", "README.md", "LICENSE", "NOTICE", "THIRD-PARTY-NOTICES.txt"],
+    preferUnplugged: true,
+  });
+  writeReadme(dir, "platform.md", { label, target: platform.target });
+  copyLegal(dir, { notices: true });
+  return dir;
+}
+
+function stageLauncher(options) {
+  const dir = join(options.out, "repodna");
+  for (const part of ["bin", "lib"]) {
+    mkdirSync(join(dir, part), { recursive: true });
+    for (const file of readdirSync(join(here, "launcher", part))) {
+      copyFileSync(join(here, "launcher", part, file), join(dir, part, file));
+    }
+  }
+  chmodSync(join(dir, "bin", "repodna.js"), 0o755);
+  writeJson(join(dir, "package.json"), {
+    ...manifest(
+      `${SCOPE}/repodna`,
+      "Local-first repository intelligence and code archaeology: the repodna command line.",
+      "packaging/npm",
+      options.version,
+    ),
+    type: "module",
+    bin: { repodna: "bin/repodna.js" },
+    files: ["bin", "lib", "README.md", "LICENSE", "NOTICE"],
+    engines: { node: ">=18" },
+    optionalDependencies: Object.fromEntries(
+      PLATFORMS.map((platform) => [platformPackage(platform), options.version]),
+    ),
+  });
+  writeReadme(dir, "repodna.md");
+  copyLegal(dir);
+  return dir;
+}
+
 export function build(options) {
   rmSync(options.out, { recursive: true, force: true });
   mkdirSync(options.out, { recursive: true });
-  return LIBRARIES.map((library) => stageLibrary(library, options));
+  const staged = LIBRARIES.map((library) => stageLibrary(library, options));
+  if (options.binaries) {
+    staged.push(...PLATFORMS.map((platform) => stagePlatform(platform, options)));
+    staged.push(stageLauncher(options));
+  }
+  return staged;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
