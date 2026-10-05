@@ -139,12 +139,12 @@ export function Shell({ children }: { children: ReactNode }) {
             onClick={() => setPalette("all")}
             aria-keyshortcuts="Control+K Meta+K"
           >
-            Search and commands <kbd>Ctrl K</kbd>
+            Search<span className="wide-only"> and commands</span> <kbd>Ctrl K</kbd>
           </button>
           <div className="spacer" />
           <button
             type="button"
-            className="ghost"
+            className="ghost shortcuts-button"
             onClick={() => setHelp(true)}
             aria-keyshortcuts="?"
           >
