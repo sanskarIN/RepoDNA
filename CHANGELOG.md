@@ -6,6 +6,14 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- The web version on GitHub Pages stays up when GitHub Pages deploys from a branch. Until
+  now, every push to `main` let GitHub's own Pages build publish the repository's files
+  over the interface, which then showed the README. The Web version workflow now
+  publishes the interface again as soon as that build finishes, and warns on its runs
+  until **Settings > Pages > Source** is set to **GitHub Actions**.
+
 ### Documentation
 
 - A media kit in [`docs/media`](docs/media/README.md): screenshots of the web interface on
