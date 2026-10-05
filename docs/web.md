@@ -142,8 +142,16 @@ what visitors get: often the README in place of the interface. Switching the sou
 
 ## Hosting the interface yourself
 
-The build in `apps/web/dist` uses relative paths and hash-based routing, so any static web
-host can serve it from any path, with no server configuration:
+The quickest way is the container image that each release publishes, with the interface
+already built and served by nginx on port 8080:
+
+```sh
+docker run --rm -p 8080:8080 ghcr.io/sanskarin/repodna-web
+```
+
+See [the web interface image](installation.md#web-interface-image). To build it yourself,
+note that the build in `apps/web/dist` uses relative paths and hash-based routing, so any
+static web host can serve it from any path, with no server configuration:
 
 ```sh
 npm ci
