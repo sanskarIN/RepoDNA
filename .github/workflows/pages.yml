@@ -2,7 +2,9 @@ name: Web version
 
 # Publishes the web interface to GitHub Pages at https://sanskarin.github.io/RepoDNA/.
 # It needs GitHub Pages turned on once: Settings > Pages > Build and deployment >
-# Source: GitHub Actions.
+# Source: GitHub Actions. With "Deploy from a branch" instead, GitHub's own Pages build
+# publishes the repository's files over the interface on every push; this workflow then
+# publishes the interface again as soon as that build finishes.
 
 on:
   push:
@@ -18,6 +20,11 @@ on:
       - NOTICE
       - THIRD-PARTY-NOTICES.txt
       - .github/workflows/pages.yml
+  # GitHub's own Pages build, which runs when Pages deploys from a branch. Its runs are
+  # titled "pages build and deployment", so both names are listed.
+  workflow_run:
+    workflows: [pages-build-deployment, pages build and deployment]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -31,6 +38,8 @@ concurrency:
 jobs:
   build:
     name: Build
+    # After GitHub's own Pages build, only when it published something.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
