@@ -315,11 +315,11 @@ environment variables.
 
 | | |
 |---|---|
-| ![Architecture view: a map of modules in dependency layers](docs/images/architecture.png) | ![History view: commits per day, when commits happen, and contributors](docs/images/history.png) |
+| ![Architecture view: the module map in dependency layers](docs/images/v1.2.0/desktop/architecture-dark.png) | ![History view: commits over time and when commits happen](docs/images/v1.2.0/desktop/history-light.png) |
 | **Architecture:** modules in dependency layers; select one to see why it matters. | **History:** activity, contributors, releases, and where work happens. |
-| ![Time Machine view: the project's story, statement by statement](docs/images/time-machine.png) | ![Code quality view: complexity distribution, long functions, and deep nesting](docs/images/quality.png) |
+| ![Time Machine view: a snapshot with its languages and largest areas](docs/images/v1.2.0/desktop/time-machine-light.png) | ![Code quality view: functions measured, complexity distribution, and complexity by language](docs/images/v1.2.0/desktop/quality-light.png) |
 | **Time Machine:** snapshots, epochs, events, and the story of the project. | **Code quality:** complexity, size, duplication, and markers. |
-| ![Tests, build and docs view: a getting-started guide assembled from the repository](docs/images/project.png) | ![The desktop app's start page](docs/images/desktop.png) |
+| ![Tests, build and docs view: a getting-started guide assembled from the repository, with commands to copy](docs/images/v1.2.0/desktop/project-light.png) | ![The desktop app's start page](docs/images/desktop.png) |
 | **Tests, build and docs:** how to set up, build, and test the project. | **Desktop app:** the same interface as a native app. |
 
 All screenshots show RepoDNA's analysis of its own repository. For posts and talks, the
