@@ -95,9 +95,10 @@ the server starts.
 **The port is in use.** `repodna serve --port 0` picks a free port.
 
 **A copy of the web version on GitHub Pages shows the README instead of the interface.**
-GitHub Pages is publishing the repository's files from a branch. Set **Settings > Pages >
-Source** to **GitHub Actions** and run the Web version workflow from the Actions tab; see
-[the web version](web.md#the-web-version).
+GitHub Pages is publishing the repository's files from a branch. The Web version workflow
+puts the interface back about a minute after each push; to keep the README from showing
+at all, set **Settings > Pages > Source** to **GitHub Actions**, then run the Web version
+workflow once from the Actions tab. See [the web version](web.md#the-web-version).
 
 ## Desktop app
 
