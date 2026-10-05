@@ -11,7 +11,7 @@ same interface runs in three places:
 | The [desktop app](desktop.md) | A native window | The same, with native folder pickers and save dialogs |
 | The [web version](https://sanskarin.github.io/RepoDNA/), or any static web server | The built files in `apps/web/dist` | Open the bundled demo and analysis files; no stored analyses or new scans |
 
-![The Overview of RepoDNA's own analysis](images/overview.png)
+![The Overview of RepoDNA's own analysis](images/v1.2.0/desktop/overview-light.png)
 
 ## Start it
 
