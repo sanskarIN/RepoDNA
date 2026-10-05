@@ -239,7 +239,9 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
    `git push origin v1.2.0`.
 5. Once the release is published, add its folder to [`docs/releases`](releases/README.md):
    `docs/releases/v1.2.0/README.md` with its notes, its downloads and their sizes, and how
-   to install it, and a row for it in the table of `docs/releases/README.md`.
+   to install it, and a row for it in the table of `docs/releases/README.md`. Add its
+   screenshots to `docs/images/v1.2.0`, with the same views as the earlier versions in
+   [`docs/images`](images/README.md), and a column and a section for it on that page.
 
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
 workspace version and the changelog, builds the command line for Linux, macOS, and Windows
