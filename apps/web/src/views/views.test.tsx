@@ -157,6 +157,27 @@ describe("views", () => {
     expect(await screen.findByText("1 word · 1 line")).toBeTruthy();
   });
 
+  it("opens the navigation with the Menu button and closes it on a new page", async () => {
+    await renderAt("/overview", dataset);
+    const menu = () => document.getElementById("sidebar-menu");
+    const toggle = screen.getByRole("button", { name: "Menu" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(menu()?.hasAttribute("data-open")).toBe(false);
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Close menu" }).getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+    expect(menu()?.hasAttribute("data-open")).toBe(true);
+    await act(async () => {
+      window.location.hash = "#/history";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(screen.getByRole("button", { name: "Menu" }).getAttribute("aria-expanded")).toBe(
+      "false",
+    );
+    expect(menu()?.hasAttribute("data-open")).toBe(false);
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
