@@ -958,6 +958,19 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
+.palette-note {
+  margin: 0;
+  padding: 4px 16px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Collapsed rather than hidden, so screen readers still hear the note when it appears. */
+.palette ul:empty,
+.palette-note:empty {
+  padding: 0;
+}
+
 .dialog {
   width: min(560px, calc(100vw - 32px));
   border: 1px solid var(--line);

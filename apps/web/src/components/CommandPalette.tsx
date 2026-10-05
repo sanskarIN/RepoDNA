@@ -186,8 +186,10 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
               <span className="kind">{item.kind}</span>
             </li>
           ))}
-          {results.length === 0 ? <li className="muted">No matches.</li> : null}
         </ul>
+        <p className="palette-note" role="status">
+          {results.length === 0 ? "No matches." : ""}
+        </p>
       </div>
     </div>
   );
