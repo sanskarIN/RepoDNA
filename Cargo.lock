@@ -929,7 +929,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "repodna-ai"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-core",
  "serde",
@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-app"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-ai",
  "repodna-core",
@@ -959,7 +959,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-architecture"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-core",
  "repodna-dependencies",
@@ -968,7 +968,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-cli"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "clap",
  "clap_complete",
@@ -996,7 +996,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-core"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "regex",
  "schemars",
@@ -1010,7 +1010,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-dependencies"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "regex",
  "repodna-core",
@@ -1021,7 +1021,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-discovery"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "flate2",
  "ignore",
@@ -1035,7 +1035,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-engine"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "rayon",
  "repodna-architecture",
@@ -1056,7 +1056,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-evolution"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-core",
  "repodna-dependencies",
@@ -1068,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-git"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-core",
  "repodna-testkit",
@@ -1078,7 +1078,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-parser"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "regex",
  "repodna-core",
@@ -1091,7 +1091,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-plugin"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-core",
  "repodna-engine",
@@ -1104,7 +1104,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-project"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "regex",
  "repodna-core",
@@ -1117,7 +1117,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-quality"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-core",
  "repodna-parser",
@@ -1125,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-report"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-core",
  "resvg",
@@ -1136,7 +1136,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-security"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "regex",
  "repodna-core",
@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-server"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "getrandom 0.4.3",
  "repodna-app",
@@ -1162,7 +1162,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-store"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "flate2",
  "repodna-core",
@@ -1176,7 +1176,7 @@ dependencies = [
 
 [[package]]
 name = "repodna-testkit"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "tempfile",
 ]
@@ -1996,7 +1996,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "repodna-testkit",
  "serde_json",
