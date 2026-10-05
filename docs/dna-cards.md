@@ -15,7 +15,8 @@ repodna card ~/src/project --privacy public --no-branding
 
 The same card is part of every report bundle (`dna-card.svg` and `dna-card.png`), is
 shown in the web interface's Reports view, and is served by `repodna serve` at
-`/api/repositories/{id}/card.svg`.
+`/api/repositories/{id}/card.svg`. RepoDNA's own cards, as PNG images in light and dark,
+are in the [media kit](media/README.md#project-dna-cards).
 
 ## What it shows
 
