@@ -845,11 +845,17 @@ tbody tr:hover {
 
 .list li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
+}
+
+/* A long address moves below its description and wraps instead of leaving the screen. */
+.list li a {
+  overflow-wrap: anywhere;
 }
 
 .list li:last-child {
