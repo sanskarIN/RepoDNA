@@ -73,7 +73,7 @@ web interface, the desktop app, and reports, above all on phones and in narrow w
 - The security policy names 1.2.x as the version that receives security fixes; it still
   named 1.0.x.
 
-## [1.1.1] - 2026-10-04
+## [1.1.1] - 2026-10-05
 
 A maintenance release: small fixes across the command line, reports, and the web
 interface, and a link to more open-source projects by RepoDNA's creator.
