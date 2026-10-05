@@ -48,6 +48,7 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
   configurations
 - [Media kit](media/README.md): screenshots, promo images, and Project DNA cards for posts
   and talks
+- [Screenshots](images/README.md) of the web interface in every release, side by side
 - [Roadmap](../ROADMAP.md), [changelog](../CHANGELOG.md), and the [releases](releases/README.md),
   one folder per version with its notes, downloads, and install commands
 - [Security policy](../SECURITY.md), [support](../SUPPORT.md), and the
