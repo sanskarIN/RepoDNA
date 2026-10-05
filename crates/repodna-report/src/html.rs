@@ -34,7 +34,7 @@ const SCRIPT: &str = r#"(function(){var list=document.querySelectorAll('.finding
 const BASE_CSS: &str = r#"
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--page);color:var(--ink);font:15px/1.55 var(--font);}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.55 var(--font);overflow-wrap:break-word}
 a{color:var(--link)}
 a:focus-visible,button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .skip{position:absolute;left:-999px;top:0;background:var(--surface);padding:8px 12px;z-index:10}
@@ -528,6 +528,17 @@ mod tests {
         assert!(html.contains(&esc(&csp_hash(SCRIPT))));
         assert!(html.contains(&format!("<style>{css}</style>")));
         assert!(html.contains(&format!("<script>{SCRIPT}</script>")));
+    }
+
+    #[test]
+    fn wraps_long_words_on_narrow_screens() {
+        // A long path in a finding title or an onboarding answer must not make a phone
+        // scroll the whole page sideways.
+        let body = BASE_CSS
+            .lines()
+            .find(|line| line.starts_with("body{"))
+            .expect("the stylesheet styles the body");
+        assert!(body.contains("overflow-wrap:break-word"), "{body}");
     }
 
     #[test]
