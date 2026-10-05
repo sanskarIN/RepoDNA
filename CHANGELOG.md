@@ -11,6 +11,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 - A media kit in [`docs/media`](docs/media/README.md): screenshots of the web interface on
   a desktop and a phone, in light and dark, promo images for the 1.2.0 release, and
   RepoDNA's own Project DNA cards, sized for social networks.
+- A folder for every release in [`docs/releases`](docs/releases/README.md), with its notes,
+  its downloads and their sizes, and the commands that install it.
+- The 1.1.1 entry of this changelog is dated on the day it was published.
 
 ## [1.2.0] - 2026-10-05
 
