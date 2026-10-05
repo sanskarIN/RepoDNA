@@ -321,6 +321,20 @@ describe("views", () => {
     expect(window.location.hash).toBe("#/time-machine");
   });
 
+  it("announces a search without matches outside the list of results", async () => {
+    await renderAt("/overview", dataset);
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    });
+    const input = await screen.findByRole("combobox", { name: "Search and run commands" });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "no such thing anywhere" } });
+    });
+    const dialog = screen.getByRole("dialog", { name: "Search and commands" });
+    expect(within(dialog).getByRole("status").textContent).toBe("No matches.");
+    expect(screen.getByRole("listbox").children).toHaveLength(0);
+  });
+
   it("scrolls the highlighted search result into view", async () => {
     const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
     await renderAt("/overview", dataset);
