@@ -199,6 +199,23 @@ describe("views", () => {
     expect(screen.queryByRole("img", { name: /^Treemap of/ })).toBeNull();
   });
 
+  it("copies the report commands", async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      await renderAt("/reports", dataset);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Copy the commands" }));
+      });
+      expect(writeText).toHaveBeenCalledWith(
+        expect.stringMatching(/^repodna report .*\nrepodna card /),
+      );
+      expect(screen.getByRole("button", { name: "Copy the commands" }).textContent).toBe("Copied");
+    } finally {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
   it("asks for an analysis before showing data views", async () => {
     await renderAt("/architecture", null);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(

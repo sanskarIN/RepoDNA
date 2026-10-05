@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { confidenceLabel } from "@repodna/schema";
 import { date, thousands } from "@repodna/visualization";
-import { Chip, ErrorBox, Note, PageHeader, Panel, Select } from "../components/common";
+import { Chip, Commands, ErrorBox, Note, PageHeader, Panel, Select } from "../components/common";
 import { DataTable } from "../components/DataTable";
 import type { PrivacyPreset, ReportFormat, ReportTheme, SaveFormat } from "../lib/backend";
 import { artifactFileName, downloadText } from "../lib/download";
@@ -215,9 +215,12 @@ export function Reports() {
             </button>
           </p>
           <p>To create reports or a DNA card from the file, run:</p>
-          <pre className="note mono">
-            {`repodna report ${artifactFileName(dna)} --format html --output report.html\nrepodna card ${artifactFileName(dna)} --output dna-card.svg`}
-          </pre>
+          <Commands
+            lines={[
+              `repodna report ${artifactFileName(dna)} --format html --output report.html`,
+              `repodna card ${artifactFileName(dna)} --output dna-card.svg`,
+            ]}
+          />
           <p className="muted">
             The privacy preset of this file is <strong>{meta.privacy.preset}</strong>; reports made
             from it can remove more, never add back what was removed.

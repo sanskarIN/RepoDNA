@@ -563,6 +563,25 @@ pre.note {
   overflow-x: auto;
 }
 
+.commands {
+  position: relative;
+  margin: 12px 0;
+}
+
+.commands pre {
+  margin: 0;
+  /* Room for the Copy button, so it never covers a command. */
+  padding-right: 96px;
+}
+
+.commands .copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
 .error-box {
   padding: 12px 14px;
   border-radius: var(--radius-small);
