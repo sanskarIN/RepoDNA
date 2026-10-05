@@ -1006,7 +1006,7 @@ tbody tr:hover {
 
 .severity-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
   list-style: none;
   margin: 0 0 16px;
@@ -1023,6 +1023,10 @@ tbody tr:hover {
 .severity-summary .tile .label,
 .severity-summary .tile .value {
   display: block;
+}
+
+.severity-summary .tile:hover {
+  border-color: var(--accent);
 }
 
 .severity-summary .tile[aria-pressed="true"] {
