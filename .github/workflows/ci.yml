@@ -75,6 +75,8 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test
+      - name: Test the npm packaging
+        run: node --test "packaging/npm/test/*.test.mjs"
       - name: Build
         run: npm run build -w @repodna/web
       - uses: actions/upload-artifact@v7
