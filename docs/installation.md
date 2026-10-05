@@ -7,6 +7,7 @@ installing anything, use the [web version](web.md#the-web-version).
 - [Prebuilt binaries](#prebuilt-binaries)
 - [The desktop app](#the-desktop-app)
 - [Container image](#container-image)
+- [Web interface image](#web-interface-image)
 - [Build from source](#build-from-source)
 - [Check the installation](#check-the-installation)
 - [Uninstall](#uninstall)
@@ -90,10 +91,27 @@ The current directory is mounted as `/work`, and `--user` makes the files RepoDN
 yours. Tags follow the releases: `1.1.1`, `1.1`, `1`, and `latest`. Stored analyses live in
 `/tmp/repodna` inside the container and disappear with it; mount a volume there
 (`-v repodna-data:/tmp/repodna`) to keep them. `repodna serve` in a container listens on the
-container's own loopback address, so use an installed binary or the desktop app for the web
-interface. The image is based on Alpine Linux; the Alpine packages in it, such as Git, keep
-their own licenses, and their sources are available from
-[Alpine Linux](https://gitlab.alpinelinux.org/alpine/aports).
+container's own loopback address, so use an installed binary, the desktop app, or the
+[web interface image](#web-interface-image) for the web interface. The image is based on
+Alpine Linux; the Alpine packages in it, such as Git, keep their own licenses, and their
+sources are available from [Alpine Linux](https://gitlab.alpinelinux.org/alpine/aports).
+
+## Web interface image
+
+The web interface is also published as a container image, for teams that want the
+[web version](web.md#the-web-version) on their own network or without an internet
+connection. It runs on `linux/amd64` and `linux/arm64`:
+
+```sh
+docker run --rm -p 8080:8080 ghcr.io/sanskarin/repodna-web
+```
+
+Then open <http://localhost:8080>. Like the web version, it opens analyses from files in
+the browser (`repodna analyze . --format json > repodna.json`, or a `.repodna` export) and
+never uploads them; the server only sends the interface. It cannot analyze repositories
+itself: use the command line or the desktop app for that. nginx serves it as an
+unprivileged user on port 8080, with the same security headers as `repodna serve`. Tags
+follow the releases, as for the command line image.
 
 ## Build from source
 
