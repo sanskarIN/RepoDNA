@@ -1107,11 +1107,12 @@ h4 {
     display: none;
   }
 
+  /* minmax(0, 1fr): a long command or path wraps or scrolls instead of widening the page. */
   .grid.two,
   .grid.three,
   .grid.split,
   .hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .content,
