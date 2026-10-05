@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { thousands } from "@repodna/visualization";
 import { useApp } from "../state";
 import { navigate } from "../lib/router";
 import { NAV } from "../lib/nav";
@@ -103,7 +104,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
     return list;
   }, [mode, dataset, theme, setThemePreference, close]);
 
-  const results = useMemo(() => {
+  const { results, total } = useMemo(() => {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
     const matching =
       terms.length === 0
@@ -112,7 +113,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
             const text = `${item.label} ${item.kind}`.toLowerCase();
             return terms.every((term) => text.includes(term));
           });
-    return matching.slice(0, MAX_RESULTS);
+    return { results: matching.slice(0, MAX_RESULTS), total: matching.length };
   }, [items, query]);
 
   // Keeps the highlighted result in view when the arrow keys move it past the scrolled part
@@ -190,6 +191,12 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
         <p className="palette-note" role="status">
           {results.length === 0 ? "No matches." : ""}
         </p>
+        {total > results.length ? (
+          <p className="palette-note">
+            Showing the first {results.length} of {thousands(total)} results. Type to narrow them
+            down.
+          </p>
+        ) : null}
       </div>
     </div>
   );
