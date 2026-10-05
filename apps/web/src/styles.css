@@ -343,6 +343,21 @@ code,
   flex: 1;
 }
 
+.topbar button,
+.topbar select {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* A phone has room for the search and the theme, and no keyboard for the shortcuts. */
+@media (max-width: 600px) {
+  .topbar .wide-only,
+  .topbar kbd,
+  .shortcuts-button {
+    display: none;
+  }
+}
+
 .content {
   padding: 24px 28px 48px;
   max-width: 1320px;
