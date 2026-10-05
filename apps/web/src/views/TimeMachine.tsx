@@ -16,6 +16,7 @@ import {
   Tile,
 } from "../components/common";
 import { DataTable } from "../components/DataTable";
+import { count } from "../lib/names";
 import { useApp, useDataset } from "../state";
 
 type Measure = "files" | "bytes" | "commits";
@@ -466,9 +467,10 @@ export function TimeMachine() {
               <li key={epoch.index}>
                 <strong>{epoch.label}</strong> <Chip>{epoch.kind}</Chip>
                 <div className="muted">
-                  {date(epoch.start)} to {date(epoch.end)} · {thousands(epoch.commits)} commits by{" "}
-                  {thousands(epoch.contributors)} {epoch.contributors === 1 ? "person" : "people"} ·
-                  +{thousands(epoch.insertions)} −{thousands(epoch.deletions)} lines
+                  {date(epoch.start)} to {date(epoch.end)} ·{" "}
+                  {count(epoch.commits, "commit", "commits")} by {thousands(epoch.contributors)}{" "}
+                  {epoch.contributors === 1 ? "person" : "people"} · +{thousands(epoch.insertions)}{" "}
+                  −{thousands(epoch.deletions)} lines
                 </div>
                 {epoch.focusAreas.length > 0 ? (
                   <div>
@@ -486,7 +488,7 @@ export function TimeMachine() {
           title="Key events"
           description={
             allEvents || events.length <= 12
-              ? `${events.length} events, oldest first.`
+              ? `${count(events.length, "event", "events")}, oldest first.`
               : `The latest 12 of ${events.length} events.`
           }
           actions={

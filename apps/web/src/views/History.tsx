@@ -136,7 +136,7 @@ export function History() {
             points={days.map((d) => ({
               label: d.date,
               value: d.commits,
-              details: `${thousands(d.churn)} lines added or removed`,
+              details: `${count(d.churn, "line", "lines")} added or removed`,
             }))}
             unit={[" commit", " commits"]}
             labelWidth={76}

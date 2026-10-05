@@ -111,7 +111,7 @@ Suppressed findings keep their place and carry the suppression's reason.
 | `quality.markers` | info | Work markers such as `TODO` and `FIXME` were found. |
 | `quality.dead-code` | info | Nothing in the repository appears to use a file. |
 | `security.secret` | attention, warning, or critical | A possible credential was found (see [security](security.md)). |
-| `security.<pattern>` | info, attention, or warning | A risky construct was found (see [security](security.md#risky-patterns-securityrule)). |
+| `security.<rule>` | info, attention, or warning | A risky construct was found (see [security](security.md#risky-patterns-securityrule)). |
 | `security.permission` | attention | A file is world-writable or has the setuid or setgid bit. |
 | `structure.large-binary` | info | A committed binary exceeds `large_binary_bytes`. |
 | `tests.none` | attention | No automated tests were detected. |
@@ -157,7 +157,7 @@ same files have the same hash, whatever the time, machine, or configuration.
 - A newer **major** version is rejected with an error that names both versions.
 
 The Settings page of the web interface shows the versions as, for example,
-"RepoDNA v1.1.0" and "Analysis schema v1".
+"RepoDNA v1.1.1" and "Analysis schema v1".
 
 Artifacts are written atomically (to a temporary file that is then renamed), so an
 interrupted export never leaves a truncated file.

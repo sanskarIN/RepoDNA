@@ -13,7 +13,7 @@ import {
   Tile,
 } from "../components/common";
 import { DataTable } from "../components/DataTable";
-import { languageNamer, unitFor } from "../lib/names";
+import { count, languageNamer, unitFor } from "../lib/names";
 import { useDataset } from "../state";
 
 const MARKERS: Record<MarkerKind, string> = {
@@ -166,7 +166,7 @@ export function Quality() {
                 .map((l) => ({
                   label: languageName(l.language),
                   value: l.average,
-                  details: `${thousands(l.functions)} functions · highest ${thousands(l.max)}`,
+                  details: `${count(l.functions, "function", "functions")} · highest ${thousands(l.max)}`,
                 }))}
             />
           )}

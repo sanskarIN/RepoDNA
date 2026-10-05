@@ -99,9 +99,11 @@ fn prints_version_help_and_usage_errors() {
     let version = env.run(&["version"]);
     assert_eq!(code(&version), 0);
     assert!(stdout(&version).starts_with(&format!("RepoDNA {}", env!("CARGO_PKG_VERSION"))));
+    assert!(stdout(&version).contains("More open-source projects: https://sanskarin.github.io"));
     let json: serde_json::Value =
         serde_json::from_str(&stdout(&env.run(&["version", "--json"]))).unwrap();
     assert_eq!(json["schemaVersion"], "1.0");
+    assert_eq!(json["author"]["url"], "https://sanskarin.github.io");
 
     let help = env.run(&["--help"]);
     assert_eq!(code(&help), 0);
@@ -219,6 +221,24 @@ fn analyzes_views_reports_and_exports() {
 }
 
 #[test]
+fn leaves_out_confidence_when_no_architecture_is_inferred() {
+    let env = Env::new();
+    let repo = env.work("notes");
+    write_tree(
+        &repo,
+        &[
+            ("README.md", "# Notes\n\nPlain notes, no code.\n"),
+            ("notes.txt", "nothing to build\n"),
+        ],
+    );
+    let output = env.run(&["analyze", &path(&repo)]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.contains("Architecture  Unknown, 0 modules"), "{text}");
+    assert!(!text.contains("unavailable confidence"), "{text}");
+}
+
+#[test]
 fn ci_fails_only_when_asked() {
     let env = Env::new();
     let repo = env.work("widget");
@@ -278,10 +298,17 @@ fn errors_explain_what_to_do() {
 #[test]
 fn manages_configuration_cache_and_plugins() {
     let env = Env::new();
+    let config_path = env.home.path().join("config.toml");
+    let before = env.run(&["config", "path"]);
+    assert_eq!(code(&before), 0, "{}", stderr(&before));
+    assert_eq!(stdout(&before), format!("{}\n", config_path.display()));
+    assert!(stderr(&before).contains("does not exist yet"));
     let init = env.run(&["config", "init"]);
     assert_eq!(code(&init), 0, "{}", stderr(&init));
-    let config_path = env.home.path().join("config.toml");
     assert!(config_path.is_file());
+    let after = env.run(&["config", "path"]);
+    assert_eq!(stdout(&after), format!("{}\n", config_path.display()));
+    assert!(!stderr(&after).contains("does not exist yet"));
     let enable = env.run(&["plugins", "enable", "zig-language"]);
     assert_eq!(code(&enable), 0, "{}", stderr(&enable));
     let text = std::fs::read_to_string(&config_path).unwrap();

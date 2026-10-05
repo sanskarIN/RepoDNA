@@ -31,3 +31,8 @@ RepoDNA is free and open source. If it is useful to you, you can support its dev
 
 To learn programming with the creator of RepoDNA, visit
 [sanskarIN.gumroad.com](https://sanskarIN.gumroad.com).
+
+## More open-source projects
+
+RepoDNA's creator, Sanskar, lists more open-source projects at
+[sanskarin.github.io](https://sanskarin.github.io).

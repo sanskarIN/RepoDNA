@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { layeredLayout, thousands } from "@repodna/visualization";
+import { layeredLayout } from "@repodna/visualization";
+import { count } from "../lib/names";
 import { shorten, useWidth } from "./size";
 
 /** Horizontal room per dependency layer, enough for a module name under each node. */
@@ -123,7 +124,7 @@ export function ArchitectureGraph({
                 markerEnd="url(#arrow)"
               >
                 <title>
-                  {`${byId.get(edge.from)?.name ?? edge.from} depends on ${byId.get(edge.to)?.name ?? edge.to} (${thousands(edge.weight)} imports)${edge.backward ? "; against the layer order" : ""}`}
+                  {`${byId.get(edge.from)?.name ?? edge.from} depends on ${byId.get(edge.to)?.name ?? edge.to} (${count(edge.weight, "import", "imports")})${edge.backward ? "; against the layer order" : ""}`}
                 </title>
               </path>
             );
@@ -140,7 +141,7 @@ export function ArchitectureGraph({
                 role="button"
                 tabIndex={0}
                 aria-pressed={isSelected}
-                aria-label={`${name}: ${thousands(module?.codeLines ?? 0)} code lines, used by ${module?.fanIn ?? 0} modules, uses ${module?.fanOut ?? 0}`}
+                aria-label={`${name}: ${count(module?.codeLines ?? 0, "code line", "code lines")}, used by ${count(module?.fanIn ?? 0, "module", "modules")}, uses ${module?.fanOut ?? 0}`}
                 opacity={dimmed ? 0.3 : 1}
                 onPointerEnter={() => setHovered(node.id)}
                 onPointerLeave={() => setHovered(null)}

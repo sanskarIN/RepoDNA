@@ -485,9 +485,10 @@ pub fn analyze(
     let dependencies = if stages.contains(Stage::Dependencies) {
         let begun = recorder.begin(Stage::Dependencies);
         let dependencies = run_dependencies(&scan.contents);
-        let message = format!(
-            "{} manifests and lockfiles",
-            dependencies.report.manifests.len()
+        let message = count(
+            dependencies.report.manifests.len() as u64,
+            "manifest or lockfile",
+            "manifests and lockfiles",
         );
         recorder.end(
             Stage::Dependencies,
@@ -515,9 +516,13 @@ pub fn analyze(
         let begun = recorder.begin(Stage::Architecture);
         let output = run_architecture(&scan, &dependencies, config, cancel)?;
         let message = format!(
-            "{} modules, {} resolved imports",
-            output.report.modules.len(),
-            output.report.resolved_imports
+            "{}, {}",
+            count(output.report.modules.len() as u64, "module", "modules"),
+            count(
+                output.report.resolved_imports,
+                "resolved import",
+                "resolved imports"
+            )
         );
         recorder.end(
             Stage::Architecture,
@@ -644,9 +649,17 @@ pub fn analyze(
         let begun = recorder.begin(Stage::Security);
         let (report, security) = run_security(&mut scan);
         let message = format!(
-            "{} secret candidates, {} pattern candidates",
-            report.secrets.len(),
-            report.patterns.len()
+            "{}, {}",
+            count(
+                report.secrets.len() as u64,
+                "secret candidate",
+                "secret candidates"
+            ),
+            count(
+                report.patterns.len() as u64,
+                "pattern candidate",
+                "pattern candidates"
+            )
         );
         recorder.end(
             Stage::Security,
@@ -730,9 +743,17 @@ pub fn analyze(
                         AnalyzerStatus::Partial
                     };
                     let message = format!(
-                        "{} snapshots, {} events",
-                        timeline.evolution.report.snapshots.len(),
-                        timeline.evolution.report.events.len()
+                        "{}, {}",
+                        count(
+                            timeline.evolution.report.snapshots.len() as u64,
+                            "snapshot",
+                            "snapshots"
+                        ),
+                        count(
+                            timeline.evolution.report.events.len() as u64,
+                            "event",
+                            "events"
+                        )
                     );
                     recorder.end(Stage::Evolution, begun, status, Some(message));
                     if historical {
@@ -1025,6 +1046,31 @@ mod tests {
         assert!(dna.metrics.get("structure.files").is_some());
         assert!(!dna.analysis_metadata.partial);
         assert!(!dna.analysis_metadata.privacy.network_used);
+    }
+
+    #[test]
+    fn step_messages_count_in_the_singular_and_plural() {
+        let dir = tempfile::tempdir().unwrap();
+        write_tree(dir.path(), PROJECT);
+        let dna = analyze(
+            &request(dir.path(), AnalysisProfile::Standard),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        let message = |stage: Stage| {
+            dna.analysis_metadata
+                .analyzers
+                .iter()
+                .find(|run| run.stage == stage.id())
+                .and_then(|run| run.message.clone())
+                .unwrap_or_default()
+        };
+        assert_eq!(message(Stage::Dependencies), "1 manifest or lockfile");
+        assert_eq!(message(Stage::Architecture), "1 module, 1 resolved import");
+        assert_eq!(
+            message(Stage::Security),
+            "0 secret candidates, 0 pattern candidates"
+        );
     }
 
     #[test]

@@ -91,15 +91,15 @@ pub fn run_init(cmd: &InitCmd) -> Result<(), AppError> {
 pub fn run_config(ctx: &Ctx, cmd: &ConfigCmd) -> Result<(), AppError> {
     let options = ctx.config_options(&AnalysisArgs::default());
     match &cmd.action {
-        ConfigAction::Path => print(&format!(
-            "{}{}",
-            ctx.paths.config_file.display(),
-            if ctx.paths.config_file.exists() {
-                ""
-            } else {
-                " (does not exist yet; `repodna config init` creates it)"
+        // Only the path goes to standard output, so `$(repodna config path)` works even
+        // before the file exists; the hint goes to standard error.
+        ConfigAction::Path => {
+            print(&ctx.paths.config_file.display().to_string())?;
+            if !ctx.paths.config_file.exists() {
+                ctx.note("The file does not exist yet; `repodna config init` creates it.");
             }
-        )),
+            Ok(())
+        }
         ConfigAction::Show { directory, json } => {
             let loaded = load_config(&ctx.paths, Some(directory), &options)?;
             if *json {
@@ -341,10 +341,11 @@ pub fn run_version(cmd: &VersionCmd) -> Result<(), AppError> {
             "arch": std::env::consts::ARCH,
             "license": "Apache-2.0",
             "homepage": "https://github.com/sanskarIN/RepoDNA",
+            "author": { "name": "Sanskar", "url": "https://sanskarin.github.io" },
         }))?);
     }
     print(&format!(
-        "RepoDNA {version}\n  artifact schema  {SCHEMA_VERSION}\n  plugin api       {}\n  build            {}\n  platform         {}-{}\n  license          Apache-2.0\n  homepage         https://github.com/sanskarIN/RepoDNA\nMade by the Sanskar.",
+        "RepoDNA {version}\n  artifact schema  {SCHEMA_VERSION}\n  plugin api       {}\n  build            {}\n  platform         {}-{}\n  license          Apache-2.0\n  homepage         https://github.com/sanskarIN/RepoDNA\nMade by the Sanskar. More open-source projects: https://sanskarin.github.io",
         repodna_plugin::PLUGIN_API,
         build_commit().unwrap_or("local build"),
         std::env::consts::OS,

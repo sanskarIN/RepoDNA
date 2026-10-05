@@ -128,8 +128,12 @@ pub fn classify_style(
             id: "monorepo".into(),
             label: "Monorepo".into(),
             description: format!(
-                "{} packages are declared in one repository{}.",
-                packages.len(),
+                "{} declared in one repository{}.",
+                if packages.len() == 1 {
+                    "1 package is".to_owned()
+                } else {
+                    format!("{} packages are", packages.len())
+                },
                 if report.workspace.is_some() {
                     " with a workspace configuration"
                 } else {
@@ -174,8 +178,12 @@ pub fn classify_style(
                 id: "modular".into(),
                 label: "Modular".into(),
                 description: format!(
-                    "{module_count} modules with {} dependencies between them; no module holds most of the code.",
-                    report.module_edges.len()
+                    "{module_count} modules with {} between them; no module holds most of the code.",
+                    count(
+                        report.module_edges.len() as u64,
+                        "dependency",
+                        "dependencies"
+                    )
                 ),
                 confidence: Confidence::Medium,
                 evidence: vec![
@@ -215,8 +223,9 @@ pub fn classify_style(
             id: "flat".into(),
             label: "Flat".into(),
             description: format!(
-                "{member_files} code files in {module_count} module{}.",
-                if module_count == 1 { "" } else { "s" }
+                "{} in {}.",
+                count(member_files as u64, "code file", "code files"),
+                count(module_count as u64, "module", "modules")
             ),
             confidence: Confidence::Low,
             evidence: vec![Evidence::metric(
@@ -230,8 +239,8 @@ pub fn classify_style(
             id: "cycles".into(),
             label: "Module cycles".into(),
             description: format!(
-                "{module_cycles} group{} of modules depend on each other.",
-                if module_cycles == 1 { "" } else { "s" }
+                "{} of modules that depend on each other.",
+                count(module_cycles as u64, "group", "groups")
             ),
             confidence: Confidence::High,
             evidence: vec![Evidence::metric(
@@ -576,6 +585,20 @@ mod tests {
         assert_eq!(style, "Layered");
         assert_eq!(confidence, Confidence::Medium);
         assert!(signals.iter().any(|signal| signal.id == "modular"));
+        let mut one_edge = layered_report();
+        one_edge.module_edges.truncate(1);
+        let (_, _, signals) = classify_style(&one_edge, 350, 12);
+        let modular = signals
+            .iter()
+            .find(|signal| signal.id == "modular")
+            .unwrap();
+        assert!(
+            modular
+                .description
+                .contains(" with 1 dependency between them"),
+            "{}",
+            modular.description
+        );
 
         let mut monorepo = layered_report();
         monorepo.packages = ["a", "b"]
@@ -589,6 +612,28 @@ mod tests {
             })
             .collect();
         assert_eq!(classify_style(&monorepo, 350, 12).0, "Monorepo");
+        let description = |report: &ArchitectureReport| {
+            let (_, _, signals) = classify_style(report, 350, 12);
+            signals
+                .into_iter()
+                .find(|signal| signal.id == "monorepo")
+                .unwrap()
+                .description
+        };
+        assert_eq!(
+            description(&monorepo),
+            "2 packages are declared in one repository."
+        );
+        monorepo.packages.truncate(1);
+        monorepo.workspace = Some(repodna_core::model::architecture::WorkspaceInfo {
+            tool: "npm-workspaces".into(),
+            manifest: "package.json".into(),
+            members: vec!["packages/*".into()],
+        });
+        assert_eq!(
+            description(&monorepo),
+            "1 package is declared in one repository with a workspace configuration."
+        );
 
         let empty = ArchitectureReport::default();
         assert_eq!(classify_style(&empty, 0, 0).0, "Unknown");
@@ -607,6 +652,16 @@ mod tests {
             ..ArchitectureReport::default()
         };
         assert_eq!(classify_style(&small, 100, 5).0, "Flat");
+        let flat = |files| {
+            let (_, _, signals) = classify_style(&small, 100, files);
+            signals
+                .into_iter()
+                .find(|signal| signal.id == "flat")
+                .unwrap()
+                .description
+        };
+        assert_eq!(flat(1), "1 code file in 1 module.");
+        assert_eq!(flat(5), "5 code files in 1 module.");
     }
 
     #[test]
@@ -631,6 +686,12 @@ mod tests {
         assert_eq!(found.title, "Dependency cycle between api and services");
         assert!(found.summary.contains("api → services → api"));
         assert_eq!(found.paths, vec!["app/api", "app/services"]);
+        let (_, _, signals) = classify_style(&report, 350, 12);
+        let cycles = signals.iter().find(|signal| signal.id == "cycles").unwrap();
+        assert_eq!(
+            cycles.description,
+            "1 group of modules that depend on each other."
+        );
 
         report.cycles = vec![cycle(&["rust"])];
         let findings = architecture_findings(&report, 350);

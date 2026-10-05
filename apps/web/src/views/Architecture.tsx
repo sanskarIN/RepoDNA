@@ -12,6 +12,7 @@ import {
   Tile,
 } from "../components/common";
 import { DataTable } from "../components/DataTable";
+import { count } from "../lib/names";
 import { href, navigate, useRoute } from "../lib/router";
 import { useDataset } from "../state";
 
@@ -67,13 +68,14 @@ function ModuleDetails({ dna, module }: { dna: RepositoryDna; module: ModuleReco
       <dl className="facts">
         <dt>Size</dt>
         <dd>
-          {thousands(module.files)} files · {thousands(module.codeLines)} code lines
+          {count(module.files, "file", "files")} ·{" "}
+          {count(module.codeLines, "code line", "code lines")}
           {module.language ? ` · mostly ${module.language}` : ""}
         </dd>
         <dt>Used by</dt>
-        <dd>{module.fanIn === 1 ? "1 module" : `${module.fanIn} modules`}</dd>
+        <dd>{count(module.fanIn, "module", "modules")}</dd>
         <dt>Uses</dt>
-        <dd>{module.fanOut === 1 ? "1 module" : `${module.fanOut} modules`}</dd>
+        <dd>{count(module.fanOut, "module", "modules")}</dd>
         <dt>Instability</dt>
         <dd title="Share of this module's dependencies that point outward: 0 means only used, 1 means only using.">
           {module.instability.toFixed(2)}
@@ -200,10 +202,12 @@ export function Architecture() {
       <PageHeader title="Architecture">
         {architecture.style ? (
           <>
-            Looks like a <strong>{architecture.style}</strong> (
-            {confidenceLabel(architecture.styleConfidence)} confidence). Modules come from package
-            manifests where they exist and from folders otherwise; dependencies come from imports
-            RepoDNA could resolve.
+            Inferred style: <strong>{architecture.style}</strong>
+            {architecture.styleConfidence === "unavailable"
+              ? ""
+              : ` (${confidenceLabel(architecture.styleConfidence).toLowerCase()} confidence)`}
+            . Modules come from package manifests where they exist and from folders otherwise;
+            dependencies come from imports RepoDNA could resolve.
           </>
         ) : (
           "Modules and the dependencies between them, from package manifests and resolved imports."
