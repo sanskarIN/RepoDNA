@@ -319,7 +319,7 @@ environment variables.
 | **Architecture:** modules in dependency layers; select one to see why it matters. | **History:** activity, contributors, releases, and where work happens. |
 | ![Time Machine view: a snapshot with its languages and largest areas](docs/images/v1.2.0/desktop/time-machine-light.png) | ![Code quality view: functions measured, complexity distribution, and complexity by language](docs/images/v1.2.0/desktop/quality-light.png) |
 | **Time Machine:** snapshots, epochs, events, and the story of the project. | **Code quality:** complexity, size, duplication, and markers. |
-| ![Tests, build and docs view: a getting-started guide assembled from the repository, with commands to copy](docs/images/v1.2.0/desktop/project-light.png) | ![The desktop app's start page](docs/images/desktop.png) |
+| ![Tests, build and docs view: a getting-started guide assembled from the repository, with commands to copy](docs/images/v1.2.0/desktop/project-light.png) | ![The desktop app's start page: analyze a folder, an archive, or a Git URL, and open the analyses stored on this machine](docs/images/v1.2.0/desktop-app/start-light.png) |
 | **Tests, build and docs:** how to set up, build, and test the project. | **Desktop app:** the same interface as a native app. |
 
 On a phone, the interface fits the screen and the navigation folds behind a Menu button:
