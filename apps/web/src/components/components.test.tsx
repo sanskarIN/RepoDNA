@@ -43,6 +43,8 @@ describe("DataTable", () => {
       />,
     );
     expect(names()).toEqual(["beta", "alpha", "gamma"]);
+    // Sortable headers show that they sort without changing their names.
+    expect(screen.getByRole("button", { name: "Size" }).textContent).toBe("Size ↕");
     fireEvent.click(screen.getByRole("button", { name: "Size" }));
     expect(names()).toEqual(["alpha", "gamma", "beta"]);
     expect(screen.getByRole("columnheader", { name: /Size/ }).getAttribute("aria-sort")).toBe(

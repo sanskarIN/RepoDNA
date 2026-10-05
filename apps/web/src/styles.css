@@ -623,6 +623,20 @@ th button {
   color: inherit;
 }
 
+th button:hover {
+  color: var(--ink);
+}
+
+/* Marks a column that sorts when its header is clicked, stronger on hover. */
+th button .sort-hint {
+  opacity: 0.4;
+}
+
+th button:hover .sort-hint,
+th button:focus-visible .sort-hint {
+  opacity: 1;
+}
+
 td.num,
 th.num {
   text-align: right;
