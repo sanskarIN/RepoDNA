@@ -7,8 +7,8 @@ seriously. Thank you for helping keep its users safe.
 
 | Version | Security fixes |
 |---|---|
-| 1.0.x (the latest release) | Yes |
-| Earlier development builds | No |
+| 1.2.x (the latest release) | Yes |
+| 1.1.x and earlier | No |
 
 Fixes are released as new patch versions. Please upgrade to the latest release before
 reporting, if you can.
