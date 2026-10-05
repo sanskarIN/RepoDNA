@@ -322,7 +322,9 @@ environment variables.
 | ![Tests, build and docs view: a getting-started guide assembled from the repository](docs/images/project.png) | ![The desktop app's start page](docs/images/desktop.png) |
 | **Tests, build and docs:** how to set up, build, and test the project. | **Desktop app:** the same interface as a native app. |
 
-All screenshots show RepoDNA's analysis of its own repository.
+All screenshots show RepoDNA's analysis of its own repository. For posts and talks, the
+[media kit](docs/media/README.md) has larger screenshots on a desktop and a phone, in
+light and dark, along with promo images and Project DNA cards sized for social networks.
 
 ## Project DNA cards and badges
 
