@@ -1,10 +1,11 @@
 name: Release
 
 # Builds and publishes a release when a version tag is pushed: the command line for every
-# platform, the desktop installers, and the container image on ghcr.io. Running it by hand
-# with an existing tag rebuilds that tag's code and updates the release's files. Running it
-# by hand without a tag is a trial: it builds every file from the selected branch and keeps
-# them as downloads of the run, without publishing anything.
+# platform, the desktop installers, the container images on ghcr.io, and the npm packages
+# on GitHub Packages. Running it by hand with an existing tag rebuilds that tag's code and
+# updates the release's files. Running it by hand without a tag is a trial: it builds every
+# file from the selected branch and keeps them as downloads of the run, without publishing
+# anything.
 on:
   push:
     tags: ["v*"]
@@ -361,6 +362,82 @@ jobs:
             --build-arg VERSION="$VERSION" --build-arg REVISION="$(git rev-parse HEAD)" \
             --label org.opencontainers.image.created="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             "${tags[@]}" "${push[@]}" --file packaging/web/Dockerfile "$CONTEXT"
+
+  npm:
+    name: npm packages
+    needs: [prepare, cli]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@sanskarin"
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*
+          path: archives
+          merge-multiple: true
+      - name: Unpack the binaries
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p unpacked
+          for archive in archives/*; do
+            name=$(basename "$archive")
+            name="${name%.tar.gz}"
+            name="${name%.zip}"
+            target="${name#repodna-$VERSION-}"
+            case "$archive" in
+              *.zip) unzip -q "$archive" -d unpacked ;;
+              *) tar -xzf "$archive" -C unpacked ;;
+            esac
+            mkdir -p "binaries/$target"
+            cp unpacked/"$name"/repodna* "binaries/$target/"
+          done
+          ls -l binaries/*
+      - name: Stage the packages
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries
+      - name: Check the packages
+        run: |
+          set -euo pipefail
+          for dir in npm-packages/*/; do
+            (cd "$dir" && npm pack --dry-run)
+          done
+          # The launcher finds and runs the Linux x64 binary installed next to it.
+          modules="$RUNNER_TEMP/npm-check/node_modules/@sanskarin"
+          mkdir -p "$modules"
+          cp -r npm-packages/repodna npm-packages/repodna-linux-x64 "$modules/"
+          node "$modules/repodna/bin/repodna.js" --version
+      - name: Publish to GitHub Packages
+        if: needs.prepare.outputs.publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # The libraries and platform packages first, so the launcher never names a
+          # version that is not there. A version that is already published is skipped,
+          # so the workflow can run again for the same tag.
+          for dir in npm-packages/repodna-*/ npm-packages/repodna/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            if npm view "$name@$version" version > /dev/null 2>&1; then
+              echo "$name@$version is already published."
+            else
+              npm publish "$dir"
+            fi
+          done
 
   publish:
     name: Publish the release
