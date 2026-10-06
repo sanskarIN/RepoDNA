@@ -87,8 +87,47 @@ impl GitError {
             GitError::InvalidUrl(_) => Some(
                 "Use an https:// or ssh:// URL (or git@host:owner/repo). Local paths should be passed directly, not as URLs.",
             ),
+            GitError::CommandFailed { stderr, .. } => remote_hint(stderr),
             _ => None,
         }
+    }
+}
+
+/// What Git says when a remote refuses access, and when it cannot be reached at all.
+const ACCESS_DENIED: &[&str] = &[
+    "authentication failed",
+    "could not read username",
+    "could not read password",
+    "terminal prompts disabled",
+    "permission denied",
+    "repository not found",
+    "returned error: 401",
+    "returned error: 403",
+    "returned error: 404",
+];
+const UNREACHABLE: &[&str] = &[
+    "could not resolve host",
+    "unable to access",
+    "failed to connect",
+    "connection timed out",
+    "connection refused",
+    "network is unreachable",
+    "could not resolve proxy",
+];
+
+/// A hint for a clone or fetch that failed because of the remote, when Git says why.
+fn remote_hint(stderr: &str) -> Option<&'static str> {
+    let lower = stderr.to_ascii_lowercase();
+    if ACCESS_DENIED.iter().any(|text| lower.contains(text)) {
+        Some(
+            "The repository may be private, or the address may be wrong. RepoDNA never prompts for credentials: set them up for Git itself (a credential helper or an SSH agent), or clone the repository yourself and pass its local path.",
+        )
+    } else if UNREACHABLE.iter().any(|text| lower.contains(text)) {
+        Some(
+            "RepoDNA could not reach the repository's host. Check the address, your network connection, and any proxy, or clone the repository yourself and pass its local path.",
+        )
+    } else {
+        None
     }
 }
 
@@ -111,5 +150,27 @@ mod tests {
         assert!(matches!(not_repo, GitError::NotARepository(_)));
         let other = GitError::from_failure("git log", Some(1), "boom", None);
         assert_eq!(other.to_string(), "git log failed with exit code 1: boom");
+        assert!(other.hint().is_none());
+    }
+
+    #[test]
+    fn explains_why_a_clone_failed() {
+        let clone = |stderr: &str| GitError::from_failure("git clone", Some(128), stderr, None);
+        let private = clone(
+            "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+        );
+        assert!(private.hint().unwrap().contains("may be private"));
+        let missing = clone(
+            "fatal: unable to access 'https://example.com/a.git/': The requested URL returned error: 404",
+        );
+        assert!(missing.hint().unwrap().contains("may be private"));
+        let offline = clone(
+            "fatal: unable to access 'https://example.com/a.git/': Could not resolve host: example.com",
+        );
+        assert!(offline.hint().unwrap().contains("could not reach"));
+        let proxy = clone(
+            "fatal: unable to access 'https://example.com/a.git/': CONNECT tunnel failed, response 403",
+        );
+        assert!(proxy.hint().unwrap().contains("could not reach"));
     }
 }
