@@ -265,9 +265,11 @@ Publishing to npmjs.com, where the packages install without a token, needs the r
 secret `NPM_TOKEN` (**Settings > Secrets and variables > Actions**): a granular access
 token of the npm account that owns the `@sanskarin` scope, with read and write access to
 packages and allowed to publish without two-factor authentication. npm limits how long
-such a token lasts, so renew it before a release when it is about to expire. Trusted
-publishing can replace it: once the packages are on npmjs.com, add this repository and the
-workflow file as a trusted publisher in each package's settings there, and set the
+such a token lasts, so renew it before a release when it is about to expire. npm is also
+retiring such tokens: from January 2027, a publish made with one waits under **Staged
+Packages** on npmjs.com until you approve it with two-factor authentication. Trusted
+publishing replaces the token: once the packages are on npmjs.com, add this repository and
+the workflow file as a trusted publisher in each package's settings there, and set the
 repository variable `NPM_TRUSTED_PUBLISHING` to `true`. Without either, releases skip
 npmjs.com and say so.
 
