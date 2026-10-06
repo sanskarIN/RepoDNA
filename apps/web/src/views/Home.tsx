@@ -355,13 +355,15 @@ export function Home() {
               <div className="panel-header">
                 <div>
                   <h2 id="cli-title">Analyze a repository</h2>
-                  <p>This page is running without a RepoDNA server, so it can only open files.</p>
+                  <p>Analyses run on your own computer; this page opens their results.</p>
                 </div>
               </div>
               <p>
                 <ExternalLink href={`${REPOSITORY}/releases/latest`}>Download RepoDNA</ExternalLink>{" "}
-                (the command line or the desktop app), then open a repository in the app or run one
-                of:
+                (the command line or the desktop app). In the desktop app, choose a folder. On the
+                command line, <code>repodna serve</code> opens this interface with analysis built
+                in, and <code>repodna analyze</code> writes a report folder whose{" "}
+                <code>repodna.json</code> opens here:
               </p>
               <CommandBox
                 lines={["repodna serve", "repodna analyze path/to/repo --output repodna-report"]}
