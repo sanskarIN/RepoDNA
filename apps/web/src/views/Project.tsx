@@ -88,7 +88,9 @@ function Executions({ executions }: { executions: readonly ExecutionResult[] }) 
                   : `failed (exit ${run.exitCode ?? "unknown"})`}{" "}
             in {(run.durationMs / 1000).toFixed(1)} s
           </summary>
-          <pre className="note mono">{run.outputTail.join("\n") || "(no output)"}</pre>
+          <pre className="note mono" tabIndex={0} aria-label={`Output of ${run.command}`}>
+            {run.outputTail.join("\n") || "(no output)"}
+          </pre>
         </details>
       ))}
     </>
