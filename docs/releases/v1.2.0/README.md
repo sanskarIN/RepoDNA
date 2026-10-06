@@ -119,6 +119,6 @@ this repository at `v1.2.0`, are in [`docs/images/v1.2.0`](../../images/README.m
 ## Images
 
 Screenshots, promo images, and Project DNA cards for posts about this release are in
-the [media kit](../../media/README.md).
+the [media kit](../../media/README.md#120).
 
 [All releases](../README.md)
