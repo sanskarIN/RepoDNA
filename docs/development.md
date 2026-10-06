@@ -276,7 +276,9 @@ npmjs.com and say so.
 To publish the npm packages of a release that is already out, for example after adding
 the token, run the [npm packages workflow](../.github/workflows/npm.yml) from the Actions
 tab with the release's tag. It packages the archives attached to the release and
-publishes what GitHub Packages and npmjs.com do not have yet.
+publishes what GitHub Packages and npmjs.com do not have yet. A release older than the
+newest one on a registry goes under the `previous` tag there, so `npm install` keeps
+picking the newest release.
 
 To try a release before tagging it, run the Release workflow by hand from the Actions tab
 with an empty tag: it builds every file from the selected branch and keeps them as
