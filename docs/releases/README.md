@@ -7,6 +7,7 @@ downloads with their sizes, and the commands that install it. The same notes are
 
 | Version | Released | Highlights |
 |---|---|---|
+| [1.2.1](v1.2.1/README.md) | 2026-10-06 | npm packages on npmjs.com, installed without a token, and small fixes to accessibility, tables on phones, `repodna serve`, and clone errors |
 | [1.2.0](v1.2.0/README.md) | 2026-10-05 | The web interface as a container image, npm packages on GitHub Packages, and a web interface and reports that fit phone screens |
 | [1.1.1](v1.1.1/README.md) | 2026-10-05 | Small fixes across the command line, reports, and the web interface |
 | [1.1.0](v1.1.0/README.md) | 2026-10-04 | Optional AI explanations, grounded in the analysis and checked against its evidence |
@@ -24,8 +25,8 @@ Each release page shows screenshots of that version; all of them, side by side, 
   `ghcr.io/sanskarin/repodna-web` since 1.2.0, tagged with the version (`1.2.0`), its
   minor and major versions (`1.2`, `1`), and `latest`.
 - **npm packages:** `@sanskarin/repodna`, `@sanskarin/repodna-schema`, and
-  `@sanskarin/repodna-visualization` on GitHub Packages since 1.2.0; see
-  [installation](../installation.md#npm-packages).
+  `@sanskarin/repodna-visualization` on GitHub Packages since 1.2.0, and on npmjs.com
+  since 1.2.1; see [installation](../installation.md#npm-packages).
 - **Web version:** [sanskarin.github.io/RepoDNA](https://sanskarin.github.io/RepoDNA/)
   always runs the latest release.
 
