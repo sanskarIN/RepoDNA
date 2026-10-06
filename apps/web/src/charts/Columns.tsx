@@ -42,10 +42,10 @@ export function Columns({
   const every = Math.max(1, Math.ceil((points.length * labelWidth) / plotWidth));
   return (
     <div ref={ref}>
-      <svg className="chart" width={width} height={height} role="img" aria-label={label}>
+      <svg className="chart" width={width} height={height} role="group" aria-label={label}>
         <g transform={`translate(${left},${top})`}>
           {y.ticks.map((tick) => (
-            <g key={tick}>
+            <g key={tick} aria-hidden="true">
               <line className="grid-line" x1={0} x2={plotWidth} y1={y(tick)} y2={y(tick)} />
               <text x={-8} y={y(tick) + 4} textAnchor="end">
                 {thousands(tick)}
@@ -71,6 +71,7 @@ export function Columns({
                 key={`${point.label}-${index}`}
                 className="mark"
                 tabIndex={0}
+                role="img"
                 aria-label={`${point.label}: ${text}`}
                 {...tooltip.bind({ value: text, label: point.label, details: point.details })}
               >

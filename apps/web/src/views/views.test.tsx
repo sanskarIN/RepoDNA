@@ -40,7 +40,15 @@ describe("views", () => {
 
   it("charts a young repository's commits per day", async () => {
     await renderAt("/history", dataset);
-    expect(await screen.findByRole("img", { name: "Commits per day" })).toBeTruthy();
+    expect(await screen.findByRole("group", { name: "Commits per day" })).toBeTruthy();
+  });
+
+  it("names each column of a chart for screen readers", async () => {
+    await renderAt("/history", dataset);
+    const chart = await screen.findByRole("group", { name: "Commits per day" });
+    const columns = within(chart).getAllByRole("img");
+    expect(columns.length).toBeGreaterThan(0);
+    expect(columns[0]?.getAttribute("aria-label")).toMatch(/^\d{4}-\d{2}-\d{2}: \d/);
   });
 
   it("counts one module in the singular and leaves out an unavailable confidence", async () => {
@@ -125,7 +133,7 @@ describe("views", () => {
     if (!day) throw new Error("the demo has daily activity");
     day.churn = 1;
     await renderAt("/history", data);
-    const chart = await screen.findByRole("img", { name: "Commits per day" });
+    const chart = await screen.findByRole("group", { name: "Commits per day" });
     const first = chart.querySelector(".mark");
     if (!first) throw new Error("the chart has columns");
     fireEvent.focus(first);
@@ -137,7 +145,7 @@ describe("views", () => {
     const data = demo();
     for (const language of data.dna.codeQuality.complexity.byLanguage) language.functions = 1;
     await renderAt("/quality", data);
-    const chart = await screen.findByRole("img", {
+    const chart = await screen.findByRole("group", {
       name: "Average cyclomatic complexity by language",
     });
     const first = chart.querySelector(".mark");
