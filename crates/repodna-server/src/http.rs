@@ -176,6 +176,15 @@ mod tests {
     }
 
     #[test]
+    fn the_web_image_sends_the_same_policy() {
+        let nginx = include_str!("../../../packaging/web/nginx.conf");
+        assert!(
+            nginx.contains(&format!("Content-Security-Policy \"{APP_CSP}\"")),
+            "packaging/web/nginx.conf and APP_CSP differ"
+        );
+    }
+
+    #[test]
     fn parses_targets_and_cookies() {
         let target = Target::parse("/api/repositories/My%20Repo/report?format=html&x=a%2Bb+c&flag");
         assert_eq!(target.path, "/api/repositories/My%20Repo/report");
