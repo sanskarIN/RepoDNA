@@ -18,14 +18,13 @@ The schemas are exported as `@sanskarin/repodna-schema/artifact.schema.json` and
 
 ## Install
 
-The package is on GitHub Packages, which asks for a GitHub token even to install public
-packages. With a [personal access token (classic)](https://github.com/settings/tokens) that
-has the `read:packages` scope:
-
 ```sh
-npm config set @sanskarin:registry https://npm.pkg.github.com
-npm config set //npm.pkg.github.com/:_authToken YOUR_TOKEN
 npm install @sanskarin/repodna-schema
 ```
 
+The package is on npmjs.com and on GitHub Packages, which asks for a GitHub token even to
+install public packages; see the [installation guide][guide].
+
 Licensed under the Apache License 2.0.
+
+[guide]: https://github.com/sanskarIN/RepoDNA/blob/main/docs/installation.md#npm-packages
