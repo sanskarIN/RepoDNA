@@ -25,8 +25,8 @@ Each release page shows screenshots of that version; all of them, side by side, 
   `ghcr.io/sanskarin/repodna-web` since 1.2.0, tagged with the version (`1.2.0`), its
   minor and major versions (`1.2`, `1`), and `latest`.
 - **npm packages:** `@sanskarin/repodna`, `@sanskarin/repodna-schema`, and
-  `@sanskarin/repodna-visualization` on GitHub Packages since 1.2.0, and on npmjs.com
-  since 1.2.1; see [installation](../installation.md#npm-packages).
+  `@sanskarin/repodna-visualization` on npmjs.com and GitHub Packages from 1.2.0 on;
+  see [installation](../installation.md#npm-packages).
 - **Web version:** [sanskarin.github.io/RepoDNA](https://sanskarin.github.io/RepoDNA/)
   always runs the latest release.
 
