@@ -66,7 +66,7 @@ repodna serve
 
 Open the link it prints and choose **Try the demo**.
 
-![The Overview of RepoDNA's own analysis in the web interface of RepoDNA 1.2.0](docs/images/v1.2.0/desktop/overview-light.png)
+![The Overview of RepoDNA's own analysis in the web interface of RepoDNA 1.2.1](docs/images/v1.2.1/desktop/overview-light.png)
 
 Without installing anything, you can read what RepoDNA writes about itself in
 [`examples/self-analysis`](examples/self-analysis): the full
@@ -315,22 +315,22 @@ environment variables.
 
 | | |
 |---|---|
-| ![Architecture view: the module map in dependency layers](docs/images/v1.2.0/desktop/architecture-dark.png) | ![History view: commits over time and when commits happen](docs/images/v1.2.0/desktop/history-light.png) |
+| ![Architecture view: the module map in dependency layers](docs/images/v1.2.1/desktop/architecture-dark.png) | ![History view: commits over time and when commits happen](docs/images/v1.2.1/desktop/history-light.png) |
 | **Architecture:** modules in dependency layers; select one to see why it matters. | **History:** activity, contributors, releases, and where work happens. |
-| ![Time Machine view: a snapshot with its languages and largest areas](docs/images/v1.2.0/desktop/time-machine-light.png) | ![Code quality view: functions measured, complexity distribution, and complexity by language](docs/images/v1.2.0/desktop/quality-light.png) |
+| ![Time Machine view: a snapshot with its languages and largest areas](docs/images/v1.2.1/desktop/time-machine-light.png) | ![Code quality view: functions measured, complexity distribution, and complexity by language](docs/images/v1.2.1/desktop/quality-light.png) |
 | **Time Machine:** snapshots, epochs, events, and the story of the project. | **Code quality:** complexity, size, duplication, and markers. |
-| ![Tests, build and docs view: a getting-started guide assembled from the repository, with commands to copy](docs/images/v1.2.0/desktop/project-light.png) | ![The desktop app's start page: analyze a folder, an archive, or a Git URL, and open the analyses stored on this machine](docs/images/v1.2.0/desktop-app/start-light.png) |
+| ![Tests, build and docs view: a getting-started guide assembled from the repository, with commands to copy](docs/images/v1.2.1/desktop/project-light.png) | ![The desktop app's start page: analyze a folder, an archive, or a Git URL, and open the analyses stored on this machine](docs/images/v1.2.1/desktop-app/start-light.png) |
 | **Tests, build and docs:** how to set up, build, and test the project. | **Desktop app:** the same interface as a native app. |
 
 On a phone, the interface fits the screen and the navigation folds behind a Menu button:
 
 <p>
-<img src="docs/images/v1.2.0/phone/overview-light.png" alt="The overview on a phone, in the light theme" width="230">
-<img src="docs/images/v1.2.0/phone/menu-dark.png" alt="The navigation menu open on a phone, in the dark theme" width="230">
-<img src="docs/images/v1.2.0/phone/history-dark.png" alt="History on a phone, in the dark theme" width="230">
+<img src="docs/images/v1.2.1/phone/overview-light.png" alt="The overview on a phone, in the light theme" width="230">
+<img src="docs/images/v1.2.1/phone/menu-dark.png" alt="The navigation menu open on a phone, in the dark theme" width="230">
+<img src="docs/images/v1.2.1/phone/history-dark.png" alt="History on a phone, in the dark theme" width="230">
 </p>
 
-All screenshots show RepoDNA 1.2.0 and its analysis of its own repository; the
+All screenshots show RepoDNA 1.2.1 and its analysis of its own repository; the
 [screenshots of every release](docs/images/README.md) compare the versions side by side.
 For posts and talks, the [media kit](docs/media/README.md) has larger screenshots on a
 desktop and a phone, in light and dark, along with promo images and Project DNA cards
