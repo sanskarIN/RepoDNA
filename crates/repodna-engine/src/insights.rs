@@ -523,8 +523,9 @@ fn onboarding(dna: &RepositoryDna, recent: Option<&RecentChanges>) -> Vec<GuideS
                 }
             })
             .collect();
+        // The window ends at the latest commit, which can be long before today.
         let mut description = format!(
-            "{} in the last {} days",
+            "{} in the last {} days of history",
             count(recent.commits, "commit", "commits"),
             recent.window_days
         );
@@ -918,7 +919,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             review.description,
-            "1 commit in the last 90 days, mostly in src/ and the repository root."
+            "1 commit in the last 90 days of history, mostly in src/ and the repository root."
         );
         assert_eq!(review.paths, vec!["src"]);
 
