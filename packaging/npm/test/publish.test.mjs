@@ -155,3 +155,27 @@ test("stops when the registry cannot say whether a version is there", () => {
     "nothing after the failed check is published",
   );
 });
+
+test("publishes a prerelease under the next tag", () => {
+  const prerelease = join(dir, "prerelease");
+  mkdirSync(join(prerelease, "repodna-schema"), { recursive: true });
+  writeFileSync(
+    join(prerelease, "repodna-schema", "package.json"),
+    JSON.stringify({ name: "@sanskarin/repodna-schema", version: "9.9.0-rc.1" }),
+  );
+  publish({ registry: "https://registry.npmjs.org", dir: prerelease, npm, log: () => {} });
+  publish({
+    registry: "https://registry.npmjs.org",
+    dir: prerelease,
+    extra: ["--tag", "beta"],
+    npm,
+    log: () => {},
+  });
+  const tags = readCalls()
+    .filter((call) => call.args[0] === "publish")
+    .map((call) => call.args.slice(call.args.indexOf("--tag")));
+  assert.deepEqual(tags, [
+    ["--tag", "next"],
+    ["--tag", "beta"],
+  ]);
+});
