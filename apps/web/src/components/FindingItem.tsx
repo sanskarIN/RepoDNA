@@ -7,18 +7,22 @@ import {
 } from "@repodna/schema";
 import { Chip, SeverityBadge } from "./common";
 
-/** One finding with its reasoning, method, evidence, limitations, and next steps. */
-export function FindingItem({ finding }: { finding: Finding }) {
+/**
+ * One finding with its reasoning, method, evidence, limitations, and next steps. Its title
+ * is a level 3 heading, for findings inside a panel, or level 2 directly under a page title.
+ */
+export function FindingItem({ finding, level = 3 }: { finding: Finding; level?: 2 | 3 }) {
   const suppressed = isSuppressed(finding);
   const limitations = finding.limitations ?? [];
   const nextSteps = finding.nextSteps ?? [];
+  const Heading = level === 2 ? "h2" : "h3";
   return (
     <article className="finding" aria-label={finding.title}>
-      <h3>
+      <Heading className="finding-title">
         <SeverityBadge severity={finding.severity} />
         <span>{finding.title}</span>
         {suppressed ? <Chip title={finding.suppressed?.reason}>Suppressed</Chip> : null}
-      </h3>
+      </Heading>
       {finding.summary ? <p>{finding.summary}</p> : null}
       <p className="muted">
         {categoryLabel(finding.category)} · {confidenceLabel(finding.confidence)} confidence ·{" "}

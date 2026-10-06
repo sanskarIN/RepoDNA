@@ -137,7 +137,7 @@ export function Findings() {
       ) : (
         <div className="panel">
           {filtered.map((finding) => (
-            <FindingItem key={finding.id} finding={finding} />
+            <FindingItem key={finding.id} finding={finding} level={2} />
           ))}
         </div>
       )}
