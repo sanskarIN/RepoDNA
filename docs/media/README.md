@@ -2,13 +2,15 @@
 
 Images of RepoDNA for posts, articles, and talks: promo images, Project DNA cards, and
 screenshots of the web interface on a desktop and a phone, in light and dark. Each release
-has a folder of its own, and this page shows those of the latest, 1.2.1. Every screenshot
-shows RepoDNA's analysis of its own repository: for 1.2.1, at the `v1.2.1` tag (626
-commits, 545 files). Like the rest of this repository, the images are licensed under the
+with promo images has a folder of its own, and this page shows the newest, made for 1.2.1;
+1.2.2, a small follow-up, has screenshots only. Every screenshot shows RepoDNA's analysis
+of its own repository: for 1.2.1, at the `v1.2.1` tag (626 commits, 545 files). Like the
+rest of this repository, the images are licensed under the
 [Apache License 2.0](../../LICENSE).
 
 | Version | Promo images | Project DNA cards | Screenshots |
 |---|---|---|---|
+| 1.2.2 | — | — | [`docs/images/v1.2.2`](../images/README.md#122) |
 | 1.2.1 | [`v1.2.1/promo`](v1.2.1/promo) | [`v1.2.1/cards`](v1.2.1/cards) | [`docs/images/v1.2.1`](../images/README.md#121) |
 | [1.2.0](#120) | [`v1.2.0/promo`](v1.2.0/promo) | [`v1.2.0/cards`](v1.2.0/cards) | [`docs/images/v1.2.0`](../images/README.md#120) |
 
