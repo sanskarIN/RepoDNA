@@ -447,6 +447,8 @@ jobs:
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
+          # Whether the npm job can publish to npmjs.com as well as GitHub Packages.
+          NPMJS: ${{ secrets.NPM_TOKEN != '' || vars.NPM_TRUSTED_PUBLISHING == 'true' }}
         run: |
           set -euo pipefail
           # The version's section of the changelog, without the link definitions at its end.
@@ -469,10 +471,23 @@ jobs:
             Git, for CI jobs: `docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .`
           - `ghcr.io/sanskarin/repodna-web:<version>`: the web interface, served on port 8080, for
             your own network: `docker run --rm -p 8080:8080 ghcr.io/sanskarin/repodna-web`
+          EOF
+          if [ "$NPMJS" = true ]; then
+            cat >> notes.md <<'EOF'
+          - npm packages on npmjs.com and GitHub Packages: `npm install --global @sanskarin/repodna`
+            installs the command line, with one package per platform;
+            `@sanskarin/repodna-schema` and `@sanskarin/repodna-visualization` are the TypeScript
+            libraries.
+          EOF
+          else
+            cat >> notes.md <<'EOF'
           - npm packages on GitHub Packages: `@sanskarin/repodna` (the command line, with one
             package per platform), `@sanskarin/repodna-schema`, and
             `@sanskarin/repodna-visualization`. Installing them needs a GitHub token; see the
             installation guide.
+          EOF
+          fi
+          cat >> notes.md <<'EOF'
           - `SHA256SUMS.txt`: checksums of every file.
           - Web version: https://sanskarin.github.io/RepoDNA/ — open analyses and the demo in your browser, nothing to install.
 
