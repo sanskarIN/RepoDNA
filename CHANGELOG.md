@@ -11,6 +11,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 - On phones, the shade on the edge of a table that scrolls sideways is as strong at the
   top of the table as in its middle. In 1.2.1 it faded toward the top and bottom of long
   tables, so the first rows showed almost none.
+- The npm packages workflow can publish a release older than the newest one, such as
+  1.2.0 after 1.2.1. npm refused to give it the `latest` tag; it now goes under the
+  `previous` tag, and `latest` stays on the newest release.
 
 ### Documentation
 
