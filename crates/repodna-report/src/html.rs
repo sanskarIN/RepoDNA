@@ -36,7 +36,7 @@ const BASE_CSS: &str = r#"
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--page);color:var(--ink);font:15px/1.55 var(--font);overflow-wrap:break-word}
 a{color:var(--link)}
-a:focus-visible,button:focus-visible,.table-wrap:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+a:focus-visible,button:focus-visible,.table-wrap:focus-visible,pre:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .skip{position:absolute;left:-999px;top:0;background:var(--surface);padding:8px 12px;z-index:10}
 .skip:focus{left:8px}
 .layout{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1400px;margin:0 auto}
@@ -427,7 +427,11 @@ fn body(blocks: &Blocks) -> (String, Vec<(String, String)>) {
                 finding(&mut out, f, (heading_level + 1).min(6));
             }
             Block::Preformatted(text) => {
-                out.push_str(&format!("<pre><code>{}</code></pre>", esc(text)));
+                // Long lines scroll sideways, so the block takes keyboard focus like tables.
+                out.push_str(&format!(
+                    r#"<pre tabindex="0"><code>{}</code></pre>"#,
+                    esc(text)
+                ));
             }
         }
     }
