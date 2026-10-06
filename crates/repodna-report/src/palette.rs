@@ -37,7 +37,8 @@ pub const LIGHT: Palette = Palette {
     page: "#f9f9f7",
     ink: "#0b0b0b",
     ink_secondary: "#52514e",
-    muted: "#898781",
+    // 4.7:1 or more on every light surface, as small text needs.
+    muted: "#6b6a65",
     grid: "#e1e0d9",
     axis: "#c3c2b7",
     series: [
