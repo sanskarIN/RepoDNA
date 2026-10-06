@@ -1,0 +1,84 @@
+name: npm packages
+
+# Publishes the npm packages of a release that is already on the releases page, made from
+# the command line archives attached to it: for example to put a release on npmjs.com
+# after the NPM_TOKEN secret was added. The release workflow publishes new releases
+# itself. Versions a registry already has are skipped.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of a published release, such as v1.2.1.
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: npm packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Provenance on npmjs.com, and trusted publishing once it is set up there.
+      id-token: write
+    steps:
+      - name: Check the tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::$TAG is not a release tag such as v1.2.1."
+            exit 1
+          fi
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      # The release's sources, packaged with the scripts of the commit this workflow runs
+      # from, so that releases made before a script was added can be published too.
+      - name: Use the current packaging scripts
+        run: |
+          git fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout "$GITHUB_SHA" -- packaging/npm
+      # No dependency cache in a job that can publish: what it installs comes from the
+      # lockfile alone.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Download the command line archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir archives \
+            --pattern "repodna-$VERSION-*" --pattern SHA256SUMS.txt
+          cd archives
+          sha256sum --check --ignore-missing SHA256SUMS.txt
+      - name: Unpack the binaries
+        run: packaging/npm/unpack.sh "$VERSION" archives binaries
+      - name: Stage the packages
+        run: node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries
+      - name: Check the packages
+        run: packaging/npm/check.sh npm-packages
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: node packaging/npm/publish.mjs --registry https://npm.pkg.github.com npm-packages
+      - name: Publish to npmjs.com
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TRUSTED_PUBLISHING: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+        run: |
+          set -euo pipefail
+          if [ -z "$NODE_AUTH_TOKEN" ] && [ "$TRUSTED_PUBLISHING" != true ]; then
+            echo "::error title=npmjs.com::The repository has no NPM_TOKEN secret, and trusted publishing is not turned on with the NPM_TRUSTED_PUBLISHING variable."
+            exit 1
+          fi
+          # Trusted publishing needs npm 11.5.1 or later.
+          npm install --global npm@11.21.0
+          node packaging/npm/publish.mjs --registry https://registry.npmjs.org npm-packages -- --access public --provenance
