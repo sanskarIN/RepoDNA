@@ -602,8 +602,25 @@ pre.note {
 
 /* Tables */
 
+/* A table wider than its box scrolls sideways, with a shade on each edge that has more of
+   it beyond. The covers move with the table and hide a shade once its end is reached. */
 .table-wrap {
   overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right / 32px 100% no-repeat local,
+    radial-gradient(
+        farthest-side at 0 50%,
+        color-mix(in srgb, var(--ink) 30%, transparent),
+        transparent
+      )
+      left / 14px 100% no-repeat scroll,
+    radial-gradient(
+        farthest-side at 100% 50%,
+        color-mix(in srgb, var(--ink) 30%, transparent),
+        transparent
+      )
+      right / 14px 100% no-repeat scroll;
 }
 
 table {
