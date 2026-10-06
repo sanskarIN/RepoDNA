@@ -122,7 +122,7 @@ test("skips versions the registry has and publishes the rest", () => {
   assert.equal(published.length, 3);
   for (const call of published) {
     assert.deepEqual(call.args.slice(-2), ["--access", "public"]);
-    assert.ok(call.args.includes("https://registry.npmjs.org/"));
+    assert.equal(call.args[call.args.indexOf("--registry") + 1], "https://registry.npmjs.org/");
     assert.match(call.config, /^\/\/registry\.npmjs\.org\/:_authToken=\$\{NODE_AUTH_TOKEN\}$/m);
   }
   assert.ok(published.at(-1).args[1].endsWith("repodna"), "the launcher goes last");
