@@ -40,7 +40,7 @@ test("stages every package with the version and the repository", () => {
     assert.equal(pkg.version, "9.8.7");
     assert.equal(pkg.license, "Apache-2.0");
     assert.equal(pkg.repository.url, "git+https://github.com/sanskarIN/RepoDNA.git");
-    assert.equal(pkg.publishConfig.registry, "https://npm.pkg.github.com");
+    assert.equal(pkg.publishConfig, undefined, "the registry is chosen when publishing");
     for (const file of ["README.md", "LICENSE", "NOTICE"]) {
       assert.ok(statSync(join(out, name, file)).size > 0, `${name}/${file}`);
     }

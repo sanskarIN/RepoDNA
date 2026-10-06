@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Stages RepoDNA's npm packages for GitHub Packages:
+// Stages RepoDNA's npm packages, for npmjs.com and GitHub Packages:
 //
 //   @sanskarin/repodna-schema         artifact types and helpers (packages/schema)
 //   @sanskarin/repodna-visualization  chart geometry (packages/visualization)
@@ -10,7 +10,8 @@
 //
 // The command line packages are staged only with --binaries, a directory that holds
 // <target>/repodna (repodna.exe on Windows) for every target in launcher/lib/platforms.js.
-// Each package is written to <out>/<name without the scope>, ready for `npm publish`.
+// Each package is written to <out>/<name without the scope>, ready for publish.mjs, which
+// chooses the registry.
 
 import { spawnSync } from "node:child_process";
 import {
@@ -90,7 +91,6 @@ function manifest(name, description, directory, version) {
     repository: { type: "git", url: `git+${REPOSITORY}.git`, directory },
     bugs: `${REPOSITORY}/issues`,
     keywords: KEYWORDS,
-    publishConfig: { registry: "https://npm.pkg.github.com" },
   };
 }
 
