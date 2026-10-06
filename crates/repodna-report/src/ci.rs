@@ -95,7 +95,11 @@ pub fn evaluate(
         None => {
             if let Some(recent) = &dna.insights.recent_changes {
                 values.push((
-                    format!("Files changed in the last {} days", recent.window_days),
+                    // The window ends at the latest commit, not today.
+                    format!(
+                        "Files changed in the last {} days of history",
+                        recent.window_days
+                    ),
                     thousands(recent.files_changed),
                 ));
             }
@@ -371,6 +375,22 @@ mod tests {
         assert_eq!(failing.failing.len(), 1);
         assert!(markdown(&failing).contains("**Failing:** 1 finding(s)"));
         assert_eq!(json(&failing)["failed"], true);
+    }
+
+    #[test]
+    fn counts_recent_files_up_to_the_latest_commit() {
+        let mut dna = artifact(Vec::new(), &[]);
+        dna.insights.recent_changes = Some(repodna_core::model::insights::RecentChanges {
+            window_days: 90,
+            files_changed: 12,
+            ..Default::default()
+        });
+        let summary = text(&evaluate(&dna, None, CiPolicy::default()));
+        // The window ends at the latest commit, which can be long ago.
+        assert!(
+            summary.contains("Files changed in the last 90 days of history"),
+            "{summary}"
+        );
     }
 
     #[test]
