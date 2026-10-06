@@ -116,7 +116,12 @@ follow the releases, as for the command line image.
 
 ## npm packages
 
-Each release is also published to the npm registry of GitHub Packages:
+With Node.js 18 or later, npm installs the command line:
+
+```sh
+npm install --global @sanskarin/repodna
+repodna --version
+```
 
 | Package | What it is |
 |---|---|
@@ -124,21 +129,26 @@ Each release is also published to the npm registry of GitHub Packages:
 | `@sanskarin/repodna-schema` | TypeScript types for the analysis artifact, helpers to load and check it, and the JSON Schemas of the artifact and the configuration file. |
 | `@sanskarin/repodna-visualization` | The chart geometry the web interface and desktop app use: palettes, scales, treemaps, layered graphs, and heatmaps. |
 
+The packages are on [npmjs.com](https://www.npmjs.com/package/@sanskarin/repodna) from
+1.2.1 on, and on GitHub Packages since 1.2.0. Install the command line with optional
+dependencies, which npm includes by default: `--omit=optional` leaves out the platform
+package and the command cannot start. The binaries are the same as the
+[prebuilt binaries](#prebuilt-binaries), so the notes about unsigned binaries apply here
+too.
+
+### From GitHub Packages
+
 GitHub Packages asks for a token even to install public packages. Create a
 [personal access token (classic)](https://github.com/settings/tokens) with the
-`read:packages` scope, then:
+`read:packages` scope, then send the `@sanskarin` scope there:
 
 ```sh
 npm config set @sanskarin:registry https://npm.pkg.github.com
 npm config set //npm.pkg.github.com/:_authToken YOUR_TOKEN
 npm install --global @sanskarin/repodna
-repodna --version
 ```
 
-Install the command line with optional dependencies, which npm includes by default:
-`--omit=optional` leaves out the platform package and the command cannot start. The
-binaries are the same as the [prebuilt binaries](#prebuilt-binaries), so the notes about
-unsigned binaries apply here too.
+`npm config delete @sanskarin:registry` goes back to npmjs.com.
 
 ## Build from source
 
