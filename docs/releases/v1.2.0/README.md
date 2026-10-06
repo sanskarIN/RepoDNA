@@ -85,7 +85,7 @@ Also published for this version:
 
 - `ghcr.io/sanskarin/repodna:1.2.0`: the command line with Git, for `linux/amd64` and `linux/arm64`.
 - `ghcr.io/sanskarin/repodna-web:1.2.0`: the web interface, served on port 8080.
-- `@sanskarin/repodna@1.2.0` (the command line, with one package per platform), `@sanskarin/repodna-schema@1.2.0`, and `@sanskarin/repodna-visualization@1.2.0` on the npm registry of GitHub Packages.
+- `@sanskarin/repodna@1.2.0` (the command line, with one package per platform), `@sanskarin/repodna-schema@1.2.0`, and `@sanskarin/repodna-visualization@1.2.0` on the npm registry of GitHub Packages, and on npmjs.com since 2026-10-06, under the `previous` tag.
 
 ## Install this version
 
@@ -101,7 +101,7 @@ cargo install --git https://github.com/sanskarIN/RepoDNA --tag v1.2.0 --locked r
 # In a container
 docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna:1.2.0 analyze .
 
-# With npm, after setting up GitHub Packages (see the installation guide)
+# With npm, from npmjs.com
 npm install --global @sanskarin/repodna@1.2.0
 ```
 
