@@ -25,6 +25,10 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   with search and the theme menu is a landmark; finding titles keep heading levels in
   order; command boxes and the output of commands that ran scroll with the keyboard; and
   each bar and column of a chart is named for screen readers.
+- Accessibility of HTML reports: muted text reaches 4.7:1 contrast or more in light
+  reports and on light Project DNA cards, and 5:1 in dark ones; finding titles keep
+  heading levels in order; and wide tables and preformatted blocks scroll with the
+  keyboard, each table in a region with a name of its own.
 - The web version on GitHub Pages stays up when GitHub Pages deploys from a branch. Until
   now, every push to `main` let GitHub's own Pages build publish the repository's files
   over the interface, which then showed the README. The Web version workflow now
