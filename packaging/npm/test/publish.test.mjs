@@ -1,0 +1,157 @@
+// Tests for the npm publishing script, with a stand-in for npm. Run them with
+// node --test "packaging/npm/test/*.test.mjs"
+
+import assert from "node:assert/strict";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, before, beforeEach, test } from "node:test";
+import { npmrc, publish, publishOrder } from "../publish.mjs";
+
+let dir;
+let staged;
+let npm;
+let calls;
+
+// Records each call with the configuration it was given, answers `npm view` from
+// FAKE_PUBLISHED, and fails `npm view` for FAKE_BROKEN.
+const FAKE_NPM = `#!/usr/bin/env node
+const { appendFileSync, readFileSync } = require("node:fs");
+const args = process.argv.slice(2);
+const userconfig = args[args.indexOf("--userconfig") + 1];
+appendFileSync(process.env.FAKE_CALLS, JSON.stringify({ args, config: readFileSync(userconfig, "utf8") }) + "\\n");
+if (args[0] === "view") {
+  if (process.env.FAKE_BROKEN === args[1]) {
+    process.stderr.write("npm error code E401\\n");
+    process.exit(1);
+  }
+  if ((process.env.FAKE_PUBLISHED || "").split(",").includes(args[1])) {
+    process.stdout.write(args[1].split("@").pop() + "\\n");
+    process.exit(0);
+  }
+  process.stderr.write("npm error code E404\\nnpm error 404 Not Found\\n");
+  process.exit(1);
+}
+`;
+
+function stage(name, version) {
+  const path = join(staged, name.replace("@sanskarin/", ""));
+  mkdirSync(path, { recursive: true });
+  writeFileSync(join(path, "package.json"), JSON.stringify({ name, version }));
+}
+
+function readCalls() {
+  return readFileSync(calls, "utf8")
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+before(() => {
+  dir = mkdtempSync(join(tmpdir(), "repodna-publish-test-"));
+  staged = join(dir, "staged");
+  npm = join(dir, "npm");
+  writeFileSync(npm, FAKE_NPM);
+  chmodSync(npm, 0o755);
+  for (const name of ["repodna", "repodna-linux-x64", "repodna-schema", "repodna-win32-x64"]) {
+    stage(`@sanskarin/${name}`, "9.8.7");
+  }
+  mkdirSync(join(staged, "not-a-package"));
+});
+
+beforeEach(() => {
+  calls = join(dir, `calls-${Date.now()}-${Math.random()}.jsonl`);
+  writeFileSync(calls, "");
+  process.env.FAKE_CALLS = calls;
+  delete process.env.FAKE_PUBLISHED;
+  delete process.env.FAKE_BROKEN;
+  delete process.env.NODE_AUTH_TOKEN;
+});
+
+after(() => rmSync(dir, { recursive: true, force: true }));
+
+test("publishes the launcher after the packages it names", () => {
+  assert.deepEqual(
+    publishOrder(staged).map((pkg) => pkg.name),
+    [
+      "@sanskarin/repodna-linux-x64",
+      "@sanskarin/repodna-schema",
+      "@sanskarin/repodna-win32-x64",
+      "@sanskarin/repodna",
+    ],
+  );
+});
+
+test("sends the scope and the token to the chosen registry", () => {
+  assert.equal(
+    npmrc("https://registry.npmjs.org", true),
+    [
+      "registry=https://registry.npmjs.org/",
+      "@sanskarin:registry=https://registry.npmjs.org/",
+      "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}",
+      "",
+    ].join("\n"),
+  );
+  assert.equal(
+    npmrc("https://npm.pkg.github.com/", false),
+    "registry=https://npm.pkg.github.com/\n@sanskarin:registry=https://npm.pkg.github.com/\n",
+  );
+});
+
+test("skips versions the registry has and publishes the rest", () => {
+  process.env.FAKE_PUBLISHED = "@sanskarin/repodna-schema@9.8.7";
+  process.env.NODE_AUTH_TOKEN = "secret";
+  const lines = [];
+  const done = publish({
+    registry: "https://registry.npmjs.org/",
+    dir: staged,
+    extra: ["--access", "public"],
+    npm,
+    log: (line) => lines.push(line),
+  });
+  assert.deepEqual(done, [
+    "@sanskarin/repodna-linux-x64@9.8.7",
+    "@sanskarin/repodna-win32-x64@9.8.7",
+    "@sanskarin/repodna@9.8.7",
+  ]);
+  assert.deepEqual(lines, [
+    "@sanskarin/repodna-schema@9.8.7 is already on https://registry.npmjs.org/.",
+  ]);
+  const published = readCalls().filter((call) => call.args[0] === "publish");
+  assert.equal(published.length, 3);
+  for (const call of published) {
+    assert.deepEqual(call.args.slice(-2), ["--access", "public"]);
+    assert.ok(call.args.includes("https://registry.npmjs.org/"));
+    assert.match(call.config, /^\/\/registry\.npmjs\.org\/:_authToken=\$\{NODE_AUTH_TOKEN\}$/m);
+  }
+  assert.ok(published.at(-1).args[1].endsWith("repodna"), "the launcher goes last");
+});
+
+test("leaves the token out when there is none", () => {
+  process.env.FAKE_PUBLISHED = [
+    "@sanskarin/repodna@9.8.7",
+    "@sanskarin/repodna-linux-x64@9.8.7",
+    "@sanskarin/repodna-schema@9.8.7",
+    "@sanskarin/repodna-win32-x64@9.8.7",
+  ].join(",");
+  const done = publish({ registry: "https://npm.pkg.github.com", dir: staged, npm, log: () => {} });
+  assert.deepEqual(done, []);
+  for (const call of readCalls()) {
+    assert.doesNotMatch(call.config, /_authToken/);
+  }
+});
+
+test("stops when the registry cannot say whether a version is there", () => {
+  process.env.FAKE_BROKEN = "@sanskarin/repodna-schema@9.8.7";
+  assert.throws(
+    () => publish({ registry: "https://npm.pkg.github.com", dir: staged, npm, log: () => {} }),
+    /Could not check whether @sanskarin\/repodna-schema@9\.8\.7 is published:\nnpm error code E401/,
+  );
+  const published = readCalls().filter((call) => call.args[0] === "publish");
+  assert.deepEqual(
+    published.map((call) => call.args[1].split("/").pop()),
+    ["repodna-linux-x64"],
+    "nothing after the failed check is published",
+  );
+});
