@@ -10,7 +10,7 @@ repodna show --section complexity,duplication
 repodna findings --rule quality.
 ```
 
-![Code quality view of RepoDNA's own analysis](images/v1.2.0/desktop/quality-light.png)
+![Code quality view of RepoDNA's own analysis](images/v1.2.1/desktop/quality-light.png)
 
 ## How much RepoDNA understands
 
