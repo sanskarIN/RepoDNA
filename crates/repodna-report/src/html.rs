@@ -205,8 +205,8 @@ pub fn inline(rich: &Rich) -> String {
 }
 
 /// Renders a table in a box that scrolls sideways when the table is wider than the page.
-/// The box takes keyboard focus so that it can be scrolled without a pointer, and is named
-/// after the heading it follows.
+/// The box takes keyboard focus so that it can be scrolled without a pointer, and has a name
+/// for assistive technology.
 fn table(out: &mut String, table: &Table, label: &str) {
     out.push_str(&format!(
         r#"<div class="table-wrap" role="region" tabindex="0" aria-label="{}"><table><thead><tr>"#,
@@ -337,13 +337,15 @@ fn body(blocks: &Blocks) -> (String, Vec<(String, String)>) {
     let mut toc = Vec::new();
     let mut open = false;
     let mut filter_added = false;
-    // The latest heading: findings take the level below it, and tables its name.
+    // The latest heading: findings take the level below it, and tables are named after it.
     let mut heading_level = 1;
     let mut heading_text = "";
+    let mut tables_since_heading = 0;
     for block in &blocks.0 {
         if let Block::Heading { level, text, .. } = block {
             heading_level = *level;
             heading_text = text;
+            tables_since_heading = 0;
         }
         match block {
             Block::Heading { level, text, id } if *level <= 2 => {
@@ -385,7 +387,16 @@ fn body(blocks: &Blocks) -> (String, Vec<(String, String)>) {
                 }
                 out.push_str("</ul>");
             }
-            Block::Table(t) => table(&mut out, t, heading_text),
+            Block::Table(t) => {
+                // A name of its own, unlike the section's, as every landmark needs.
+                tables_since_heading += 1;
+                let label = if tables_since_heading == 1 {
+                    format!("{heading_text} table")
+                } else {
+                    format!("{heading_text} table {tables_since_heading}")
+                };
+                table(&mut out, t, &label);
+            }
             Block::Stats(stats) => {
                 out.push_str(r#"<dl class="stats">"#);
                 for (label, value) in stats {
@@ -528,7 +539,7 @@ mod tests {
         assert!(html.contains(r#"<th scope="col" class="num">Files</th>"#));
         assert!(
             html.contains(
-                r#"<div class="table-wrap" role="region" tabindex="0" aria-label="Language map">"#
+                r#"<div class="table-wrap" role="region" tabindex="0" aria-label="Language map table">"#
             ),
             "a table that scrolls sideways takes keyboard focus and has a name"
         );
