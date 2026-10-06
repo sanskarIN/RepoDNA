@@ -9,7 +9,7 @@ repodna architecture
 repodna architecture --format json | jq '.modules[] | {name, files, fanIn, fanOut}'
 ```
 
-![Architecture view of RepoDNA's own analysis](images/v1.2.1/desktop/architecture-dark.png)
+![Architecture view of RepoDNA's own analysis](images/v1.2.2/desktop/architecture-dark.png)
 
 Everything here is static and lexical. Imports computed at run time, dependency injection,
 reflection, configuration-driven loading, and generated code are invisible, and reports say

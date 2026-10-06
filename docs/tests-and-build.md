@@ -8,7 +8,7 @@ and manifests. Commands are **detected, never run**, unless you enable execution
 repodna show --section tests,build,documentation
 ```
 
-![Tests, build & docs view of RepoDNA's own analysis](images/v1.2.1/desktop/project-light.png)
+![Tests, build & docs view of RepoDNA's own analysis](images/v1.2.2/desktop/project-light.png)
 
 ## Tests
 
