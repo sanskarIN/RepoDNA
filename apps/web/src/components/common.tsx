@@ -134,7 +134,10 @@ export function CommandBox({
   };
   return (
     <div className="commands">
-      <pre className="note mono">{text}</pre>
+      {/* Long commands scroll sideways on narrow screens, so the box takes keyboard focus. */}
+      <pre className="note mono" tabIndex={0} aria-label="Commands">
+        {text}
+      </pre>
       <button type="button" className="ghost copy" aria-label={label} onClick={() => void copy()}>
         {copied === "yes" ? "Copied" : copied === "failed" ? "Copy failed" : "Copy"}
       </button>
