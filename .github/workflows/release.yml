@@ -379,8 +379,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          registry-url: https://npm.pkg.github.com
-          scope: "@sanskarin"
       - run: npm ci
       - uses: actions/download-artifact@v8
         with:
@@ -390,55 +388,18 @@ jobs:
       - name: Unpack the binaries
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          mkdir -p unpacked
-          for archive in archives/*; do
-            name=$(basename "$archive")
-            name="${name%.tar.gz}"
-            name="${name%.zip}"
-            target="${name#repodna-$VERSION-}"
-            case "$archive" in
-              *.zip) unzip -q "$archive" -d unpacked ;;
-              *) tar -xzf "$archive" -C unpacked ;;
-            esac
-            mkdir -p "binaries/$target"
-            cp unpacked/"$name"/repodna* "binaries/$target/"
-          done
-          ls -l binaries/*
+        run: packaging/npm/unpack.sh "$VERSION" archives binaries
       - name: Stage the packages
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries
       - name: Check the packages
-        run: |
-          set -euo pipefail
-          for dir in npm-packages/*/; do
-            (cd "$dir" && npm pack --dry-run)
-          done
-          # The launcher finds and runs the Linux x64 binary installed next to it.
-          modules="$RUNNER_TEMP/npm-check/node_modules/@sanskarin"
-          mkdir -p "$modules"
-          cp -r npm-packages/repodna npm-packages/repodna-linux-x64 "$modules/"
-          node "$modules/repodna/bin/repodna.js" --version
+        run: packaging/npm/check.sh npm-packages
       - name: Publish to GitHub Packages
         if: needs.prepare.outputs.publish == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          # The libraries and platform packages first, so the launcher never names a
-          # version that is not there. A version that is already published is skipped,
-          # so the workflow can run again for the same tag.
-          for dir in npm-packages/repodna-*/ npm-packages/repodna/; do
-            name=$(node -p "require('./${dir}package.json').name")
-            version=$(node -p "require('./${dir}package.json').version")
-            if npm view "$name@$version" version > /dev/null 2>&1; then
-              echo "$name@$version is already published."
-            else
-              npm publish "$dir"
-            fi
-          done
+        run: node packaging/npm/publish.mjs --registry https://npm.pkg.github.com npm-packages
 
   publish:
     name: Publish the release
