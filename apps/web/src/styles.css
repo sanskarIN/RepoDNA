@@ -583,6 +583,12 @@ pre.note {
   right: 6px;
   padding: 2px 8px;
   font-size: 12px;
+  /* A long command scrolls under the button, which hides it up to the edge of the box and
+     fades it out to the left. */
+  background: var(--accent-wash);
+  box-shadow:
+    -14px 0 10px -4px var(--accent-wash),
+    6px 0 0 var(--accent-wash);
 }
 
 .error-box {
