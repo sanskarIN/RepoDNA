@@ -6,6 +6,13 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-06
+
+The npm packages on npmjs.com, so that `npm install --global @sanskarin/repodna` works
+without a token, and a round of small fixes: the Project DNA card in `repodna serve`,
+clearer errors when a clone fails, accessibility in the web interface and in reports, and
+tables and long paths on phones.
+
 ### Added
 
 - The npm packages are published to npmjs.com as well as GitHub Packages, so
@@ -302,7 +309,8 @@ every conclusion backed by evidence.
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.
 
-[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/sanskarIN/RepoDNA/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/sanskarIN/RepoDNA/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/sanskarIN/RepoDNA/compare/v1.0.0...v1.1.0
