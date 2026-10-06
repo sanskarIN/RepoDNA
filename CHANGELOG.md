@@ -6,6 +6,15 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Added
+
+- The npm packages are published to npmjs.com as well as GitHub Packages, so
+  `npm install --global @sanskarin/repodna` works without a GitHub token. Releases publish
+  them there, with provenance, when the repository has an `NPM_TOKEN` secret or trusted
+  publishing; prereleases go under the `next` tag instead of `latest`.
+- An npm packages workflow publishes the npm packages of a release that is already out,
+  made from the archives attached to it and checked against its `SHA256SUMS.txt`.
+
 ### Fixed
 
 - The web version on GitHub Pages stays up when GitHub Pages deploys from a branch. Until
