@@ -56,7 +56,8 @@ pub const DARK: Palette = Palette {
     page: "#0d0d0d",
     ink: "#ffffff",
     ink_secondary: "#c3c2b7",
-    muted: "#898781",
+    // 5:1 or more on every dark surface, as in the web interface.
+    muted: "#9d9b94",
     grid: "#2c2c2a",
     axis: "#383835",
     series: [
