@@ -7,7 +7,7 @@ and the guides show those of the latest release.
 
 | Version | Released | Folder | Release notes |
 |---|---|---|---|
-| [1.2.1](#121) | 2026-10-06 | [`v1.2.1`](v1.2.1) | [RepoDNA 1.2.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.2.1) |
+| [1.2.1](#121) | 2026-10-06 | [`v1.2.1`](v1.2.1) | [RepoDNA 1.2.1](../releases/v1.2.1/README.md) |
 | [1.2.0](#120) | 2026-10-05 | [`v1.2.0`](v1.2.0) | [RepoDNA 1.2.0](../releases/v1.2.0/README.md) |
 | [1.1.1](#111) | 2026-10-05 | [`v1.1.1`](v1.1.1) | [RepoDNA 1.1.1](../releases/v1.1.1/README.md) |
 | [1.1.0](#110) | 2026-10-04 | [`v1.1.0`](v1.1.0) | [RepoDNA 1.1.0](../releases/v1.1.0/README.md) |
@@ -32,7 +32,7 @@ scrolled down to the view. 1.2.0 folds the navigation behind a Menu button.
 
 ## 1.2.1
 
-Released on 2026-10-06. [Release notes](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.2.1) · folder [`v1.2.1`](v1.2.1).
+Released on 2026-10-06. [Release notes](../releases/v1.2.1/README.md) · folder [`v1.2.1`](v1.2.1).
 
 **Desktop** (2880 × 1620; the architecture view 3360 × 1890): [Overview, light](v1.2.1/desktop/overview-light.png) · [Overview, dark](v1.2.1/desktop/overview-dark.png) · [Architecture, dark](v1.2.1/desktop/architecture-dark.png) · [History, light](v1.2.1/desktop/history-light.png) · [History, dark](v1.2.1/desktop/history-dark.png) · [Time Machine, light](v1.2.1/desktop/time-machine-light.png) · [Hotspots, dark](v1.2.1/desktop/hotspots-dark.png) · [Findings, dark](v1.2.1/desktop/findings-dark.png) · [Files, light](v1.2.1/desktop/files-light.png) · [Code quality, light](v1.2.1/desktop/quality-light.png) · [Tests, build & docs, light](v1.2.1/desktop/project-light.png) · [Search, dark](v1.2.1/desktop/search-dark.png).
 
@@ -82,17 +82,17 @@ Released on 2026-09-27. [Release notes](../releases/v1.0.0/README.md) · folder 
   against its `SHA256SUMS.txt`. It analyzed a checkout of this repository at the tag,
   with only the branches and tags that existed then, and with `--reproducible` and
   `SOURCE_DATE_EPOCH` set to the moment the release was published. The 1.2.0 analysis
-  was made on the day of that release. So was the 1.2.1 analysis, with `--reproducible`,
-  by the command line built from `main` at `df38d9c`, of a checkout at that commit: the
-  last one before these screenshots were added, ahead of the tag.
+  was made on the day of that release, and so was the 1.2.1 analysis, with
+  `--reproducible`, of a checkout at its tag.
 - **The screenshots** were taken in Chromium: desktop views in a 1440 × 810 window at twice
   the resolution (the module map in a 1680 × 945 window, so that every module fits), and
   phone views on a 390 × 844 screen at three times the resolution. They were rendered
   with the Inter and JetBrains Mono fonts; the interface itself uses the system font of
   the computer it runs on.
-- **The desktop app** of 1.2.0 and 1.2.1 was built from the same code as the interface and
-  shown in its default 1320 × 860 window at twice the scale, with an analysis of this
-  repository stored on that machine and the same fonts.
+- **The desktop app** of 1.2.0 was built from its tag, and that of 1.2.1 from the commit
+  after its tag, whose only change does not show in these views. Each was shown in its
+  default 1320 × 860 window at twice the scale, with an analysis of this repository
+  stored on that machine and the same fonts.
 
 Screenshots of a new release go in a folder named after its tag, such as `v1.3.0`, with
 the same views, and a column and a section on this page.
