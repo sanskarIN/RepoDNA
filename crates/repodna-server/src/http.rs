@@ -7,8 +7,9 @@ use tiny_http::{Header, Response, StatusCode};
 /// A response body with its content type and extra headers.
 pub type Reply = Response<Cursor<Vec<u8>>>;
 
-/// Content Security Policy for the web interface.
-pub const APP_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+/// Content Security Policy for the web interface. Images may be `blob:` URLs, which the
+/// interface makes for the Project DNA card, as its own policy in `index.html` allows.
+pub const APP_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
 /// Policy for generated reports, which carry their own stricter policy in the document.
 pub const REPORT_CSP: &str = "frame-ancestors 'none'";
@@ -151,6 +152,28 @@ pub fn constant_time_eq(a: &str, b: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The value of one directive in a Content Security Policy.
+    fn directive<'a>(policy: &'a str, name: &str) -> Option<&'a str> {
+        policy
+            .split(';')
+            .map(str::trim)
+            .find_map(|part| part.strip_prefix(name)?.strip_prefix(' '))
+    }
+
+    #[test]
+    fn allows_the_images_the_interface_allows_itself() {
+        // The interface shows the Project DNA card from a blob: URL; a stricter header
+        // than the policy in its own index.html would leave the card blank.
+        let page = include_str!("../../../apps/web/index.html");
+        let meta = page
+            .split("content=\"")
+            .find(|part| part.starts_with("default-src"))
+            .and_then(|part| part.split('"').next())
+            .expect("index.html has a Content-Security-Policy");
+        assert_eq!(directive(APP_CSP, "img-src"), directive(meta, "img-src"));
+        assert_eq!(directive(APP_CSP, "img-src"), Some("'self' data: blob:"));
+    }
 
     #[test]
     fn parses_targets_and_cookies() {
