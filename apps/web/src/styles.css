@@ -662,6 +662,12 @@ tbody tr:hover {
   overflow-wrap: anywhere;
 }
 
+/* In a table, a path wraps after its slashes and hyphens but not inside a name: a column
+   that would need more room makes the table scroll sideways in its box instead. */
+.table-wrap .path {
+  overflow-wrap: break-word;
+}
+
 /* Severity and chips */
 
 .severity {
