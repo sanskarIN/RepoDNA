@@ -15,6 +15,14 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 - An npm packages workflow publishes the npm packages of a release that is already out,
   made from the archives attached to it and checked against its `SHA256SUMS.txt`.
 
+### Changed
+
+- The start page of the web version explains how a repository gets analyzed: in the
+  desktop app, with `repodna serve`, or with `repodna analyze`, whose `repodna.json` opens
+  on the page.
+- On phones, tables that scroll sideways shade each edge that has more of the table
+  beyond it.
+
 ### Fixed
 
 - `repodna serve` shows the Project DNA card on the Reports page again. Its Content
