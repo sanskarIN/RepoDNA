@@ -77,7 +77,7 @@ figure .chart{overflow-x:auto}
 figcaption{color:var(--muted);font-size:13px;margin-top:6px}
 .card svg{width:100%;height:auto;max-width:900px;display:block}
 .finding{border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin:0 0 14px;background:var(--page)}
-.finding h4{margin:6px 0 6px;font-size:16px}
+.finding .finding-title{margin:6px 0 6px;font-size:16px;font-family:inherit}
 .finding .meta{color:var(--muted);font-size:13px;margin-bottom:10px}
 .finding dl{margin:0 0 8px}
 .finding dt{font-weight:600;font-size:14px;margin-top:8px}
@@ -264,10 +264,11 @@ fn severity_class(severity: Severity) -> &'static str {
     }
 }
 
-fn finding(out: &mut String, finding: &Finding) {
+/// Renders a finding whose title is a heading of `level`, one below the heading it follows.
+fn finding(out: &mut String, finding: &Finding, level: u8) {
     let class = severity_class(finding.severity);
     out.push_str(&format!(
-        r#"<article class="finding{}" data-severity="{class}" id="finding-{}"><span class="sev sev-{class}">{}</span><h4>{}</h4><p class="meta">Rule <code>{}</code> · {} confidence{}</p><dl>"#,
+        r#"<article class="finding{}" data-severity="{class}" id="finding-{}"><span class="sev sev-{class}">{}</span><h{level} class="finding-title">{}</h{level}><p class="meta">Rule <code>{}</code> · {} confidence{}</p><dl>"#,
         if finding.is_suppressed() { " suppressed" } else { "" },
         esc(&finding.id.replace(':', "-")),
         finding.severity.label(),
@@ -330,7 +331,12 @@ fn body(blocks: &Blocks) -> (String, Vec<(String, String)>) {
     let mut toc = Vec::new();
     let mut open = false;
     let mut filter_added = false;
+    // The level of the latest heading, so that findings take the level below it.
+    let mut heading_level = 1;
     for block in &blocks.0 {
+        if let Block::Heading { level, .. } = block {
+            heading_level = *level;
+        }
         match block {
             Block::Heading { level, text, id } if *level <= 2 => {
                 if open {
@@ -399,7 +405,7 @@ fn body(blocks: &Blocks) -> (String, Vec<(String, String)>) {
                     out.push_str(FILTER);
                     filter_added = true;
                 }
-                finding(&mut out, f);
+                finding(&mut out, f, (heading_level + 1).min(6));
             }
             Block::Preformatted(text) => {
                 out.push_str(&format!("<pre><code>{}</code></pre>", esc(text)));
@@ -528,6 +534,28 @@ mod tests {
         assert!(html.contains(&esc(&csp_hash(SCRIPT))));
         assert!(html.contains(&format!("<style>{css}</style>")));
         assert!(html.contains(&format!("<script>{SCRIPT}</script>")));
+    }
+
+    #[test]
+    fn titles_findings_one_level_below_the_heading_they_follow() {
+        let finding = |title: &str| {
+            Block::Finding(Box::new(Finding::new(
+                "a.rule",
+                title,
+                FindingCategory::Structure,
+                Severity::Attention,
+                Confidence::High,
+                title,
+            )))
+        };
+        let mut blocks = Blocks::default();
+        blocks.heading(2, "Major findings", Some("findings"));
+        blocks.0.push(finding("Directly under the section"));
+        blocks.heading(3, "Informational findings", None);
+        blocks.0.push(finding("Under a subsection"));
+        let html = render(&blocks, &page(ReportTheme::Professional));
+        assert!(html.contains(r#"<h3 class="finding-title">Directly under the section</h3>"#));
+        assert!(html.contains(r#"<h4 class="finding-title">Under a subsection</h4>"#));
     }
 
     #[test]
