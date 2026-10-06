@@ -36,7 +36,7 @@ const BASE_CSS: &str = r#"
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--page);color:var(--ink);font:15px/1.55 var(--font);overflow-wrap:break-word}
 a{color:var(--link)}
-a:focus-visible,button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+a:focus-visible,button:focus-visible,.table-wrap:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .skip{position:absolute;left:-999px;top:0;background:var(--surface);padding:8px 12px;z-index:10}
 .skip:focus{left:8px}
 .layout{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1400px;margin:0 auto}
@@ -204,8 +204,14 @@ pub fn inline(rich: &Rich) -> String {
         .collect()
 }
 
-fn table(out: &mut String, table: &Table) {
-    out.push_str(r#"<div class="table-wrap"><table><thead><tr>"#);
+/// Renders a table in a box that scrolls sideways when the table is wider than the page.
+/// The box takes keyboard focus so that it can be scrolled without a pointer, and is named
+/// after the heading it follows.
+fn table(out: &mut String, table: &Table, label: &str) {
+    out.push_str(&format!(
+        r#"<div class="table-wrap" role="region" tabindex="0" aria-label="{}"><table><thead><tr>"#,
+        esc(label)
+    ));
     for (header, numeric) in table.headers.iter().zip(&table.numeric) {
         out.push_str(&format!(
             r#"<th scope="col"{}>{}</th>"#,
@@ -331,11 +337,13 @@ fn body(blocks: &Blocks) -> (String, Vec<(String, String)>) {
     let mut toc = Vec::new();
     let mut open = false;
     let mut filter_added = false;
-    // The level of the latest heading, so that findings take the level below it.
+    // The latest heading: findings take the level below it, and tables its name.
     let mut heading_level = 1;
+    let mut heading_text = "";
     for block in &blocks.0 {
-        if let Block::Heading { level, .. } = block {
+        if let Block::Heading { level, text, .. } = block {
             heading_level = *level;
+            heading_text = text;
         }
         match block {
             Block::Heading { level, text, id } if *level <= 2 => {
@@ -377,7 +385,7 @@ fn body(blocks: &Blocks) -> (String, Vec<(String, String)>) {
                 }
                 out.push_str("</ul>");
             }
-            Block::Table(t) => table(&mut out, t),
+            Block::Table(t) => table(&mut out, t, heading_text),
             Block::Stats(stats) => {
                 out.push_str(r#"<dl class="stats">"#);
                 for (label, value) in stats {
@@ -518,6 +526,12 @@ mod tests {
         assert!(html.contains("color-scheme:dark"));
         assert!(html.contains("Text with &lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(html.contains(r#"<th scope="col" class="num">Files</th>"#));
+        assert!(
+            html.contains(
+                r#"<div class="table-wrap" role="region" tabindex="0" aria-label="Language map">"#
+            ),
+            "a table that scrolls sideways takes keyboard focus and has a name"
+        );
         assert!(html.contains(r##"<li><a href="#languages">Language map</a></li>"##));
         assert!(!html.contains(r##"href="#cover""##));
         assert!(html.contains(r#"<section id="languages" aria-labelledby="languages-title">"#));
