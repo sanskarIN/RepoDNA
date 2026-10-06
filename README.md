@@ -223,9 +223,9 @@ includes the demo. Analyzing a repository needs the command line or the desktop 
 it on your own network, use the [web interface image](docs/installation.md#web-interface-image):
 `docker run --rm -p 8080:8080 ghcr.io/sanskarin/repodna-web`.
 
-**npm.** The command line (`@sanskarin/repodna`) and the TypeScript libraries for the
-analysis artifact (`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on
-GitHub Packages, which asks for a GitHub token to install them. See
+**npm.** `npm install --global @sanskarin/repodna` installs the command line, with the
+binary for your platform. The TypeScript libraries for the analysis artifact
+(`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on npm too. See
 [the npm packages](docs/installation.md#npm-packages).
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
