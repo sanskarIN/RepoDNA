@@ -16,13 +16,13 @@ commits, 459 files). Like the rest of this repository, the images are licensed u
 
 | Image | Size | Fits |
 |---|---|---|
-| [`promo/launch-16x9.png`](promo/launch-16x9.png) | 3200 × 1800 (16:9) | X, LinkedIn, Facebook, and slides |
-| [`promo/whats-new-1x1.png`](promo/whats-new-1x1.png) | 2160 × 2160 (1:1) | Instagram and LinkedIn posts |
-| [`promo/phones-4x5.png`](promo/phones-4x5.png) | 2160 × 2700 (4:5) | Instagram portrait posts |
+| [`v1.2.0/promo/launch-16x9.png`](v1.2.0/promo/launch-16x9.png) | 3200 × 1800 (16:9) | X, LinkedIn, Facebook, and slides |
+| [`v1.2.0/promo/whats-new-1x1.png`](v1.2.0/promo/whats-new-1x1.png) | 2160 × 2160 (1:1) | Instagram and LinkedIn posts |
+| [`v1.2.0/promo/phones-4x5.png`](v1.2.0/promo/phones-4x5.png) | 2160 × 2700 (4:5) | Instagram portrait posts |
 
-<img src="promo/launch-16x9.png" alt="RepoDNA 1.2.0 launch image: the headline Understand your codebase. See its DNA., beside the web interface on a desktop and a phone" width="800">
+<img src="v1.2.0/promo/launch-16x9.png" alt="RepoDNA 1.2.0 launch image: the headline Understand your codebase. See its DNA., beside the web interface on a desktop and a phone" width="800">
 
-<img src="promo/whats-new-1x1.png" alt="What's new in RepoDNA 1.2.0: a web interface image, npm packages, a layout made for phones, one-click copy, smarter tables and search, and reports that fit any screen" width="395"> <img src="promo/phones-4x5.png" alt="RepoDNA on two phones: the overview in the light theme and history in the dark theme" width="316">
+<img src="v1.2.0/promo/whats-new-1x1.png" alt="What's new in RepoDNA 1.2.0: a web interface image, npm packages, a layout made for phones, one-click copy, smarter tables and search, and reports that fit any screen" width="395"> <img src="v1.2.0/promo/phones-4x5.png" alt="RepoDNA on two phones: the overview in the light theme and history in the dark theme" width="316">
 
 ## Project DNA cards
 
@@ -31,10 +31,10 @@ previews use: 2400 × 1260, about 1.91:1.
 
 | Image | Theme |
 |---|---|
-| [`cards/dna-card-light.png`](cards/dna-card-light.png) | Light |
-| [`cards/dna-card-dark.png`](cards/dna-card-dark.png) | Dark |
+| [`v1.2.0/cards/dna-card-light.png`](v1.2.0/cards/dna-card-light.png) | Light |
+| [`v1.2.0/cards/dna-card-dark.png`](v1.2.0/cards/dna-card-dark.png) | Dark |
 
-<img src="cards/dna-card-light.png" alt="RepoDNA's Project DNA card in the light theme" width="395"> <img src="cards/dna-card-dark.png" alt="RepoDNA's Project DNA card in the dark theme" width="395">
+<img src="v1.2.0/cards/dna-card-light.png" alt="RepoDNA's Project DNA card in the light theme" width="395"> <img src="v1.2.0/cards/dna-card-dark.png" alt="RepoDNA's Project DNA card in the dark theme" width="395">
 
 ## Desktop screenshots
 
