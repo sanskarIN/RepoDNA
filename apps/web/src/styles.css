@@ -102,6 +102,8 @@ body {
   color: var(--ink);
   background: var(--page);
   -webkit-font-smoothing: antialiased;
+  /* A path or name longer than the screen is wide wraps instead of widening the page. */
+  overflow-wrap: break-word;
 }
 
 a {
