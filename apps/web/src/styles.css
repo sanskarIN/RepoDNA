@@ -19,6 +19,8 @@
   --accent: #2a78d6;
   --accent-ink: #1f5fae;
   --accent-wash: #eaf2fc;
+  /* Behind white text, such as on primary buttons: 4.8:1. */
+  --accent-strong: #2672ce;
   --focus: #2a78d6;
   --chart-grid: #e1e0d9;
   --chart-axis: #c3c2b7;
@@ -60,6 +62,7 @@
   --accent: #3987e5;
   --accent-ink: #8ab9f1;
   --accent-wash: #13263d;
+  --accent-strong: #2672ce;
   --focus: #6da7ec;
   --chart-grid: #2c2c2a;
   --chart-axis: #383835;
@@ -404,8 +407,8 @@ button:hover,
 
 button.primary,
 .button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
   color: #fff;
 }
 
