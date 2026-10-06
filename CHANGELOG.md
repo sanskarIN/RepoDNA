@@ -17,6 +17,14 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- `repodna serve` shows the Project DNA card on the Reports page again. Its Content
+  Security Policy did not allow the `blob:` image the page makes; the web interface image
+  sends the same policy and was changed too.
+- A failed clone is reported as `git clone failed` with Git's reason, instead of every
+  option RepoDNA passes to Git, and says what to do when the repository is private or
+  missing, or its host cannot be reached.
+- `repodna ci` and the onboarding guide count recent changes "in the last 90 days of
+  history": the window ends at the latest commit, which can be long before today.
 - On phones, the web interface no longer lets the Copy button cover a long command; paths
   in tables wrap after their slashes and hyphens instead of every few letters, with the
   table scrolling sideways when it needs more room; and long paths in findings wrap on
