@@ -6,6 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-06
+
+A small follow-up to 1.2.1: the shade on tables that scroll sideways on phones shows along
+the whole edge, and the npm packages of older releases can be published to npmjs.com,
+which put 1.2.0 there too. The notes of this release show its screenshots.
+
 ### Fixed
 
 - On phones, the shade on the edge of a table that scrolls sideways is as strong at the
@@ -13,15 +19,19 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   tables, so the first rows showed almost none.
 - The npm packages workflow can publish a release older than the newest one, such as
   1.2.0 after 1.2.1. npm refused to give it the `latest` tag; it now goes under the
-  `previous` tag, and `latest` stays on the newest release.
+  `previous` tag, and `latest` stays on the newest release. 1.2.0 is on npmjs.com this
+  way, so `npm install --global @sanskarin/repodna@1.2.0` works without a token too.
 
 ### Documentation
 
-- Screenshots of 1.2.1 in [`docs/images/v1.2.1`](docs/images/README.md#121), and its
-  promo images and Project DNA cards in [`docs/media/v1.2.1`](docs/media/README.md). Each
-  release has a folder of its own in the media kit, and the README and the guides show
-  the screenshots of 1.2.1.
+- Screenshots of 1.2.1 and 1.2.2 in [`docs/images`](docs/images/README.md), and the
+  promo images and Project DNA cards of 1.2.1 in
+  [`docs/media/v1.2.1`](docs/media/README.md). Each release has a folder of its own in
+  the media kit, and the README and the guides show the screenshots of 1.2.2.
 - The notes of a release on GitHub show its screenshots, when its tag has them.
+- A page for 1.2.1 in [`docs/releases`](docs/releases/README.md), with its downloads and
+  their sizes.
+- The installation guide and the 1.2.0 release page say that 1.2.0 is on npmjs.com too.
 
 ## [1.2.1] - 2026-10-06
 
@@ -326,7 +336,8 @@ every conclusion backed by evidence.
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.
 
-[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/sanskarIN/RepoDNA/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/sanskarIN/RepoDNA/compare/v1.1.0...v1.1.1
