@@ -6,7 +6,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, beforeEach, test } from "node:test";
-import { npmrc, publish, publishOrder } from "../publish.mjs";
+import { isOlder, npmrc, publish, publishOrder } from "../publish.mjs";
 
 let dir;
 let staged;
@@ -14,12 +14,22 @@ let npm;
 let calls;
 
 // Records each call with the configuration it was given, answers `npm view` from
-// FAKE_PUBLISHED, and fails `npm view` for FAKE_BROKEN.
+// FAKE_PUBLISHED and the latest versions from FAKE_LATEST, and fails `npm view` for
+// FAKE_BROKEN.
 const FAKE_NPM = `#!/usr/bin/env node
 const { appendFileSync, readFileSync } = require("node:fs");
 const args = process.argv.slice(2);
 const userconfig = args[args.indexOf("--userconfig") + 1];
 appendFileSync(process.env.FAKE_CALLS, JSON.stringify({ args, config: readFileSync(userconfig, "utf8") }) + "\\n");
+if (args[0] === "view" && args[2] === "dist-tags.latest") {
+  const latest = JSON.parse(process.env.FAKE_LATEST || "{}")[args[1]];
+  if (latest) {
+    process.stdout.write(latest + "\\n");
+    process.exit(0);
+  }
+  process.stderr.write("npm error code E404\\nnpm error 404 Not Found\\n");
+  process.exit(1);
+}
 if (args[0] === "view") {
   if (process.env.FAKE_BROKEN === args[1]) {
     process.stderr.write("npm error code E401\\n");
@@ -65,6 +75,7 @@ beforeEach(() => {
   writeFileSync(calls, "");
   process.env.FAKE_CALLS = calls;
   delete process.env.FAKE_PUBLISHED;
+  delete process.env.FAKE_LATEST;
   delete process.env.FAKE_BROKEN;
   delete process.env.NODE_AUTH_TOKEN;
 });
@@ -154,6 +165,38 @@ test("stops when the registry cannot say whether a version is there", () => {
     ["repodna-linux-x64"],
     "nothing after the failed check is published",
   );
+});
+
+test("compares release versions by their numbers", () => {
+  assert.equal(isOlder("1.2.0", "1.2.1"), true);
+  assert.equal(isOlder("1.9.9", "1.10.0"), true);
+  assert.equal(isOlder("2.0.0", "10.0.0"), true);
+  assert.equal(isOlder("1.10.0", "1.9.9"), false);
+  assert.equal(isOlder("1.2.1", "1.2.1"), false);
+});
+
+test("publishes a release older than the latest under the previous tag", () => {
+  process.env.FAKE_LATEST = JSON.stringify({
+    "@sanskarin/repodna-schema": "9.10.0",
+    "@sanskarin/repodna": "9.8.6",
+  });
+  publish({ registry: "https://registry.npmjs.org", dir: staged, npm, log: () => {} });
+  const tags = Object.fromEntries(
+    readCalls()
+      .filter((call) => call.args[0] === "publish")
+      .map((call) => [
+        call.args[1].split("/").pop(),
+        call.args.includes("--tag")
+          ? call.args.slice(call.args.indexOf("--tag"), call.args.indexOf("--tag") + 2)
+          : [],
+      ]),
+  );
+  assert.deepEqual(tags, {
+    "repodna-linux-x64": [],
+    "repodna-schema": ["--tag", "previous"],
+    "repodna-win32-x64": [],
+    repodna: [],
+  });
 });
 
 test("publishes a prerelease under the next tag", () => {

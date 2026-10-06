@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Publishes the packages that build.mjs staged to one npm registry, npmjs.com or GitHub
 // Packages. A version that is already on the registry is skipped, so a release can be
-// published again, or published to the other registry later.
+// published again, or published to the other registry later. A prerelease goes under the
+// `next` tag and a release older than the registry's latest under `previous`, so that
+// `npm install` keeps picking the newest release.
 //
 // Usage: node packaging/npm/publish.mjs --registry URL DIR [-- npm publish options]
 //
@@ -82,6 +84,34 @@ export function publishOrder(dir) {
   ];
 }
 
+/** Whether release version `a`, such as 1.2.0, comes before release version `b`. */
+export function isOlder(a, b) {
+  const parse = (version) => version.split("-")[0].split(".").map(Number);
+  const [x, y] = [parse(a), parse(b)];
+  for (let index = 0; index < 3; index += 1) {
+    if (x[index] !== y[index]) {
+      return x[index] < y[index];
+    }
+  }
+  return false;
+}
+
+/** The version the registry's `latest` tag names, or null for a package it does not have. */
+function latest(npm, config, name) {
+  const result = spawnSync(npm, ["view", name, "dist-tags.latest", ...config], {
+    encoding: "utf8",
+  });
+  if (result.status === 0) {
+    return result.stdout.trim() || null;
+  }
+  if (/\bE404\b/.test(result.stderr)) {
+    return null;
+  }
+  throw new Error(
+    `Could not read the latest version of ${name}:\n${result.stderr || result.stdout}`,
+  );
+}
+
 /** Whether `name@version` is on the registry; throws when the registry cannot tell. */
 function published(npm, config, pkg) {
   const result = spawnSync(npm, ["view", `${pkg.name}@${pkg.version}`, "version", ...config], {
@@ -120,8 +150,19 @@ export function publish({
         log(`${pkg.name}@${pkg.version} is already on ${normalize(registry)}.`);
         continue;
       }
-      // A prerelease such as 1.3.0-rc.1 must not become what `npm install` picks.
-      const tag = pkg.version.includes("-") && !extra.includes("--tag") ? ["--tag", "next"] : [];
+      let tag = [];
+      if (!extra.includes("--tag")) {
+        if (pkg.version.includes("-")) {
+          // A prerelease such as 1.3.0-rc.1 must not become what `npm install` picks,
+          tag = ["--tag", "next"];
+        } else {
+          // nor must a release older than the latest, such as 1.2.0 published after 1.2.1.
+          const current = latest(npm, config, pkg.name);
+          if (current && isOlder(pkg.version, current)) {
+            tag = ["--tag", "previous"];
+          }
+        }
+      }
       const result = spawnSync(npm, ["publish", pkg.dir, ...config, ...tag, ...extra], {
         stdio: "inherit",
       });
