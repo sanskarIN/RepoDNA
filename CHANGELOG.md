@@ -17,6 +17,14 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- On phones, the web interface no longer lets the Copy button cover a long command; paths
+  in tables wrap after their slashes and hyphens instead of every few letters, with the
+  table scrolling sideways when it needs more room; and long paths in findings wrap on
+  320-pixel screens instead of widening the page.
+- Accessibility of the web interface: primary buttons reach 4.8:1 contrast; the top bar
+  with search and the theme menu is a landmark; finding titles keep heading levels in
+  order; command boxes and the output of commands that ran scroll with the keyboard; and
+  each bar and column of a chart is named for screen readers.
 - The web version on GitHub Pages stays up when GitHub Pages deploys from a branch. Until
   now, every push to `main` let GitHub's own Pages build publish the repository's files
   over the interface, which then showed the README. The Web version workflow now
