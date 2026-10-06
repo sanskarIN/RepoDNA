@@ -6,6 +6,20 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- On phones, the shade on the edge of a table that scrolls sideways is as strong at the
+  top of the table as in its middle. In 1.2.1 it faded toward the top and bottom of long
+  tables, so the first rows showed almost none.
+
+### Documentation
+
+- Screenshots of 1.2.1 in [`docs/images/v1.2.1`](docs/images/README.md#121), and its
+  promo images and Project DNA cards in [`docs/media/v1.2.1`](docs/media/README.md). Each
+  release has a folder of its own in the media kit, and the README and the guides show
+  the screenshots of 1.2.1.
+- The notes of a release on GitHub show its screenshots, when its tag has them.
+
 ## [1.2.1] - 2026-10-06
 
 The npm packages on npmjs.com, so that `npm install --global @sanskarin/repodna` works
@@ -61,18 +75,16 @@ tables and long paths on phones.
 ### Documentation
 
 - A media kit in [`docs/media`](docs/media/README.md): screenshots of the web interface on
-  a desktop and a phone, in light and dark, promo images for the 1.2.0 and 1.2.1
-  releases, and RepoDNA's own Project DNA cards, sized for social networks, with a folder
-  for each release.
+  a desktop and a phone, in light and dark, promo images for the 1.2.0 release, and
+  RepoDNA's own Project DNA cards, sized for social networks.
 - A folder for every release in [`docs/releases`](docs/releases/README.md), with its notes,
   its downloads and their sizes, and the commands that install it.
-- Screenshots of the web interface in every release, 1.0.0 to 1.2.1, in
+- Screenshots of the web interface in every release, 1.0.0 to 1.2.0, in
   [`docs/images`](docs/images/README.md): each shows that release's own analysis of this
-  repository as it was at the release, and a gallery page compares them side by side. The
-  screenshots of the media kit moved there too.
-- The README and the guides show screenshots of 1.2.1, including the desktop app and the
+  repository at its tag, and a gallery page compares them side by side. The screenshots
+  of the media kit moved there too.
+- The README and the guides show screenshots of 1.2.0, including the desktop app and the
   web interface on a phone, instead of screenshots taken with 1.0.0.
-- The notes of a release on GitHub show its screenshots, when its tag has them.
 - The 1.1.1 entry of this changelog is dated on the day it was published.
 
 ## [1.2.0] - 2026-10-05
