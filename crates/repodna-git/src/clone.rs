@@ -47,7 +47,17 @@ pub fn clone_repository(
     args.push("--");
     args.push(&url);
     args.push(&destination);
-    runner.run_global(&args, cancel)
+    // Name the failure after what the user asked for, not after the options it ran with.
+    runner
+        .run_global(&args, cancel)
+        .map_err(|error| match error {
+            GitError::CommandFailed { status, stderr, .. } => GitError::CommandFailed {
+                command: "git clone".to_owned(),
+                status,
+                stderr,
+            },
+            other => other,
+        })
 }
 
 #[cfg(test)]
@@ -69,5 +79,30 @@ mod tests {
         );
         assert!(matches!(result, Err(GitError::InvalidUrl(_))));
         assert!(!dir.path().join("clone").exists());
+    }
+
+    #[test]
+    fn a_failed_clone_names_the_clone_and_says_what_to_do() {
+        let Ok(runner) = GitRunner::detect() else {
+            return;
+        };
+        let dir = tempfile::tempdir().unwrap();
+        // Nothing listens on the discard port of this machine.
+        let error = clone_repository(
+            &runner,
+            "https://127.0.0.1:9/missing.git",
+            &dir.path().join("clone"),
+            CloneOptions {
+                policy: UrlPolicy {
+                    allow_private_hosts: true,
+                    ..UrlPolicy::default()
+                },
+                ..CloneOptions::default()
+            },
+            &CancellationToken::new(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().starts_with("git clone failed"), "{error}");
+        assert!(error.hint().is_some(), "{error}");
     }
 }
