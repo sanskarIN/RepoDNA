@@ -1,28 +1,35 @@
 # Media kit
 
-Images of RepoDNA 1.2.0 for posts, articles, and talks: promo images, Project DNA cards,
-and screenshots of the web interface on a desktop and a phone, in light and dark. Every
-screenshot shows RepoDNA's analysis of its own repository at the `v1.2.0` tag (513
-commits, 459 files). Like the rest of this repository, the images are licensed under the
-[Apache License 2.0](../../LICENSE).
+Images of RepoDNA for posts, articles, and talks: promo images, Project DNA cards, and
+screenshots of the web interface on a desktop and a phone, in light and dark. Each release
+has a folder of its own, and this page shows those of the latest, 1.2.1. Every screenshot
+shows RepoDNA's analysis of its own repository: for 1.2.1, at commit `df38d9c` on the day
+of the release (626 commits, 545 files). Like the rest of this repository, the images are
+licensed under the [Apache License 2.0](../../LICENSE).
+
+| Version | Promo images | Project DNA cards | Screenshots |
+|---|---|---|---|
+| 1.2.1 | [`v1.2.1/promo`](v1.2.1/promo) | [`v1.2.1/cards`](v1.2.1/cards) | [`docs/images/v1.2.1`](../images/README.md#121) |
+| [1.2.0](#120) | [`v1.2.0/promo`](v1.2.0/promo) | [`v1.2.0/cards`](v1.2.0/cards) | [`docs/images/v1.2.0`](../images/README.md#120) |
 
 - [Promo images](#promo-images)
 - [Project DNA cards](#project-dna-cards)
 - [Desktop screenshots](#desktop-screenshots)
 - [Phone screenshots](#phone-screenshots)
+- [Images of 1.2.0](#120)
 - [How they were made](#how-they-were-made)
 
 ## Promo images
 
 | Image | Size | Fits |
 |---|---|---|
-| [`v1.2.0/promo/launch-16x9.png`](v1.2.0/promo/launch-16x9.png) | 3200 × 1800 (16:9) | X, LinkedIn, Facebook, and slides |
-| [`v1.2.0/promo/whats-new-1x1.png`](v1.2.0/promo/whats-new-1x1.png) | 2160 × 2160 (1:1) | Instagram and LinkedIn posts |
-| [`v1.2.0/promo/phones-4x5.png`](v1.2.0/promo/phones-4x5.png) | 2160 × 2700 (4:5) | Instagram portrait posts |
+| [`v1.2.1/promo/launch-16x9.png`](v1.2.1/promo/launch-16x9.png) | 3200 × 1800 (16:9) | X, LinkedIn, Facebook, and slides |
+| [`v1.2.1/promo/whats-new-1x1.png`](v1.2.1/promo/whats-new-1x1.png) | 2160 × 2160 (1:1) | Instagram and LinkedIn posts |
+| [`v1.2.1/promo/phones-4x5.png`](v1.2.1/promo/phones-4x5.png) | 2160 × 2700 (4:5) | Instagram portrait posts |
 
-<img src="v1.2.0/promo/launch-16x9.png" alt="RepoDNA 1.2.0 launch image: the headline Understand your codebase. See its DNA., beside the web interface on a desktop and a phone" width="800">
+<img src="v1.2.1/promo/launch-16x9.png" alt="RepoDNA 1.2.1 launch image: the headline Understand your codebase. See its DNA., the command npm install --global @sanskarin/repodna, and the web interface on a desktop and a phone" width="800">
 
-<img src="v1.2.0/promo/whats-new-1x1.png" alt="What's new in RepoDNA 1.2.0: a web interface image, npm packages, a layout made for phones, one-click copy, smarter tables and search, and reports that fit any screen" width="395"> <img src="v1.2.0/promo/phones-4x5.png" alt="RepoDNA on two phones: the overview in the light theme and history in the dark theme" width="316">
+<img src="v1.2.1/promo/whats-new-1x1.png" alt="What's new in RepoDNA 1.2.1: the npm packages on npmjs.com with no token needed, an interface easier to read and navigate, tables made for phones, the Project DNA card back in repodna serve, clearer clone errors, and accessible HTML reports" width="395"> <img src="v1.2.1/promo/phones-4x5.png" alt="RepoDNA 1.2.1 on two phones: commands to copy in the light theme, and a wide table with a shade on its edge in the dark theme" width="316">
 
 ## Project DNA cards
 
@@ -31,30 +38,30 @@ previews use: 2400 × 1260, about 1.91:1.
 
 | Image | Theme |
 |---|---|
-| [`v1.2.0/cards/dna-card-light.png`](v1.2.0/cards/dna-card-light.png) | Light |
-| [`v1.2.0/cards/dna-card-dark.png`](v1.2.0/cards/dna-card-dark.png) | Dark |
+| [`v1.2.1/cards/dna-card-light.png`](v1.2.1/cards/dna-card-light.png) | Light |
+| [`v1.2.1/cards/dna-card-dark.png`](v1.2.1/cards/dna-card-dark.png) | Dark |
 
-<img src="v1.2.0/cards/dna-card-light.png" alt="RepoDNA's Project DNA card in the light theme" width="395"> <img src="v1.2.0/cards/dna-card-dark.png" alt="RepoDNA's Project DNA card in the dark theme" width="395">
+<img src="v1.2.1/cards/dna-card-light.png" alt="RepoDNA's Project DNA card in the light theme" width="395"> <img src="v1.2.1/cards/dna-card-dark.png" alt="RepoDNA's Project DNA card in the dark theme" width="395">
 
 ## Desktop screenshots
 
 2880 × 1620 (16:9), taken in a 1440 × 810 window at twice the resolution. The module map
 of the architecture view is 3360 × 1890, from a 1680 × 945 window, so that every module
-fits. They are kept in [`docs/images/v1.2.0`](../images/README.md#120), next to the
-screenshots of earlier versions.
+fits. They are kept in [`docs/images/v1.2.1`](../images/README.md#121), next to the
+screenshots of earlier versions and of the desktop app.
 
 | | |
 |---|---|
-| ![Overview in the light theme: key numbers, the language map, and the Project DNA dimensions](../images/v1.2.0/desktop/overview-light.png) | ![Overview in the dark theme](../images/v1.2.0/desktop/overview-dark.png) |
-| [`overview-light.png`](../images/v1.2.0/desktop/overview-light.png) | [`overview-dark.png`](../images/v1.2.0/desktop/overview-dark.png) |
-| ![Architecture in the dark theme: the module map in dependency layers](../images/v1.2.0/desktop/architecture-dark.png) | ![History in the light theme: commits over time and when commits happen](../images/v1.2.0/desktop/history-light.png) |
-| [`architecture-dark.png`](../images/v1.2.0/desktop/architecture-dark.png) | [`history-light.png`](../images/v1.2.0/desktop/history-light.png) |
-| ![History in the dark theme](../images/v1.2.0/desktop/history-dark.png) | ![Time Machine in the light theme: a snapshot with its languages and largest areas](../images/v1.2.0/desktop/time-machine-light.png) |
-| [`history-dark.png`](../images/v1.2.0/desktop/history-dark.png) | [`time-machine-light.png`](../images/v1.2.0/desktop/time-machine-light.png) |
-| ![Hotspots in the dark theme: the hotspot map](../images/v1.2.0/desktop/hotspots-dark.png) | ![Findings in the dark theme: the severity filters and the findings](../images/v1.2.0/desktop/findings-dark.png) |
-| [`hotspots-dark.png`](../images/v1.2.0/desktop/hotspots-dark.png) | [`findings-dark.png`](../images/v1.2.0/desktop/findings-dark.png) |
-| ![Files in the light theme: what the files are and where the lines are](../images/v1.2.0/desktop/files-light.png) | ![Search in the dark theme: a view, files, and findings for one query](../images/v1.2.0/desktop/search-dark.png) |
-| [`files-light.png`](../images/v1.2.0/desktop/files-light.png) | [`search-dark.png`](../images/v1.2.0/desktop/search-dark.png) |
+| ![Overview in the light theme: key numbers, the language map, and the Project DNA dimensions](../images/v1.2.1/desktop/overview-light.png) | ![Overview in the dark theme](../images/v1.2.1/desktop/overview-dark.png) |
+| [`overview-light.png`](../images/v1.2.1/desktop/overview-light.png) | [`overview-dark.png`](../images/v1.2.1/desktop/overview-dark.png) |
+| ![Architecture in the dark theme: the module map in dependency layers](../images/v1.2.1/desktop/architecture-dark.png) | ![History in the light theme: commits over time and when commits happen](../images/v1.2.1/desktop/history-light.png) |
+| [`architecture-dark.png`](../images/v1.2.1/desktop/architecture-dark.png) | [`history-light.png`](../images/v1.2.1/desktop/history-light.png) |
+| ![History in the dark theme](../images/v1.2.1/desktop/history-dark.png) | ![Time Machine in the light theme: a snapshot with its languages and largest areas](../images/v1.2.1/desktop/time-machine-light.png) |
+| [`history-dark.png`](../images/v1.2.1/desktop/history-dark.png) | [`time-machine-light.png`](../images/v1.2.1/desktop/time-machine-light.png) |
+| ![Hotspots in the dark theme: the hotspot map](../images/v1.2.1/desktop/hotspots-dark.png) | ![Findings in the dark theme: the severity filters and the findings](../images/v1.2.1/desktop/findings-dark.png) |
+| [`hotspots-dark.png`](../images/v1.2.1/desktop/hotspots-dark.png) | [`findings-dark.png`](../images/v1.2.1/desktop/findings-dark.png) |
+| ![Files in the light theme: what the files are and where the lines are](../images/v1.2.1/desktop/files-light.png) | ![Search in the dark theme: a view, files, and findings for one query](../images/v1.2.1/desktop/search-dark.png) |
+| [`files-light.png`](../images/v1.2.1/desktop/files-light.png) | [`search-dark.png`](../images/v1.2.1/desktop/search-dark.png) |
 
 ## Phone screenshots
 
@@ -63,18 +70,36 @@ portrait posts.
 
 | | | | |
 |---|---|---|---|
-| <img src="../images/v1.2.0/phone/overview-light.png" alt="Overview on a phone in the light theme" width="180"> | <img src="../images/v1.2.0/phone/menu-light.png" alt="The navigation menu open on a phone in the light theme" width="180"> | <img src="../images/v1.2.0/phone/history-light.png" alt="History on a phone in the light theme" width="180"> | <img src="../images/v1.2.0/phone/hotspots-light.png" alt="Hotspots on a phone in the light theme" width="180"> |
-| [`overview-light.png`](../images/v1.2.0/phone/overview-light.png) | [`menu-light.png`](../images/v1.2.0/phone/menu-light.png) | [`history-light.png`](../images/v1.2.0/phone/history-light.png) | [`hotspots-light.png`](../images/v1.2.0/phone/hotspots-light.png) |
-| <img src="../images/v1.2.0/phone/overview-dark.png" alt="Overview on a phone in the dark theme" width="180"> | <img src="../images/v1.2.0/phone/menu-dark.png" alt="The navigation menu open on a phone in the dark theme" width="180"> | <img src="../images/v1.2.0/phone/history-dark.png" alt="History on a phone in the dark theme" width="180"> | <img src="../images/v1.2.0/phone/hotspots-dark.png" alt="Hotspots on a phone in the dark theme" width="180"> |
-| [`overview-dark.png`](../images/v1.2.0/phone/overview-dark.png) | [`menu-dark.png`](../images/v1.2.0/phone/menu-dark.png) | [`history-dark.png`](../images/v1.2.0/phone/history-dark.png) | [`hotspots-dark.png`](../images/v1.2.0/phone/hotspots-dark.png) |
+| <img src="../images/v1.2.1/phone/overview-light.png" alt="Overview on a phone in the light theme" width="180"> | <img src="../images/v1.2.1/phone/menu-light.png" alt="The navigation menu open on a phone in the light theme" width="180"> | <img src="../images/v1.2.1/phone/history-light.png" alt="History on a phone in the light theme" width="180"> | <img src="../images/v1.2.1/phone/hotspots-light.png" alt="Hotspots on a phone in the light theme" width="180"> |
+| [`overview-light.png`](../images/v1.2.1/phone/overview-light.png) | [`menu-light.png`](../images/v1.2.1/phone/menu-light.png) | [`history-light.png`](../images/v1.2.1/phone/history-light.png) | [`hotspots-light.png`](../images/v1.2.1/phone/hotspots-light.png) |
+| <img src="../images/v1.2.1/phone/overview-dark.png" alt="Overview on a phone in the dark theme" width="180"> | <img src="../images/v1.2.1/phone/menu-dark.png" alt="The navigation menu open on a phone in the dark theme" width="180"> | <img src="../images/v1.2.1/phone/history-dark.png" alt="History on a phone in the dark theme" width="180"> | <img src="../images/v1.2.1/phone/hotspots-dark.png" alt="Hotspots on a phone in the dark theme" width="180"> |
+| [`overview-dark.png`](../images/v1.2.1/phone/overview-dark.png) | [`menu-dark.png`](../images/v1.2.1/phone/menu-dark.png) | [`history-dark.png`](../images/v1.2.1/phone/history-dark.png) | [`hotspots-dark.png`](../images/v1.2.1/phone/hotspots-dark.png) |
+
+## 1.2.0
+
+The images of RepoDNA 1.2.0 show its analysis of this repository at the `v1.2.0` tag (513
+commits, 459 files). Its screenshots are in [`docs/images/v1.2.0`](../images/README.md#120).
+
+| Image | Size |
+|---|---|
+| [`v1.2.0/promo/launch-16x9.png`](v1.2.0/promo/launch-16x9.png) | 3200 × 1800 (16:9) |
+| [`v1.2.0/promo/whats-new-1x1.png`](v1.2.0/promo/whats-new-1x1.png) | 2160 × 2160 (1:1) |
+| [`v1.2.0/promo/phones-4x5.png`](v1.2.0/promo/phones-4x5.png) | 2160 × 2700 (4:5) |
+| [`v1.2.0/cards/dna-card-light.png`](v1.2.0/cards/dna-card-light.png) | 2400 × 1260 |
+| [`v1.2.0/cards/dna-card-dark.png`](v1.2.0/cards/dna-card-dark.png) | 2400 × 1260 |
+
+<img src="v1.2.0/promo/launch-16x9.png" alt="RepoDNA 1.2.0 launch image: the headline Understand your codebase. See its DNA., beside the web interface on a desktop and a phone" width="395"> <img src="v1.2.0/cards/dna-card-light.png" alt="RepoDNA's Project DNA card of 1.2.0 in the light theme" width="395">
+
+<img src="v1.2.0/promo/whats-new-1x1.png" alt="What's new in RepoDNA 1.2.0: a web interface image, npm packages, a layout made for phones, one-click copy, smarter tables and search, and reports that fit any screen" width="395"> <img src="v1.2.0/promo/phones-4x5.png" alt="RepoDNA 1.2.0 on two phones: the overview in the light theme and history in the dark theme" width="316">
 
 ## How they were made
 
-The screenshots show the web interface of RepoDNA 1.2.0 in Chromium, with an analysis of
-this repository at the `v1.2.0` tag made by `repodna analyze --format json`. They were
+The screenshots show the web interface of each version in Chromium, with an analysis of
+this repository made by `repodna analyze --format json` of the same version. They were
 rendered with the Inter and JetBrains Mono fonts; the interface itself uses the system
-font of the computer it runs on. The promo images frame those screenshots, and the cards
-come from `repodna card --format png`, with `--dark` for the dark one.
+font of the computer it runs on. The promo images frame those screenshots, along with
+phone screenshots of other views taken the same way, and the cards come from
+`repodna card --format png`, with `--dark` for the dark one.
 
 To make images of your own repository, run `repodna card --format png` for its
 [Project DNA card](../dna-cards.md), and open its analysis in the
