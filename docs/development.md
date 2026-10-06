@@ -235,12 +235,12 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
    version, also name it in the supported versions of `SECURITY.md`.
 3. Regenerate the schemas and the bundled demo analysis if the model changed, and the
    third-party notices (`cargo xtask notices`) if dependencies changed.
-4. Commit, then create and push an annotated tag: `git tag -a v1.2.0 -m "RepoDNA 1.2.0"` and
-   `git push origin v1.2.0`.
+4. Commit, then create and push an annotated tag: `git tag -a v1.2.1 -m "RepoDNA 1.2.1"` and
+   `git push origin v1.2.1`.
 5. Once the release is published, add its folder to [`docs/releases`](releases/README.md):
-   `docs/releases/v1.2.0/README.md` with its notes, its downloads and their sizes, and how
+   `docs/releases/v1.2.1/README.md` with its notes, its downloads and their sizes, and how
    to install it, and a row for it in the table of `docs/releases/README.md`. Add its
-   screenshots to `docs/images/v1.2.0`, with the same views as the earlier versions in
+   screenshots to `docs/images/v1.2.1`, with the same views as the earlier versions in
    [`docs/images`](images/README.md), and a column and a section for it on that page.
 
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
