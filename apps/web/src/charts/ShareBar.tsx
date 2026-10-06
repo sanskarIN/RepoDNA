@@ -22,7 +22,7 @@ export function ShareBar({ shares, label }: { shares: Share[]; label: string }) 
   const usable = width - gap * Math.max(0, shares.length - 1);
   return (
     <div ref={ref}>
-      <svg className="chart" width={width} height={height} role="img" aria-label={label}>
+      <svg className="chart" width={width} height={height} role="group" aria-label={label}>
         {shares.map((share, index) => {
           const size = total > 0 ? (share.value / total) * usable : 0;
           const start = x;
@@ -35,6 +35,7 @@ export function ShareBar({ shares, label }: { shares: Share[]; label: string }) 
               key={share.label}
               className="mark"
               tabIndex={0}
+              role="img"
               aria-label={`${share.label}: ${text}`}
               {...tooltip.bind({ value: text, label: share.label })}
             >

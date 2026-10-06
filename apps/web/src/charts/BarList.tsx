@@ -46,7 +46,7 @@ export function BarList({
   const height = bars.length * row + 4;
   return (
     <div ref={ref}>
-      <svg className="chart" width={width} height={height} role="img" aria-label={label}>
+      <svg className="chart" width={width} height={height} role="group" aria-label={label}>
         {bars.map((bar, index) => {
           const y = index * row + 4;
           const length = Math.max(bar.value > 0 ? 2 : 0, scale(bar.value));
@@ -57,6 +57,7 @@ export function BarList({
               key={`${bar.label}-${index}`}
               tabIndex={0}
               className="mark"
+              role="img"
               aria-label={`${bar.label}: ${text}`}
               {...tooltip.bind({ value: text, label: bar.label, details: bar.details })}
             >
