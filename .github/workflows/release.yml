@@ -370,6 +370,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Provenance on npmjs.com, and trusted publishing once it is set up there.
+      id-token: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -400,6 +402,20 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: node packaging/npm/publish.mjs --registry https://npm.pkg.github.com npm-packages
+      - name: Publish to npmjs.com
+        if: needs.prepare.outputs.publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TRUSTED_PUBLISHING: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+        run: |
+          set -euo pipefail
+          if [ -z "$NODE_AUTH_TOKEN" ] && [ "$TRUSTED_PUBLISHING" != true ]; then
+            echo "::notice title=npmjs.com::The npm packages were not published to npmjs.com, because the repository has no NPM_TOKEN secret. Add one, then run the npm packages workflow for this tag."
+            exit 0
+          fi
+          # Trusted publishing needs npm 11.5.1 or later.
+          npm install --global npm@11.21.0
+          node packaging/npm/publish.mjs --registry https://registry.npmjs.org npm-packages -- --access public --provenance
 
   publish:
     name: Publish the release
