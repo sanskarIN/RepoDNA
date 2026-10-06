@@ -157,7 +157,7 @@ same files have the same hash, whatever the time, machine, or configuration.
 - A newer **major** version is rejected with an error that names both versions.
 
 The Settings page of the web interface shows the versions as, for example,
-"RepoDNA v1.2.0" and "Analysis schema v1".
+"RepoDNA v1.2.1" and "Analysis schema v1".
 
 Artifacts are written atomically (to a temporary file that is then renamed), so an
 interrupted export never leaves a truncated file.
