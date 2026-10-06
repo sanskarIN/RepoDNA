@@ -458,6 +458,9 @@ jobs:
             found && /^\[[^]]+\]: / { next }
             found { print }
           ' CHANGELOG.md > notes.md
+          # Links in the changelog are relative to the repository; on the release page they
+          # point at the files of this release instead.
+          perl -pi -e 's{\]\((?![a-z][a-z0-9+.-]*:|#|/)([^)\s]+)\)}{](https://github.com/sanskarIN/RepoDNA/blob/$ENV{TAG}/$1)}g' notes.md
           cat >> notes.md <<'EOF'
 
           ## Downloads
