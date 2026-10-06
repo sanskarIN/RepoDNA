@@ -61,16 +61,18 @@ tables and long paths on phones.
 ### Documentation
 
 - A media kit in [`docs/media`](docs/media/README.md): screenshots of the web interface on
-  a desktop and a phone, in light and dark, promo images for the 1.2.0 release, and
-  RepoDNA's own Project DNA cards, sized for social networks.
+  a desktop and a phone, in light and dark, promo images for the 1.2.0 and 1.2.1
+  releases, and RepoDNA's own Project DNA cards, sized for social networks, with a folder
+  for each release.
 - A folder for every release in [`docs/releases`](docs/releases/README.md), with its notes,
   its downloads and their sizes, and the commands that install it.
-- Screenshots of the web interface in every release, 1.0.0 to 1.2.0, in
+- Screenshots of the web interface in every release, 1.0.0 to 1.2.1, in
   [`docs/images`](docs/images/README.md): each shows that release's own analysis of this
-  repository at its tag, and a gallery page compares them side by side. The screenshots
-  of the media kit moved there too.
-- The README and the guides show screenshots of 1.2.0, including the desktop app and the
+  repository as it was at the release, and a gallery page compares them side by side. The
+  screenshots of the media kit moved there too.
+- The README and the guides show screenshots of 1.2.1, including the desktop app and the
   web interface on a phone, instead of screenshots taken with 1.0.0.
+- The notes of a release on GitHub show its screenshots, when its tag has them.
 - The 1.1.1 entry of this changelog is dated on the day it was published.
 
 ## [1.2.0] - 2026-10-05
