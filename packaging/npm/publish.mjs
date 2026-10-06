@@ -120,7 +120,9 @@ export function publish({
         log(`${pkg.name}@${pkg.version} is already on ${normalize(registry)}.`);
         continue;
       }
-      const result = spawnSync(npm, ["publish", pkg.dir, ...config, ...extra], {
+      // A prerelease such as 1.3.0-rc.1 must not become what `npm install` picks.
+      const tag = pkg.version.includes("-") && !extra.includes("--tag") ? ["--tag", "next"] : [];
+      const result = spawnSync(npm, ["publish", pkg.dir, ...config, ...tag, ...extra], {
         stdio: "inherit",
       });
       if (result.status !== 0) {
