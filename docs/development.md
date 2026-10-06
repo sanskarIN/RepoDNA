@@ -246,7 +246,7 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
 workspace version and the changelog, builds the command line for Linux, macOS, and Windows
 and the desktop installers, and publishes them with checksums. It also publishes these
-packages to GitHub Packages:
+packages to GitHub Packages, and the npm packages to npmjs.com too:
 
 | Package | Built from |
 |---|---|
@@ -260,6 +260,21 @@ package public once in its settings on GitHub (**Package settings > Change visib
 To look at the npm packages before a release, stage them with
 `node packaging/npm/build.mjs` (add `--binaries DIR` for the command line packages) and
 test the scripts with `node --test "packaging/npm/test/*.test.mjs"`.
+
+Publishing to npmjs.com, where the packages install without a token, needs the repository
+secret `NPM_TOKEN` (**Settings > Secrets and variables > Actions**): a granular access
+token of the npm account that owns the `@sanskarin` scope, with read and write access to
+packages and allowed to publish without two-factor authentication. npm limits how long
+such a token lasts, so renew it before a release when it is about to expire. Trusted
+publishing can replace it: once the packages are on npmjs.com, add this repository and the
+workflow file as a trusted publisher in each package's settings there, and set the
+repository variable `NPM_TRUSTED_PUBLISHING` to `true`. Without either, releases skip
+npmjs.com and say so.
+
+To publish the npm packages of a release that is already out, for example after adding
+the token, run the [npm packages workflow](../.github/workflows/npm.yml) from the Actions
+tab with the release's tag. It packages the archives attached to the release and
+publishes what GitHub Packages and npmjs.com do not have yet.
 
 To try a release before tagging it, run the Release workflow by hand from the Actions tab
 with an empty tag: it builds every file from the selected branch and keeps them as
