@@ -133,7 +133,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <div className="main">
-        <div className="topbar">
+        <header className="topbar">
           <button
             type="button"
             onClick={() => setPalette("all")}
@@ -163,7 +163,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </select>
-        </div>
+        </header>
         <main id="main" className="content" tabIndex={-1}>
           {children}
         </main>
