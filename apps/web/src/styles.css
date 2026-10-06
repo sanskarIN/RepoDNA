@@ -699,7 +699,7 @@ tbody tr:hover {
   border-bottom: 0;
 }
 
-.finding h3 {
+.finding-title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
