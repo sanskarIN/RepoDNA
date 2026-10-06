@@ -138,8 +138,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const options = parseArgs(process.argv.slice(2));
   try {
     const done = publish(options);
+    const verb = options.extra.includes("--dry-run") ? "Would publish" : "Published";
     process.stdout.write(
-      done.length > 0 ? `Published ${done.join(", ")}.\n` : "Nothing new to publish.\n",
+      done.length > 0 ? `${verb} ${done.join(", ")}.\n` : "Nothing new to publish.\n",
     );
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
