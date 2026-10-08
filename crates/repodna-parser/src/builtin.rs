@@ -1431,26 +1431,97 @@ fn other_programming() -> Vec<LanguageSpec> {
     ];
     objc.complexity = c_family_complexity(&[]);
 
-    let mut haskell = line_count(
-        "haskell",
-        "Haskell",
-        LanguageKind::Programming,
-        &["hs", "lhs"],
-        Syntax {
-            line_comments: vec![line("--")],
-            block_comments: vec![block("{-", "-}", true)],
-            strings: vec![StringRule::simple("\"")],
-            ..Syntax::default()
-        },
-    );
-    haskell.imports = vec![import(
-        r"^\s*import\s+(?:qualified\s+)?([A-Z][\w.]*)",
+    // let mut haskell = line_count(
+    //     "haskell",
+    //     "Haskell",
+    //     LanguageKind::Programming,
+    //     &["hs", "lhs"],
+    //     Syntax {
+    //         line_comments: vec![line("--")],
+    //         block_comments: vec![block("{-", "-}", true)],
+    //         strings: vec![StringRule::simple("\"")],
+    //         ..Syntax::default()
+    //     },
+    // );
+    // haskell.imports = vec![import(
+    //     r"^\s*import\s+(?:qualified\s+)?([A-Z][\w.]*)",
+    //     1,
+    //     ImportKind::Import,
+    // )];
+    // let erlang = line_count(
+    //     "erlang",
+    //     "Erlang",
+    fn haskell() -> LanguageSpec {
+let syntax = Syntax {
+line_comments: vec![line("--")],
+block_comments: vec![block("{-", "-}", true)],
+strings: vec![
+StringRule::multiline("""),
+StringRule::simple("'"),
+],
+..Syntax::default()
+};
+
+```
+let mut spec = lexical(
+    "haskell",
+    "Haskell",
+    &["hs", "lhs"],
+    syntax,
+    BodyStyle::Indentation,
+);
+
+spec.imports = vec![import(
+    r"^\s*import\s+(?:qualified\s+)?([A-Z][\w'.]*)",
+    1,
+    ImportKind::Import,
+)];
+
+spec.package = Some(re(
+    r"^\s*module\s+([A-Z][\w.]*)",
+));
+
+spec.functions = vec![
+    symbol(
+        r"^\s*([a-z_][A-Za-z0-9_']*)\s*(?:::\s*)",
         1,
-        ImportKind::Import,
-    )];
-    let erlang = line_count(
-        "erlang",
-        "Erlang",
+        SymbolKind::Function,
+    ),
+    symbol(
+        r"^\s*([a-z_][A-Za-z0-9_']*)\s+(?:[A-Za-z_][A-Za-z0-9_']*|\([^=\n]+\))*\s*(?:\|[^=\n]+)?\s*=",
+        1,
+        SymbolKind::Function,
+    ),
+];
+
+spec.types = vec![
+    symbol(
+        r"^\s*(?:data|newtype)\s+([A-Z][A-Za-z0-9_']*)",
+        1,
+        SymbolKind::Struct,
+    ),
+    symbol(
+        r"^\s*type\s+([A-Z][A-Za-z0-9_']*)",
+        1,
+        SymbolKind::Type,
+    ),
+    symbol(
+        r"^\s*class\s+(?:[A-Za-z_][A-Za-z0-9_']*\s*=>\s*)?([A-Z][A-Za-z0-9_']*)",
+        1,
+        SymbolKind::Trait,
+    ),
+];
+
+spec.complexity = ComplexityRules::new(
+    &["if", "case", "of", "where", "let"],
+    &["&&", "||"],
+    false,
+);
+
+spec
+```
+
+}
         LanguageKind::Programming,
         &["erl", "hrl"],
         Syntax {
@@ -1662,6 +1733,7 @@ mod tests {
             "javascript",
             "typescript",
             "python",
+            "haskell"
             "go",
             "php",
             "swift",
