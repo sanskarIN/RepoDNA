@@ -587,7 +587,7 @@ you can support its development:
 
 - [Buy Me a Coffee](https://www.buymeacoffee.com/sanskarIN)
 - [Razorpay](https://www.razorpay.me/@sanskarIN)
-
+- [About me](https://sanskarin.github.io/about/)
 <div align="center">
 <sub>Made by the Sanskar</sub>
 </div>
