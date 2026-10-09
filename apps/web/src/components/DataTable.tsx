@@ -50,67 +50,74 @@ export function DataTable<T>({
   const shown = expanded ? sorted : sorted.slice(0, limit);
 
   return (
-    <div className="table-wrap">
-      <table>
-        {caption ? <caption className="visually-hidden">{caption}</caption> : null}
-        <thead>
-          <tr>
-            {columns.map((column) => {
-              const active = sort?.key === column.key;
-              const ariaSort = active ? (sort?.descending ? "descending" : "ascending") : undefined;
-              const arrow = active ? (sort?.descending ? " ↓" : " ↑") : null;
-              return (
-                <th
-                  key={column.key}
-                  className={column.numeric ? "num" : undefined}
-                  aria-sort={ariaSort}
-                  scope="col"
-                >
-                  {column.sort ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSort({
-                          key: column.key,
-                          descending: active ? !sort?.descending : Boolean(column.numeric),
-                        })
-                      }
-                    >
-                      {column.header}
-                      {arrow ?? (
-                        <span className="sort-hint" aria-hidden="true">
-                          {" ↕"}
-                        </span>
-                      )}
-                    </button>
-                  ) : (
-                    column.header
-                  )}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((row, index) => (
-            <tr key={rowKey(row, index)}>
-              {columns.map((column) => (
-                <td key={column.key} className={column.numeric ? "num" : undefined}>
-                  {column.cell(row)}
-                </td>
-              ))}
+    <>
+      <div className="table-wrap">
+        <table>
+          {caption ? <caption className="visually-hidden">{caption}</caption> : null}
+          <thead>
+            <tr>
+              {columns.map((column) => {
+                const active = sort?.key === column.key;
+                const ariaSort = active
+                  ? sort?.descending
+                    ? "descending"
+                    : "ascending"
+                  : undefined;
+                const arrow = active ? (sort?.descending ? " ↓" : " ↑") : null;
+                return (
+                  <th
+                    key={column.key}
+                    className={column.numeric ? "num" : undefined}
+                    aria-sort={ariaSort}
+                    scope="col"
+                  >
+                    {column.sort ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSort({
+                            key: column.key,
+                            descending: active ? !sort?.descending : Boolean(column.numeric),
+                          })
+                        }
+                      >
+                        {column.header}
+                        {arrow ?? (
+                          <span className="sort-hint" aria-hidden="true">
+                            {" ↕"}
+                          </span>
+                        )}
+                      </button>
+                    ) : (
+                      column.header
+                    )}
+                  </th>
+                );
+              })}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {shown.map((row, index) => (
+              <tr key={rowKey(row, index)}>
+                {columns.map((column) => (
+                  <td key={column.key} className={column.numeric ? "num" : undefined}>
+                    {column.cell(row)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* Outside the part that scrolls sideways, so the button stays in view. */}
       {sorted.length > limit ? (
-        <p>
+        <p className="table-actions">
           <button type="button" className="ghost" onClick={() => setExpanded((value) => !value)}>
             {expanded ? "Show fewer" : `Show all ${sorted.length} rows`}
           </button>
         </p>
       ) : null}
       {rows.length === 0 ? <p className="muted">Nothing to show.</p> : null}
-    </div>
+    </>
   );
 }
