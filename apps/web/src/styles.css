@@ -740,6 +740,14 @@ pre.note {
       14px 100% no-repeat scroll;
 }
 
+/* Under a table, outside the part that scrolls sideways. */
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 8px 0 0;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
