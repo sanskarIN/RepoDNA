@@ -7,6 +7,7 @@ downloads with their sizes, and the commands that install it. The same notes are
 
 | Version | Released | Highlights |
 |---|---|---|
+| [1.2.2](v1.2.2/README.md) | 2026-10-07 | The shade on tables that scroll sideways on phones along their whole edge, and older releases on npmjs.com |
 | [1.2.1](v1.2.1/README.md) | 2026-10-06 | npm packages on npmjs.com, installed without a token, and small fixes to accessibility, tables on phones, `repodna serve`, and clone errors |
 | [1.2.0](v1.2.0/README.md) | 2026-10-05 | The web interface as a container image, npm packages on GitHub Packages, and a web interface and reports that fit phone screens |
 | [1.1.1](v1.1.1/README.md) | 2026-10-05 | Small fixes across the command line, reports, and the web interface |
