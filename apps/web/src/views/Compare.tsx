@@ -175,6 +175,10 @@ function Picker({ onPick }: { onPick: (side: Side) => void }) {
     }
   };
 
+  const otherDemos = demos.filter(
+    (entry) => !(origin?.kind === "demo" && origin.title === entry.title),
+  );
+
   return (
     <Panel
       title="Compare with"
@@ -242,7 +246,7 @@ function Picker({ onPick }: { onPick: (side: Side) => void }) {
           </div>
         ) : null}
         <div>
-          <h3>A file or demo</h3>
+          <h3>{otherDemos.length > 0 ? "A file or demo" : "A file"}</h3>
           <p>
             <button type="button" onClick={() => fileInput.current?.click()}>
               Open an analysis file…
@@ -262,21 +266,19 @@ function Picker({ onPick }: { onPick: (side: Side) => void }) {
             />
           </p>
           <ul className="list">
-            {demos
-              .filter((entry) => !(origin?.kind === "demo" && origin.title === entry.title))
-              .map((entry) => (
-                <li key={entry.file}>
-                  <span>{entry.title}</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void pick(async () => (await loadDemo(entry)).artifact, entry.title)
-                    }
-                  >
-                    Compare
-                  </button>
-                </li>
-              ))}
+            {otherDemos.map((entry) => (
+              <li key={entry.file}>
+                <span>{entry.title}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void pick(async () => (await loadDemo(entry)).artifact, entry.title)
+                  }
+                >
+                  Compare
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       </div>
