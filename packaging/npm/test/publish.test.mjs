@@ -82,14 +82,14 @@ beforeEach(() => {
 
 after(() => rmSync(dir, { recursive: true, force: true }));
 
-test("publishes the launcher after the packages it names", () => {
+test("publishes the command line first, the launcher after the packages it names", () => {
   assert.deepEqual(
     publishOrder(staged).map((pkg) => pkg.name),
     [
       "@sanskarin/repodna-linux-x64",
-      "@sanskarin/repodna-schema",
       "@sanskarin/repodna-win32-x64",
       "@sanskarin/repodna",
+      "@sanskarin/repodna-schema",
     ],
   );
 });
@@ -136,7 +136,7 @@ test("skips versions the registry has and publishes the rest", () => {
     assert.equal(call.args[call.args.indexOf("--registry") + 1], "https://registry.npmjs.org/");
     assert.match(call.config, /^\/\/registry\.npmjs\.org\/:_authToken=\$\{NODE_AUTH_TOKEN\}$/m);
   }
-  assert.ok(published.at(-1).args[1].endsWith("repodna"), "the launcher goes last");
+  assert.ok(published.at(-1).args[1].endsWith("repodna"), "the launcher follows its platforms");
 });
 
 test("leaves the token out when there is none", () => {
@@ -162,8 +162,8 @@ test("stops when the registry cannot say whether a version is there", () => {
   const published = readCalls().filter((call) => call.args[0] === "publish");
   assert.deepEqual(
     published.map((call) => call.args[1].split("/").pop()),
-    ["repodna-linux-x64"],
-    "nothing after the failed check is published",
+    ["repodna-linux-x64", "repodna-win32-x64", "repodna"],
+    "the command line is published before the libraries, and nothing after the failed check",
   );
 });
 
