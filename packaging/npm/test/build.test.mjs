@@ -22,7 +22,11 @@ before(() => {
     mkdirSync(join(binaries, platform.target), { recursive: true });
     writeFileSync(join(binaries, platform.target, platform.binary), "binary");
   }
-  build({ version: "9.8.7", out, binaries });
+  const web = join(dir, "web");
+  mkdirSync(join(web, "assets"), { recursive: true });
+  writeFileSync(join(web, "index.html"), "<!doctype html><title>RepoDNA</title>");
+  writeFileSync(join(web, "assets", "index-abc.js"), "export {};");
+  build({ version: "9.8.7", out, binaries, web });
 });
 
 after(() => rmSync(dir, { recursive: true, force: true }));
@@ -31,6 +35,7 @@ test("stages every package with the version and the repository", () => {
   const names = [
     "repodna-schema",
     "repodna-visualization",
+    "repodna-web",
     ...PLATFORMS.map((platform) => `repodna-${platform.os}-${platform.cpu}`),
     "repodna",
   ];
@@ -72,4 +77,31 @@ test("builds libraries that Node can load", async () => {
   assert.equal(pkg.exports["./artifact.schema.json"], "./schemas/repodna-artifact.schema.json");
   const declarations = readFileSync(join(out, "repodna-schema", "dist", "index.d.ts"), "utf8");
   assert.match(declarations, /from "\.\/generated\.js"/);
+});
+
+test("stages the built web interface with a server to run it", async () => {
+  const web = manifest("repodna-web");
+  assert.deepEqual(web.bin, { "repodna-web": "bin/repodna-web.js" });
+  assert.deepEqual(web.files, ["bin", "lib", "dist", "README.md", "LICENSE", "NOTICE"]);
+  const mode = statSync(join(out, "repodna-web", "bin", "repodna-web.js")).mode;
+  assert.equal(mode & 0o111, 0o111, "the server is executable");
+  const { root } = await import(pathToFileURL(join(out, "repodna-web", "lib", "index.js")).href);
+  assert.equal(
+    readFileSync(join(root, "index.html"), "utf8"),
+    "<!doctype html><title>RepoDNA</title>",
+  );
+  assert.ok(statSync(join(root, "assets", "index-abc.js")).isFile());
+});
+
+test("stages no web interface without a built one", () => {
+  assert.throws(
+    () =>
+      build({
+        version: "9.8.7",
+        out: join(dir, "empty-out"),
+        binaries: null,
+        web: join(dir, "nothing"),
+      }),
+    /index\.html is missing/,
+  );
 });
