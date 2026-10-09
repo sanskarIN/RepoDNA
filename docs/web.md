@@ -35,7 +35,13 @@ Open the printed link. The start page lets you:
 - **Open a stored analysis** from this machine.
 - **Open an analysis file** (`repodna.json` or `.repodna`), by choosing it or dropping it
   on the page. The file is read locally and never uploaded.
+- **Open a recent analysis**: the last five files you opened, kept in this browser so that
+  they open again in one click. Remove them one by one, or forget them all or turn this off
+  in Settings.
 - **Try the demo**: RepoDNA's analysis of its own repository, bundled with the interface.
+
+Reloading the page keeps the analysis and the view you had open, in the web version too.
+A new tab starts on the start page.
 
 `repodna serve --no-scan` disables starting analyses from the browser, and
 `repodna serve --port 0` picks a free port.
@@ -57,7 +63,7 @@ Open the printed link. The start page lets you:
 | Findings | Every finding with its evidence, method, and limitations, filtered by severity and category and searchable by title, rule, path, and evidence |
 | Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark; the desktop app also saves the full report folder |
 | Compare | This analysis next to another one |
-| Settings | Theme, privacy notes, keyboard shortcuts, and version information |
+| Settings | Theme, recent analyses, privacy notes, keyboard shortcuts, and version information |
 | About & support | The version, ways to support RepoDNA, the project's links, and the legal documents |
 | Privacy Policy, Terms of Use, Licenses | The policies, RepoDNA's license, and the licenses of the third-party software it includes, linked at the bottom of the sidebar |
 
