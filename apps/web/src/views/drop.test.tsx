@@ -1,5 +1,6 @@
 // Analysis files dropped on the page: anywhere to open them, on the start page's drop zone,
-// and on the Compare view's drop zone to compare with them.
+// and on the Compare view's drop zone to compare with them. And the file an installed web
+// version is started with.
 
 import { act } from "react";
 import { describe, expect, it } from "vitest";
@@ -125,5 +126,25 @@ describe("dropping files", () => {
     await start("/compare", { initial: demo() });
     expect(await screen.findByRole("heading", { name: "A file" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "A file or demo" })).toBeNull();
+  });
+
+  it("opens the file an installed web version is started with", async () => {
+    type Consumer = (params: { files: unknown[] }) => void;
+    let consumer: Consumer | undefined;
+    const launching = window as { launchQueue?: unknown };
+    launching.launchQueue = { setConsumer: (given: Consumer) => (consumer = given) };
+    try {
+      await start("/");
+      await waitFor(() => expect(consumer).toBeDefined());
+      await act(async () => {
+        consumer?.({
+          files: [{ kind: "file", getFile: async () => analysisFile("launched.repodna") }],
+        });
+      });
+      await waitFor(() => expect(window.location.hash).toBe("#/overview"));
+      expect(screen.getAllByText(/^Snapshot from launched\.repodna/).length).toBeGreaterThan(0);
+    } finally {
+      delete launching.launchQueue;
+    }
   });
 });
