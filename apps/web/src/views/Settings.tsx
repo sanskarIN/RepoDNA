@@ -1,6 +1,7 @@
 import { SCHEMA_MAJOR, SCHEMA_MINOR } from "@repodna/schema";
 import { PageHeader, Panel } from "../components/common";
 import { ShortcutTable } from "../components/ShortcutHelp";
+import { RECENT_LIMIT } from "../lib/recent";
 import { href } from "../lib/router";
 import type { ThemePreference } from "../lib/theme";
 import { useApp } from "../state";
@@ -12,7 +13,16 @@ const THEMES: [ThemePreference, string][] = [
 ];
 
 export function Settings() {
-  const { themePreference, setThemePreference, backend, session } = useApp();
+  const {
+    themePreference,
+    setThemePreference,
+    backend,
+    session,
+    remember,
+    setRemember,
+    recent,
+    forgetAll,
+  } = useApp();
   return (
     <>
       <PageHeader title="Settings" />
@@ -39,8 +49,9 @@ export function Settings() {
           <ul className="evidence">
             <li>RepoDNA analyzes repositories on this machine and sends no telemetry.</li>
             <li>
-              This interface stores only your theme choice and, when it is served by{" "}
-              <code>repodna serve</code>, the sign-in token for that server.
+              This interface stores your theme choice, the analysis files you opened recently
+              (unless you turn that off below), and, when it is served by <code>repodna serve</code>
+              , the sign-in token for that server. All of it stays in this browser.
             </li>
             <li>Files you open here are read on this machine and never uploaded.</li>
             <li>
@@ -48,6 +59,26 @@ export function Settings() {
               explicit consent.
             </li>
           </ul>
+          <fieldset className="choices">
+            <legend>Recent analyses</legend>
+            <label>
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+              />{" "}
+              Keep the last {RECENT_LIMIT} analysis files I open in this browser, so that they open
+              again from the start page and after a reload
+            </label>
+          </fieldset>
+          <p>
+            <button type="button" disabled={recent.length === 0} onClick={forgetAll}>
+              Forget recent analyses
+            </button>{" "}
+            <span className="muted" role="status">
+              {recent.length === 0 ? "None kept." : `${recent.length} kept in this browser.`}
+            </span>
+          </p>
           <p className="muted">
             Read the <a href={href("/privacy")}>Privacy Policy</a> and the{" "}
             <a href={href("/terms")}>Terms of Use</a>, or learn more{" "}
