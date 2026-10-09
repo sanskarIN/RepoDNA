@@ -256,6 +256,17 @@ code,
   pointer-events: none;
 }
 
+/* How many findings the analysis has, beside its view in the navigation. */
+.nav-count {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent-wash);
+  color: var(--ink-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* The previous and next view, after the content of a view. */
 .pager {
   display: flex;

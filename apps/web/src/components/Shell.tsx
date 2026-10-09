@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { isSuppressed } from "@repodna/schema";
+import { thousands } from "@repodna/visualization";
 import { useApp, originLabel } from "../state";
 import { WEBSITE } from "../lib/links";
 import { NAV, neighbors } from "../lib/nav";
@@ -108,6 +110,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [dataset]);
 
   const groups = ["Explore", "Health", "Share", "App"] as const;
+  const findings = dataset ? dataset.dna.findings.filter((f) => !isSuppressed(f)).length : 0;
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -152,6 +155,12 @@ export function Shell({ children }: { children: ReactNode }) {
                       aria-current={route.path === item.path ? "page" : undefined}
                     >
                       {item.label}
+                      {item.path === "/findings" && dataset ? (
+                        <span className="nav-count">
+                          <span className="visually-hidden">: </span>
+                          {thousands(findings)}
+                        </span>
+                      ) : null}
                     </a>
                   );
                 })}
