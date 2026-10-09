@@ -347,16 +347,17 @@ code,
   color: var(--ink-secondary);
 }
 
-/* A dropped file being opened, or why it could not be, under the top bar. */
+/* A dropped file being opened, or why it could not be, under the top bar and centered on
+   the content beside the sidebar. */
 .notices {
   position: fixed;
   top: 64px;
-  left: 50%;
+  left: calc(50% + var(--sidebar) / 2);
   z-index: 30;
   display: grid;
   gap: 8px;
   width: max-content;
-  max-width: calc(100vw - 32px);
+  max-width: min(720px, calc(100vw - var(--sidebar) - 32px));
   transform: translateX(-50%);
 }
 
@@ -1378,6 +1379,11 @@ h4 {
 @media (max-width: 900px) {
   .app {
     grid-template-columns: 1fr;
+  }
+
+  .notices {
+    left: 50%;
+    max-width: calc(100vw - 32px);
   }
 
   .sidebar {
