@@ -101,8 +101,9 @@ function Routes() {
   const View = VIEWS[route.path];
 
   useEffect(() => {
-    const parts = [nav?.label, dataset?.dna.identity.name, "RepoDNA"].filter(Boolean);
-    document.title = route.path === "/" ? "RepoDNA" : parts.join(" · ");
+    // Each name once, also for RepoDNA's own analysis: "Overview · RepoDNA".
+    const parts = new Set([nav?.label, dataset?.dna.identity.name, "RepoDNA"].filter(Boolean));
+    document.title = route.path === "/" ? "RepoDNA" : [...parts].join(" · ");
   }, [nav, dataset, route.path]);
 
   useEffect(() => {
