@@ -4,7 +4,7 @@ The desktop app is the RepoDNA web interface in a native window, built with
 [Tauri](https://v2.tauri.app/). It talks to the same Rust core as the command line through
 native calls instead of HTTP, so there is no server, no port, and no sign-in link.
 
-![The desktop app's start page: analyze a folder, an archive, or a Git URL, and open the analyses stored on this machine](images/v1.2.2/desktop-app/start-light.png)
+![The desktop app's start page: analyze a folder, an archive, or a Git URL, and open the analyses stored on this machine](images/v1.3.0/desktop-app/start-light.png)
 
 ## Install
 
