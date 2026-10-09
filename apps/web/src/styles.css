@@ -1420,14 +1420,59 @@ h4 {
   }
 }
 
+/* Printed or saved as PDF: the content alone, without the controls for the screen. */
 @media print {
   .sidebar,
   .topbar,
-  .view-toggle {
+  .skip-link,
+  .view-toggle,
+  .panel-header .actions,
+  .on-this-page,
+  .table-actions,
+  .sort-hint,
+  .pager,
+  .back-to-top,
+  .drop-overlay,
+  .notices {
     display: none !important;
   }
 
   .app {
     display: block;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .content {
+    max-width: none;
+    padding: 0;
+  }
+
+  .panel {
+    border-color: var(--line-strong);
+    background: none;
+    box-shadow: none;
+  }
+
+  /* Every column of a wide table on the paper, without the shades that say it scrolls. */
+  .table-wrap {
+    overflow: visible;
+    background: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  .panel-header {
+    break-after: avoid;
+  }
+
+  tr,
+  .tile,
+  figure,
+  svg {
+    break-inside: avoid;
   }
 }
