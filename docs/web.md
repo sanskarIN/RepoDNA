@@ -60,7 +60,7 @@ A new tab starts on the start page.
 | Code quality | Complexity, long functions, deep nesting, duplication, similar files, markers, and dead-code candidates |
 | Tests, build & docs | Test files and frameworks, build systems, detected commands, CI, environment requirements, and documentation checks |
 | Security signals | Possible secrets, risky patterns, and permissions |
-| Findings | Every finding with its evidence, method, and limitations, filtered by severity and category and searchable by title, rule, path, and evidence |
+| Findings | Every finding with its evidence, method, and limitations, 25 at a time, filtered by severity and category and searchable by title, rule, path, and evidence |
 | Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark; the desktop app also saves the full report folder |
 | Compare | This analysis next to another one |
 | Settings | Theme, recent analyses, privacy notes, keyboard shortcuts, and version information |
@@ -70,6 +70,17 @@ A new tab starts on the start page.
 Every chart has a table view, and severity is always written out, never shown by color
 alone.
 
+### Finding your way
+
+- The numbers at the top of the overview open the view about them: files, code lines,
+  commits, the architecture style, and findings.
+- A view with four panels or more lists them under its title; choose one to go to it.
+- Under each view, links lead to the previous and the next view, so an analysis can be read
+  from the overview to the comparison. The `[` and `]` keys do the same.
+- On a long page, **Back to top** appears at the bottom right once you have scrolled down.
+- The sidebar shows how many findings the analysis has. Findings can also be opened
+  filtered, for example `#/findings?severity=warning` or `#/findings?category=security`.
+
 ## Search and keyboard shortcuts
 
 | Keys | Action |
@@ -78,6 +89,7 @@ alone.
 | Ctrl/Cmd + P | Quick open a file or module |
 | Ctrl/Cmd + F | Search the current view (when it has a search box) |
 | ↑ / ↓ and Enter | Move through results and choose one |
+| [ and ] | Go to the previous or next view of an analysis |
 | Esc | Close a dialog |
 | ? | Show the shortcuts |
 
