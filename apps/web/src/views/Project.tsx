@@ -26,13 +26,22 @@ const DOC_STATUS: Record<DocCheckStatus, { text: string; color: string }> = {
   "not-detected": { text: "Not detected", color: "var(--info)" },
 };
 
-function Commands({ commands, empty }: { commands: readonly CommandCandidate[]; empty: string }) {
+function Commands({
+  commands,
+  empty,
+  caption,
+}: {
+  commands: readonly CommandCandidate[];
+  empty: string;
+  caption?: string;
+}) {
   if (commands.length === 0) {
     return <p className="muted">{empty}</p>;
   }
   return (
     <DataTable
       rows={commands}
+      caption={caption}
       rowKey={(c, index) => `${c.purpose}:${c.command}:${c.workingDirectory}:${index}`}
       limit={12}
       columns={[
@@ -208,11 +217,15 @@ export function Project() {
           ) : null}
         </Panel>
         <Panel title="How to run the tests">
-          <Commands commands={tests.commands} empty="No test command was found." />
+          <Commands
+            commands={tests.commands}
+            empty="No test command was found."
+            caption="Test commands"
+          />
           {tests.ciCommands.length > 0 ? (
             <>
               <h3>Run in CI</h3>
-              <Commands commands={tests.ciCommands} empty="" />
+              <Commands commands={tests.ciCommands} empty="" caption="Test commands run in CI" />
             </>
           ) : null}
           <Executions executions={tests.executions} />
