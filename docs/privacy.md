@@ -56,6 +56,22 @@ The analyzed repositories are never written to. Remove stored data with `repodna
 `repodna cache clear`, or `repodna cache reset`, or by deleting the directory. Use
 `--no-store` to analyze without storing anything.
 
+### In the browser
+
+The web interface, in the web version, `repodna serve`, and the desktop app, keeps a little
+in the browser's own storage, for that site only:
+
+| What | Where | How to remove it |
+|---|---|---|
+| Your theme choice | Local storage | Choose **System theme** again |
+| The last five analysis files you opened, with their contents | IndexedDB | **Remove** on the start page, or **Forget recent analyses** in Settings |
+| Which analysis a tab has open, so that a reload keeps it | The tab's session storage | Closing the tab, or **Close this analysis** in search |
+| The sign-in token of `repodna serve` | A session cookie or the tab's session storage | Stopping the server |
+
+Turn off **Keep the last five analysis files** in Settings and nothing is kept: files then
+have to be opened again after a reload. Clearing the site's data in your browser removes
+all of it.
+
 ## What an artifact contains
 
 An analysis artifact describes the repository: file paths, sizes, languages, symbols,
