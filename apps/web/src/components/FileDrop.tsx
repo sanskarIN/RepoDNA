@@ -99,15 +99,25 @@ export function FileDrop() {
       }
       openOutside.current(file);
     };
+    // The mouse does not move while something is dragged, so a move means no drag is over the
+    // page, even when the browser did not report the drag leaving it.
+    const moved = () => {
+      if (depth > 0) {
+        depth = 0;
+        setOver(false);
+      }
+    };
     window.addEventListener("dragenter", enter);
     window.addEventListener("dragleave", leave);
     window.addEventListener("dragover", dragOver);
     window.addEventListener("drop", drop);
+    window.addEventListener("mousemove", moved, { passive: true });
     return () => {
       window.removeEventListener("dragenter", enter);
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("dragover", dragOver);
       window.removeEventListener("drop", drop);
+      window.removeEventListener("mousemove", moved);
     };
   }, []);
 
