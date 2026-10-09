@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: October 2, 2026
+Last updated: October 9, 2026
 
 This policy explains how RepoDNA handles information. It covers the `repodna` command line,
 the RepoDNA desktop app, the web interface of `repodna serve`, and the web version at
@@ -40,6 +40,11 @@ described in "AI explanations" below.
   served by `repodna serve`, your browser also keeps the sign-in token for that local
   server, in a session cookie or the tab's session storage. The web version sets no
   cookies.
+- The web interface also keeps the last five analysis files you opened, with their
+  contents, in your browser's storage (IndexedDB), so that they can be opened again from
+  the start page and after a reload, and remembers in the tab's session storage which
+  analysis that tab has open. You can remove them one by one on the start page, forget
+  them all or turn this off in Settings, or clear the site's data in your browser.
 - Files you open in the web version are read in your browser and are not uploaded.
 
 ## When RepoDNA uses the network
