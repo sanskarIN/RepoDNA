@@ -59,6 +59,15 @@ describe("dropping files", () => {
     expect(screen.queryByText("Drop the file to open it")).toBeNull();
   });
 
+  it("stops showing where to drop once the mouse moves again", async () => {
+    await start("/settings");
+    const main = await screen.findByRole("main");
+    fireEvent.dragEnter(main, carrying(analysisFile()));
+    expect(screen.getByText("Drop the file to open it")).toBeTruthy();
+    fireEvent.mouseMove(main);
+    expect(screen.queryByText("Drop the file to open it")).toBeNull();
+  });
+
   it("does not offer to open text dragged on the page", async () => {
     await start("/settings");
     const main = await screen.findByRole("main");
