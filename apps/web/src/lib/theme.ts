@@ -38,6 +38,14 @@ export function useTheme(): [ThemePreference, (preference: ThemePreference) => v
 
   useEffect(() => {
     document.documentElement.dataset.theme = resolved;
+    // The browser's own bars around the page, and the title bar of the installed app, take
+    // the page's color, also when the theme is chosen here rather than by the system.
+    const page = getComputedStyle(document.documentElement).getPropertyValue("--page").trim();
+    if (page) {
+      for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+        meta.content = page;
+      }
+    }
   }, [resolved]);
 
   const choose = useCallback((next: ThemePreference) => {
