@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   describeEvidence,
   severityLabel,
@@ -6,14 +6,96 @@ import {
   type Severity,
   type StoryStatement,
 } from "@repodna/schema";
+import { NAV } from "../lib/nav";
+import { useRoute } from "../lib/router";
 import { useApp } from "../state";
 
-export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
+export function PageHeader({
+  title,
+  children,
+  meta,
+}: {
+  title: string;
+  children?: ReactNode;
+  /** A line about where the data comes from, under the description. */
+  meta?: ReactNode;
+}) {
   return (
     <header className="page-header">
       <h1>{title}</h1>
       {children ? <p>{children}</p> : null}
+      {meta ? <p className="muted meta">{meta}</p> : null}
+      <OnThisPage />
     </header>
+  );
+}
+
+/** Views of an analysis with at least this many panels list them under the title. */
+const ON_THIS_PAGE_MIN = 4;
+
+/** The title of each panel of the view, as it is shown now. */
+function panelHeadings(main: HTMLElement): HTMLElement[] {
+  return [...main.querySelectorAll<HTMLElement>("section.panel > .panel-header h2")];
+}
+
+/** Moves to a panel and gives its title the focus, so that reading continues from there. */
+function jumpTo(heading: HTMLElement) {
+  heading.closest("section")?.scrollIntoView({ block: "start" });
+  heading.tabIndex = -1;
+  heading.focus({ preventScroll: true });
+}
+
+/**
+ * Links to the panels of a long view. The hash holds the route, so they move the page
+ * instead of changing the address.
+ */
+export function OnThisPage() {
+  const route = useRoute();
+  const isAnalysisView = NAV.some((item) => item.path === route.path && item.needsData);
+  const [headings, setHeadings] = useState<HTMLElement[]>([]);
+  useEffect(() => {
+    const main = document.getElementById("main");
+    if (!main) {
+      return;
+    }
+    let frame = 0;
+    const collect = () => {
+      frame = 0;
+      const found = panelHeadings(main);
+      setHeadings((previous) =>
+        previous.length === found.length && previous.every((heading, i) => heading === found[i])
+          ? previous
+          : found,
+      );
+    };
+    collect();
+    // Panels can appear after the view, once data has loaded or a filter changed.
+    const observer = new MutationObserver(() => {
+      if (frame === 0) {
+        frame = window.requestAnimationFrame(collect);
+      }
+    });
+    observer.observe(main, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+  if (!isAnalysisView || headings.length < ON_THIS_PAGE_MIN) {
+    return null;
+  }
+  return (
+    <nav className="on-this-page" aria-label="On this page">
+      <ul>
+        {headings.map((heading, index) => (
+          <li key={index}>
+            <button type="button" className="chip-button" onClick={() => jumpTo(heading)}>
+              {heading.textContent}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 

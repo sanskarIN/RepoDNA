@@ -39,14 +39,18 @@ export function Overview() {
   const primary = dna.languages.primary[0] ?? dna.languages.languages[0]?.id;
   return (
     <>
-      <PageHeader title={dna.identity.name}>
+      <PageHeader
+        title={dna.identity.name}
+        meta={
+          <>
+            {originLabel({ dna, origin, warnings })}
+            {revision ? ` · revision ${revision}` : ""} · {dna.analysisMetadata.profile} profile ·
+            RepoDNA {dna.tool.version}
+          </>
+        }
+      >
         {dna.identity.description ?? "No description was found in the README or manifests."}
       </PageHeader>
-      <p className="muted" style={{ marginTop: -8 }}>
-        {originLabel({ dna, origin, warnings })}
-        {revision ? ` · revision ${revision}` : ""} · {dna.analysisMetadata.profile} profile ·
-        RepoDNA {dna.tool.version}
-      </p>
       {origin.kind !== "stored" ? (
         <Note>
           This is a snapshot of the repository as it was analyzed on{" "}
