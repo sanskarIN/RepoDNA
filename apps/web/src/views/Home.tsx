@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import { bytes, date, thousands } from "@repodna/visualization";
 import { CommandBox, ErrorBox, ExternalLink, Note } from "../components/common";
 import type { JobState, RepositorySummary } from "../lib/backend";
-import { demoIndex, loadDemo, readFile, type DemoEntry } from "../lib/demo";
+import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
+import { useOpenFile } from "../lib/openFile";
 import { REPOSITORY } from "../lib/links";
 import type { RecentEntry } from "../lib/recent";
 import { href, navigate } from "../lib/router";
@@ -284,6 +285,7 @@ export function Home() {
   // What is being opened, while a large file is read and checked.
   const [busy, setBusy] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const openAnalysisFile = useOpenFile();
 
   useEffect(() => {
     void demoIndex().then(setDemos);
@@ -307,21 +309,7 @@ export function Home() {
     if (!file) {
       return;
     }
-    await opening(
-      file.name,
-      async () => {
-        const loaded = await readFile(file);
-        open(
-          {
-            dna: loaded.artifact,
-            origin: { kind: "file", name: file.name },
-            warnings: loaded.warnings,
-          },
-          { text: loaded.text, size: file.size },
-        );
-      },
-      `Could not open ${file.name}`,
-    );
+    await opening(file.name, () => openAnalysisFile(file), `Could not open ${file.name}`);
   };
 
   const openDemo = (entry: DemoEntry) =>
