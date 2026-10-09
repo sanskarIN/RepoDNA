@@ -1,9 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Heatmap } from "../charts/Heatmap";
-import { DataTable } from "./DataTable";
+import { downloadText } from "../lib/download";
+import { DataTable, csvField, csvFileName, toCsv, type Column } from "./DataTable";
 import { useTooltip } from "./Tooltip";
-import { Tile } from "./common";
+import { Omittable, Panel, Tile } from "./common";
+
+vi.mock("../lib/download", () => ({ downloadText: vi.fn() }));
 
 interface Row {
   name: string;
@@ -81,6 +84,95 @@ describe("DataTable", () => {
     expect(names()).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Show all 3 rows" }));
     expect(names()).toHaveLength(3);
+  });
+});
+
+describe("CSV", () => {
+  it("quotes fields that need it", () => {
+    expect(csvField("plain")).toBe("plain");
+    expect(csvField(1204)).toBe("1204");
+    expect(csvField(Number.NaN)).toBe("");
+    expect(csvField("a, b")).toBe('"a, b"');
+    expect(csvField('say "hi"')).toBe('"say ""hi"""');
+    expect(csvField("two\nlines")).toBe('"two\nlines"');
+    expect(csvField(" padded")).toBe('" padded"');
+  });
+
+  it("keeps text a spreadsheet would run as a formula from running", () => {
+    expect(csvField("=HYPERLINK(1)")).toBe("'=HYPERLINK(1)");
+    expect(csvField("+1")).toBe("'+1");
+    expect(csvField("-2")).toBe("'-2");
+    expect(csvField("@SUM(A1)")).toBe("'@SUM(A1)");
+    expect(csvField("=1,2")).toBe('"\'=1,2"');
+    expect(csvField(-2)).toBe("-2");
+  });
+
+  it("writes every row with the text of its cells, numbers as numbers, and – as nothing", () => {
+    const columns: Column<Row>[] = [
+      { key: "name", header: "Name", cell: (row) => <span className="path">{row.name}</span> },
+      { key: "note", header: "Note", cell: (row) => <Omittable text={`${row.name}!`} /> },
+      {
+        key: "size",
+        header: "Size",
+        cell: (row) => `${row.size} KB`,
+        sort: (row) => row.size,
+        numeric: true,
+      },
+      { key: "big", header: "Big", cell: () => "–", csv: (row) => (row.size > 5 ? "yes" : "no") },
+      {
+        key: "count",
+        header: "Count",
+        cell: (row) => (row.size > 5 ? `${row.size},000` : "–"),
+        numeric: true,
+      },
+    ];
+    expect(toCsv(rows, columns)).toBe(
+      "Name,Note,Size,Big,Count\r\n" +
+        "beta,beta!,2,no,\r\n" +
+        "alpha,alpha!,30,yes,30000\r\n" +
+        "gamma,gamma!,7,yes,7000\r\n",
+    );
+  });
+
+  it("names the file after the panel", () => {
+    expect(csvFileName("Largest files")).toBe("largest-files.csv");
+    expect(csvFileName("Tests, build & docs")).toBe("tests-build-docs.csv");
+    expect(csvFileName("")).toBe("table.csv");
+    expect(csvFileName(undefined)).toBe("table.csv");
+  });
+
+  it("downloads all rows of a table in the order shown", () => {
+    render(
+      <Panel title="Sizes">
+        <DataTable
+          rows={rows}
+          rowKey={(row) => row.name}
+          limit={2}
+          columns={[
+            { key: "name", header: "Name", cell: (row) => row.name, sort: (row) => row.name },
+          ]}
+          initialSort={{ key: "name", descending: false }}
+        />
+      </Panel>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV of Sizes" }));
+    expect(downloadText).toHaveBeenCalledWith(
+      "sizes.csv",
+      "Name\r\nalpha\r\nbeta\r\ngamma\r\n",
+      "text/csv;charset=utf-8",
+    );
+  });
+
+  it("offers no download for an empty table", () => {
+    render(
+      <DataTable
+        rows={[] as Row[]}
+        rowKey={(row) => row.name}
+        columns={[{ key: "name", header: "Name", cell: (row) => row.name }]}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Download CSV/ })).toBeNull();
+    expect(screen.getByText("Nothing to show.")).toBeTruthy();
   });
 });
 
