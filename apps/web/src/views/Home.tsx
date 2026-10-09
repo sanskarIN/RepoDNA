@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
-import { thousands } from "@repodna/visualization";
+import { bytes, date, thousands } from "@repodna/visualization";
 import { CommandBox, ErrorBox, ExternalLink, Note } from "../components/common";
 import type { JobState, RepositorySummary } from "../lib/backend";
-import { demoIndex, loadDemo, loadFile, type DemoEntry } from "../lib/demo";
+import { demoIndex, loadDemo, readFile, type DemoEntry } from "../lib/demo";
 import { REPOSITORY } from "../lib/links";
-import { navigate } from "../lib/router";
+import type { RecentEntry } from "../lib/recent";
+import { href, navigate } from "../lib/router";
 import { useApp } from "../state";
 
 const PROFILES = [
@@ -222,49 +223,116 @@ function Stored() {
   );
 }
 
+/** Analysis files opened in this browser before, to open again without picking the file. */
+function RecentAnalyses({ busy, onOpen }: { busy: boolean; onOpen: (entry: RecentEntry) => void }) {
+  const { recent, forget, forgetAll } = useApp();
+  if (recent.length === 0) {
+    return null;
+  }
+  return (
+    <section className="panel" aria-labelledby="recent-title">
+      <div className="panel-header">
+        <div>
+          <h2 id="recent-title">Recent analyses</h2>
+          <p>
+            Files you opened, kept only in this browser so that they open again in one click and
+            after a reload. <a href={href("/settings")}>Turn this off in Settings</a>.
+          </p>
+        </div>
+        <div className="actions">
+          <button type="button" className="ghost" onClick={forgetAll}>
+            Forget all
+          </button>
+        </div>
+      </div>
+      <ul className="list">
+        {recent.map((entry) => (
+          <li key={entry.id}>
+            <div>
+              <strong>{entry.repository}</strong>
+              <div className="muted path">{entry.name}</div>
+              <div className="muted">
+                Analyzed {date(entry.generatedAt)} · {bytes(entry.size)} · opened{" "}
+                {date(entry.openedAt)}
+              </div>
+            </div>
+            <div className="row-actions">
+              <button type="button" disabled={busy} onClick={() => onOpen(entry)}>
+                Open
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                aria-label={`Remove ${entry.name} from recent analyses`}
+                onClick={() => forget(entry.id)}
+              >
+                Remove
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function Home() {
-  const { backend, open, signInNeeded, error: startupError } = useApp();
+  const { backend, open, openRecent, signInNeeded, error: startupError } = useApp();
   const [demos, setDemos] = useState<DemoEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
+  // What is being opened, while a large file is read and checked.
+  const [busy, setBusy] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void demoIndex().then(setDemos);
   }, []);
 
+  /** Runs `task` with the page marked busy, and shows its error if it fails. */
+  const opening = async (name: string, task: () => Promise<void>, failure?: string) => {
+    setError(null);
+    setBusy(name);
+    try {
+      await task();
+      navigate("/overview");
+    } catch (reason) {
+      setError(failure ? `${failure}: ${message(reason)}` : message(reason));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const openFile = async (file: File | undefined) => {
     if (!file) {
       return;
     }
-    setError(null);
-    try {
-      const loaded = await loadFile(file);
-      open({
-        dna: loaded.artifact,
-        origin: { kind: "file", name: file.name },
-        warnings: loaded.warnings,
-      });
-      navigate("/overview");
-    } catch (reason) {
-      setError(`Could not open ${file.name}: ${message(reason)}`);
-    }
+    await opening(
+      file.name,
+      async () => {
+        const loaded = await readFile(file);
+        open(
+          {
+            dna: loaded.artifact,
+            origin: { kind: "file", name: file.name },
+            warnings: loaded.warnings,
+          },
+          { text: loaded.text, size: file.size },
+        );
+      },
+      `Could not open ${file.name}`,
+    );
   };
 
-  const openDemo = async (entry: DemoEntry) => {
-    setError(null);
-    try {
+  const openDemo = (entry: DemoEntry) =>
+    opening(entry.title, async () => {
       const loaded = await loadDemo(entry);
       open({
         dna: loaded.artifact,
-        origin: { kind: "demo", title: entry.title },
+        origin: { kind: "demo", title: entry.title, file: entry.file },
         warnings: loaded.warnings,
       });
-      navigate("/overview");
-    } catch (reason) {
-      setError(message(reason));
-    }
-  };
+    });
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -287,15 +355,23 @@ export function Home() {
               <button
                 type="button"
                 className="primary"
+                disabled={busy !== null}
                 onClick={() => void openDemo(demos[0] as DemoEntry)}
               >
                 Try the demo
               </button>
             ) : null}
-            <button type="button" onClick={() => fileInput.current?.click()}>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => fileInput.current?.click()}
+            >
               Open an analysis file…
             </button>
           </div>
+          <p className="muted busy" role="status">
+            {busy ? `Opening ${busy}…` : ""}
+          </p>
         </div>
         <div
           className={over ? "dropzone over" : "dropzone"}
@@ -334,6 +410,12 @@ export function Home() {
       ) : null}
       <div className="grid two" style={{ marginTop: 20 }}>
         <div>
+          <RecentAnalyses
+            busy={busy !== null}
+            onOpen={(entry) =>
+              void opening(entry.name, () => openRecent(entry), `Could not open ${entry.name}`)
+            }
+          />
           {backend ? (
             <ScanForm
               onDone={async (repositoryId, scanId) => {
@@ -388,7 +470,11 @@ export function Home() {
                       <strong>{entry.title}</strong>
                       <div className="muted">{entry.description}</div>
                     </div>
-                    <button type="button" onClick={() => void openDemo(entry)}>
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => void openDemo(entry)}
+                    >
                       Open
                     </button>
                   </li>
