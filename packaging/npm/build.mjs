@@ -3,13 +3,17 @@
 //
 //   @sanskarin/repodna-schema         artifact types and helpers (packages/schema)
 //   @sanskarin/repodna-visualization  chart geometry (packages/visualization)
+//   @sanskarin/repodna-web            the web interface, built, with a server to run it
 //   @sanskarin/repodna                the command line: a launcher that runs the binary
 //   @sanskarin/repodna-<os>-<cpu>     the binary for one platform
 //
 // Usage: node packaging/npm/build.mjs [--version 1.2.0] [--out target/npm] [--binaries DIR]
+//                                     [--web DIR]
 //
-// The command line packages are staged only with --binaries, a directory that holds
-// <target>/repodna (repodna.exe on Windows) for every target in launcher/lib/platforms.js.
+// The web interface is staged only with --web, the directory of the built interface
+// (apps/web/dist, from `npm run build -w @repodna/web`). The command line packages are
+// staged only with --binaries, a directory that holds <target>/repodna (repodna.exe on
+// Windows) for every target in launcher/lib/platforms.js.
 // Each package is written to <out>/<name without the scope>, ready for publish.mjs, which
 // chooses the registry.
 
@@ -47,7 +51,7 @@ const LIBRARIES = [
 
 function usage(message) {
   process.stderr.write(
-    `${message}\nUsage: node packaging/npm/build.mjs [--version X.Y.Z] [--out DIR] [--binaries DIR]\n`,
+    `${message}\nUsage: node packaging/npm/build.mjs [--version X.Y.Z] [--out DIR] [--binaries DIR] [--web DIR]\n`,
   );
   process.exit(2);
 }
@@ -57,6 +61,7 @@ function parseArgs(argv) {
     version: JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version,
     out: join(root, "target", "npm"),
     binaries: null,
+    web: null,
   };
   for (let index = 0; index < argv.length; index += 2) {
     const [flag, value] = [argv[index], argv[index + 1]];
@@ -69,6 +74,8 @@ function parseArgs(argv) {
       options.out = resolve(value);
     } else if (flag === "--binaries") {
       options.binaries = resolve(value);
+    } else if (flag === "--web") {
+      options.web = resolve(value);
     } else {
       usage(`Unknown option ${flag}.`);
     }
@@ -110,6 +117,18 @@ function writeReadme(dir, template, values = {}) {
     (_, key) => values[key] ?? "",
   );
   writeFileSync(join(dir, "README.md"), text);
+}
+
+/** Copies the directory `from` into `to`, files and subdirectories alike. */
+function copyTree(from, to) {
+  mkdirSync(to, { recursive: true });
+  for (const entry of readdirSync(from, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      copyTree(join(from, entry.name), join(to, entry.name));
+    } else if (entry.isFile()) {
+      copyFileSync(join(from, entry.name), join(to, entry.name));
+    }
+  }
 }
 
 function files(dir) {
@@ -221,6 +240,35 @@ function stagePlatform(platform, options) {
   return dir;
 }
 
+function stageWeb(options) {
+  if (!existsSync(join(options.web, "index.html"))) {
+    throw new Error(`${options.web} holds no built web interface (index.html is missing).`);
+  }
+  const dir = join(options.out, "repodna-web");
+  copyTree(options.web, join(dir, "dist"));
+  for (const part of ["bin", "lib"]) {
+    copyTree(join(here, "web", part), join(dir, part));
+  }
+  chmodSync(join(dir, "bin", "repodna-web.js"), 0o755);
+  writeJson(join(dir, "package.json"), {
+    ...manifest(
+      `${SCOPE}/repodna-web`,
+      "RepoDNA's web interface, built: open analyses and the demo in your browser, offline or on your own network.",
+      "apps/web",
+      options.version,
+    ),
+    type: "module",
+    bin: { "repodna-web": "bin/repodna-web.js" },
+    main: "./lib/index.js",
+    exports: { ".": "./lib/index.js", "./package.json": "./package.json" },
+    files: ["bin", "lib", "dist", "README.md", "LICENSE", "NOTICE"],
+    engines: { node: ">=18" },
+  });
+  writeReadme(dir, "web.md");
+  copyLegal(dir);
+  return dir;
+}
+
 function stageLauncher(options) {
   const dir = join(options.out, "repodna");
   for (const part of ["bin", "lib"]) {
@@ -254,6 +302,9 @@ export function build(options) {
   rmSync(options.out, { recursive: true, force: true });
   mkdirSync(options.out, { recursive: true });
   const staged = LIBRARIES.map((library) => stageLibrary(library, options));
+  if (options.web) {
+    staged.push(stageWeb(options));
+  }
   if (options.binaries) {
     staged.push(...PLATFORMS.map((platform) => stagePlatform(platform, options)));
     staged.push(stageLauncher(options));
