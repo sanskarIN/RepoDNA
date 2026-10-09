@@ -547,6 +547,11 @@ kbd {
   font-size: 13px;
 }
 
+/* Buttons beside a panel's title keep their label on one line. */
+.panel-header .actions button {
+  white-space: nowrap;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -920,6 +925,17 @@ tbody tr:hover {
 
 .list li:last-child {
   border-bottom: 0;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Says what is being opened; keeps its line so the page does not jump. */
+.busy {
+  min-height: 1.5em;
+  margin: 8px 0 0;
 }
 
 /* Overlays */
