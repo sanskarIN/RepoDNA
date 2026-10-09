@@ -5,6 +5,7 @@ export const SHORTCUTS: [string, string][] = [
   ["Ctrl/Cmd + P", "Quick open a file or module"],
   ["Ctrl/Cmd + F", "Search the current view (when it has a search box)"],
   ["↑ / ↓ and Enter", "Move through results and choose one"],
+  ["[ and ]", "Go to the previous or next view of an analysis"],
   ["Esc", "Close a dialog"],
   ["?", "Show these shortcuts"],
 ];

@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
-import { NAV } from "./lib/nav";
+import { NAV, neighbors } from "./lib/nav";
 import { href, useRoute } from "./lib/router";
 import type { RecentStore } from "./lib/recent";
 import { AppProvider, useApp, type Dataset } from "./state";
@@ -68,6 +68,32 @@ function NoAnalysis() {
   );
 }
 
+/** Links to the views before and after this one, to go through an analysis in order. */
+function ViewPager({ path }: { path: string }) {
+  const { previous, next } = neighbors(path);
+  if (!previous && !next) {
+    return null;
+  }
+  return (
+    <nav className="pager" aria-label="Previous and next view">
+      {previous ? (
+        <a href={href(previous.path)} rel="prev" aria-keyshortcuts="[">
+          <span className="muted">Previous</span>
+          <span>← {previous.label}</span>
+        </a>
+      ) : (
+        <span />
+      )}
+      {next ? (
+        <a href={href(next.path)} rel="next" className="next" aria-keyshortcuts="]">
+          <span className="muted">Next</span>
+          <span>{next.label} →</span>
+        </a>
+      ) : null}
+    </nav>
+  );
+}
+
 function Routes() {
   const { ready, dataset } = useApp();
   const route = useRoute();
@@ -92,7 +118,12 @@ function Routes() {
   } else if (nav?.needsData && !dataset) {
     content = <NoAnalysis />;
   } else {
-    content = <View />;
+    content = (
+      <>
+        <View />
+        {dataset ? <ViewPager path={route.path} /> : null}
+      </>
+    );
   }
   return (
     <Shell>

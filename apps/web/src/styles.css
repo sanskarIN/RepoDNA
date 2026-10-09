@@ -256,6 +256,41 @@ code,
   pointer-events: none;
 }
 
+/* The previous and next view, after the content of a view. */
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.pager a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.pager a:hover {
+  border-color: var(--accent);
+}
+
+.pager a .muted {
+  font-size: 12px;
+}
+
+.pager a.next {
+  margin-left: auto;
+  text-align: right;
+}
+
 .sidebar-footer {
   margin-top: auto;
   color: var(--muted);

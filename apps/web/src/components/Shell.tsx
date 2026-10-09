@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useApp, originLabel } from "../state";
 import { WEBSITE } from "../lib/links";
-import { NAV } from "../lib/nav";
-import { href, useRoute } from "../lib/router";
+import { NAV, neighbors } from "../lib/nav";
+import { href, navigate, parseHash, useRoute } from "../lib/router";
 import { CommandPalette } from "./CommandPalette";
 import { ExternalLink } from "./common";
 import { ShortcutHelp } from "./ShortcutHelp";
@@ -51,6 +51,19 @@ export function Shell({ children }: { children: ReactNode }) {
       } else if (event.key === "?" && !isTyping(event.target)) {
         event.preventDefault();
         setHelp(true);
+      } else if (
+        (event.key === "[" || event.key === "]") &&
+        !mod &&
+        !event.altKey &&
+        dataset &&
+        !isTyping(event.target)
+      ) {
+        const { previous, next } = neighbors(parseHash(window.location.hash).path);
+        const target = event.key === "[" ? previous : next;
+        if (target) {
+          event.preventDefault();
+          navigate(target.path);
+        }
       } else if (event.key === "Escape") {
         setPalette(null);
         setHelp(false);
