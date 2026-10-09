@@ -71,3 +71,8 @@ export class DesktopBackend implements Backend {
     await invoke("open_link", { url });
   }
 }
+
+/** Saves a file the page made through a save dialog: where it was saved, or null if not. */
+export function saveFile(name: string, text: string): Promise<string | null> {
+  return invoke<string | null>("save_file", { name, text });
+}
