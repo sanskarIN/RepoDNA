@@ -7,7 +7,7 @@ and the guides show those of the latest release.
 
 | Version | Released | Folder | Release notes |
 |---|---|---|---|
-| [1.2.2](#122) | 2026-10-06 | [`v1.2.2`](v1.2.2) | [RepoDNA 1.2.2](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.2.2) |
+| [1.2.2](#122) | 2026-10-07 | [`v1.2.2`](v1.2.2) | [RepoDNA 1.2.2](../releases/v1.2.2/README.md) |
 | [1.2.1](#121) | 2026-10-06 | [`v1.2.1`](v1.2.1) | [RepoDNA 1.2.1](../releases/v1.2.1/README.md) |
 | [1.2.0](#120) | 2026-10-05 | [`v1.2.0`](v1.2.0) | [RepoDNA 1.2.0](../releases/v1.2.0/README.md) |
 | [1.1.1](#111) | 2026-10-05 | [`v1.1.1`](v1.1.1) | [RepoDNA 1.1.1](../releases/v1.1.1/README.md) |
@@ -33,7 +33,7 @@ scrolled down to the view. 1.2.0 folds the navigation behind a Menu button.
 
 ## 1.2.2
 
-Released on 2026-10-06. [Release notes](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.2.2) · folder [`v1.2.2`](v1.2.2).
+Released on 2026-10-07. [Release notes](../releases/v1.2.2/README.md) · folder [`v1.2.2`](v1.2.2).
 
 **Desktop** (2880 × 1620; the architecture view 3360 × 1890): [Overview, light](v1.2.2/desktop/overview-light.png) · [Overview, dark](v1.2.2/desktop/overview-dark.png) · [Architecture, dark](v1.2.2/desktop/architecture-dark.png) · [History, light](v1.2.2/desktop/history-light.png) · [History, dark](v1.2.2/desktop/history-dark.png) · [Time Machine, light](v1.2.2/desktop/time-machine-light.png) · [Hotspots, dark](v1.2.2/desktop/hotspots-dark.png) · [Findings, dark](v1.2.2/desktop/findings-dark.png) · [Files, light](v1.2.2/desktop/files-light.png) · [Code quality, light](v1.2.2/desktop/quality-light.png) · [Tests, build & docs, light](v1.2.2/desktop/project-light.png) · [Search, dark](v1.2.2/desktop/search-dark.png).
 

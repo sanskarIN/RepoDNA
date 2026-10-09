@@ -6,7 +6,7 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-## [1.2.2] - 2026-10-06
+## [1.2.2] - 2026-10-07
 
 A small follow-up to 1.2.1: the shade on tables that scroll sideways on phones shows along
 the whole edge, and the npm packages of older releases can be published to npmjs.com,
