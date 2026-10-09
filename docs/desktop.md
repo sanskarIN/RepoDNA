@@ -34,9 +34,11 @@ To build it yourself, see [apps/desktop/README.md](../apps/desktop/README.md).
   archive path or a Git URL, pick a profile, and start. Progress is shown while it runs.
 - **Stored analyses** are the same ones the command line uses: an analysis made with
   `repodna analyze` appears in the app, and the other way around.
-- **Open an analysis file** (`repodna.json` or `.repodna`) or **try the demo**.
+- **Open an analysis file** (`repodna.json` or `.repodna`), by choosing it or dropping it
+  on the window, or **try the demo**.
 - **Save reports**: the Reports view saves the HTML report, the Markdown report, the JSON
-  artifact, the DNA card, or the full report folder through native save dialogs.
+  artifact, the DNA card, or the full report folder through native save dialogs. Tables
+  are saved as CSV files the same way, with **Download CSV** under each one.
 - Every view, search, and keyboard shortcut of the [web interface](web.md) works the same
   way.
 - **About & support** shows the version, the project's links, and ways to support
