@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { bytes, date, thousands } from "@repodna/visualization";
-import { CommandBox, ErrorBox, ExternalLink, Note } from "../components/common";
+import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../components/common";
 import type { JobState, RepositorySummary } from "../lib/backend";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
@@ -160,10 +160,15 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   );
 }
 
+/** How many stored analyses the start page lists before it is asked for all of them. */
+export const STORED_SHOWN = 8;
+
 function Stored() {
   const { backend, open } = useApp();
   const [repositories, setRepositories] = useState<RepositorySummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (!backend) {
@@ -188,6 +193,14 @@ function Stored() {
       setError(message(reason));
     }
   };
+  const all = repositories ?? [];
+  const needle = query.trim().toLowerCase();
+  const matching = needle
+    ? all.filter((repository) =>
+        `${repository.name} ${repository.location}`.toLowerCase().includes(needle),
+      )
+    : all;
+  const shown = showAll || needle ? matching : matching.slice(0, STORED_SHOWN);
   return (
     <section className="panel" aria-labelledby="stored-title">
       <div className="panel-header">
@@ -203,8 +216,21 @@ function Stored() {
           None yet. Analyze a repository above or run <code>repodna analyze &lt;path&gt;</code>.
         </p>
       ) : null}
+      {all.length > STORED_SHOWN ? (
+        <div className="filters">
+          <SearchBox
+            value={query}
+            onChange={setQuery}
+            label="Filter stored analyses"
+            placeholder="Filter by name or location"
+          />
+        </div>
+      ) : null}
+      {needle && matching.length === 0 ? (
+        <p className="muted">No stored analysis matches “{query.trim()}”.</p>
+      ) : null}
       <ul className="list">
-        {(repositories ?? []).map((repository) => (
+        {shown.map((repository) => (
           <li key={repository.id}>
             <div>
               <strong>{repository.name}</strong>
@@ -220,6 +246,13 @@ function Stored() {
           </li>
         ))}
       </ul>
+      {shown.length < matching.length ? (
+        <p className="more">
+          <button type="button" className="ghost" onClick={() => setShowAll(true)}>
+            Show all {matching.length} stored analyses
+          </button>
+        </p>
+      ) : null}
     </section>
   );
 }
