@@ -50,41 +50,44 @@
   color-scheme: light;
 }
 
-:root[data-theme="dark"] {
-  --page: #0d0d0d;
-  --surface: #1a1a19;
-  --surface-raised: #222221;
-  --ink: #ffffff;
-  --ink-secondary: #c3c2b7;
-  --muted: #9d9b94;
-  --line: #2c2c2a;
-  --line-strong: #383835;
-  --accent: #3987e5;
-  --accent-ink: #8ab9f1;
-  --accent-wash: #13263d;
-  --accent-strong: #2672ce;
-  --focus: #6da7ec;
-  --chart-grid: #2c2c2a;
-  --chart-axis: #383835;
-  --chart-muted: #898781;
-  --other: #5f5e5a;
-  --s1: #3987e5;
-  --s2: #d95926;
-  --s3: #199e70;
-  --s4: #c98500;
-  --s5: #d55181;
-  --s6: #008300;
-  --s7: #9085e9;
-  --s8: #e66767;
-  --seq0: #262625;
-  --seq1: #0d366b;
-  --seq2: #184f95;
-  --seq3: #256abf;
-  --seq4: #3987e5;
-  --seq5: #6da7ec;
-  --seq6: #b7d3f6;
-  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 24px rgb(0 0 0 / 35%);
-  color-scheme: dark;
+/* On screen only: paper is white, so a page printed or saved as PDF is in the light theme. */
+@media screen {
+  :root[data-theme="dark"] {
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-raised: #222221;
+    --ink: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --muted: #9d9b94;
+    --line: #2c2c2a;
+    --line-strong: #383835;
+    --accent: #3987e5;
+    --accent-ink: #8ab9f1;
+    --accent-wash: #13263d;
+    --accent-strong: #2672ce;
+    --focus: #6da7ec;
+    --chart-grid: #2c2c2a;
+    --chart-axis: #383835;
+    --chart-muted: #898781;
+    --other: #5f5e5a;
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --s4: #c98500;
+    --s5: #d55181;
+    --s6: #008300;
+    --s7: #9085e9;
+    --s8: #e66767;
+    --seq0: #262625;
+    --seq1: #0d366b;
+    --seq2: #184f95;
+    --seq3: #256abf;
+    --seq4: #3987e5;
+    --seq5: #6da7ec;
+    --seq6: #b7d3f6;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 24px rgb(0 0 0 / 35%);
+    color-scheme: dark;
+  }
 }
 
 * {
