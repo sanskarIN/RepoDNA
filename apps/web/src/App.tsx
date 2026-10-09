@@ -3,6 +3,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
 import { NAV } from "./lib/nav";
 import { href, useRoute } from "./lib/router";
+import type { RecentStore } from "./lib/recent";
 import { AppProvider, useApp, type Dataset } from "./state";
 import { About } from "./views/About";
 import { Architecture } from "./views/Architecture";
@@ -102,9 +103,16 @@ function Routes() {
   );
 }
 
-export function App({ initial = null }: { initial?: Dataset | null }) {
+export function App({
+  initial = null,
+  store,
+}: {
+  initial?: Dataset | null;
+  /** Where recent analyses are kept (tests); the browser's storage otherwise. */
+  store?: RecentStore;
+}) {
   return (
-    <AppProvider initial={initial}>
+    <AppProvider initial={initial} store={store}>
       <Routes />
     </AppProvider>
   );
