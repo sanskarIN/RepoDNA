@@ -64,23 +64,33 @@ export function Panel({
   );
 }
 
+/** A key number; with `to`, a link to the view that tells more about it. */
 export function Tile({
   label,
   value,
   note,
+  to,
 }: {
   label: string;
   value: ReactNode;
   note?: ReactNode;
+  to?: string;
 }) {
-  return (
-    <div className="tile">
+  const content = (
+    <>
       <div className="label">{label}</div>
       <div className="value" title={typeof value === "string" ? value : undefined}>
         {value}
       </div>
       {note ? <div className="hint">{note}</div> : null}
-    </div>
+    </>
+  );
+  return to ? (
+    <a className="tile tile-link" href={to}>
+      {content}
+    </a>
+  ) : (
+    <div className="tile">{content}</div>
   );
 }
 
