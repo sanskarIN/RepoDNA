@@ -164,17 +164,25 @@ export function ArchitectureGraph({
                   stroke={isSelected ? "var(--ink)" : "var(--surface)"}
                   strokeWidth={2}
                 />
-                <text
-                  className="label"
-                  x={node.x}
-                  y={node.y + node.radius + 13}
-                  textAnchor="middle"
-                >
-                  {shorten(name, 22)}
-                </text>
               </g>
             );
           })}
+          {/* The names, drawn over every node and kept out of them: a node is labeled with
+              its full name, and the name shown here may be shortened. */}
+          <g aria-hidden="true" pointerEvents="none">
+            {layout.nodes.map((node) => (
+              <text
+                key={node.id}
+                className="label"
+                x={node.x}
+                y={node.y + node.radius + 13}
+                textAnchor="middle"
+                opacity={focus !== null && !related.has(node.id) ? 0.3 : 1}
+              >
+                {shorten(byId.get(node.id)?.name ?? node.id, 22)}
+              </text>
+            ))}
+          </g>
         </svg>
       </div>
       <div className="legend">
