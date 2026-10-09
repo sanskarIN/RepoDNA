@@ -280,7 +280,12 @@ function Picker({ onPick }: { onPick: (side: Side) => void }) {
               accept=".repodna,.json,application/json"
               className="visually-hidden"
               aria-label="Analysis file to compare with"
-              onChange={(event) => compareFile(event.target.files?.[0])}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                // Cleared, so that choosing the same file again opens it again.
+                event.target.value = "";
+                compareFile(file);
+              }}
             />
           </div>
           {otherDemos.length > 0 ? (
