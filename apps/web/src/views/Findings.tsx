@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   SEVERITIES,
   categoryLabel,
@@ -30,13 +30,22 @@ function searchable(finding: Finding): string {
     .toLowerCase();
 }
 
+/** Findings shown at first, and added each time more are asked for. */
+export const FINDINGS_PAGE = 25;
+
 export function Findings() {
   const { dna } = useDataset();
   const route = useRoute();
   const [query, setQuery] = useState(() => route.params.get("q") ?? "");
-  const [severity, setSeverity] = useState<"all" | Severity>("all");
-  const [category, setCategory] = useState<"all" | FindingCategory>("all");
+  const [severity, setSeverity] = useState<"all" | Severity>(() => {
+    const value = route.params.get("severity");
+    return (SEVERITIES as readonly string[]).includes(value ?? "") ? (value as Severity) : "all";
+  });
+  const [category, setCategory] = useState<"all" | FindingCategory>(
+    () => (route.params.get("category") as FindingCategory | null) ?? "all",
+  );
   const [showSuppressed, setShowSuppressed] = useState(false);
+  const [shown, setShown] = useState(FINDINGS_PAGE);
   const counts = findingCounts(dna);
   const categories = useMemo(
     () => [...new Set(dna.findings.map((f) => f.category))].sort(),
@@ -63,6 +72,8 @@ export function Findings() {
     );
   }, [dna.findings, query, severity, category, showSuppressed, texts]);
   const suppressed = dna.findings.filter(isSuppressed).length;
+  // Changing a filter starts again from the first page.
+  useEffect(() => setShown(FINDINGS_PAGE), [query, severity, category, showSuppressed]);
 
   return (
     <>
@@ -125,7 +136,9 @@ export function Findings() {
           </label>
         ) : null}
         <span className="muted" aria-live="polite">
-          {thousands(filtered.length)} {filtered.length === 1 ? "finding" : "findings"}
+          {filtered.length > shown
+            ? `Showing ${thousands(shown)} of ${thousands(filtered.length)} findings`
+            : `${thousands(filtered.length)} ${filtered.length === 1 ? "finding" : "findings"}`}
         </span>
       </div>
       {filtered.length === 0 ? (
@@ -135,11 +148,23 @@ export function Findings() {
             : "No findings match these filters."}
         </p>
       ) : (
-        <div className="panel">
-          {filtered.map((finding) => (
-            <FindingItem key={finding.id} finding={finding} level={2} />
-          ))}
-        </div>
+        <>
+          <div className="panel">
+            {filtered.slice(0, shown).map((finding) => (
+              <FindingItem key={finding.id} finding={finding} level={2} />
+            ))}
+          </div>
+          {filtered.length > shown ? (
+            <p className="more">
+              <button type="button" onClick={() => setShown((count) => count + FINDINGS_PAGE)}>
+                Show {thousands(Math.min(FINDINGS_PAGE, filtered.length - shown))} more
+              </button>{" "}
+              <button type="button" className="ghost" onClick={() => setShown(filtered.length)}>
+                Show all {thousands(filtered.length)}
+              </button>
+            </p>
+          ) : null}
+        </>
       )}
     </>
   );
