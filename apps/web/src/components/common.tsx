@@ -9,6 +9,7 @@ import {
 import { NAV } from "../lib/nav";
 import { useRoute } from "../lib/router";
 import { useApp } from "../state";
+import { PanelTitle } from "./panelTitle";
 
 export function PageHeader({
   title,
@@ -141,7 +142,9 @@ export function Panel({
           ) : null}
         </div>
       </div>
-      {showTable && table ? table : children}
+      <PanelTitle.Provider value={title}>
+        {showTable && table ? table : children}
+      </PanelTitle.Provider>
     </section>
   );
 }
