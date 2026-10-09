@@ -204,6 +204,43 @@ describe("CSV", () => {
     }
   });
 
+  it("lets the keyboard reach a table that scrolls sideways", () => {
+    const scrollWidth = vi.spyOn(HTMLElement.prototype, "scrollWidth", "get");
+    const clientWidth = vi.spyOn(HTMLElement.prototype, "clientWidth", "get");
+    scrollWidth.mockReturnValue(800);
+    clientWidth.mockReturnValue(300);
+    try {
+      render(
+        <Panel title="Sizes">
+          <DataTable
+            rows={rows}
+            rowKey={(row) => row.name}
+            columns={[{ key: "name", header: "Name", cell: (row) => row.name }]}
+          />
+        </Panel>,
+      );
+      const region = screen.getByRole("region", { name: "Table: Sizes" });
+      expect(region.className).toBe("table-wrap");
+      expect(region.tabIndex).toBe(0);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("leaves a table that fits out of the keyboard's way", () => {
+    render(
+      <Panel title="Sizes">
+        <DataTable
+          rows={rows}
+          rowKey={(row) => row.name}
+          columns={[{ key: "name", header: "Name", cell: (row) => row.name }]}
+        />
+      </Panel>,
+    );
+    expect(screen.queryByRole("region", { name: "Table: Sizes" })).toBeNull();
+    expect(document.querySelector(".table-wrap")?.hasAttribute("tabindex")).toBe(false);
+  });
+
   it("offers no download for an empty table", () => {
     render(
       <DataTable
