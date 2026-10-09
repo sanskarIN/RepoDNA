@@ -7,8 +7,10 @@
 //
 // Usage: node packaging/npm/publish.mjs --registry URL DIR [-- npm publish options]
 //
-// The libraries and the platform packages go first and the launcher last, so the launcher
-// never names a platform package that is not there yet. The token comes from
+// The platform packages go first, then the launcher, which names them, and the libraries
+// and the web interface last. So the launcher never names a platform package that is not
+// there yet, and a package the registry refuses, such as a new one that a token may not
+// create, cannot keep the command line from being published. The token comes from
 // NODE_AUTH_TOKEN; on GitHub Actions, npm 11.5.1 or later can use a trusted publisher set
 // up on npmjs.com instead.
 
@@ -17,7 +19,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SCOPE } from "./launcher/lib/platforms.js";
+import { PLATFORMS, SCOPE, platformPackage } from "./launcher/lib/platforms.js";
 
 const LAUNCHER = `${SCOPE}/repodna`;
 
@@ -68,7 +70,8 @@ export function npmrc(registry, withToken) {
   return `${lines.join("\n")}\n`;
 }
 
-/** The staged packages in `dir` as `{ dir, name, version }`, in publishing order. */
+/** The staged packages in `dir` as `{ dir, name, version }`, in publishing order: the
+ *  platform packages, the launcher, then the others. */
 export function publishOrder(dir) {
   const packages = readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && existsSync(join(dir, entry.name, "package.json")))
@@ -78,9 +81,11 @@ export function publishOrder(dir) {
       return { dir: path, name, version };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+  const platforms = new Set(PLATFORMS.map(platformPackage));
   return [
-    ...packages.filter((pkg) => pkg.name !== LAUNCHER),
+    ...packages.filter((pkg) => platforms.has(pkg.name)),
     ...packages.filter((pkg) => pkg.name === LAUNCHER),
+    ...packages.filter((pkg) => pkg.name !== LAUNCHER && !platforms.has(pkg.name)),
   ];
 }
 
