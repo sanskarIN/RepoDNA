@@ -385,6 +385,11 @@ code,
   max-width: 820px;
 }
 
+.page-header p.meta {
+  margin-top: 8px;
+  color: var(--muted);
+}
+
 /* Controls */
 
 button,
@@ -526,6 +531,43 @@ a.tile-link:hover {
 a.tile-link .label::after {
   content: " ›" / "";
   color: var(--muted);
+}
+
+/* Links to the panels of a long view, under its title. */
+.on-this-page ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.chip-button {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink-secondary);
+  font-size: 12.5px;
+}
+
+/* A panel moved to stops below the top bar, which stays on screen. */
+.panel {
+  scroll-margin-top: 72px;
+}
+
+/* On a phone the links make one row that scrolls sideways instead of a tall block. */
+@media (max-width: 600px) {
+  .on-this-page ul {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .chip-button {
+    white-space: nowrap;
+  }
 }
 
 .panel {
