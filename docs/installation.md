@@ -126,6 +126,7 @@ repodna --version
 | Package | What it is |
 |---|---|
 | `@sanskarin/repodna` | The `repodna` command line. npm adds the binary for your platform from `@sanskarin/repodna-linux-x64`, `-linux-arm64`, `-darwin-x64`, `-darwin-arm64`, or `-win32-x64`. |
+| `@sanskarin/repodna-web` | The web interface, built, from 1.3.0 on. `npx @sanskarin/repodna-web` serves it on this machine, at <http://127.0.0.1:8080/>, to open analysis files and the demo offline; its `root` export is the directory to serve from your own web server. |
 | `@sanskarin/repodna-schema` | TypeScript types for the analysis artifact, helpers to load and check it, and the JSON Schemas of the artifact and the configuration file. |
 | `@sanskarin/repodna-visualization` | The chart geometry the web interface and desktop app use: palettes, scales, treemaps, layered graphs, and heatmaps. |
 

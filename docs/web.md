@@ -182,7 +182,13 @@ already built and served by nginx on port 8080:
 docker run --rm -p 8080:8080 ghcr.io/sanskarin/repodna-web
 ```
 
-See [the web interface image](installation.md#web-interface-image). To build it yourself,
+See [the web interface image](installation.md#web-interface-image). With Node.js 18 or
+later instead, the `@sanskarin/repodna-web` npm package serves the same interface on this
+machine, at <http://127.0.0.1:8080/> (`--port` and `--host` change where):
+
+```sh
+npx @sanskarin/repodna-web
+``` To build it yourself,
 note that the build in `apps/web/dist` uses relative paths and hash-based routing, so any
 static web host can serve it from any path, with no server configuration:
 
