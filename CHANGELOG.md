@@ -86,6 +86,10 @@ package, `@sanskarin/repodna-web`, runs it on your own machine.
   interface keeps in the browser and how to remove it.
 - A page for 1.2.2 in [`docs/releases`](docs/releases/README.md), with its downloads, and
   the 1.2.2 entry of this changelog dated on the day it was published.
+- Screenshots of 1.3.0 in [`docs/images`](docs/images/README.md), with one of the start
+  page and its recent analyses, and the promo images and Project DNA cards of 1.3.0 in
+  [`docs/media/v1.3.0`](docs/media/README.md). The README and the guides show the 1.3.0
+  screenshots.
 
 ## [1.2.2] - 2026-10-07
 
