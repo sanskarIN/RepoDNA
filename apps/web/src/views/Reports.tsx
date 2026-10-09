@@ -4,7 +4,7 @@ import { date, thousands } from "@repodna/visualization";
 import { Chip, CommandBox, ErrorBox, Note, PageHeader, Panel, Select } from "../components/common";
 import { DataTable } from "../components/DataTable";
 import type { PrivacyPreset, ReportFormat, ReportTheme, SaveFormat } from "../lib/backend";
-import { artifactFileName, downloadText } from "../lib/download";
+import { artifactFileName, useDownload } from "../lib/download";
 import { unitFor } from "../lib/names";
 import { useApp, useDataset } from "../state";
 
@@ -38,6 +38,7 @@ function CardPreview({ repositoryId, scanId }: { repositoryId: string; scanId?: 
   const [url, setUrl] = useState<string | null>(null);
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [download, failure] = useDownload();
 
   useEffect(() => {
     if (!backend) {
@@ -81,6 +82,7 @@ function CardPreview({ repositoryId, scanId }: { repositoryId: string; scanId?: 
       }
     >
       {error ? <ErrorBox>{error}</ErrorBox> : null}
+      {failure ? <ErrorBox>{failure}</ErrorBox> : null}
       {url ? (
         <img className="card-preview" src={url} alt="Project DNA card for this repository" />
       ) : null}
@@ -89,7 +91,7 @@ function CardPreview({ repositoryId, scanId }: { repositoryId: string; scanId?: 
           <button
             type="button"
             onClick={() =>
-              downloadText(dark ? "dna-card-dark.svg" : "dna-card.svg", svg, "image/svg+xml")
+              download(dark ? "dna-card-dark.svg" : "dna-card.svg", svg, "image/svg+xml")
             }
           >
             Download SVG
@@ -184,6 +186,7 @@ function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?
 
 export function Reports() {
   const dataset = useDataset();
+  const [download, failure] = useDownload();
   const { dna, origin } = dataset;
   const meta = dna.analysisMetadata;
   const thresholds = Object.entries(meta.thresholds) as [string, number][];
@@ -204,7 +207,7 @@ export function Reports() {
             <button
               type="button"
               onClick={() =>
-                downloadText(
+                download(
                   artifactFileName(dna),
                   `${JSON.stringify(dna, null, 2)}\n`,
                   "application/json",
@@ -214,6 +217,7 @@ export function Reports() {
               Download the analysis as loaded
             </button>
           </p>
+          {failure ? <ErrorBox>{failure}</ErrorBox> : null}
           <p>To create reports or a DNA card from the file, run:</p>
           <CommandBox
             lines={[

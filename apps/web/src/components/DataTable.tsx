@@ -1,5 +1,6 @@
 import { isValidElement, useMemo, useState, type ReactNode } from "react";
-import { downloadText } from "../lib/download";
+import { useDownload } from "../lib/download";
+import { ErrorBox } from "./common";
 import { usePanelTitle } from "./panelTitle";
 
 export interface Column<T> {
@@ -127,8 +128,8 @@ export function DataTable<T>({
   }, [rows, columns, sort]);
   const shown = expanded ? sorted : sorted.slice(0, limit);
   const title = usePanelTitle();
-  const download = () =>
-    downloadText(csvFileName(title), toCsv(sorted, columns), "text/csv;charset=utf-8");
+  const [save, failure] = useDownload();
+  const download = () => save(csvFileName(title), toCsv(sorted, columns), "text/csv;charset=utf-8");
 
   return (
     <>
@@ -208,6 +209,7 @@ export function DataTable<T>({
           </button>
         </p>
       ) : null}
+      {failure ? <ErrorBox>{failure}</ErrorBox> : null}
       {rows.length === 0 ? <p className="muted">Nothing to show.</p> : null}
     </>
   );
