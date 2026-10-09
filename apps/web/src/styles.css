@@ -291,6 +291,15 @@ code,
   text-align: right;
 }
 
+.back-to-top {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 20;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+}
+
 .sidebar-footer {
   margin-top: auto;
   color: var(--muted);
@@ -399,7 +408,8 @@ code,
 }
 
 .content {
-  padding: 24px 28px 48px;
+  /* Room at the bottom so that Back to top never covers the last links of a view. */
+  padding: 24px 28px 88px;
   max-width: 1320px;
   width: 100%;
 }

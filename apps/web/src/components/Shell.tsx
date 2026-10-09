@@ -19,6 +19,39 @@ function isTyping(target: EventTarget | null): boolean {
   );
 }
 
+/** How far down the page the Back to top button appears, in screen heights. */
+const BACK_TO_TOP_AFTER = 1.5;
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}
+
+/** A button to the top of a long page, shown once the page has been scrolled well down. */
+function BackToTop() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const update = () => setShown(window.scrollY > window.innerHeight * BACK_TO_TOP_AFTER);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+  if (!shown) {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      className="back-to-top"
+      onClick={() => {
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+        document.getElementById("main")?.focus({ preventScroll: true });
+      }}
+    >
+      ↑ Back to top
+    </button>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const { dataset, themePreference, setThemePreference, theme } = useApp();
   const route = useRoute();
@@ -181,6 +214,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      <BackToTop />
       {palette ? <CommandPalette mode={palette} onClose={() => setPalette(null)} /> : null}
       {help ? <ShortcutHelp onClose={() => setHelp(false)} /> : null}
     </div>
