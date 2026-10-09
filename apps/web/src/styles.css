@@ -316,6 +316,67 @@ code,
   box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
 }
 
+/* While a file is dragged over the page: dropping it anywhere opens it. */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--page) 80%, transparent);
+  pointer-events: none;
+}
+
+.drop-overlay > div {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+  padding: 28px 24px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-wash);
+  text-align: center;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 14%);
+}
+
+.drop-overlay span {
+  color: var(--ink-secondary);
+}
+
+/* A dropped file being opened, or why it could not be, under the top bar. */
+.notices {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  transform: translateX(-50%);
+}
+
+.notice {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 14%);
+}
+
+.notice.error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-color: var(--critical);
+}
+
+.notice.error p {
+  margin: 0;
+}
+
 .sidebar-footer {
   margin-top: auto;
   color: var(--muted);

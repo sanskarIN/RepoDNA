@@ -7,6 +7,7 @@ import { NAV, neighbors } from "../lib/nav";
 import { href, navigate, parseHash, useRoute } from "../lib/router";
 import { CommandPalette } from "./CommandPalette";
 import { ExternalLink } from "./common";
+import { FileDrop } from "./FileDrop";
 import { ShortcutHelp } from "./ShortcutHelp";
 
 function isTyping(target: EventTarget | null): boolean {
@@ -224,6 +225,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </main>
       </div>
       <BackToTop />
+      <FileDrop />
       {palette ? <CommandPalette mode={palette} onClose={() => setPalette(null)} /> : null}
       {help ? <ShortcutHelp onClose={() => setHelp(false)} /> : null}
     </div>
