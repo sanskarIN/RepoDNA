@@ -384,7 +384,12 @@ export function Home() {
             accept=".repodna,.json,application/json"
             className="visually-hidden"
             aria-label="Open an analysis file"
-            onChange={(event) => void openFile(event.target.files?.[0])}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              // Cleared, so that choosing the same file again opens it again.
+              event.target.value = "";
+              void openFile(file);
+            }}
           />
         </div>
       </div>
