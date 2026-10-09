@@ -34,7 +34,8 @@ Open the printed link. The start page lets you:
   with a profile. Progress is shown while it runs, and the result is stored.
 - **Open a stored analysis** from this machine.
 - **Open an analysis file** (`repodna.json` or `.repodna`), by choosing it or dropping it
-  on the page. The file is read locally and never uploaded.
+  anywhere on the page, also while another analysis is open. The file is read locally and
+  never uploaded.
 - **Open a recent analysis**: the last five files you opened, kept in this browser so that
   they open again in one click. Remove them one by one, or forget them all or turn this off
   in Settings.
@@ -62,13 +63,19 @@ A new tab starts on the start page.
 | Security signals | Possible secrets, risky patterns, and permissions |
 | Findings | Every finding with its evidence, method, and limitations, 25 at a time, filtered by severity and category and searchable by title, rule, path, and evidence |
 | Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark; the desktop app also saves the full report folder |
-| Compare | This analysis next to another one |
+| Compare | This analysis next to another one: a stored analysis, a file you choose or drop on its drop zone, or the demo |
 | Settings | Theme, recent analyses, privacy notes, keyboard shortcuts, and version information |
 | About & support | The version, ways to support RepoDNA, the project's links, and the legal documents |
 | Privacy Policy, Terms of Use, Licenses | The policies, RepoDNA's license, and the licenses of the third-party software it includes, linked at the bottom of the sidebar |
 
 Every chart has a table view, and severity is always written out, never shown by color
-alone.
+alone. **Download CSV** under a table saves all of its rows, in the order shown, for a
+spreadsheet: numbers stay numbers, and text that a spreadsheet would run as a formula is
+written so that it does not run.
+
+To print a view, or save it as PDF, use the browser's Print command. The printout leaves
+out the buttons and links made for the screen, shows every column of wide tables, and is in
+the light theme whatever the theme on screen.
 
 ### Finding your way
 
@@ -149,6 +156,12 @@ bundled demo and analysis files you choose (`repodna.json` from `repodna analyze
 json` or `repodna report`, or a `.repodna` export); files are read in the page and never
 uploaded. To analyze a repository, use the command line or the desktop app, then open the
 result here or share it with others.
+
+Browsers that can install web sites as apps, such as Chrome, Edge, and Safari, can install
+the web version (in Chrome, **Install RepoDNA** in the address bar or the menu; in Safari,
+**Add to Dock** or **Add to Home Screen**). It then opens in a window of its own, and in
+Chrome and Edge on a computer it can be chosen to open `.repodna` files from the file
+manager.
 
 The [Web version workflow](../.github/workflows/pages.yml) builds and publishes it whenever
 the interface changes on `main`, and can be started by hand from the Actions tab. GitHub
