@@ -1,4 +1,4 @@
-import { isValidElement, useMemo, useState, type ReactNode } from "react";
+import { isValidElement, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDownload } from "../lib/download";
 import { ErrorBox } from "./common";
 import { usePanelTitle } from "./panelTitle";
@@ -89,6 +89,29 @@ export function csvFileName(title: string | undefined): string {
   return `${slug || "table"}.csv`;
 }
 
+/**
+ * Whether the element scrolls sideways: a table wider than its box, as on a phone. Such a
+ * box is made reachable with the keyboard, so that it can be scrolled without a pointer.
+ */
+function useScrollsSideways(element: { current: HTMLElement | null }, content: unknown): boolean {
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const box = element.current;
+    if (!box) {
+      return;
+    }
+    const update = () => setScrolls(box.scrollWidth > box.clientWidth + 1);
+    update();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [element, content]);
+  return scrolls;
+}
+
 /** Orders text the way people read it: "file2" before "file10", "1.9" before "1.10". */
 const collator = new Intl.Collator(undefined, { numeric: true });
 
@@ -126,14 +149,27 @@ export function DataTable<T>({
       return collator.compare(String(x), String(y)) * direction;
     });
   }, [rows, columns, sort]);
-  const shown = expanded ? sorted : sorted.slice(0, limit);
-  const title = usePanelTitle();
+  const shown = useMemo(
+    () => (expanded ? sorted : sorted.slice(0, limit)),
+    [expanded, sorted, limit],
+  );
+  // What the table is called: its caption, or the title of its panel.
+  const panelTitle = usePanelTitle();
+  const title = caption ?? panelTitle;
+  const wrap = useRef<HTMLDivElement>(null);
+  const scrolls = useScrollsSideways(wrap, shown);
   const [save, failure] = useDownload();
   const download = () => save(csvFileName(title), toCsv(sorted, columns), "text/csv;charset=utf-8");
 
   return (
     <>
-      <div className="table-wrap">
+      <div
+        ref={wrap}
+        className="table-wrap"
+        {...(scrolls
+          ? { tabIndex: 0, role: "region", "aria-label": title ? `Table: ${title}` : "Table" }
+          : {})}
+      >
         <table>
           {caption ? <caption className="visually-hidden">{caption}</caption> : null}
           <thead>
