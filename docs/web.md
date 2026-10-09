@@ -32,7 +32,8 @@ Open the printed link. The start page lets you:
 
 - **Analyze a repository**: a local directory, a `.zip` or `.tar.gz` archive, or a Git URL,
   with a profile. Progress is shown while it runs, and the result is stored.
-- **Open a stored analysis** from this machine.
+- **Open a stored analysis** from this machine. With more than eight, the newest are
+  listed first, and a filter finds the others by name or location.
 - **Open an analysis file** (`repodna.json` or `.repodna`), by choosing it or dropping it
   anywhere on the page, also while another analysis is open. The file is read locally and
   never uploaded.
