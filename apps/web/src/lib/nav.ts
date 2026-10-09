@@ -30,3 +30,15 @@ export const NAV: NavItem[] = [
   { path: "/terms", label: "Terms of Use", needsData: false, group: "Legal" },
   { path: "/licenses", label: "Licenses", needsData: false, group: "Legal" },
 ];
+
+/** The views of an analysis, in the order the sidebar lists them. */
+export const DATA_VIEWS: NavItem[] = NAV.filter((item) => item.needsData);
+
+/** The views before and after `path` among the views of an analysis. */
+export function neighbors(path: string): { previous?: NavItem; next?: NavItem } {
+  const index = DATA_VIEWS.findIndex((item) => item.path === path);
+  if (index === -1) {
+    return {};
+  }
+  return { previous: DATA_VIEWS[index - 1], next: DATA_VIEWS[index + 1] };
+}
