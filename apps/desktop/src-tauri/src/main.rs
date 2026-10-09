@@ -238,6 +238,38 @@ fn render_card(
     ))
 }
 
+/// The name a save dialog offers for a file the page made, and its extension: only the last
+/// part of `name`, so the page can suggest a name but not a folder.
+fn offered_name(name: &str) -> (String, String) {
+    let base = name.rsplit(['/', '\\']).next().unwrap_or_default().trim();
+    let base = if base.is_empty() || base.chars().all(|c| c == '.') {
+        "download.txt"
+    } else {
+        base
+    };
+    let extension = base
+        .rsplit_once('.')
+        .map(|(_, extension)| extension.to_ascii_lowercase())
+        .filter(|extension| !extension.is_empty())
+        .unwrap_or_else(|| "txt".to_owned());
+    (base.to_owned(), extension)
+}
+
+/// Saves a file the page made, such as a table as CSV, where the user chooses in a save
+/// dialog; `None` when the user cancels. Browsers download such files; this window saves
+/// them the way it saves reports.
+#[tauri::command]
+async fn save_file(app: AppHandle, name: String, text: String) -> Reply<Option<String>> {
+    let (file_name, extension) = offered_name(&name);
+    let label = match extension.as_str() {
+        "csv" => "CSV file",
+        "json" | "repodna" => "Analysis file",
+        "svg" => "SVG image",
+        _ => "File",
+    };
+    save_text(&app, &file_name, (label, &[extension.as_str()]), &text)
+}
+
 /// Opens a web page in the system browser. Only https links are accepted, so the page
 /// cannot use this to start programs or open local files.
 #[tauri::command]
@@ -269,6 +301,7 @@ fn main() {
             cancel_job,
             pick_directory,
             save_report,
+            save_file,
             render_card,
             open_link,
         ])
@@ -302,5 +335,25 @@ mod tests {
         assert!(!is_web_link("https:///local"));
         assert!(!is_web_link("https://example.com/a b"));
         assert!(!is_web_link("javascript:alert(1)"));
+    }
+
+    #[test]
+    fn a_saved_file_is_offered_by_name_only() {
+        let offered = |name: &str| offered_name(name);
+        assert_eq!(
+            offered("largest-files.csv"),
+            ("largest-files.csv".into(), "csv".into())
+        );
+        assert_eq!(
+            offered("../../etc/passwd.csv"),
+            ("passwd.csv".into(), "csv".into())
+        );
+        assert_eq!(
+            offered("C:\\Windows\\x.SVG"),
+            ("x.SVG".into(), "svg".into())
+        );
+        assert_eq!(offered("notes"), ("notes".into(), "txt".into()));
+        assert_eq!(offered(".."), ("download.txt".into(), "txt".into()));
+        assert_eq!(offered("dir/"), ("download.txt".into(), "txt".into()));
     }
 }
