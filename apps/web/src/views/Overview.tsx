@@ -63,8 +63,9 @@ export function Overview() {
           label="Files"
           value={compact(dna.structure.totalFiles)}
           note={`${dna.structure.sizeClass} repository`}
+          to={href("/files")}
         />
-        <Tile label="Code lines" value={compact(dna.structure.codeLines)} />
+        <Tile label="Code lines" value={compact(dna.structure.codeLines)} to={href("/quality")} />
         <Tile
           label="Primary language"
           value={languageName(primary)}
@@ -72,6 +73,7 @@ export function Overview() {
         />
         <Tile
           label="Commits"
+          to={href("/history")}
           value={git.commitCount > 0 ? compact(git.commitCount) : "–"}
           note={
             git.commitCount > 0
@@ -81,6 +83,7 @@ export function Overview() {
         />
         <Tile
           label="Architecture"
+          to={href("/architecture")}
           value={dna.architecture.style || "–"}
           note={
             dna.architecture.style
@@ -97,6 +100,7 @@ export function Overview() {
         />
         <Tile
           label="Findings"
+          to={href("/findings")}
           value={thousands(counts.critical + counts.warning + counts.attention + counts.info)}
           note={`${counts.critical} critical · ${count(counts.warning, "warning", "warnings")}`}
         />
