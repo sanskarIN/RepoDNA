@@ -302,6 +302,11 @@ code,
   text-align: right;
 }
 
+/* "Show more" under a list shown in parts. */
+.more {
+  margin: 12px 0 0;
+}
+
 .back-to-top {
   position: fixed;
   right: 20px;
