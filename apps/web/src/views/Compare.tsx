@@ -147,6 +147,7 @@ function Picker({ onPick }: { onPick: (side: Side) => void }) {
   const [scans, setScans] = useState<ScanSummary[]>([]);
   const [demos, setDemos] = useState<DemoEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [over, setOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const origin = dataset?.origin;
   const repositoryId = origin?.kind === "stored" ? origin.repositoryId : null;
@@ -175,6 +176,11 @@ function Picker({ onPick }: { onPick: (side: Side) => void }) {
     }
   };
 
+  const compareFile = (file: File | undefined) => {
+    if (file) {
+      void pick(async () => (await loadFile(file)).artifact, file.name);
+    }
+  };
   const otherDemos = demos.filter(
     (entry) => !(origin?.kind === "demo" && origin.title === entry.title),
   );
@@ -247,39 +253,53 @@ function Picker({ onPick }: { onPick: (side: Side) => void }) {
         ) : null}
         <div>
           <h3>{otherDemos.length > 0 ? "A file or demo" : "A file"}</h3>
-          <p>
-            <button type="button" onClick={() => fileInput.current?.click()}>
-              Open an analysis file…
-            </button>
+          <div
+            className={over ? "dropzone over" : "dropzone"}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setOver(true);
+            }}
+            onDragLeave={() => setOver(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setOver(false);
+              compareFile(event.dataTransfer.files[0]);
+            }}
+          >
+            <p>
+              <strong>Drop an analysis file here to compare with it</strong>
+            </p>
+            <p>
+              <button type="button" onClick={() => fileInput.current?.click()}>
+                Open an analysis file…
+              </button>
+            </p>
             <input
               ref={fileInput}
               type="file"
               accept=".repodna,.json,application/json"
               className="visually-hidden"
               aria-label="Analysis file to compare with"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  void pick(async () => (await loadFile(file)).artifact, file.name);
-                }
-              }}
+              onChange={(event) => compareFile(event.target.files?.[0])}
             />
-          </p>
-          <ul className="list">
-            {otherDemos.map((entry) => (
-              <li key={entry.file}>
-                <span>{entry.title}</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void pick(async () => (await loadDemo(entry)).artifact, entry.title)
-                  }
-                >
-                  Compare
-                </button>
-              </li>
-            ))}
-          </ul>
+          </div>
+          {otherDemos.length > 0 ? (
+            <ul className="list">
+              {otherDemos.map((entry) => (
+                <li key={entry.file}>
+                  <span>{entry.title}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void pick(async () => (await loadDemo(entry)).artifact, entry.title)
+                    }
+                  >
+                    Compare
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </div>
     </Panel>
