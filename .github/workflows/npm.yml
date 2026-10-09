@@ -61,8 +61,10 @@ jobs:
           sha256sum --check --ignore-missing SHA256SUMS.txt
       - name: Unpack the binaries
         run: packaging/npm/unpack.sh "$VERSION" archives binaries
+      - name: Build the web interface
+        run: npm run build -w @repodna/web
       - name: Stage the packages
-        run: node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries
+        run: node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries --web apps/web/dist
       - name: Check the packages
         run: packaging/npm/check.sh npm-packages
       - name: Publish to GitHub Packages
