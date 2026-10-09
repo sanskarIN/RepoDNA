@@ -18,7 +18,7 @@ const MAX_RESULTS = 60;
 /** Search every view, file, module, dependency, and finding (Ctrl+K), or only files and
  *  modules (quick open, Ctrl+P). */
 export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClose: () => void }) {
-  const { dataset, setThemePreference, theme, close } = useApp();
+  const { dataset, setThemePreference, theme, close, recent, openRecent } = useApp();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -54,6 +54,19 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
         kind: "Command",
         run: () => setThemePreference(theme === "dark" ? "light" : "dark"),
       });
+      for (const entry of recent) {
+        list.push({
+          id: `recent:${entry.id}`,
+          label: `${entry.repository} (${entry.name})`,
+          kind: "Recent analysis",
+          run: () => {
+            openRecent(entry).then(
+              () => navigate("/overview"),
+              () => navigate("/"),
+            );
+          },
+        });
+      }
       if (dataset) {
         list.push({
           id: "close",
@@ -107,7 +120,7 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
       }
     }
     return list;
-  }, [mode, dataset, theme, setThemePreference, close]);
+  }, [mode, dataset, theme, setThemePreference, close, recent, openRecent]);
 
   const { results, total } = useMemo(() => {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);

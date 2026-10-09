@@ -70,6 +70,26 @@ describe("recent analyses", () => {
     expect(await screen.findByText("No analysis is open")).toBeTruthy();
   });
 
+  it("opens a recent analysis from search", async () => {
+    const store = memoryStore();
+    await start("/", store);
+    await openFile("repodna.json");
+    await waitFor(async () => expect(await store.list()).toHaveLength(1));
+    window.location.hash = "#/settings";
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    });
+    const input = await screen.findByRole("combobox", { name: "Search and run commands" });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "recent analysis" } });
+    });
+    expect(screen.getByRole("option", { name: /RepoDNA \(repodna\.json\)/ })).toBeTruthy();
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    await waitFor(() => expect(window.location.hash).toBe("#/overview"));
+  });
+
   it("removes an analysis from the list", async () => {
     const store = memoryStore();
     await start("/", store);
