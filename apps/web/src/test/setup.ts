@@ -7,6 +7,9 @@ import { cleanup } from "@testing-library/react";
 afterEach(() => {
   cleanup();
   window.location.hash = "";
+  // What one test opened must not be reopened, as after a reload, by the next.
+  window.sessionStorage.clear();
+  window.localStorage.clear();
 });
 
 if (!window.matchMedia) {

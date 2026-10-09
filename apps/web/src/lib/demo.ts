@@ -42,10 +42,18 @@ export async function loadDemo(entry: DemoEntry): Promise<LoadedArtifact> {
   return parseArtifact(await response.text());
 }
 
-/** Reads an artifact the user picked or dropped. */
-export async function loadFile(file: File): Promise<LoadedArtifact> {
+/** Reads an artifact the user picked or dropped, with its text, which can be kept as a
+ *  recent analysis. */
+export async function readFile(file: File): Promise<LoadedArtifact & { text: string }> {
   if (file.size > 512 * 1024 * 1024) {
     throw new Error("This file is larger than 512 MB, which is more than an artifact should be.");
   }
-  return parseArtifact(await file.text());
+  const text = await file.text();
+  return { ...parseArtifact(text), text };
+}
+
+/** Reads an artifact the user picked or dropped. */
+export async function loadFile(file: File): Promise<LoadedArtifact> {
+  const { artifact, warnings } = await readFile(file);
+  return { artifact, warnings };
 }
