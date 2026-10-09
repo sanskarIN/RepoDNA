@@ -1,29 +1,63 @@
 import { useEffect, useRef, useState } from "react";
 import { carriesFiles, useOpenFile } from "../lib/openFile";
 import { navigate } from "../lib/router";
+import { useApp } from "../state";
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** What an installed web version is started with when it opens files (Chromium browsers). */
+interface LaunchQueue {
+  setConsumer(consumer: (params: { files?: readonly FileSystemHandle[] }) => void): void;
 }
 
 /**
  * Opens an analysis file dropped anywhere on the page. A drop that a part of the page
  * handles itself, such as the drop zone of the start page, is left to it. Without this,
  * a file dropped beside a drop zone would make the browser leave the page to show it.
+ *
+ * Also opens the `.repodna` file that an installed web version was started with, from the
+ * computer's file manager.
  */
 export function FileDrop() {
+  const { ready } = useApp();
   const openFile = useOpenFile();
   const [over, setOver] = useState(false);
   // Over a drop zone of the page, which shows what a drop there does instead.
   const [overZone, setOverZone] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // The latest `openFile`, for the listeners added once: adding them again would lose
-  // count of a drag in progress.
-  const openRef = useRef(openFile);
+  // Opens a file from outside the page, with a notice while it is read and one if it cannot
+  // be opened. Kept up to date for the listeners, which are added once: adding them again
+  // would lose count of a drag in progress.
+  const openOutside = useRef<(file: File) => void>(() => undefined);
   useEffect(() => {
-    openRef.current = openFile;
+    openOutside.current = (file) => {
+      setError(null);
+      setBusy(file.name);
+      openFile(file)
+        .then(
+          () => navigate("/overview"),
+          (reason: unknown) => setError(`Could not open ${file.name}: ${message(reason)}`),
+        )
+        .finally(() => setBusy(null));
+    };
   });
+
+  useEffect(() => {
+    const queue = (window as { launchQueue?: LaunchQueue }).launchQueue;
+    // Once an analysis kept from before a reload is open, so that it does not replace this one.
+    if (!ready || !queue) {
+      return;
+    }
+    queue.setConsumer(({ files }) => {
+      const handle = files?.[0];
+      if (handle?.kind === "file") {
+        void (handle as FileSystemFileHandle).getFile().then((file) => openOutside.current(file));
+      }
+    });
+  }, [ready]);
 
   useEffect(() => {
     // Entering a child fires before leaving its parent, so count to know when the drag
@@ -63,15 +97,7 @@ export function FileDrop() {
       if (!file) {
         return;
       }
-      setError(null);
-      setBusy(file.name);
-      openRef
-        .current(file)
-        .then(
-          () => navigate("/overview"),
-          (reason: unknown) => setError(`Could not open ${file.name}: ${message(reason)}`),
-        )
-        .finally(() => setBusy(null));
+      openOutside.current(file);
     };
     window.addEventListener("dragenter", enter);
     window.addEventListener("dragleave", leave);
