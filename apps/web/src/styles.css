@@ -740,7 +740,7 @@ pre.note {
       14px 100% no-repeat scroll;
 }
 
-/* Under a table, outside the part that scrolls sideways. */
+/* Under a table, outside the part that scrolls sideways: show all rows, download them. */
 .table-actions {
   display: flex;
   flex-wrap: wrap;

@@ -327,6 +327,7 @@ export function Files() {
                 </>
               ),
               sort: (f) => f.path,
+              csv: (f) => f.path,
             },
             {
               key: "category",
