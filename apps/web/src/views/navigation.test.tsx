@@ -3,7 +3,7 @@
 
 import { act } from "react";
 import { describe, expect, it } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { parseArtifact } from "@repodna/schema";
 import { App } from "../App";
 import type { Dataset } from "../state";
@@ -117,5 +117,15 @@ describe("navigation", () => {
     await renderAt("/findings?severity=info");
     const select = (await screen.findByLabelText("Severity")) as HTMLSelectElement;
     expect(select.value).toBe("info");
+  });
+
+  it("names the view and the repository in the page title, each once", async () => {
+    await renderAt("/overview");
+    expect(document.title).toBe("Overview · RepoDNA");
+    const other = demo();
+    other.dna = { ...other.dna, identity: { ...other.dna.identity, name: "acme" } };
+    cleanup();
+    await renderAt("/files", other);
+    expect(document.title).toBe("Files · acme · RepoDNA");
   });
 });
