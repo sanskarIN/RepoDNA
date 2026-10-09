@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { Heatmap } from "../charts/Heatmap";
-import { downloadText } from "../lib/download";
 import { DataTable, csvField, csvFileName, toCsv, type Column } from "./DataTable";
 import { useTooltip } from "./Tooltip";
 import { Omittable, Panel, Tile } from "./common";
 
-vi.mock("../lib/download", () => ({ downloadText: vi.fn() }));
+// The desktop app's commands, for a table saved in its window.
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 interface Row {
   name: string;
@@ -141,7 +142,20 @@ describe("CSV", () => {
     expect(csvFileName(undefined)).toBe("table.csv");
   });
 
-  it("downloads all rows of a table in the order shown", () => {
+  it("downloads all rows of a table in the order shown", async () => {
+    const blobs = new Map<string, Blob>();
+    const saved: { name: string; blob: Blob | undefined }[] = [];
+    vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+      const url = `blob:test/${blobs.size}`;
+      blobs.set(url, blob as Blob);
+      return url;
+    });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      saved.push({ name: this.download, blob: blobs.get(this.href) });
+    });
     render(
       <Panel title="Sizes">
         <DataTable
@@ -156,11 +170,38 @@ describe("CSV", () => {
       </Panel>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Download CSV of Sizes" }));
-    expect(downloadText).toHaveBeenCalledWith(
-      "sizes.csv",
-      "Name\r\nalpha\r\nbeta\r\ngamma\r\n",
-      "text/csv;charset=utf-8",
-    );
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]?.name).toBe("sizes.csv");
+    expect(saved[0]?.blob?.type).toBe("text/csv;charset=utf-8");
+    expect(await saved[0]?.blob?.text()).toBe("Name\r\nalpha\r\nbeta\r\ngamma\r\n");
+    vi.restoreAllMocks();
+  });
+
+  it("saves a table through the desktop app's save dialog, and says why it could not", async () => {
+    const desktop = window as { __TAURI_INTERNALS__?: unknown };
+    desktop.__TAURI_INTERNALS__ = {};
+    vi.mocked(invoke).mockRejectedValueOnce("The disk is full.");
+    try {
+      render(
+        <Panel title="Sizes">
+          <DataTable
+            rows={rows}
+            rowKey={(row) => row.name}
+            columns={[{ key: "name", header: "Name", cell: (row) => row.name }]}
+          />
+        </Panel>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Download CSV of Sizes" }));
+      expect((await screen.findByRole("alert")).textContent).toBe(
+        "sizes.csv could not be saved: The disk is full.",
+      );
+      expect(invoke).toHaveBeenCalledWith("save_file", {
+        name: "sizes.csv",
+        text: "Name\r\nbeta\r\nalpha\r\ngamma\r\n",
+      });
+    } finally {
+      delete desktop.__TAURI_INTERNALS__;
+    }
   });
 
   it("offers no download for an empty table", () => {
