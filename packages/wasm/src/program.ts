@@ -68,6 +68,8 @@ export async function run(
       stderr,
       new PreopenDirectory("/", files),
     ],
+    // The library logs every file lookup unless told not to.
+    { debug: false },
   );
   // The library sizes the arguments by their length in UTF-16 units instead of UTF-8
   // bytes, which is too little for a folder named in, say, Hindi or Japanese.
