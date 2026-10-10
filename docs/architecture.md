@@ -78,12 +78,18 @@ results, so the CLI, the server, and the desktop app behave the same way.
 **Front ends**: `repodna-cli` (the `repodna` binary), `repodna-server` (the token-protected
 local API and web interface behind `repodna serve`), and the Tauri desktop app in
 `apps/desktop`, which calls the same services through native commands instead of HTTP.
+`repodna-wasm` builds the engine and the reports for WebAssembly (`wasm32-wasip1`), for the
+web version and `@sanskarin/repodna-wasm`: one thread, the repository's own configuration,
+and no Git, storage, cache, or plugins.
 
 **The web interface** (`apps/web`) is a React application with hash routing. It reads
 artifacts through one `Backend` interface with three implementations: the local server,
 the desktop app, or none (static hosting, where it opens files and the bundled demo).
-`packages/schema` provides TypeScript types generated from the artifact schema, and
-`packages/visualization` the layout and color helpers for its charts.
+`packages/schema` provides TypeScript types generated from the artifact schema,
+`packages/visualization` the layout and color helpers for its charts, and `packages/wasm`
+the code that runs `repodna-wasm` in a browser or Node.js, with the files it may read in a
+small in-memory WASI file system. In the web version, a worker runs it, so that the page
+keeps responding, and a service worker keeps the web version working offline.
 
 ## Design principles
 

@@ -8,7 +8,10 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 ## Start here
 
 - [Getting started](getting-started.md): analyze your first repository in five minutes
-- [Installation](installation.md): binaries, the desktop app, and building from source
+- [Installation](installation.md): binaries, the desktop app, npm, WebAssembly, and building
+  from source
+- [The web version](web.md#the-web-version): analyze a folder in your browser, with nothing to
+  install
 - [FAQ](faq.md)
 
 ## Using RepoDNA
@@ -16,6 +19,7 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 - [Command-line reference](cli.md)
 - [The web interface](web.md) and its local API
 - [The desktop app](desktop.md)
+- [The GitHub Action](github-action.md)
 - [Reports](reports.md) and [Project DNA cards](dna-cards.md)
 - [Configuration](configuration.md)
 - [Privacy](privacy.md)
