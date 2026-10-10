@@ -169,8 +169,8 @@ flowchart TB
         cli["repodna CLI"]
         server["repodna serve<br/>+ web interface"]
         desktop["Desktop app"]
-        web["Web version<br/>(WebAssembly)"]
     end
+    web["Web version<br/>WebAssembly, in the browser"]
     app["repodna-app<br/>configuration · storage · plugins · reports · AI"]
     inputs["Directory · Git URL · Archive"]
     subgraph Engine["repodna-engine: analysis stages"]
@@ -187,6 +187,7 @@ flowchart TB
     ai["AI explanations<br/>(optional)"]
     Frontends --> app
     app --> Engine
+    web --> Engine
     inputs --> Engine
     Engine --> artifact
     artifact --> store
