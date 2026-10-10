@@ -14,6 +14,7 @@ import { parseArtifact, type RepositoryDna } from "@repodna/schema";
 import type { Theme } from "@repodna/visualization";
 import { detectBackend, type Backend, type Session } from "./lib/backend";
 import { loadDemo } from "./lib/demo";
+import { keepOffline } from "./lib/offline";
 import {
   browserStore,
   openPointer,
@@ -172,6 +173,7 @@ export function AppProvider({
           setBackend(detected.backend);
           setSession(detected.session);
           setSignInNeeded(detected.signInNeeded);
+          keepOffline(detected.backend !== null || detected.signInNeeded);
         }
       } catch (reason) {
         if (!cancelled) {
