@@ -1,6 +1,7 @@
 //! Embeds the built web interface (`apps/web/dist`, or the directory named by
 //! `REPODNA_WEB_DIST`) when it exists and the `embed-web` feature is on, so release builds
 //! of `repodna serve` include it. Without it, the server falls back to a small built-in page.
+//! The WebAssembly analysis of the web version (`engine/`) is never included.
 
 use std::env;
 use std::fs;
@@ -34,6 +35,9 @@ fn main() {
     if embed && dist.join("index.html").is_file() {
         println!("cargo:rerun-if-changed={}", dist.display());
         collect(&dist, &dist, &mut files);
+        // The web version's WebAssembly analysis: the server analyzes on the machine, with
+        // Git history, so it is left out.
+        files.retain(|(name, _)| !name.starts_with("engine/"));
     } else if embed && chosen.is_none() && web.is_dir() {
         // Run again when the web interface is built later.
         println!("cargo:rerun-if-changed={}", web.display());
