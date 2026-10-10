@@ -11,10 +11,12 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use repodna_app::{AnalyzeOptions, AppPaths, report_bundle, write_bundle};
-use repodna_core::config::{AnalysisProfile, PrivacyPreset, ReportTheme};
+use repodna_app::{AnalyzeOptions, AppPaths, artifact_file_name, report_bundle, write_bundle};
+use repodna_core::config::{AnalysisProfile, PrivacyPreset};
+use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::ReportOptions;
 use repodna_report::card::{CardOptions, render as render_card_svg};
+use repodna_report::png::render_png;
 use repodna_server::jobs::{JobState, Jobs};
 use repodna_server::library;
 use repodna_store::Store;
@@ -25,6 +27,9 @@ use tauri_plugin_opener::OpenerExt;
 
 /// Errors cross into the page as plain messages.
 type Reply<T> = Result<T, String>;
+
+/// How much larger than its SVG size a PNG card is, as `repodna card` makes it.
+const PNG_SCALE: f32 = 2.0;
 
 /// Local storage and the analyses running in the background.
 struct Library {
@@ -137,12 +142,35 @@ async fn pick_directory(app: AppHandle) -> Reply<Option<String>> {
     })
 }
 
-/// Asks where to save `text` and writes it there; `None` when the user cancels.
-fn save_text(
+/// The start of the names of files saved from an analysis, such as
+/// `repodna-widget-2026-10-10`, as `repodna export` names the analysis itself.
+fn file_stem(dna: &RepositoryDna) -> String {
+    let name = artifact_file_name(dna);
+    name.strip_suffix(".repodna").unwrap_or(&name).to_owned()
+}
+
+/// `path`, or the first of `path-2`, `path-3`, and so on that does not exist yet, so that
+/// saving a report folder never replaces one saved before.
+fn unused(path: PathBuf) -> PathBuf {
+    if !path.exists() {
+        return path;
+    }
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    (2..)
+        .map(|number| path.with_file_name(format!("{name}-{number}")))
+        .find(|candidate| !candidate.exists())
+        .unwrap_or(path)
+}
+
+/// Asks where to save `bytes` and writes them there; `None` when the user cancels.
+fn save_bytes(
     app: &AppHandle,
     file_name: &str,
     filter: (&str, &[&str]),
-    text: &str,
+    bytes: &[u8],
 ) -> Reply<Option<String>> {
     let Some(path) = app
         .dialog()
@@ -154,7 +182,7 @@ fn save_text(
         return Ok(None);
     };
     let path = into_path(path)?;
-    std::fs::write(&path, text)
+    std::fs::write(&path, bytes)
         .map_err(|error| format!("{} could not be written: {error}", path.display()))?;
     Ok(Some(path.display().to_string()))
 }
@@ -173,6 +201,7 @@ async fn save_report(
     let preset = library::parse_privacy(privacy.as_deref().unwrap_or("local"))?;
     let theme = library::parse_theme(theme.as_deref().unwrap_or("professional"))?;
     let dna = library::load(&library.store, &id, scan.as_deref(), preset).map_err(message)?;
+    let stem = file_stem(&dna);
     match format.as_str() {
         "bundle" => {
             let Some(parent) = app
@@ -183,7 +212,8 @@ async fn save_report(
             else {
                 return Ok(None);
             };
-            let dir = into_path(parent)?.join("repodna-report");
+            // Named after the analysis, and never over a folder saved before.
+            let dir = unused(into_path(parent)?.join(format!("{stem}-report")));
             let options = ReportOptions {
                 theme,
                 privacy: preset,
@@ -193,30 +223,62 @@ async fn save_report(
             write_bundle(&dir, &files, false).map_err(message)?;
             Ok(Some(dir.display().to_string()))
         }
-        "card" => {
-            let svg = render_card_svg(
-                &dna,
-                CardOptions {
-                    dark: theme == ReportTheme::Dark,
-                    branding: true,
-                },
-            );
-            save_text(&app, "dna-card.svg", ("SVG image", &["svg"]), &svg)
-        }
         format => {
             let document = library::report(&dna, format, theme, preset)?;
-            let (label, file_name) = match document.extension {
-                "html" => ("HTML report", "repodna-report.html"),
-                "md" => ("Markdown report", "repodna-report.md"),
-                _ => ("JSON artifact", "repodna.json"),
+            let label = match document.extension {
+                "html" => "HTML report",
+                "md" => "Markdown report",
+                _ => "JSON artifact",
             };
-            save_text(
+            save_bytes(
                 &app,
-                file_name,
+                &format!("{stem}.{}", document.extension),
                 (label, &[document.extension]),
-                &document.text,
+                document.text.as_bytes(),
             )
         }
+    }
+}
+
+/// Saves the Project DNA card, light or dark as the page shows it, as SVG or PNG.
+#[tauri::command]
+async fn save_card(
+    app: AppHandle,
+    desktop: State<'_, Desktop>,
+    id: String,
+    scan: Option<String>,
+    dark: bool,
+    png: bool,
+) -> Reply<Option<String>> {
+    let store = &desktop.library()?.store;
+    let dna = library::load(store, &id, scan.as_deref(), PrivacyPreset::Local).map_err(message)?;
+    let svg = render_card_svg(
+        &dna,
+        CardOptions {
+            dark,
+            branding: true,
+        },
+    );
+    let name = format!(
+        "{}-card{}",
+        file_stem(&dna),
+        if dark { "-dark" } else { "" }
+    );
+    if png {
+        let bytes = render_png(&svg, PNG_SCALE).map_err(message)?;
+        save_bytes(
+            &app,
+            &format!("{name}.png"),
+            ("PNG image", &["png"]),
+            &bytes,
+        )
+    } else {
+        save_bytes(
+            &app,
+            &format!("{name}.svg"),
+            ("SVG image", &["svg"]),
+            svg.as_bytes(),
+        )
     }
 }
 
@@ -267,7 +329,12 @@ async fn save_file(app: AppHandle, name: String, text: String) -> Reply<Option<S
         "svg" => "SVG image",
         _ => "File",
     };
-    save_text(&app, &file_name, (label, &[extension.as_str()]), &text)
+    save_bytes(
+        &app,
+        &file_name,
+        (label, &[extension.as_str()]),
+        text.as_bytes(),
+    )
 }
 
 /// Opens a web page in the system browser. Only https links are accepted, so the page
@@ -301,6 +368,7 @@ fn main() {
             cancel_job,
             pick_directory,
             save_report,
+            save_card,
             save_file,
             render_card,
             open_link,
@@ -335,6 +403,38 @@ mod tests {
         assert!(!is_web_link("https:///local"));
         assert!(!is_web_link("https://example.com/a b"));
         assert!(!is_web_link("javascript:alert(1)"));
+    }
+
+    #[test]
+    fn a_report_folder_never_replaces_another() {
+        let dir = std::env::temp_dir().join(format!("repodna-desktop-{}", std::process::id()));
+        let report = dir.join("repodna-widget-2026-10-10-report");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(unused(report.clone()), report);
+        std::fs::create_dir_all(&report).unwrap();
+        let second = dir.join("repodna-widget-2026-10-10-report-2");
+        assert_eq!(unused(report.clone()), second);
+        std::fs::create_dir_all(&second).unwrap();
+        assert_eq!(
+            unused(report),
+            dir.join("repodna-widget-2026-10-10-report-3")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn saved_files_are_named_after_the_analysis() {
+        let identity = repodna_core::model::identity::RepositoryIdentity {
+            name: "My Widget".to_owned(),
+            ..Default::default()
+        };
+        let dna = RepositoryDna::new(
+            identity,
+            repodna_core::model::metadata::AnalysisMetadata::default(),
+        );
+        let stem = file_stem(&dna);
+        assert!(stem.starts_with("repodna-my-widget-"), "{stem}");
+        assert!(!stem.ends_with(".repodna"), "{stem}");
     }
 
     #[test]
