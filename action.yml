@@ -1,0 +1,128 @@
+# RepoDNA as a GitHub Action: analyzes the repository on the runner, shows the summary on the
+# run's page and the findings as annotations, keeps the analysis and, if asked, the full
+# report, and fails the step when findings reach the severity you choose. Nothing is
+# uploaded. See docs/github-action.md.
+#
+#   - uses: actions/checkout@v7
+#     with:
+#       fetch-depth: 0   # the whole history, for the history analyses
+#   - uses: sanskarIN/RepoDNA@v1.3.1
+#     with:
+#       fail-on: warning
+
+name: RepoDNA
+description: Analyze a repository with RepoDNA on the runner, show its findings on the run and in pull requests, and keep its report.
+author: Sanskar
+branding:
+  icon: activity
+  color: blue
+
+inputs:
+  path:
+    description: The directory to analyze.
+    default: "."
+  version:
+    description: The RepoDNA release to run, such as 1.3.1, or latest. By default, the release of this action's tag, or the latest release.
+    default: ""
+  profile:
+    description: The analysis profile, such as quick, standard, or deep. By default, the repository's repodna.toml decides, or standard.
+    default: ""
+  fail-on:
+    description: Fail the step when findings at or above this severity exist. never, info, attention, warning, or critical.
+    default: never
+  baseline:
+    description: An earlier analysis (.repodna or JSON) to compare with, such as the base branch's.
+    default: ""
+  new-only:
+    description: With baseline, fail only on findings the baseline does not have.
+    default: "false"
+  annotate:
+    description: Show findings as annotations on the files they are about.
+    default: "true"
+  report:
+    description: A directory to write the full report to (HTML, Markdown, JSON, CSV tables, and the DNA card), for example to keep with actions/upload-artifact. Empty for none.
+    default: ""
+
+outputs:
+  analysis:
+    description: The analysis as a .repodna file, which opens in the web version, repodna serve, and the desktop app.
+    value: ${{ steps.analyze.outputs.analysis }}
+  report:
+    description: The directory with the full report, when report was given.
+    value: ${{ steps.report.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install RepoDNA
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+      run: |
+        set -euo pipefail
+        version="$VERSION"
+        if [ -z "$version" ]; then
+          # The release of the tag this action was used at, such as v1.3.1, or else the latest.
+          if [[ "$ACTION_REF" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            version="$ACTION_REF"
+          else
+            version=latest
+          fi
+        fi
+        bin="$RUNNER_TEMP/repodna/bin"
+        bash "$GITHUB_ACTION_PATH/packaging/action/install.sh" "$version" "$bin"
+        echo "$bin" >> "$GITHUB_PATH"
+
+    - name: Analyze
+      id: analyze
+      shell: bash
+      env:
+        TARGET: ${{ inputs.path }}
+        PROFILE: ${{ inputs.profile }}
+      run: |
+        set -euo pipefail
+        # A directory of its own, so that a job can use the action more than once, for
+        # example on the base branch and on the change.
+        mkdir -p "$RUNNER_TEMP/repodna"
+        analysis="$(mktemp -d "$RUNNER_TEMP/repodna/analysis-XXXXXX")/analysis.repodna"
+        args=(export "$TARGET" --output "$analysis" --force --no-store --color never)
+        if [ -n "$PROFILE" ]; then
+          args+=(--profile "$PROFILE")
+        fi
+        repodna "${args[@]}"
+        echo "analysis=$analysis" >> "$GITHUB_OUTPUT"
+
+    - name: Report
+      id: report
+      if: inputs.report != ''
+      shell: bash
+      env:
+        ANALYSIS: ${{ steps.analyze.outputs.analysis }}
+        REPORT: ${{ inputs.report }}
+      run: |
+        set -euo pipefail
+        repodna report "$ANALYSIS" --output "$REPORT" --force --color never
+        echo "report=$REPORT" >> "$GITHUB_OUTPUT"
+
+    - name: Check
+      shell: bash
+      env:
+        ANALYSIS: ${{ steps.analyze.outputs.analysis }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        BASELINE: ${{ inputs.baseline }}
+        NEW_ONLY: ${{ inputs.new-only }}
+        ANNOTATE: ${{ inputs.annotate }}
+      run: |
+        set -euo pipefail
+        args=(ci "$ANALYSIS" --fail-on "$FAIL_ON" --summary-file "$GITHUB_STEP_SUMMARY" --color never)
+        if [ "$ANNOTATE" = true ]; then
+          args+=(--format github)
+        fi
+        if [ -n "$BASELINE" ]; then
+          args+=(--baseline "$BASELINE")
+          if [ "$NEW_ONLY" = true ]; then
+            args+=(--new-only)
+          fi
+        fi
+        repodna "${args[@]}"
