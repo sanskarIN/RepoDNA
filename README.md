@@ -17,7 +17,7 @@ the changes of every release on one page.
 
 | Version | Released | Highlights |
 |---|---|---|
-| [1.3.1](v1.3.1/release-notes.md) | not yet | Analysis of a folder or an archive in the browser, reports and cards there too, a web version that works offline, a GitHub Action, Windows on Arm, and RepoDNA as WebAssembly |
+| [1.3.1](v1.3.1/README.md) | 2026-10-10 | Analysis of a folder or an archive in the browser, reports and cards there too, a web version that works offline, a GitHub Action, Windows on Arm, and RepoDNA as WebAssembly |
 | [1.3.0](v1.3.0/README.md) | 2026-10-09 | Recent analyses, the open analysis kept across reloads, ways through an analysis, and a web version that installs as an app, saves tables as CSV, and prints cleanly |
 | [1.2.2](v1.2.2/README.md) | 2026-10-07 | The shade on tables that scroll sideways on phones along their whole edge, and older releases on npmjs.com |
 | [1.2.1](v1.2.1/README.md) | 2026-10-06 | npm packages on npmjs.com, installed without a token, and small fixes to accessibility, tables on phones, `repodna serve`, and clone errors |
@@ -42,7 +42,7 @@ promo images and Project DNA cards of each release are on the
   minor and major versions (`1.2`, `1`), and `latest`.
 - **npm packages:** `@sanskarin/repodna`, `@sanskarin/repodna-schema`, and
   `@sanskarin/repodna-visualization` on npmjs.com and GitHub Packages from 1.2.0 on, and
-  `@sanskarin/repodna-web` from 1.3.0 on; see [installation](https://github.com/sanskarIN/RepoDNA/blob/main/docs/installation.md#npm-packages).
+  `@sanskarin/repodna-web` from 1.3.0 on, and `@sanskarin/repodna-wasm` from 1.3.1 on; see [installation](https://github.com/sanskarIN/RepoDNA/blob/main/docs/installation.md#npm-packages).
 - **Web version:** [sanskarin.github.io/RepoDNA](https://sanskarin.github.io/RepoDNA/)
   always runs the latest release.
 
