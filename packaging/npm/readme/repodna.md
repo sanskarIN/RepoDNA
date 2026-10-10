@@ -6,8 +6,9 @@ history, and health, on your own machine and without telemetry.
 
 This package installs the `repodna` command. npm adds the binary for your platform from one
 of `@sanskarin/repodna-linux-x64`, `@sanskarin/repodna-linux-arm64`,
-`@sanskarin/repodna-darwin-x64`, `@sanskarin/repodna-darwin-arm64`, and
-`@sanskarin/repodna-win32-x64`.
+`@sanskarin/repodna-darwin-x64`, `@sanskarin/repodna-darwin-arm64`,
+`@sanskarin/repodna-win32-x64`, and `@sanskarin/repodna-win32-arm64`. On any other system,
+`@sanskarin/repodna-wasm` analyzes with WebAssembly, without Git history.
 
 ## Install
 
