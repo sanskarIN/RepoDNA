@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
-import { confidenceLabel } from "@repodna/schema";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { confidenceLabel, type RepositoryDna } from "@repodna/schema";
 import { date, thousands } from "@repodna/visualization";
 import { Chip, CommandBox, ErrorBox, Note, PageHeader, Panel, Select } from "../components/common";
 import { DataTable } from "../components/DataTable";
 import type { PrivacyPreset, ReportFormat, ReportTheme, SaveFormat } from "../lib/backend";
-import { artifactFileName, useDownload } from "../lib/download";
+import { useEngine } from "../components/BrowserAnalysis";
+import { renderCard, renderReport } from "../engine/client";
+import { artifactFileName, downloadBlob, useDownload } from "../lib/download";
 import { unitFor } from "../lib/names";
 import { useApp, useDataset } from "../state";
 
@@ -32,21 +34,32 @@ function message(error: unknown): string {
 }
 
 /** The Project DNA card, rendered by the same code as `repodna card`. */
-function CardPreview({ repositoryId, scanId }: { repositoryId: string; scanId?: string }) {
-  const { backend } = useApp();
+function CardPreview({
+  source,
+  render,
+  renderPng,
+  downloads,
+}: {
+  /** Identifies what `render` renders: the card is rendered again when it changes. */
+  source: string;
+  render: (dark: boolean) => Promise<string>;
+  /** Renders the card as PNG, when it can be downloaded as one. */
+  renderPng?: (dark: boolean) => Promise<Uint8Array<ArrayBuffer>>;
+  /** Offer the card as downloads; the desktop app saves it with Reports instead. */
+  downloads: boolean;
+}) {
   const [dark, setDark] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [download, failure] = useDownload();
+  const renderer = useRef(render);
+  renderer.current = render;
 
   useEffect(() => {
-    if (!backend) {
-      return;
-    }
     let cancelled = false;
     let objectUrl: string | null = null;
-    backend.card(repositoryId, dark, scanId).then(
+    renderer.current(dark).then(
       (text) => {
         if (cancelled) {
           return;
@@ -64,8 +77,9 @@ function CardPreview({ repositoryId, scanId }: { repositoryId: string; scanId?: 
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [backend, repositoryId, scanId, dark]);
+  }, [source, dark]);
 
+  const name = dark ? "dna-card-dark" : "dna-card";
   return (
     <Panel
       title="Project DNA card"
@@ -86,16 +100,24 @@ function CardPreview({ repositoryId, scanId }: { repositoryId: string; scanId?: 
       {url ? (
         <img className="card-preview" src={url} alt="Project DNA card for this repository" />
       ) : null}
-      {svg && !backend?.saveReport ? (
-        <p>
-          <button
-            type="button"
-            onClick={() =>
-              download(dark ? "dna-card-dark.svg" : "dna-card.svg", svg, "image/svg+xml")
-            }
-          >
+      {svg && downloads ? (
+        <p className="actions">
+          <button type="button" onClick={() => download(`${name}.svg`, svg, "image/svg+xml")}>
             Download SVG
           </button>
+          {renderPng ? (
+            <button
+              type="button"
+              onClick={() =>
+                renderPng(dark).then(
+                  (png) => downloadBlob(`${name}.png`, new Blob([png], { type: "image/png" })),
+                  (reason: unknown) => setError(message(reason)),
+                )
+              }
+            >
+              Download PNG
+            </button>
+          ) : null}
         </p>
       ) : null}
     </Panel>
@@ -179,13 +201,105 @@ function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?
           also available from the command line: <code>repodna report &lt;repository&gt;</code>.
         </p>
       </Panel>
-      <CardPreview repositoryId={repositoryId} scanId={scanId} />
+      <CardPreview
+        source={`${repositoryId}:${scanId ?? ""}`}
+        render={(dark) => backend.card(repositoryId, dark, scanId)}
+        downloads={!backend.saveReport}
+      />
+    </>
+  );
+}
+
+/**
+ * Reports and the card of an analysis file, made in this browser by the WebAssembly build
+ * of RepoDNA that the web version comes with.
+ */
+function BrowserReports({ dna }: { dna: RepositoryDna }) {
+  const [theme, setTheme] = useState<ReportTheme>("professional");
+  const [privacy, setPrivacy] = useState<PrivacyPreset>("local");
+  const [making, setMaking] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [download, failure] = useDownload();
+  const artifact = useMemo(() => JSON.stringify(dna), [dna]);
+  const base = artifactFileName(dna).replace(/\.repodna$/, "");
+  const make = async (format: "html" | "markdown") => {
+    setError(null);
+    setMaking(format);
+    try {
+      const text = await renderReport(artifact, { format, theme, privacy });
+      if (format === "html") {
+        download(`${base}.html`, text, "text/html");
+      } else {
+        download(`${base}.md`, text, "text/markdown");
+      }
+    } catch (reason) {
+      setError(message(reason));
+    } finally {
+      setMaking(null);
+    }
+  };
+  return (
+    <>
+      <Panel
+        title="Reports"
+        description="Made in this browser from the open analysis, as repodna report makes them. Nothing is uploaded."
+      >
+        <div className="filters">
+          <Select
+            id="report-theme"
+            label="Report theme"
+            value={theme}
+            options={THEMES}
+            onChange={setTheme}
+          />
+          <Select
+            id="report-privacy"
+            label="Privacy preset"
+            value={privacy}
+            options={PRIVACY}
+            onChange={setPrivacy}
+          />
+        </div>
+        <div className="actions">
+          <button type="button" disabled={making !== null} onClick={() => void make("html")}>
+            {making === "html" ? "Making the HTML report…" : "Download the HTML report"}
+          </button>
+          <button type="button" disabled={making !== null} onClick={() => void make("markdown")}>
+            {making === "markdown" ? "Making the Markdown report…" : "Download the Markdown report"}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              download(
+                artifactFileName(dna),
+                `${JSON.stringify(dna, null, 2)}\n`,
+                "application/json",
+              )
+            }
+          >
+            Download the analysis as loaded
+          </button>
+        </div>
+        {error ? <ErrorBox>{error}</ErrorBox> : null}
+        {failure ? <ErrorBox>{failure}</ErrorBox> : null}
+        <p className="muted">
+          The privacy preset of this file is <strong>{dna.analysisMetadata.privacy.preset}</strong>;
+          reports made from it can remove more, never add back what was removed.
+        </p>
+      </Panel>
+      <CardPreview
+        source={dna.analysisMetadata.id}
+        render={(dark) => renderCard(artifact, dark)}
+        renderPng={(dark) => renderCard(artifact, dark, true)}
+        downloads
+      />
     </>
   );
 }
 
 export function Reports() {
   const dataset = useDataset();
+  const engine = useEngine();
   const [download, failure] = useDownload();
   const { dna, origin } = dataset;
   const meta = dna.analysisMetadata;
@@ -198,6 +312,8 @@ export function Reports() {
       </PageHeader>
       {origin.kind === "stored" ? (
         <StoredReports repositoryId={origin.repositoryId} scanId={origin.scanId} />
+      ) : engine ? (
+        <BrowserReports dna={dna} />
       ) : (
         <Panel
           title="This analysis file"
