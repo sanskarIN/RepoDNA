@@ -2,10 +2,10 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
 use ignore::overrides::OverrideBuilder;
-use ignore::{WalkBuilder, WalkState};
+use ignore::{DirEntry, WalkBuilder, WalkState};
 use repodna_core::CancellationToken;
 use repodna_core::model::languages::LanguageKind;
 use repodna_core::paths;
@@ -110,6 +110,71 @@ fn permission_mode(_metadata: &std::fs::Metadata) -> Option<u32> {
     None
 }
 
+/// What a walk has found so far; shared by the walker's threads.
+struct Collector<'a> {
+    root: PathBuf,
+    options: &'a DiscoveryOptions,
+    registry: &'a LanguageRegistry,
+    cancel: &'a CancellationToken,
+    files: Mutex<Vec<DiscoveredFile>>,
+    errors: Mutex<Vec<String>>,
+    symlinks: AtomicU64,
+    count: AtomicUsize,
+    truncated: AtomicBool,
+}
+
+impl Collector<'_> {
+    /// Records one entry of the walk and says whether the walk goes on.
+    fn visit(&self, result: Result<DirEntry, ignore::Error>) -> WalkState {
+        if self.cancel.is_cancelled() {
+            return WalkState::Quit;
+        }
+        let entry = match result {
+            Ok(entry) => entry,
+            Err(error) => {
+                if let Ok(mut errors) = self.errors.lock() {
+                    errors.push(error.to_string());
+                }
+                return WalkState::Continue;
+            }
+        };
+        let Some(file_type) = entry.file_type() else {
+            return WalkState::Continue;
+        };
+        if file_type.is_symlink() {
+            self.symlinks.fetch_add(1, Ordering::Relaxed);
+            return WalkState::Continue;
+        }
+        if !file_type.is_file() {
+            return WalkState::Continue;
+        }
+        if self.count.fetch_add(1, Ordering::Relaxed) >= self.options.max_files {
+            self.truncated.store(true, Ordering::Relaxed);
+            return WalkState::Quit;
+        }
+        let Some(path) = paths::relative_to(&self.root, entry.path()) else {
+            return WalkState::Continue;
+        };
+        let metadata = entry.metadata().ok();
+        let language = self.registry.detect_path(&path);
+        let language_kind = language.map(|spec| spec.kind);
+        let classification = classify(&path, language_kind, &self.options.overrides);
+        let file = DiscoveredFile {
+            absolute: entry.path().to_path_buf(),
+            bytes: metadata.as_ref().map_or(0, std::fs::Metadata::len),
+            classification,
+            language: language.map(|spec| spec.id.clone()),
+            language_kind,
+            mode: metadata.as_ref().and_then(permission_mode),
+            path,
+        };
+        if let Ok(mut files) = self.files.lock() {
+            files.push(file);
+        }
+        WalkState::Continue
+    }
+}
+
 /// Walks `root` and classifies every file.
 ///
 /// Symbolic links are counted but never followed, version-control directories are
@@ -162,63 +227,37 @@ pub fn discover(
                 && VCS_DIRECTORIES.contains(&name.as_ref()))
         });
 
-    let files = Mutex::new(Vec::new());
-    let errors = Mutex::new(Vec::new());
-    let symlinks = AtomicU64::new(0);
-    let count = AtomicUsize::new(0);
-    let truncated = std::sync::atomic::AtomicBool::new(false);
-    let root = root.to_path_buf();
-
-    builder.build_parallel().run(|| {
-        Box::new(|result| {
-            if cancel.is_cancelled() {
-                return WalkState::Quit;
+    let collector = Collector {
+        root: root.to_path_buf(),
+        options,
+        registry,
+        cancel,
+        files: Mutex::new(Vec::new()),
+        errors: Mutex::new(Vec::new()),
+        symlinks: AtomicU64::new(0),
+        count: AtomicUsize::new(0),
+        truncated: AtomicBool::new(false),
+    };
+    if options.threads <= 1 {
+        // The sequential walker needs no threads, and unlike the parallel one it also runs
+        // where the platform is neither Unix nor Windows, such as WebAssembly (WASI).
+        for result in builder.build() {
+            if matches!(collector.visit(result), WalkState::Quit) {
+                break;
             }
-            let entry = match result {
-                Ok(entry) => entry,
-                Err(error) => {
-                    if let Ok(mut errors) = errors.lock() {
-                        errors.push(error.to_string());
-                    }
-                    return WalkState::Continue;
-                }
-            };
-            let Some(file_type) = entry.file_type() else {
-                return WalkState::Continue;
-            };
-            if file_type.is_symlink() {
-                symlinks.fetch_add(1, Ordering::Relaxed);
-                return WalkState::Continue;
-            }
-            if !file_type.is_file() {
-                return WalkState::Continue;
-            }
-            if count.fetch_add(1, Ordering::Relaxed) >= options.max_files {
-                truncated.store(true, Ordering::Relaxed);
-                return WalkState::Quit;
-            }
-            let Some(path) = paths::relative_to(&root, entry.path()) else {
-                return WalkState::Continue;
-            };
-            let metadata = entry.metadata().ok();
-            let language = registry.detect_path(&path);
-            let language_kind = language.map(|spec| spec.kind);
-            let classification = classify(&path, language_kind, &options.overrides);
-            let file = DiscoveredFile {
-                absolute: entry.path().to_path_buf(),
-                bytes: metadata.as_ref().map_or(0, std::fs::Metadata::len),
-                classification,
-                language: language.map(|spec| spec.id.clone()),
-                language_kind,
-                mode: metadata.as_ref().and_then(permission_mode),
-                path,
-            };
-            if let Ok(mut files) = files.lock() {
-                files.push(file);
-            }
-            WalkState::Continue
-        })
-    });
+        }
+    } else {
+        builder
+            .build_parallel()
+            .run(|| Box::new(|result| collector.visit(result)));
+    }
+    let Collector {
+        files,
+        errors,
+        symlinks,
+        truncated,
+        ..
+    } = collector;
 
     if cancel.is_cancelled() {
         return Err(DiscoveryError::Cancelled);
@@ -295,6 +334,42 @@ mod tests {
         assert_eq!(main.classification.category, FileCategory::Source);
         assert_eq!(main.bytes, 13);
         assert!(!discovery.truncated);
+    }
+
+    #[test]
+    fn one_thread_walks_like_many() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        write(root, ".gitignore", "*.log\nout/\n");
+        write(root, "src/a.rs", "fn a() {}\n");
+        write(root, "src/nested/.gitignore", "skip.rs\n");
+        write(root, "src/nested/skip.rs", "");
+        write(root, "src/nested/keep.rs", "");
+        write(root, "out/x.txt", "x");
+        write(root, "notes.log", "x");
+        write(root, ".git/HEAD", "ref: refs/heads/main\n");
+        write(root, "vendor/lib.js", "x");
+        let options = |threads| DiscoveryOptions {
+            ignore_patterns: vec!["vendor/".into()],
+            threads,
+            ..DiscoveryOptions::default()
+        };
+        let one = walk(root, &options(1));
+        let many = walk(root, &options(4));
+        let paths = |discovery: &Discovery| -> Vec<String> {
+            discovery.files.iter().map(|f| f.path.clone()).collect()
+        };
+        assert_eq!(
+            paths(&one),
+            vec![
+                ".gitignore",
+                "src/a.rs",
+                "src/nested/.gitignore",
+                "src/nested/keep.rs"
+            ]
+        );
+        assert_eq!(paths(&one), paths(&many));
+        assert_eq!(one.files, many.files);
     }
 
     #[test]
