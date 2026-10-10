@@ -2,7 +2,7 @@
 // node --test "packaging/npm/test/*.test.mjs"
 
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -36,6 +36,8 @@ before(async () => {
   writeFileSync(join(root, "index.html"), "<!doctype html><title>RepoDNA</title>");
   writeFileSync(join(root, "assets", "index-abc.js"), "export {};");
   writeFileSync(join(root, "manifest.webmanifest"), "{}");
+  mkdirSync(join(root, "engine"));
+  writeFileSync(join(root, "engine", "repodna.wasm"), "\0asm");
   writeFileSync(join(dir, "secret.txt"), "not served");
   server = createWebServer(root);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -64,6 +66,19 @@ test("serves built files with their types, and keeps them", async () => {
   assert.equal(script.headers["cache-control"], "public, max-age=31536000, immutable");
   const manifest = await get("/manifest.webmanifest?v=1");
   assert.equal(manifest.headers["content-type"], "application/manifest+json");
+  // Browsers compile WebAssembly as it arrives only when it has this type.
+  const engine = await get("/engine/repodna.wasm?v=1.0.0");
+  assert.equal(engine.headers["content-type"], "application/wasm");
+});
+
+test("sends the security policy of the container image", () => {
+  const nginx = readFileSync(new URL("../../web/nginx.conf", import.meta.url), "utf8");
+  assert.ok(
+    nginx.includes(`Content-Security-Policy "${HEADERS["Content-Security-Policy"]}"`),
+    "packaging/web/nginx.conf and packaging/npm/web/lib/server.js send different policies",
+  );
+  // The web version analyzes folders with WebAssembly, which the policy has to allow.
+  assert.match(HEADERS["Content-Security-Policy"], /script-src 'self' 'wasm-unsafe-eval';/);
 });
 
 test("serves nothing outside the interface", async () => {
