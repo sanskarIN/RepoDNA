@@ -560,7 +560,8 @@ jobs:
             `repodna serve` built in. The Linux builds are static and run on any distribution.
           - `repodna-<version>-wasm32-wasip1.zip`: RepoDNA's analysis, reports, and cards as
             WebAssembly, the program the web version runs, for WASI runtimes:
-            `wasmtime run --dir . repodna.wasm analyze .` (without Git history).
+            `wasmtime run --dir .::/my-project repodna.wasm analyze /my-project` (without Git
+            history).
           - `RepoDNA_<version>_amd64.deb`, `RepoDNA-<version>-1.x86_64.rpm`,
             `RepoDNA_<version>_universal.dmg`, `RepoDNA_<version>_x64_en-US.msi`,
             `RepoDNA_<version>_x64-setup.exe`, and for Windows on Arm
