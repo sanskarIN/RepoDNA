@@ -55,8 +55,8 @@ export interface Session {
 }
 
 export type ReportFormat = "html" | "markdown" | "json";
-/** What the desktop app can save: a report, the full report folder, or the DNA card. */
-export type SaveFormat = ReportFormat | "bundle" | "card";
+/** What the desktop app can save: a report, or the full report folder. */
+export type SaveFormat = ReportFormat | "bundle";
 export type ReportTheme = "professional" | "minimal" | "technical" | "dark";
 export type PrivacyPreset = "local" | "share" | "public";
 
@@ -84,6 +84,8 @@ export interface Backend {
   pickDirectory?(): Promise<string | null>;
   /** Writes a report through a save dialog (desktop only); returns the saved path. */
   saveReport?(id: string, format: SaveFormat, options?: ReportOptions): Promise<string | null>;
+  /** Writes the Project DNA card as SVG or PNG through a save dialog (desktop only). */
+  saveCard?(id: string, dark: boolean, png: boolean, scan?: string): Promise<string | null>;
   /** Opens a web link in the system browser (desktop only). */
   openExternal?(url: string): Promise<void>;
 }
