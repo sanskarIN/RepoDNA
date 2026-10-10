@@ -125,6 +125,7 @@ describe.skipIf(!program)("program", async () => {
   });
 
   it("analyzes a folder, with progress, and makes reports and cards of it", async () => {
+    const log = vi.spyOn(console, "log");
     const stages: string[] = [];
     const text = await node.analyze(repo, {
       profile: "quick",
@@ -140,6 +141,8 @@ describe.skipIf(!program)("program", async () => {
     expect(dna.structure.totalFiles).toBe(3);
     expect(dna.analysisMetadata.platform.os).toBe("wasi");
     expect(stages).toContain("discovery");
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
 
     expect(await node.report(text)).toContain("<html");
     expect(await node.report(dna, { format: "markdown", privacy: "public" })).toMatch(/^# /);
