@@ -256,13 +256,27 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
    version, also name it in the supported versions of `SECURITY.md`.
 3. Regenerate the schemas and the bundled demo analysis if the model changed, and the
    third-party notices (`cargo xtask notices`) if dependencies changed.
-4. Commit, then create and push an annotated tag: `git tag -a v1.3.1 -m "RepoDNA 1.3.1"` and
-   `git push origin v1.3.1`.
-5. Once the release is published, add its folder to [`docs/releases`](releases/README.md):
-   `docs/releases/v1.3.1/README.md` with its notes, its downloads and their sizes, and how
-   to install it, and a row for it in the table of `docs/releases/README.md`. Add its
-   screenshots to `docs/images/v1.3.1`, with the same views as the earlier versions in
-   [`docs/images`](images/README.md), and a column and a section for it on that page.
+4. Add the version's images to the
+   [`images`](https://github.com/sanskarIN/RepoDNA/tree/images) branch: its screenshots in
+   `screenshots/v1.3.1`, with the same views as the earlier versions, and a column and a
+   section for it in `screenshots/README.md`; and its promo images and Project DNA cards in
+   `media/v1.3.1`, shown as the newest in `media/README.md`. Point the screenshots in the
+   README and the guides at the new folder. On the
+   [`releases-info`](https://github.com/sanskarIN/RepoDNA/tree/releases-info) branch, add
+   `v1.3.1/release-notes.md` with the notes prepared for the release,
+   `v1.3.1/pull-requests.md`, and a row in its `README.md`.
+5. Commit, then create and push an annotated tag: `git tag -a v1.3.1 -m "RepoDNA 1.3.1"` and
+   `git push origin v1.3.1`. The release notes show the screenshots of the version from
+   the `images` branch.
+6. Once the release is published, on the `releases-info` branch, replace
+   `v1.3.1/release-notes.md` with the notes as published, and add `v1.3.1/README.md` with
+   its notes, its downloads and their sizes, and how to install it.
+
+The `images` and `releases-info` branches share no history with `main`, so that the code
+does not carry the images and release pages. Work on one in a folder of its own, for
+example with `git fetch origin images` and `git worktree add ../RepoDNA-images images`.
+Never rename or remove a version's folder on them: the README, the guides, and the release
+notes link to them.
 
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
 workspace version and the changelog, builds the command line for Linux, macOS, and Windows
