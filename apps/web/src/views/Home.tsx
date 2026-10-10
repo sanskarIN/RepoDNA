@@ -12,10 +12,15 @@ import type { RecentEntry } from "../lib/recent";
 import { href, navigate } from "../lib/router";
 import { useApp } from "../state";
 
+/** Analysis profiles: their names, short enough for the menu, and what each analyzes. */
 const PROFILES = [
-  ["standard", "Standard: history, dependencies, architecture, quality, and security"],
-  ["quick", "Quick: structure, languages, and project conventions; no Git history"],
-  ["deep", "Deep: adds duplication, file similarity, and historical architecture"],
+  ["standard", "Standard profile", "History, dependencies, architecture, quality, and security."],
+  ["quick", "Quick profile", "Structure, languages, and project conventions, without Git history."],
+  [
+    "deep",
+    "Deep profile",
+    "Standard, with duplication, file similarity, and historical architecture.",
+  ],
 ] as const;
 
 function message(error: unknown): string {
@@ -120,6 +125,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         <select
           id="scan-profile"
           value={profile}
+          aria-describedby="scan-profile-help"
           onChange={(event) => setProfile(event.target.value)}
         >
           {PROFILES.map(([id, text]) => (
@@ -137,6 +143,9 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           </button>
         ) : null}
       </form>
+      <p className="muted" id="scan-profile-help">
+        {PROFILES.find(([id]) => id === profile)?.[2]}
+      </p>
       {job ? (
         <div aria-live="polite">
           <ul className="evidence">
