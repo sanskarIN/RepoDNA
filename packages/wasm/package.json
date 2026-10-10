@@ -1,6 +1,6 @@
 {
   "name": "@repodna/wasm",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "private": true,
   "description": "RepoDNA's analysis, reports, and Project DNA cards as WebAssembly, for Node.js and browsers: no native program to install, and nothing is uploaded.",
   "license": "Apache-2.0",
