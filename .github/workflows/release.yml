@@ -523,20 +523,20 @@ jobs:
           # Links in the changelog are relative to the repository; on the release page they
           # point at the files of this release instead.
           perl -pi -e 's{\]\((?![a-z][a-z0-9+.-]*:|#|/)([^)\s]+)\)}{](https://github.com/sanskarIN/RepoDNA/blob/$ENV{TAG}/$1)}g' notes.md
-          # Screenshots, when the release has them in docs/images and docs/media, shown from
-          # the files of its tag.
-          shots="docs/images/$TAG"
-          if [ -f "$shots/desktop/overview-light.png" ]; then
-            raw="https://raw.githubusercontent.com/sanskarIN/RepoDNA/$TAG"
-            blob="https://github.com/sanskarIN/RepoDNA/blob/$TAG"
+          # Screenshots, when the images branch has them for this release, shown from there.
+          images="https://github.com/sanskarIN/RepoDNA/blob/images"
+          raw="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images"
+          shots="screenshots/$TAG"
+          if git fetch --quiet --depth 1 origin images &&
+            git cat-file -e "FETCH_HEAD:$shots/desktop/overview-light.png" 2>/dev/null; then
             image() { # path, description, width
-              if [ -f "$1" ]; then
-                printf '<a href="%s/%s"><img src="%s/%s" alt="%s" width="%s"></a>\n' "$blob" "$1" "$raw" "$1" "$2" "$3"
+              if git cat-file -e "FETCH_HEAD:$1" 2>/dev/null; then
+                printf '<a href="%s/%s"><img src="%s/%s" alt="%s" width="%s"></a>\n' "$images" "$1" "$raw" "$1" "$2" "$3"
               fi
             }
             {
               printf '\n## Screenshots\n\n'
-              image "docs/media/$TAG/promo/launch-16x9.png" "RepoDNA $VERSION on a desktop and a phone" 800
+              image "media/$TAG/promo/launch-16x9.png" "RepoDNA $VERSION on a desktop and a phone" 800
               printf '\n'
               image "$shots/desktop/overview-light.png" "The overview in RepoDNA $VERSION" 400
               image "$shots/desktop/architecture-dark.png" "The module map in RepoDNA $VERSION" 400
@@ -545,9 +545,9 @@ jobs:
               image "$shots/phone/menu-dark.png" "The navigation menu on a phone, in the dark theme" 190
               image "$shots/phone/history-dark.png" "History on a phone, in the dark theme" 190
               image "$shots/phone/hotspots-light.png" "Hotspots on a phone, in the light theme" 190
-              printf '\nEvery screenshot of this release is in [docs/images/%s](%s/docs/images/README.md#%s)' "$TAG" "$blob" "${VERSION//./}"
-              if [ -d "docs/media/$TAG" ]; then
-                printf ', and its promo images and Project DNA cards are in the [media kit](%s/docs/media/README.md)' "$blob"
+              printf '\nEvery screenshot of this release is in [screenshots/%s](%s/screenshots/README.md#%s)' "$TAG" "$images" "${VERSION//./}"
+              if git cat-file -e "FETCH_HEAD:media/$TAG" 2>/dev/null; then
+                printf ', and its promo images and Project DNA cards are in the [media kit](%s/media/README.md)' "$images"
               fi
               printf '.\n'
             } >> notes.md
