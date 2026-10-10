@@ -1183,6 +1183,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "repodna-wasm"
+version = "1.3.0"
+dependencies = [
+ "repodna-core",
+ "repodna-engine",
+ "repodna-report",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "resvg"
 version = "0.48.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
