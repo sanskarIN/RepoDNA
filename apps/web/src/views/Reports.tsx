@@ -23,10 +23,11 @@ const PRIVACY: readonly (readonly [PrivacyPreset, string])[] = [
   ["public", "Public: also pseudonymous contributors, no remote URLs or symbol names"],
 ];
 
-const FORMATS: [ReportFormat, string][] = [
-  ["html", "Interactive HTML report"],
-  ["markdown", "Markdown report"],
-  ["json", "JSON artifact"],
+/** Each report: its format, its name, and the button that saves it in the desktop app. */
+const FORMATS: [ReportFormat, string, string][] = [
+  ["html", "Interactive HTML report", "Save the HTML report…"],
+  ["markdown", "Markdown report", "Save the Markdown report…"],
+  ["json", "JSON artifact", "Save the analysis as JSON…"],
 ];
 
 function message(error: unknown): string {
@@ -191,9 +192,9 @@ function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?
         </div>
         {backend.saveReport ? (
           <div className="actions">
-            {FORMATS.map(([format, label]) => (
+            {FORMATS.map(([format, , saveLabel]) => (
               <button key={format} type="button" onClick={() => void save(format)}>
-                Save {label.charAt(0).toLowerCase() + label.slice(1)}…
+                {saveLabel}
               </button>
             ))}
             <button type="button" onClick={() => void save("bundle")}>
