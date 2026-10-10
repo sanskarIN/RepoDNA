@@ -10,7 +10,7 @@ repodna hotspots
 repodna show --section history,contributors
 ```
 
-![History view of RepoDNA's own analysis](images/v1.3.1/desktop/history-light.png)
+![History view of RepoDNA's own analysis](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/history-light.png)
 
 ## How history is read
 
