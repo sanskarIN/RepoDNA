@@ -67,9 +67,12 @@ in the browser's own storage, for that site only:
 | The last five analysis files you opened, with their contents | IndexedDB | **Remove** on the start page, or **Forget recent analyses** in Settings |
 | Which analysis a tab has open, so that a reload keeps it | The tab's session storage | Closing the tab, or **Close this analysis** in search |
 | The sign-in token of `repodna serve` | A session cookie or the tab's session storage | Stopping the server |
+| The web version's own files (the page, its code, the demo, and the analysis program), so that it works offline | Cache storage, for the web version only | Clearing the site's data |
 
-Turn off **Keep the last five analysis files** in Settings and nothing is kept: files then
-have to be opened again after a reload. Clearing the site's data in your browser removes
+Turn off **Keep the last five analysis files** in Settings and no analysis is kept: files
+then have to be opened again after a reload. A folder or an archive analyzed in the web
+version is read in the page, only as far as the analysis needs, and never leaves the
+browser; its analysis is kept like an opened file. Clearing the site's data in your browser removes
 all of it.
 
 ## What an artifact contains
