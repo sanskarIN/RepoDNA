@@ -162,11 +162,23 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev
-      # The app embeds the built web interface.
+      # The app embeds the built web interface. Windows and macOS build it themselves, as
+      # release builds do, so that its build is tested there too.
       - uses: actions/download-artifact@v8
+        if: runner.os == 'Linux'
         with:
           name: web-dist
           path: apps/web/dist
+      - uses: actions/setup-node@v7
+        if: runner.os != 'Linux'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Build the web interface
+        if: runner.os != 'Linux'
+        run: |
+          npm ci
+          npm run build -w @repodna/web
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
