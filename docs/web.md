@@ -11,7 +11,7 @@ same interface runs in three places:
 | The [desktop app](desktop.md) | A native window | The same, with native folder pickers and save dialogs |
 | The [web version](https://sanskarin.github.io/RepoDNA/), or any static web server | The built files in `apps/web/dist` | Analyze a folder or an archive in the browser, without Git history; open analysis files and the bundled demo; make reports and DNA cards; works offline once opened. No stored analyses |
 
-![The Overview of RepoDNA's own analysis](images/v1.3.0/desktop/overview-light.png)
+![The Overview of RepoDNA's own analysis](images/v1.3.1/desktop/overview-light.png)
 
 ## Start it
 
@@ -173,6 +173,8 @@ Rust code as the command line, as the
   then open the result here.
 - The first analysis downloads the analysis program, about 3 MB compressed, which the
   browser then keeps.
+
+![The web version's start page: Choose a folder, Choose an archive, and a profile under Analyze a repository in this browser](images/v1.3.1/desktop/start-light.png)
 
 It also opens the bundled demo and analysis files you choose (`repodna.json` from
 `repodna analyze --format json` or `repodna report`, or a `.repodna` export), and on
