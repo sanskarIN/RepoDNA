@@ -106,3 +106,11 @@ print_stderr = "warn"
 lto = "thin"
 codegen-units = 4
 strip = "symbols"
+
+# The web version's WebAssembly program (crates/repodna-wasm), which a browser downloads
+# before it can analyze anything: built for size.
+[profile.web-engine]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
