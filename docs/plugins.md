@@ -127,7 +127,7 @@ warning; the rest of the analysis is unaffected.
 ```json
 {
   "api": 1,
-  "repodnaVersion": "1.3.0",
+  "repodnaVersion": "1.3.1",
   "plugin": { "name": "license-headers", "version": "1.0.0" },
   "repository": {
     "name": "my-project",
