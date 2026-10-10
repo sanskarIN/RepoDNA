@@ -14,6 +14,10 @@ on:
       - packages/**
       - package.json
       - package-lock.json
+      # The analysis the web version runs as WebAssembly.
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
       - PRIVACY.md
       - TERMS.md
       - LICENSE
@@ -48,7 +52,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # RepoDNA's analysis as WebAssembly, with which the web version analyzes a folder or
+      # an archive in the browser.
+      # No build cache in a job that publishes.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - run: cargo build --locked -p repodna-wasm --target wasm32-wasip1 --profile web-engine
       - run: npm run build -w @repodna/web
+        env:
+          REPODNA_ENGINE: target/wasm32-wasip1/web-engine/repodna-wasm.wasm
       - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/web/dist
