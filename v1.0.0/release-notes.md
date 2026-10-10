@@ -1,0 +1,104 @@
+# RepoDNA 1.0.0: release notes
+
+The notes of the GitHub release [RepoDNA 1.0.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.0.0), tag
+`v1.0.0`, as published on 2026-09-27. The [release page](README.md) adds its
+downloads with their sizes.
+
+---
+
+The first stable release: local-first repository intelligence and code archaeology, with
+every conclusion backed by evidence.
+
+### Analysis
+
+- One analysis of a directory, a Git URL (cloned into a temporary directory), or an archive
+  (`.zip`, `.tar`, `.tar.gz`, `.tgz`), with three profiles: `quick`, `standard`, and `deep`.
+- Structure and languages: 65 built-in languages, 25 of them with lexical analysis of
+  imports, symbols, and complexity; file classification that honors `.gitignore`,
+  `.gitattributes` (`linguist-generated`, `linguist-vendored`), and your own rules; entry
+  points and the directory tree.
+- Architecture: modules from package manifests and directories, import resolution, the
+  file and module dependency graphs, cycles, layers, centrality, and the inferred style
+  with a confidence level.
+- Dependencies: manifests and lockfiles for Cargo, npm, PyPI, Go, Maven and Gradle, NuGet,
+  RubyGems, Composer, pub, and Swift Package Manager, read offline.
+- History and code archaeology: commits, contributors with `.mailmap`, ownership, releases,
+  quiet periods, file history across renames, recent changes, and ranked change hotspots.
+- The Codebase Time Machine: snapshots rebuilt from Git without a checkout, epochs, events,
+  the architecture at each snapshot (deep profile), and the project's story, with facts
+  and interpretations kept apart.
+- Quality signals: cyclomatic complexity, long and deeply nested functions, large files,
+  duplicated and similar code, markers such as TODO and FIXME, and dead-code candidates.
+- Security signals: 20 secret rules (values are never stored), 18 risky-pattern rules for
+  code, configuration, CI workflows, and containers, and file permission checks.
+- Tests, build, and documentation: test frameworks and files, build systems and commands,
+  CI providers, documentation checks, and a getting-started guide assembled from the
+  repository. Build and test commands run only when execution is enabled in the user
+  configuration.
+- Findings with evidence, method, limitations, and next steps, a severity (critical,
+  warning, attention, info) and a confidence (high, medium, low), and suppressions that
+  require a reason.
+- The DNA fingerprint: eight descriptive dimensions and a DNA hash for each analyzed
+  snapshot.
+- The RepositoryDNA artifact, a versioned JSON document (schema 1.0) with published JSON
+  Schemas, and reproducible output with `--reproducible` and `SOURCE_DATE_EPOCH`.
+
+### Command line
+
+- `repodna` with `analyze` (alias `scan`), `report`, `architecture`, `dependencies`,
+  `history`, `hotspots`, `timeline`, `findings`, `show`, `compare`, `card`, `badge`,
+  `onboarding`, `ci`, `export`, `import`, `list` (alias `ls`), `init`, `config`, `plugins`,
+  `cache`, `clean`, `doctor`, `version`, `serve`, `schema`, and `completions`.
+- `repodna ci` with `--fail-on`, baselines, `--new-only`, GitHub Actions annotations, and
+  step summaries; documented exit codes.
+- `repodna doctor` checks the installation, and `--export` writes a diagnostics bundle for
+  bug reports that contains no source code.
+
+### Reports and sharing
+
+- Self-contained HTML reports in four themes, Markdown, JSON, and CSV tables, written one
+  at a time or as a bundle.
+- Project DNA cards (SVG and PNG, light and dark), README badges, onboarding guides, and
+  side-by-side comparisons that describe differences without ranking.
+- Portable `.repodna` exports and imports, and the privacy presets `local`, `share`, and
+  `public`.
+
+### Web interface and desktop app
+
+- `repodna serve`: a local web interface on 127.0.0.1 with a session token, covering every
+  part of the analysis, with search, a command palette, keyboard shortcuts, light and dark
+  themes, a table view for every chart, and a bundled demo that works offline.
+- A desktop app for Linux, macOS, and Windows, built with Tauri on the same Rust core.
+- A container image with the command line and Git, `ghcr.io/sanskarin/repodna`, for
+  `linux/amd64` and `linux/arm64`.
+- About & support, Privacy Policy, Terms of Use, and Licenses pages in the web interface
+  and the desktop app; every download includes the licenses of the third-party software it
+  contains (`THIRD-PARTY-NOTICES.txt`).
+
+### Extensibility
+
+- Plugins: declarative language definitions and analyzers in any language that exchange
+  JSON with RepoDNA, enabled only by the user; two example plugins.
+- Configuration in `repodna.toml` and a user configuration file, validated strictly; a
+  repository's own configuration cannot enable plugins or command execution.
+
+### Safety and privacy
+
+- No telemetry, no AI, and no network use except cloning a Git URL you give.
+- A hardened Git runner, restricted clone URLs, safe archive extraction with limits,
+  linear-time regular expressions, and local storage in SQLite that can be checked,
+  repaired, and cleaned.
+
+## Downloads
+
+- `repodna-1.0.0-<target>`: the `repodna` command line, with the web interface of
+  `repodna serve` built in. The Linux builds are static and run on any distribution.
+- `RepoDNA_1.0.0_amd64.deb`, `RepoDNA-1.0.0-1.x86_64.rpm`,
+  `RepoDNA_1.0.0_universal.dmg`, `RepoDNA_1.0.0_x64_en-US.msi`, and
+  `RepoDNA_1.0.0_x64-setup.exe`: the desktop app.
+- `ghcr.io/sanskarin/repodna:1.0.0`: a container image with the command line and
+  Git, for CI jobs: `docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .`
+- `SHA256SUMS.txt`: checksums of every file.
+- Web version: https://sanskarin.github.io/RepoDNA/ — open analyses and the demo in your browser, nothing to install.
+
+The binaries are not code-signed, so macOS and Windows ask for confirmation the first time they start; see the [installation guide](https://github.com/sanskarIN/RepoDNA/blob/v1.0.0/docs/installation.md).
