@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: October 9, 2026
+Last updated: October 10, 2026
 
 This policy explains how RepoDNA handles information. It covers the `repodna` command line,
 the RepoDNA desktop app, the web interface of `repodna serve`, and the web version at
@@ -45,7 +45,14 @@ described in "AI explanations" below.
   the start page and after a reload, and remembers in the tab's session storage which
   analysis that tab has open. You can remove them one by one on the start page, forget
   them all or turn this off in Settings, or clear the site's data in your browser.
-- Files you open in the web version are read in your browser and are not uploaded.
+- Files you open in the web version are read in your browser and are not uploaded. When
+  you analyze a folder or an archive there, the web version reads its files in your
+  browser, with RepoDNA's analysis built as WebAssembly, and sends them nowhere. The
+  analysis it makes is kept with the recent analyses, as an opened file is.
+- So that it works without a connection, the web version keeps its own files (the page,
+  its code, the demo, and the analysis program) in your browser's cache storage. It never
+  keeps your files or analyses there. Clearing the site's data in your browser removes
+  them.
 
 ## When RepoDNA uses the network
 
@@ -84,7 +91,9 @@ it is needed and is never stored by RepoDNA. Explanations are cached on your dev
 ## The web version
 
 The web version is a static website hosted by GitHub Pages. RepoDNA adds no cookies,
-analytics, or tracking to it, and it loads nothing from other websites. As with any site it
+analytics, or tracking to it, and it loads nothing from other websites. It analyzes
+repositories in your browser: the files you choose are read there and are never sent to
+GitHub, to RepoDNA's author, or to anyone else. As with any site it
 hosts, GitHub receives technical information such as your IP address when you visit; see the
 [GitHub General Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 
