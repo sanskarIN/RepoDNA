@@ -391,7 +391,7 @@ jobs:
           done
           # Browsers compile the WebAssembly analysis only when it has its own type.
           curl --silent --fail --head http://localhost:8080/engine/repodna.wasm |
-            grep -qi '^content-type: application/wasm
+            grep -qi '^content-type: application/wasm'
           docker stop repodna-web
       - name: Log in to the GitHub Container Registry
         if: needs.prepare.outputs.publish == 'true'
