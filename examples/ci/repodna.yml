@@ -6,7 +6,9 @@
 # finding at warning severity or above is found. Accept known findings with a reason in
 # repodna.toml ([[suppress]]).
 #
-# See https://github.com/sanskarIN/RepoDNA/blob/main/docs/cli.md for `repodna ci`.
+# See https://github.com/sanskarIN/RepoDNA/blob/main/docs/cli.md for `repodna ci`. The
+# GitHub Action does the same in one step, on any runner:
+# https://github.com/sanskarIN/RepoDNA/blob/main/docs/github-action.md
 
 name: RepoDNA
 
