@@ -8,8 +8,9 @@ use tiny_http::{Header, Response, StatusCode};
 pub type Reply = Response<Cursor<Vec<u8>>>;
 
 /// Content Security Policy for the web interface. Images may be `blob:` URLs, which the
-/// interface makes for the Project DNA card, as its own policy in `index.html` allows.
-pub const APP_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+/// interface makes for the Project DNA card, as its own policy in `index.html` allows, and
+/// scripts may compile WebAssembly, with which the web version analyzes in the browser.
+pub const APP_CSP: &str = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
 /// Policy for generated reports, which carry their own stricter policy in the document.
 pub const REPORT_CSP: &str = "frame-ancestors 'none'";
@@ -173,6 +174,13 @@ mod tests {
             .expect("index.html has a Content-Security-Policy");
         assert_eq!(directive(APP_CSP, "img-src"), directive(meta, "img-src"));
         assert_eq!(directive(APP_CSP, "img-src"), Some("'self' data: blob:"));
+        // The web version analyzes folders with WebAssembly, which browsers compile only
+        // when the policy allows it.
+        assert_eq!(directive(APP_CSP, "script-src"), directive(meta, "script-src"));
+        assert_eq!(
+            directive(APP_CSP, "script-src"),
+            Some("'self' 'wasm-unsafe-eval'")
+        );
     }
 
     #[test]
