@@ -89,6 +89,10 @@ Windows on Arm, and the desktop app saves reports and cards better.
 - A page for 1.3.0 in [`docs/releases`](docs/releases/README.md), with its downloads.
 - The README, the architecture and development guides, and the roadmap describe the
   WebAssembly analysis, the new packages, and the Action.
+- [Screenshots of 1.3.1](docs/images/README.md#131) on a desktop, a phone, and in the
+  desktop app, now also of the web version analyzing in the browser, and the README and
+  the guides show them; the [media kit](docs/media/README.md) has 1.3.1 promo images and
+  Project DNA cards.
 
 ## [1.3.0] - 2026-10-09
 
