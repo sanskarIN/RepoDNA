@@ -1,5 +1,6 @@
-import { readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
@@ -89,10 +90,53 @@ function engineFiles(): Plugin {
   };
 }
 
+// The service worker that keeps the web version working offline (sw.js). The build gives it
+// the files to keep, which are all of them but the analysis program, which it keeps the
+// first time it is used, and a version that changes with any of them.
+function serviceWorker(): Plugin {
+  const publicDir = new URL("./public/", import.meta.url);
+  const publicFiles = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory()
+        ? publicFiles(join(dir, entry.name))
+        : [relative(publicDir.pathname, join(dir, entry.name)).split("\\").join("/")],
+    );
+  return {
+    name: "repodna-service-worker",
+    apply: "build",
+    // After the page itself is added to the build.
+    enforce: "post",
+    generateBundle(_options, bundle) {
+      const hash = createHash("sha256");
+      const files = ["./"];
+      for (const [name, output] of Object.entries(bundle).sort(([a], [b]) => a.localeCompare(b))) {
+        hash.update(name);
+        hash.update(output.type === "chunk" ? output.code : output.source);
+        if (!name.startsWith("engine/")) {
+          files.push(name);
+        }
+      }
+      for (const name of publicFiles(publicDir.pathname).sort()) {
+        hash.update(name);
+        hash.update(readFileSync(new URL(name, publicDir)));
+        files.push(name);
+      }
+      const template = readFileSync(new URL("./sw.js", import.meta.url), "utf8");
+      this.emitFile({
+        type: "asset",
+        fileName: "sw.js",
+        source: template
+          .replace("__VERSION__", `${version}-${hash.digest("hex").slice(0, 12)}`)
+          .replace("__FILES__", JSON.stringify(files)),
+      });
+    },
+  };
+}
+
 // Relative asset paths let the same build run from `repodna serve`, the desktop app, and
 // any static host.
 export default defineConfig({
-  plugins: [react(), legalFiles(), engineFiles()],
+  plugins: [react(), legalFiles(), engineFiles(), serviceWorker()],
   base: "./",
   define: {
     __REPODNA_VERSION__: JSON.stringify(version),
