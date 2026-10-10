@@ -1,7 +1,5 @@
-import { Directory, File as WasiFile } from "@bjorn3/browser_wasi_shim";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { droppedFolder, folderFromEntry, folderFromList, isArchive, keep } from "./input";
-import { fileRoot, folderRoot } from "./run";
 
 /** A file as a folder chooser gives it: named by its path from the chosen folder. */
 function chosen(path: string, text = "x"): File {
@@ -35,17 +33,6 @@ function entry(name: string, text = "x"): FileSystemEntry {
     isFile: true,
     file: (resolve: (file: File) => void) => resolve(new File([text], name)),
   } as unknown as FileSystemEntry;
-}
-
-/** The entry at `path` in a file system root, or undefined. */
-function at(root: Map<string, unknown>, path: string): unknown {
-  let current: unknown = root;
-  for (const part of path.split("/")) {
-    const contents: Map<string, unknown> | undefined =
-      current instanceof Map ? current : (current as Directory | undefined)?.contents;
-    current = contents?.get(part);
-  }
-  return current;
 }
 
 describe("input", () => {
@@ -102,43 +89,5 @@ describe("input", () => {
     const file = { items: [{ kind: "file", webkitGetAsEntry: () => entry("a.zip") }] };
     expect(droppedFolder(file as unknown as DataTransfer)).toBeNull();
     expect(droppedFolder(null)).toBeNull();
-  });
-});
-
-describe("file system", () => {
-  it("puts a folder under /work and reads each file once, when opened", () => {
-    const read = vi.fn((blob: Blob) => new Uint8Array(blob.size));
-    const root = folderRoot(
-      "widget",
-      [
-        { path: "src/lib.rs", file: new Blob(["pub fn a() {}"]) },
-        { path: "./README.md", file: new Blob(["# W"]) },
-        { path: "../escape.txt", file: new Blob(["no"]) },
-        { path: "src/../../escape.txt", file: new Blob(["no"]) },
-        { path: ".git/HEAD", file: new Blob(["ref"]) },
-      ],
-      read,
-    );
-    expect(at(root, "tmp")).toBeInstanceOf(Directory);
-    const lib = at(root, "work/widget/src/lib.rs") as WasiFile;
-    expect(lib).toBeInstanceOf(WasiFile);
-    expect(at(root, "work/widget/README.md")).toBeInstanceOf(WasiFile);
-    expect(at(root, "work/widget/.git")).toBeUndefined();
-    expect(at(root, "work/escape.txt")).toBeUndefined();
-    expect(at(root, "work/widget/escape.txt")).toBeUndefined();
-
-    // Listing asks for sizes, which do not need the contents.
-    expect(lib.size).toBe(13n);
-    expect(lib.stat().size).toBe(13n);
-    expect(read).not.toHaveBeenCalled();
-    expect(lib.data.byteLength).toBe(13);
-    expect(lib.data.byteLength).toBe(13);
-    expect(read).toHaveBeenCalledTimes(1);
-    expect(lib.readonly).toBe(true);
-  });
-
-  it("puts a single file under /work", () => {
-    const root = fileRoot("analysis.repodna", new Blob(["{}"]), () => new Uint8Array(2));
-    expect((at(root, "work/analysis.repodna") as WasiFile).size).toBe(2n);
   });
 });

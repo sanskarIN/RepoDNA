@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { parseArtifact } from "@repodna/schema";
 import { bytes, thousands } from "@repodna/visualization";
-import { engineInfo, type EngineInfo } from "../engine/client";
+import { engineInfo, type EngineInfo, type Profile } from "../engine/client";
 import { folderFromList, isArchive } from "../engine/input";
 import {
   analyze,
@@ -17,11 +17,11 @@ import { navigate } from "../lib/router";
 import { useApp } from "../state";
 import { ErrorBox, ExternalLink, Note } from "./common";
 
-const PROFILES = [
+const PROFILES: readonly (readonly [Profile, string])[] = [
   ["standard", "Standard: dependencies, architecture, quality, and security"],
   ["quick", "Quick: structure, languages, and project conventions"],
   ["deep", "Deep: adds duplication and file similarity"],
-] as const;
+];
 
 /** Stage names as the analysis reports them, in words. */
 const STAGES: Record<string, string> = {
@@ -194,8 +194,9 @@ export function BrowserScan({ engine }: { engine: EngineInfo }) {
           value={chosen}
           disabled={running}
           onChange={(event) => {
-            setChosen(event.target.value);
-            setProfile(event.target.value);
+            const next = event.target.value as Profile;
+            setChosen(next);
+            setProfile(next);
           }}
         >
           {PROFILES.map(([id, text]) => (

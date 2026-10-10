@@ -1,20 +1,15 @@
 // What to analyze in the browser: the files of a folder the user chose or dropped, or an
 // archive.
 
+import { keep } from "@repodna/wasm";
 import type { InputFile } from "./protocol";
+
+export { keep };
 
 /** A folder's files, or an archive, ready to analyze. */
 export type AnalysisInput =
   | { kind: "folder"; name: string; files: InputFile[]; bytes: number }
   | { kind: "archive"; file: File };
-
-/** Version-control directories, which the analysis never reads. */
-const SKIPPED_DIRECTORIES = new Set([".git", ".hg", ".svn", ".jj", ".bzr", "_darcs", ".fossil"]);
-
-/** Whether a path inside a chosen folder is worth giving to the analysis. */
-export function keep(path: string): boolean {
-  return !path.split("/").some((part) => SKIPPED_DIRECTORIES.has(part));
-}
 
 /** Whether a file name is one of the archives RepoDNA analyzes. */
 export function isArchive(name: string): boolean {

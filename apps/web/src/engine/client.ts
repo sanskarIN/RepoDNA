@@ -4,13 +4,14 @@
 
 import type {
   EngineReply,
+  Profile,
   EngineRequest,
   InputFile,
   ProgressEvent,
   ReportRequest,
 } from "./protocol";
 
-export type { InputFile, ProgressEvent, ReportRequest } from "./protocol";
+export type { InputFile, Profile, ProgressEvent, ReportRequest } from "./protocol";
 
 /** Where the program and its description are, next to the page. */
 const DIRECTORY = "engine/";
@@ -63,8 +64,14 @@ export interface EngineTask<T> {
   cancel(): void;
 }
 
+/** What the worker made: text, or the bytes of an image, and their size in bytes. */
+interface Output {
+  output: string | Uint8Array<ArrayBuffer>;
+  size: number;
+}
+
 interface Pending {
-  resolve(output: Uint8Array<ArrayBuffer>): void;
+  resolve(output: Output): void;
   reject(error: Error): void;
   onProgress?: (event: ProgressEvent) => void;
 }
@@ -103,7 +110,7 @@ function started(): Worker {
     }
     pending.delete(reply.id);
     if (reply.kind === "done") {
-      request.resolve(reply.output);
+      request.resolve({ output: reply.output, size: reply.size });
     } else {
       request.reject(new Error(reply.message));
     }
@@ -122,12 +129,9 @@ type Body = EngineRequest extends infer R
     : never
   : never;
 
-function request(
-  body: Body,
-  onProgress?: (event: ProgressEvent) => void,
-): EngineTask<Uint8Array<ArrayBuffer>> {
+function request(body: Body, onProgress?: (event: ProgressEvent) => void): EngineTask<Output> {
   const id = nextId++;
-  const result = new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
+  const result = new Promise<Output>((resolve, reject) => {
     pending.set(id, { resolve, reject, onProgress });
   });
   const wasm = new URL(
@@ -145,21 +149,23 @@ function request(
   };
 }
 
-const decoder = new TextDecoder();
-
 /** A finished analysis: the `.repodna` file's text, and its size in bytes. */
 export interface AnalysisFile {
   text: string;
   size: number;
 }
 
-function analysisFile(task: EngineTask<Uint8Array<ArrayBuffer>>): EngineTask<AnalysisFile> {
+function text(output: Output): string {
+  if (typeof output.output !== "string") {
+    throw new Error("RepoDNA's analysis program answered with an image instead of text.");
+  }
+  return output.output;
+}
+
+function analysisFile(task: EngineTask<Output>): EngineTask<AnalysisFile> {
   return {
     ...task,
-    result: task.result.then((output) => ({
-      text: decoder.decode(output),
-      size: output.byteLength,
-    })),
+    result: task.result.then((output) => ({ text: text(output), size: output.size })),
   };
 }
 
@@ -167,7 +173,7 @@ function analysisFile(task: EngineTask<Uint8Array<ArrayBuffer>>): EngineTask<Ana
 export function analyzeFolder(
   name: string,
   files: InputFile[],
-  profile: string,
+  profile: Profile,
   onProgress?: (event: ProgressEvent) => void,
 ): EngineTask<AnalysisFile> {
   return analysisFile(request({ kind: "analyze-folder", name, files, profile }, onProgress));
@@ -176,7 +182,7 @@ export function analyzeFolder(
 /** Analyzes a ZIP or TAR archive. */
 export function analyzeArchive(
   archive: File,
-  profile: string,
+  profile: Profile,
   onProgress?: (event: ProgressEvent) => void,
 ): EngineTask<AnalysisFile> {
   return analysisFile(request({ kind: "analyze-archive", archive, profile }, onProgress));
@@ -184,8 +190,7 @@ export function analyzeArchive(
 
 /** A report of the analysis `artifact` (its JSON text), as `repodna report` makes it. */
 export async function renderReport(artifact: string, options: ReportRequest): Promise<string> {
-  const output = await request({ kind: "report", artifact, ...options }).result;
-  return decoder.decode(output);
+  return text(await request({ kind: "report", artifact, ...options }).result);
 }
 
 /** The Project DNA card of the analysis `artifact`, as SVG markup or PNG bytes. */
@@ -200,6 +205,6 @@ export async function renderCard(
   dark: boolean,
   png = false,
 ): Promise<string | Uint8Array<ArrayBuffer>> {
-  const output = await request({ kind: "card", artifact, dark, png }).result;
-  return png ? output : decoder.decode(output);
+  const { output } = await request({ kind: "card", artifact, dark, png }).result;
+  return output;
 }
