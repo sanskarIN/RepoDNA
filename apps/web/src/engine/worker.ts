@@ -1,68 +1,60 @@
 // The worker that runs RepoDNA's WebAssembly program, so that an analysis does not stop the
 // page from responding. The page sends one request at a time.
 
-import type { Inode } from "@bjorn3/browser_wasi_shim";
+import { RepoDNA, type LazyFile } from "@repodna/wasm";
 import type { EngineReply, EngineRequest } from "./protocol";
-import { fileRoot, folderRoot, runProgram, WORK, type ReadBlob } from "./run";
 
 declare const FileReaderSync: new () => { readAsArrayBuffer(blob: Blob): ArrayBuffer };
 
 const reader = new FileReaderSync();
-const read: ReadBlob = (blob) => new Uint8Array(reader.readAsArrayBuffer(blob));
+const encoder = new TextEncoder();
 
-/** The program, downloaded and compiled once for every request that follows. */
-let program: { url: string; module: Promise<WebAssembly.Module> } | null = null;
-
-async function download(url: string): Promise<WebAssembly.Module> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`RepoDNA's analysis program could not be loaded (HTTP ${response.status}).`);
-  }
-  return WebAssembly.compile(await response.arrayBuffer());
+/** A file the page gave, read when the program opens it. */
+function lazy(blob: Blob): LazyFile {
+  return { size: blob.size, read: () => new Uint8Array(reader.readAsArrayBuffer(blob)) };
 }
 
-function compile(url: string): Promise<WebAssembly.Module> {
+/** The program, downloaded and compiled once for every request that follows. */
+let program: { url: string; ready: Promise<RepoDNA> } | null = null;
+
+function load(url: string): Promise<RepoDNA> {
   if (program?.url !== url) {
-    const module = download(url);
-    program = { url, module };
+    const ready = RepoDNA.load(fetch(url));
+    program = { url, ready };
     // Try again on the next request after a failure, such as a lost connection.
-    module.catch(() => {
-      if (program?.module === module) {
+    ready.catch(() => {
+      if (program?.ready === ready) {
         program = null;
       }
     });
   }
-  return program.module;
+  return program.ready;
 }
 
-/** The arguments and the files for a request. */
-function task(request: EngineRequest): [string[], Map<string, Inode>] {
+/** What the program makes for a request: text, or the bytes of an image. */
+async function perform(
+  repodna: RepoDNA,
+  request: EngineRequest,
+  onProgress: Parameters<RepoDNA["analyzeFolder"]>[2],
+): Promise<string | Uint8Array<ArrayBuffer>> {
   switch (request.kind) {
     case "analyze-folder":
-      return [
-        ["analyze", `${WORK}/${request.name}`, "--profile", request.profile],
-        folderRoot(request.name, request.files, read),
-      ];
+      return repodna.analyzeFolder(
+        request.name,
+        request.files.map(({ path, file }) => ({ path, ...lazy(file) })),
+        { profile: request.profile, ...onProgress },
+      );
     case "analyze-archive":
-      return [
-        ["analyze", `${WORK}/${request.archive.name}`, "--profile", request.profile],
-        fileRoot(request.archive.name, request.archive, read),
-      ];
-    case "report": {
-      const args = ["report", `${WORK}/analysis.repodna`, "--format", request.format];
-      args.push("--theme", request.theme, "--privacy", request.privacy);
-      return [args, fileRoot("analysis.repodna", new Blob([request.artifact]), read)];
-    }
-    case "card": {
-      const args = ["card", `${WORK}/analysis.repodna`];
-      if (request.dark) {
-        args.push("--dark");
-      }
-      if (request.png) {
-        args.push("--png");
-      }
-      return [args, fileRoot("analysis.repodna", new Blob([request.artifact]), read)];
-    }
+      return repodna.analyzeArchive(request.archive.name, lazy(request.archive), {
+        profile: request.profile,
+        ...onProgress,
+      });
+    case "report":
+      return repodna.report(request.artifact, request);
+    case "card":
+      return request.png
+        ? repodna.cardPng(request.artifact, request)
+        : repodna.card(request.artifact, request);
   }
 }
 
@@ -74,12 +66,12 @@ self.onmessage = async (event: MessageEvent<EngineRequest>) => {
   const request = event.data;
   const { id } = request;
   try {
-    const module = await compile(request.wasm);
-    const [args, files] = task(request);
-    const output = await runProgram(module, args, files, (progress) =>
-      reply({ id, kind: "progress", progress }),
-    );
-    reply({ id, kind: "done", output }, [output.buffer]);
+    const repodna = await load(request.wasm);
+    const output = await perform(repodna, request, {
+      onProgress: (progress) => reply({ id, kind: "progress", progress }),
+    });
+    const size = typeof output === "string" ? encoder.encode(output).byteLength : output.byteLength;
+    reply({ id, kind: "done", output, size }, typeof output === "string" ? [] : [output.buffer]);
   } catch (error) {
     reply({ id, kind: "failed", message: error instanceof Error ? error.message : String(error) });
   }

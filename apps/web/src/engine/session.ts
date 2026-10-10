@@ -8,6 +8,7 @@ import {
   CancelledError,
   type AnalysisFile,
   type EngineTask,
+  type Profile,
 } from "./client";
 import { folderFromEntry, type AnalysisInput } from "./input";
 import type { ProgressEvent } from "./protocol";
@@ -34,7 +35,7 @@ export type BrowserAnalysis =
   | { phase: "cancelled"; name: string };
 
 let state: BrowserAnalysis = { phase: "idle" };
-let chosenProfile = "standard";
+let chosenProfile: Profile = "standard";
 let task: EngineTask<AnalysisFile> | null = null;
 // Raised by `cancel`, so that a folder being listed is not analyzed afterwards.
 let generation = 0;
@@ -58,11 +59,11 @@ export function useBrowserAnalysis(): BrowserAnalysis {
 }
 
 /** The analysis profile chosen on the start page, used for folders dropped anywhere. */
-export function profile(): string {
+export function profile(): Profile {
   return chosenProfile;
 }
 
-export function setProfile(next: string): void {
+export function setProfile(next: Profile): void {
   chosenProfile = next;
 }
 
@@ -92,7 +93,7 @@ function fileName(name: string): string {
 }
 
 /** Analyzes a folder's files or an archive with the analysis profile `profile`. */
-export function analyze(input: AnalysisInput, profile: string): void {
+export function analyze(input: AnalysisInput, profile: Profile): void {
   if (busy()) {
     return;
   }
@@ -141,7 +142,7 @@ export function analyze(input: AnalysisInput, profile: string): void {
 /** Lists a dropped folder, then analyzes it. */
 export async function analyzeDroppedFolder(
   folder: FileSystemDirectoryEntry,
-  profile: string,
+  profile: Profile,
 ): Promise<void> {
   if (busy()) {
     return;
