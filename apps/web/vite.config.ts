@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
@@ -98,12 +99,13 @@ function engineFiles(): Plugin {
 // the files to keep, which are all of them but the analysis program, which it keeps the
 // first time it is used, and a version that changes with any of them.
 function serviceWorker(): Plugin {
-  const publicDir = new URL("./public/", import.meta.url);
+  // A path, not a URL's pathname, which is "/D:/..." on Windows and escapes spaces.
+  const publicDir = fileURLToPath(new URL("./public/", import.meta.url));
   const publicFiles = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
       entry.isDirectory()
         ? publicFiles(join(dir, entry.name))
-        : [relative(publicDir.pathname, join(dir, entry.name)).split("\\").join("/")],
+        : [relative(publicDir, join(dir, entry.name)).split("\\").join("/")],
     );
   return {
     name: "repodna-service-worker",
@@ -120,9 +122,9 @@ function serviceWorker(): Plugin {
           files.push(name);
         }
       }
-      for (const name of publicFiles(publicDir.pathname).sort()) {
+      for (const name of publicFiles(publicDir).sort()) {
         hash.update(name);
-        hash.update(readFileSync(new URL(name, publicDir)));
+        hash.update(readFileSync(join(publicDir, name)));
         files.push(name);
       }
       const template = readFileSync(new URL("./sw.js", import.meta.url), "utf8");
