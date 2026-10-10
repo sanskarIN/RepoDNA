@@ -54,6 +54,7 @@ crates/
   repodna-app           services shared by the CLI, the server, and the desktop app
   repodna-server        the local server behind `repodna serve`
   repodna-cli           the `repodna` binary
+  repodna-wasm          the engine and reports as WebAssembly, for the web version
   repodna-testkit       deterministic Git repositories and fixtures for tests
 apps/
   web                   React + TypeScript web interface (Vite)
@@ -61,6 +62,8 @@ apps/
 packages/
   schema                TypeScript types generated from the artifact schema
   visualization         layout, color, and formatting helpers for charts
+  wasm                  runs repodna-wasm in browsers and Node.js
+packaging/              the container images, the npm packages, and the GitHub Action
 plugins/                example plugins
 schemas/                published JSON Schemas
 fixtures/               fixture documentation (repositories are generated)
@@ -140,6 +143,24 @@ npm run generate -w @repodna/schema
 ```
 
 A test fails when the published schemas are out of date.
+
+### The WebAssembly analysis
+
+The web version analyzes folders in the browser with `crates/repodna-wasm` built for
+`wasm32-wasip1`, which `packages/wasm` runs in a worker. Build it, and name it in
+`REPODNA_ENGINE` to include it in the web interface, for `npm run dev` as for a build:
+
+```sh
+rustup target add wasm32-wasip1
+cargo build -p repodna-wasm --target wasm32-wasip1 --profile web-engine
+REPODNA_ENGINE=target/wasm32-wasip1/web-engine/repodna-wasm.wasm npm run dev -w @repodna/web
+```
+
+`npm test -w @repodna/wasm` runs the program's tests when it has been built, and
+`cargo clippy -p repodna-wasm --target wasm32-wasip1` checks the code that only builds for
+it. Without `REPODNA_ENGINE`, the interface works as before and offers no analysis in the
+browser; `repodna serve` and the desktop app never include it, since they analyze on the
+machine.
 
 ## The desktop app
 
@@ -227,8 +248,8 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
 1. Update the version everywhere it appears: `Cargo.toml` (`[workspace.package]` and the
    internal dependencies), `apps/desktop/src-tauri/Cargo.toml`,
    `apps/desktop/src-tauri/tauri.conf.json`, and the `package.json` files (root,
-   `apps/web`, `apps/desktop`, `packages/schema`, `packages/visualization`). Run
-   `cargo build` and `npm install` to update the lockfiles.
+   `apps/web`, `apps/desktop`, `packages/schema`, `packages/visualization`,
+   `packages/wasm`). Run `cargo build` and `npm install` to update the lockfiles.
 2. Add a section for the version to `CHANGELOG.md`, and point the installation steps and
    examples at it: `README.md`, `docs/installation.md`, `docs/plugins.md`,
    `docs/repository-dna.md`, and `examples/ci/repodna.yml`. For a new minor or major
@@ -245,7 +266,8 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
 
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
 workspace version and the changelog, builds the command line for Linux, macOS, and Windows
-and the desktop installers, and publishes them with checksums. It also publishes these
+(x64 and Arm), the WebAssembly analysis, and the desktop installers, and publishes them
+with checksums. It also publishes these
 packages to GitHub Packages, and the npm packages to npmjs.com too:
 
 | Package | Built from |
@@ -253,12 +275,19 @@ packages to GitHub Packages, and the npm packages to npmjs.com too:
 | `ghcr.io/sanskarin/repodna` | `packaging/container`: the command line with Git |
 | `ghcr.io/sanskarin/repodna-web` | `packaging/web`: the web interface on nginx |
 | `@sanskarin/repodna` and `@sanskarin/repodna-<os>-<cpu>` | `packaging/npm`: a launcher and the binary for each platform |
+| `@sanskarin/repodna-web` | `apps/web`, built with the WebAssembly analysis, and `packaging/npm/web`: a server to run it |
+| `@sanskarin/repodna-wasm` | `crates/repodna-wasm` and `packages/wasm`, through `packaging/npm` |
 | `@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization` | `packages/schema`, `packages/visualization`, through `packaging/npm` |
+
+The [GitHub Action](github-action.md) is `action.yml` at the root and
+`packaging/action/install.sh`; a tag makes it usable as `sanskarIN/RepoDNA@<tag>`, and it
+installs the release of that tag.
 
 GitHub makes a new package private. After the first release that publishes it, make each
 package public once in its settings on GitHub (**Package settings > Change visibility**).
 To look at the npm packages before a release, stage them with
-`node packaging/npm/build.mjs` (add `--binaries DIR` for the command line packages) and
+`node packaging/npm/build.mjs` (add `--binaries DIR` for the command line packages, and
+`--wasm FILE` for the WebAssembly package) and
 test the scripts with `node --test "packaging/npm/test/*.test.mjs"`.
 
 Publishing to npmjs.com, where the packages install without a token, needs the repository

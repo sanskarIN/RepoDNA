@@ -6,7 +6,8 @@ help are welcome in [issues](https://github.com/sanskarIN/RepoDNA/issues/new/cho
 
 ## Now
 
-Making 1.0 solid.
+Making 1.x solid and easy to reach. Since 1.3.1, the web version analyzes repositories in
+the browser, and an official GitHub Action runs RepoDNA in workflows.
 
 - Fix bugs, false positives, and missed signals reported by users, each with a fixture or
   test that keeps it fixed.
@@ -24,8 +25,6 @@ Making 1.0 solid.
 - **Pull request analysis.** Compare a change with its base branch in CI and summarize what
   it changes in structure, dependencies, and findings, building on
   `repodna ci --baseline`.
-- **An official GitHub Action** that installs RepoDNA and runs `repodna ci`, replacing the
-  [example workflow](examples/ci/repodna.yml).
 - **Easier installation** through package managers such as Homebrew, Scoop, and crates.io.
 
 ## Later
