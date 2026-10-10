@@ -176,7 +176,10 @@ mod tests {
         assert_eq!(directive(APP_CSP, "img-src"), Some("'self' data: blob:"));
         // The web version analyzes folders with WebAssembly, which browsers compile only
         // when the policy allows it.
-        assert_eq!(directive(APP_CSP, "script-src"), directive(meta, "script-src"));
+        assert_eq!(
+            directive(APP_CSP, "script-src"),
+            directive(meta, "script-src")
+        );
         assert_eq!(
             directive(APP_CSP, "script-src"),
             Some("'self' 'wasm-unsafe-eval'")
