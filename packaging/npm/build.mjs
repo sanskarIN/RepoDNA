@@ -51,7 +51,7 @@ const LIBRARIES = [
 
 function usage(message) {
   process.stderr.write(
-    `${message}\nUsage: node packaging/npm/build.mjs [--version X.Y.Z] [--out DIR] [--binaries DIR] [--web DIR]\n`,
+    `${message}\nUsage: node packaging/npm/build.mjs [--version X.Y.Z] [--out DIR] [--binaries DIR] [--web DIR] [--wasm FILE]\n`,
   );
   process.exit(2);
 }
@@ -62,6 +62,7 @@ function parseArgs(argv) {
     out: join(root, "target", "npm"),
     binaries: null,
     web: null,
+    wasm: null,
   };
   for (let index = 0; index < argv.length; index += 2) {
     const [flag, value] = [argv[index], argv[index + 1]];
@@ -76,6 +77,8 @@ function parseArgs(argv) {
       options.binaries = resolve(value);
     } else if (flag === "--web") {
       options.web = resolve(value);
+    } else if (flag === "--wasm") {
+      options.wasm = resolve(value);
     } else {
       usage(`Unknown option ${flag}.`);
     }
@@ -167,17 +170,19 @@ export function addExtensions(dir) {
   }
 }
 
-function compile(source, out) {
+/** Compiles the entry points of a package in packages/ (`index.ts` by default) into `out`. */
+function compile(source, out, { entries = ["index.ts"], types = [] } = {}) {
   const tsc = join(root, "node_modules", "typescript", "bin", "tsc");
   const result = spawnSync(
     process.execPath,
     [
       tsc,
-      join(source, "src", "index.ts"),
+      ...entries.map((entry) => join(source, "src", entry)),
       ...["--outDir", out, "--rootDir", join(source, "src"), "--declaration"],
       ...["--target", "ES2022", "--module", "ESNext", "--moduleResolution", "Bundler"],
       ...["--lib", "ES2022,DOM", "--newLine", "lf", "--strict", "--skipLibCheck"],
       ...["--verbatimModuleSyntax", "--isolatedModules"],
+      ...(types.length > 0 ? ["--types", types.join(",")] : []),
     ],
     { stdio: "inherit" },
   );
@@ -210,6 +215,51 @@ function stageLibrary(library, options) {
   });
   writeReadme(dir, library.readme);
   copyLegal(dir);
+  return dir;
+}
+
+/**
+ * RepoDNA's analysis as WebAssembly (crates/repodna-wasm, built for wasm32-wasip1), with
+ * the code that runs it in browsers and Node.js (packages/wasm) and a command for Node.js.
+ */
+function stageWasm(options) {
+  if (!existsSync(options.wasm)) {
+    throw new Error(`${options.wasm} is missing; build crates/repodna-wasm for wasm32-wasip1.`);
+  }
+  const dir = join(options.out, "repodna-wasm");
+  const source = join(root, "packages", "wasm");
+  const workspace = JSON.parse(readFileSync(join(source, "package.json"), "utf8"));
+  compile(source, join(dir, "dist"), { entries: ["index.ts", "node.ts"], types: ["node"] });
+  copyFileSync(options.wasm, join(dir, "repodna.wasm"));
+  copyTree(join(here, "wasm", "bin"), join(dir, "bin"));
+  chmodSync(join(dir, "bin", "repodna-wasm.js"), 0o755);
+  writeJson(join(dir, "package.json"), {
+    ...manifest(`${SCOPE}/repodna-wasm`, workspace.description, "packages/wasm", options.version),
+    type: "module",
+    bin: { "repodna-wasm": "bin/repodna-wasm.js" },
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
+    exports: {
+      ".": { types: "./dist/index.d.ts", default: "./dist/index.js" },
+      "./node": { types: "./dist/node.d.ts", default: "./dist/node.js" },
+      "./repodna.wasm": "./repodna.wasm",
+      "./package.json": "./package.json",
+    },
+    sideEffects: false,
+    dependencies: workspace.dependencies,
+    files: [
+      "bin",
+      "dist",
+      "repodna.wasm",
+      "README.md",
+      "LICENSE",
+      "NOTICE",
+      "THIRD-PARTY-NOTICES.txt",
+    ],
+    engines: { node: ">=18" },
+  });
+  writeReadme(dir, "wasm.md");
+  copyLegal(dir, { notices: true });
   return dir;
 }
 
@@ -304,6 +354,9 @@ export function build(options) {
   const staged = LIBRARIES.map((library) => stageLibrary(library, options));
   if (options.web) {
     staged.push(stageWeb(options));
+  }
+  if (options.wasm) {
+    staged.push(stageWasm(options));
   }
   if (options.binaries) {
     staged.push(...PLATFORMS.map((platform) => stagePlatform(platform, options)));

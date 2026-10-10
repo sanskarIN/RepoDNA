@@ -26,7 +26,9 @@ before(() => {
   mkdirSync(join(web, "assets"), { recursive: true });
   writeFileSync(join(web, "index.html"), "<!doctype html><title>RepoDNA</title>");
   writeFileSync(join(web, "assets", "index-abc.js"), "export {};");
-  build({ version: "9.8.7", out, binaries, web });
+  const wasm = join(dir, "repodna-wasm.wasm");
+  writeFileSync(wasm, "\0asm");
+  build({ version: "9.8.7", out, binaries, web, wasm });
 });
 
 after(() => rmSync(dir, { recursive: true, force: true }));
@@ -36,6 +38,7 @@ test("stages every package with the version and the repository", () => {
     "repodna-schema",
     "repodna-visualization",
     "repodna-web",
+    "repodna-wasm",
     ...PLATFORMS.map((platform) => `repodna-${platform.os}-${platform.cpu}`),
     "repodna",
   ];
@@ -91,6 +94,23 @@ test("stages the built web interface with a server to run it", async () => {
     "<!doctype html><title>RepoDNA</title>",
   );
   assert.ok(statSync(join(root, "assets", "index-abc.js")).isFile());
+});
+
+test("stages the WebAssembly program with the code that runs it", () => {
+  const wasm = manifest("repodna-wasm");
+  assert.deepEqual(wasm.bin, { "repodna-wasm": "bin/repodna-wasm.js" });
+  assert.equal(wasm.exports["./node"].default, "./dist/node.js");
+  assert.equal(wasm.exports["./repodna.wasm"], "./repodna.wasm");
+  assert.deepEqual(Object.keys(wasm.dependencies), ["@bjorn3/browser_wasi_shim"]);
+  assert.ok(wasm.files.includes("repodna.wasm"));
+  assert.ok(wasm.files.includes("THIRD-PARTY-NOTICES.txt"));
+  assert.equal(readFileSync(join(out, "repodna-wasm", "repodna.wasm"), "utf8"), "\0asm");
+  const mode = statSync(join(out, "repodna-wasm", "bin", "repodna-wasm.js")).mode;
+  assert.equal(mode & 0o111, 0o111, "the command is executable");
+  // Node loads ES modules only by their full file names.
+  const node = readFileSync(join(out, "repodna-wasm", "dist", "node.js"), "utf8");
+  assert.match(node, /from "\.\/index\.js"/);
+  assert.ok(statSync(join(out, "repodna-wasm", "dist", "node.d.ts")).isFile());
 });
 
 test("stages no web interface without a built one", () => {
