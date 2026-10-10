@@ -141,12 +141,14 @@ CSV; Project DNA cards (SVG and PNG) and README badges; onboarding guides for ne
 developers; side-by-side comparisons; portable `.repodna` exports; and privacy presets
 that remove contributor names, remote URLs, and more before you share.
 
-**Three ways to use it.** The `repodna` command line, a local web interface
-(`repodna serve`) with search and keyboard shortcuts, and a desktop app, all built on the
-same analysis.
+**Many ways to use it.** The `repodna` command line, a local web interface
+(`repodna serve`) with search and keyboard shortcuts, a desktop app, and the
+[web version](https://sanskarin.github.io/RepoDNA/), which analyzes a folder or an archive
+right in your browser and works offline, all built on the same analysis.
 
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
-baseline, and writes GitHub Actions annotations.
+baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
+(`uses: sanskarIN/RepoDNA@v1.3.1`) does all of this in one step.
 
 **Optional AI explanations.** Explanations in prose, built only from the analysis evidence,
 through a local program or an API you configure. Off by default.
@@ -167,6 +169,7 @@ flowchart TB
         cli["repodna CLI"]
         server["repodna serve<br/>+ web interface"]
         desktop["Desktop app"]
+        web["Web version<br/>(WebAssembly)"]
     end
     app["repodna-app<br/>configuration · storage · plugins · reports · AI"]
     inputs["Directory · Git URL · Archive"]
@@ -195,14 +198,16 @@ flowchart TB
 RepoDNA is a Rust workspace of focused crates (discovery, parsing, Git, dependencies,
 architecture, quality, security, project conventions, evolution, the engine, storage,
 reports, AI, and plugins), a React and TypeScript web interface, and a Tauri desktop app.
+The web version runs the engine and the reports in the browser, built for WebAssembly
+(`repodna-wasm`), without Git, storage, or plugins.
 See [the architecture guide](docs/architecture.md).
 
 ## Installation
 
 **Prebuilt binaries.** Download the archive for your platform from the
 [releases page](https://github.com/sanskarIN/RepoDNA/releases): Linux (x86_64 and ARM64,
-statically linked), macOS (Apple silicon and Intel), or Windows (x86_64). Each is a single
-`repodna` program with the web interface built in. For example, on Linux:
+statically linked), macOS (Apple silicon and Intel), or Windows (x86_64 and ARM64). Each is
+a single `repodna` program with the web interface built in. For example, on Linux:
 
 ```sh
 tar -xzf repodna-1.3.1-x86_64-unknown-linux-musl.tar.gz
@@ -211,25 +216,33 @@ repodna --version
 ```
 
 **The desktop app.** Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows
-(`.msi`, `.exe`) are attached to each release. See [the desktop app](docs/desktop.md).
+on x64 and Arm (`.msi`, `.exe`) are attached to each release. See
+[the desktop app](docs/desktop.md).
 
 **Container image.** `docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .`
 runs the command line with Git, on `linux/amd64` and `linux/arm64`. See
 [the container image](docs/installation.md#container-image).
 
-**The web version.** <https://sanskarin.github.io/RepoDNA/> needs no installation: it opens
-analyses (`repodna.json` or `.repodna` files) in your browser, without uploading them, and
-includes the demo. Browsers that offer it can install it as an app. Analyzing a repository
-needs the command line or the desktop app. To run it on your own machine or network, use
+**The web version.** <https://sanskarin.github.io/RepoDNA/> needs no installation: it
+analyzes a folder or a `.zip` or `.tar.gz` archive in your browser with RepoDNA's analysis
+built as WebAssembly, opens analyses (`repodna.json` or `.repodna` files), makes reports
+and cards, and includes the demo, all without uploading anything. Its analyses have no Git
+history, which needs the command line or the desktop app. It keeps working offline once
+opened, and browsers that offer it can install it as an app. To run it on your own machine
+or network, use
 `npx @sanskarin/repodna-web` or the
 [web interface image](docs/installation.md#web-interface-image):
 `docker run --rm -p 8080:8080 ghcr.io/sanskarin/repodna-web`.
 
 **npm.** `npm install --global @sanskarin/repodna` installs the command line, with the
-binary for your platform. The web interface (`@sanskarin/repodna-web`) and the TypeScript
-libraries for the analysis artifact (`@sanskarin/repodna-schema`,
-`@sanskarin/repodna-visualization`) are on npm too. See
-[the npm packages](docs/installation.md#npm-packages).
+binary for your platform. The web interface (`@sanskarin/repodna-web`), the analysis as
+WebAssembly for Node.js and browsers on any system (`@sanskarin/repodna-wasm`:
+`npx @sanskarin/repodna-wasm analyze .`), and the TypeScript libraries for the analysis
+artifact (`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on npm too.
+See [the npm packages](docs/installation.md#npm-packages).
+
+**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.3.1` analyzes the repository in a workflow,
+annotates findings, and keeps the report. See [the GitHub Action](docs/github-action.md).
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
 toolchain, and [Node.js](https://nodejs.org/) 20.19 or newer:
@@ -407,6 +420,8 @@ See [the analysis engine](docs/analysis-engine.md).
   pseudonyms and removes remote URLs and symbol names.
 - **A local server that stays local.** `repodna serve` listens on 127.0.0.1 only and
   requires a session token.
+- **A web version that keeps your code in your browser.** It reads the files of a folder
+  you choose in the page, only when the analysis needs them, and sends them nowhere.
 
 Where everything is stored, and how to delete it: [privacy](docs/privacy.md). The
 [Privacy Policy](PRIVACY.md) and the [Terms of Use](TERMS.md) apply to the command line,
@@ -513,6 +528,7 @@ cargo build                                       # the Rust workspace
 cargo xtask fixtures                              # fixture repositories in fixtures/generated/
 cargo run -p repodna-cli -- analyze fixtures/generated/history
 npm run dev -w @repodna/web                       # the web interface with live reloading
+cargo build -p repodna-wasm --target wasm32-wasip1 --profile web-engine   # the web version's analysis
 npm run dev -w @repodna/desktop                   # the desktop app
 ```
 
@@ -521,7 +537,7 @@ npm run dev -w @repodna/desktop                   # the desktop app
 | `crates/` | The Rust workspace: the model, analyzers, engine, storage, reports, AI, plugins, server, and CLI |
 | `apps/web` | The React and TypeScript web interface |
 | `apps/desktop` | The Tauri desktop app |
-| `packages/` | Generated TypeScript types for the artifact, and chart helpers |
+| `packages/` | Generated TypeScript types for the artifact, chart helpers, and the code that runs the WebAssembly analysis |
 | `plugins/` | Example plugins |
 | `schemas/` | JSON Schemas of the artifact and the configuration |
 | `fixtures/`, `benchmarks/`, `xtask/` | Test repositories, benchmark results, and the tasks that make them |
@@ -563,8 +579,8 @@ public issues.
 ## Roadmap
 
 Next on the list are lexical analysis for more languages, deeper import resolution, pull
-request analysis in CI, an official GitHub Action, and installation through package
-managers; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
+request analysis in CI, and installation through package managers such as Homebrew and
+Scoop; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
 now, next, later, and under exploration, and the [changelog](CHANGELOG.md) what each
 release changed. Each release also has its own folder in
 [`docs/releases`](docs/releases/README.md), with its notes, downloads, and install commands.
