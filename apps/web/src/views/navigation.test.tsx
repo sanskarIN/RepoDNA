@@ -2,7 +2,7 @@
 // the previous and next view, the findings count, and findings shown in parts.
 
 import { act } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { parseArtifact } from "@repodna/schema";
 import { App } from "../App";
@@ -127,5 +127,29 @@ describe("navigation", () => {
     cleanup();
     await renderAt("/files", other);
     expect(document.title).toBe("Files · acme · RepoDNA");
+  });
+
+  it("prints the view from the command palette, once the palette has closed", async () => {
+    vi.useFakeTimers();
+    const print = vi.spyOn(window, "print").mockImplementation(() => undefined);
+    try {
+      await renderAt("/overview");
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+      });
+      const option = screen.getByRole("option", { name: /Print this view/ });
+      await act(async () => {
+        fireEvent.click(option);
+      });
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(print).not.toHaveBeenCalled();
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(print).toHaveBeenCalledTimes(1);
+    } finally {
+      print.mockRestore();
+      vi.useRealTimers();
+    }
   });
 });

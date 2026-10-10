@@ -69,6 +69,14 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
       }
       if (dataset) {
         list.push({
+          id: "print",
+          label: "Print this view, or save it as PDF",
+          kind: "Command",
+          // Once the palette has closed, so that it is not printed. The desktop app has no
+          // print menu, and Ctrl+P opens files and findings here.
+          run: () => window.setTimeout(() => window.print(), 150),
+        });
+        list.push({
           id: "close",
           label: "Close this analysis",
           kind: "Command",
