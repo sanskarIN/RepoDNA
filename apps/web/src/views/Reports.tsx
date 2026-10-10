@@ -38,21 +38,25 @@ function CardPreview({
   source,
   render,
   renderPng,
-  downloads,
+  downloads = false,
+  save,
 }: {
   /** Identifies what `render` renders: the card is rendered again when it changes. */
   source: string;
   render: (dark: boolean) => Promise<string>;
   /** Renders the card as PNG, when it can be downloaded as one. */
   renderPng?: (dark: boolean) => Promise<Uint8Array<ArrayBuffer>>;
-  /** Offer the card as downloads; the desktop app saves it with Reports instead. */
-  downloads: boolean;
+  /** Offer the card as downloads, in a browser. */
+  downloads?: boolean;
+  /** Saves the card through a save dialog, in the desktop app; resolves to where. */
+  save?: (dark: boolean, png: boolean) => Promise<string | null>;
 }) {
   const [dark, setDark] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [download, failure] = useDownload();
+  const [saved, setSaved] = useState<string | null>(null);
   const renderer = useRef(render);
   renderer.current = render;
 
@@ -120,6 +124,26 @@ function CardPreview({
           ) : null}
         </p>
       ) : null}
+      {svg && save ? (
+        <p className="actions">
+          {([false, true] as const).map((png) => (
+            <button
+              key={String(png)}
+              type="button"
+              onClick={() => {
+                setSaved(null);
+                save(dark, png).then(
+                  (path) => setSaved(path),
+                  (reason: unknown) => setError(message(reason)),
+                );
+              }}
+            >
+              {png ? "Save PNG…" : "Save SVG…"}
+            </button>
+          ))}
+        </p>
+      ) : null}
+      {saved ? <Note>Saved to {saved}</Note> : null}
     </Panel>
   );
 }
@@ -175,9 +199,6 @@ function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?
             <button type="button" onClick={() => void save("bundle")}>
               Save the full report folder…
             </button>
-            <button type="button" onClick={() => void save("card")}>
-              Save the DNA card…
-            </button>
           </div>
         ) : (
           <ul className="list">
@@ -204,7 +225,13 @@ function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?
       <CardPreview
         source={`${repositoryId}:${scanId ?? ""}`}
         render={(dark) => backend.card(repositoryId, dark, scanId)}
-        downloads={!backend.saveReport}
+        downloads={!backend.saveCard}
+        save={
+          backend.saveCard
+            ? (dark, png) =>
+                backend.saveCard?.(repositoryId, dark, png, scanId) ?? Promise.resolve(null)
+            : undefined
+        }
       />
     </>
   );

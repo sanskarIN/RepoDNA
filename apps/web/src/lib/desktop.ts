@@ -67,6 +67,10 @@ export class DesktopBackend implements Backend {
     });
   }
 
+  saveCard(id: string, dark: boolean, png: boolean, scan?: string): Promise<string | null> {
+    return invoke<string | null>("save_card", { id, dark, png, scan: scan ?? null });
+  }
+
   async openExternal(url: string): Promise<void> {
     await invoke("open_link", { url });
   }
