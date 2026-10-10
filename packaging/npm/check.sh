@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Checks the packages that build.mjs staged: npm can pack each of them, the launcher
 # finds and runs the Linux x64 binary when both are installed side by side, as npm installs
-# them, and the web interface's server serves its page. Runs on Linux x64.
+# them, the web interface's server serves its page, and the WebAssembly package analyzes
+# a sample repository. Runs on Linux x64.
 #
 # Usage: packaging/npm/check.sh DIR
 set -euo pipefail
@@ -35,4 +36,27 @@ if [ -d "$dir/repodna-web" ]; then
       console.log("The web interface is served.");
     });
   ' "$modules/repodna-web/lib/index.js"
+fi
+
+if [ -d "$dir/repodna-wasm" ]; then
+  # Its one dependency, as npm would install it next to it.
+  repository=$(cd "$(dirname "$0")/../.." && pwd)
+  mkdir -p "$work/node_modules/@bjorn3"
+  cp -r "$repository/node_modules/@bjorn3/browser_wasi_shim" "$work/node_modules/@bjorn3/"
+  cp -r "$dir/repodna-wasm" "$modules/"
+  node "$modules/repodna-wasm/bin/repodna-wasm.js" --version
+  sample="$work/sample"
+  mkdir -p "$sample/src"
+  printf 'pub fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n' > "$sample/src/lib.rs"
+  printf '[package]\nname = "sample"\nversion = "0.1.0"\n' > "$sample/Cargo.toml"
+  node "$modules/repodna-wasm/bin/repodna-wasm.js" analyze "$sample" --profile quick \
+    --output "$work/sample.repodna"
+  node -e '
+    const dna = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+    if (dna.identity.name !== "sample" || dna.languages.primary[0] !== "rust") {
+      console.error("The WebAssembly analysis did not find the sample repository.");
+      process.exit(1);
+    }
+    console.log("The WebAssembly analysis works.");
+  ' "$work/sample.repodna"
 fi
