@@ -1,14 +1,18 @@
 # Installation
 
 RepoDNA is one command-line program, `repodna`, with the web interface built in. A desktop
-app is also available. Everything runs on your machine. To look at analyses without
-installing anything, use the [web version](web.md#the-web-version).
+app is also available. Everything runs on your machine. To analyze a repository or look at
+analyses without installing anything, use the [web version](web.md#the-web-version), which
+analyzes in your browser, without Git history. In GitHub Actions, use the
+[GitHub Action](github-action.md).
 
 - [Prebuilt binaries](#prebuilt-binaries)
 - [The desktop app](#the-desktop-app)
 - [Container image](#container-image)
 - [Web interface image](#web-interface-image)
 - [npm packages](#npm-packages)
+- [WebAssembly](#webassembly)
+- [GitHub Action](github-action.md)
 - [Build from source](#build-from-source)
 - [Check the installation](#check-the-installation)
 - [Uninstall](#uninstall)
@@ -28,6 +32,7 @@ Download the archive for your platform from the
 | macOS, Apple silicon | `repodna-<version>-aarch64-apple-darwin.tar.gz` |
 | macOS, Intel | `repodna-<version>-x86_64-apple-darwin.tar.gz` |
 | Windows, x86_64 | `repodna-<version>-x86_64-pc-windows-msvc.zip` |
+| Windows on Arm (ARM64), from 1.3.1 on | `repodna-<version>-aarch64-pc-windows-msvc.zip` |
 
 The Linux binaries are statically linked and run on any distribution.
 
@@ -74,7 +79,8 @@ The binaries and installers are not signed with a developer certificate.
 ## The desktop app
 
 Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows (`.msi`, `.exe`) are
-attached to each release. See [the desktop app](desktop.md).
+attached to each release, and from 1.3.1 on for Windows on Arm (`_arm64_en-US.msi`,
+`_arm64-setup.exe`). See [the desktop app](desktop.md).
 
 ## Container image
 
@@ -125,8 +131,9 @@ repodna --version
 
 | Package | What it is |
 |---|---|
-| `@sanskarin/repodna` | The `repodna` command line. npm adds the binary for your platform from `@sanskarin/repodna-linux-x64`, `-linux-arm64`, `-darwin-x64`, `-darwin-arm64`, or `-win32-x64`. |
-| `@sanskarin/repodna-web` | The web interface, built, from 1.3.0 on. `npx @sanskarin/repodna-web` serves it on this machine, at <http://127.0.0.1:8080/>, to open analysis files and the demo offline; its `root` export is the directory to serve from your own web server. |
+| `@sanskarin/repodna` | The `repodna` command line. npm adds the binary for your platform from `@sanskarin/repodna-linux-x64`, `-linux-arm64`, `-darwin-x64`, `-darwin-arm64`, `-win32-x64`, or, from 1.3.1 on, `-win32-arm64`. |
+| `@sanskarin/repodna-web` | The web interface, built, from 1.3.0 on. `npx @sanskarin/repodna-web` serves it on this machine, at <http://127.0.0.1:8080/>, to analyze folders and open analysis files and the demo offline; its `root` export is the directory to serve from your own web server. |
+| `@sanskarin/repodna-wasm` | RepoDNA's analysis, reports, and cards as WebAssembly, from 1.3.1 on, for Node.js and browsers on any system: `npx @sanskarin/repodna-wasm analyze .`. See [WebAssembly](#webassembly). |
 | `@sanskarin/repodna-schema` | TypeScript types for the analysis artifact, helpers to load and check it, and the JSON Schemas of the artifact and the configuration file. |
 | `@sanskarin/repodna-visualization` | The chart geometry the web interface and desktop app use: palettes, scales, treemaps, layered graphs, and heatmaps. |
 
@@ -150,6 +157,26 @@ npm install --global @sanskarin/repodna
 ```
 
 `npm config delete @sanskarin:registry` goes back to npmjs.com.
+
+## WebAssembly
+
+From 1.3.1 on, RepoDNA's analysis, reports, and Project DNA cards are also built as
+WebAssembly, the program the web version runs in the browser. It runs wherever Node.js or a
+WASI runtime does, with nothing native to install, but without Git it analyzes no history.
+
+```sh
+# With Node.js
+npx @sanskarin/repodna-wasm analyze path/to/repo --output repo.repodna
+npx @sanskarin/repodna-wasm report repo.repodna --format html --output report.html
+
+# With a WASI runtime, from the release's repodna-<version>-wasm32-wasip1.zip. The folder
+# is mapped to /my-project, whose name the analysis takes.
+wasmtime run --dir .::/my-project repodna.wasm analyze /my-project > my-project.repodna
+```
+
+In JavaScript, `@sanskarin/repodna-wasm/node` analyzes a folder or an archive on disk, and
+`@sanskarin/repodna-wasm` runs the program in a browser on files you give it; see the
+package's README.
 
 ## Build from source
 
