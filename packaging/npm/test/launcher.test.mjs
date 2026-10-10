@@ -16,8 +16,10 @@ test("names one package per platform", () => {
     "@sanskarin/repodna-darwin-x64",
     "@sanskarin/repodna-darwin-arm64",
     "@sanskarin/repodna-win32-x64",
+    "@sanskarin/repodna-win32-arm64",
   ]);
   assert.equal(findPlatform("win32", "x64")?.binary, "repodna.exe");
+  assert.equal(findPlatform("win32", "arm64")?.target, "aarch64-pc-windows-msvc");
   assert.equal(findPlatform("linux", "ia32"), undefined);
 });
 

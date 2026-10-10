@@ -10,6 +10,7 @@ export const PLATFORMS = [
   { os: "darwin", cpu: "x64", target: "x86_64-apple-darwin", binary: "repodna" },
   { os: "darwin", cpu: "arm64", target: "aarch64-apple-darwin", binary: "repodna" },
   { os: "win32", cpu: "x64", target: "x86_64-pc-windows-msvc", binary: "repodna.exe" },
+  { os: "win32", cpu: "arm64", target: "aarch64-pc-windows-msvc", binary: "repodna.exe" },
 ];
 
 /** The package holding the binary for a platform, such as `@sanskarin/repodna-linux-x64`. */
