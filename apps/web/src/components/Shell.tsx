@@ -7,6 +7,7 @@ import { NAV, neighbors } from "../lib/nav";
 import { href, navigate, parseHash, useRoute } from "../lib/router";
 import { CommandPalette } from "./CommandPalette";
 import { ExternalLink } from "./common";
+import { BrowserAnalysisOpener } from "./BrowserAnalysis";
 import { FileDrop } from "./FileDrop";
 import { ShortcutHelp } from "./ShortcutHelp";
 
@@ -226,6 +227,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </div>
       <BackToTop />
       <FileDrop />
+      <BrowserAnalysisOpener />
       {palette ? <CommandPalette mode={palette} onClose={() => setPalette(null)} /> : null}
       {help ? <ShortcutHelp onClose={() => setHelp(false)} /> : null}
     </div>

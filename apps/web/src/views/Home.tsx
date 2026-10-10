@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { bytes, date, thousands } from "@repodna/visualization";
+import { BrowserScan, useEngine } from "../components/BrowserAnalysis";
 import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../components/common";
+import { droppedFolder, isArchive } from "../engine/input";
+import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
 import type { JobState, RepositorySummary } from "../lib/backend";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
@@ -319,6 +322,7 @@ export function Home() {
   const [busy, setBusy] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const openAnalysisFile = useOpenFile();
+  const engine = useEngine();
 
   useEffect(() => {
     void demoIndex().then(setDemos);
@@ -358,7 +362,23 @@ export function Home() {
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setOver(false);
-    void openFile(event.dataTransfer.files[0]);
+    const folder = droppedFolder(event.dataTransfer);
+    const file = event.dataTransfer.files[0];
+    if (folder) {
+      setError(null);
+      if (engine) {
+        void analyzeDroppedFolder(folder, profile());
+      } else {
+        setError(
+          `${folder.name} is a folder. Drop a .repodna or repodna.json file here, or analyze the folder with ${backend ? "Analyze a repository" : "the command line"}.`,
+        );
+      }
+    } else if (file && engine && isArchive(file.name)) {
+      setError(null);
+      analyze({ kind: "archive", file }, profile());
+    } else {
+      void openFile(file);
+    }
   };
 
   return (
@@ -403,14 +423,28 @@ export function Home() {
           onDragLeave={() => setOver(false)}
           onDrop={onDrop}
         >
-          <p>
-            <strong>Drop a .repodna or repodna.json file here</strong>
-          </p>
-          <p className="muted">
-            Create one with <code>repodna export</code> or{" "}
-            <code>repodna analyze --format json</code>. The file is read on this machine and never
-            uploaded.
-          </p>
+          {engine ? (
+            <>
+              <p>
+                <strong>Drop a folder, an archive, or a .repodna file here</strong>
+              </p>
+              <p className="muted">
+                A folder or a .zip or .tar.gz archive is analyzed in this browser; an analysis file
+                opens. Everything is read on this machine and never uploaded.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                <strong>Drop a .repodna or repodna.json file here</strong>
+              </p>
+              <p className="muted">
+                Create one with <code>repodna export</code> or{" "}
+                <code>repodna analyze --format json</code>. The file is read on this machine and
+                never uploaded.
+              </p>
+            </>
+          )}
           <input
             ref={fileInput}
             type="file"
@@ -458,7 +492,9 @@ export function Home() {
                 }
               }}
             />
-          ) : (
+          ) : engine ? (
+            <BrowserScan engine={engine} />
+          ) : engine === null ? (
             <section className="panel" aria-labelledby="cli-title">
               <div className="panel-header">
                 <div>
@@ -477,7 +513,7 @@ export function Home() {
                 lines={["repodna serve", "repodna analyze path/to/repo --output repodna-report"]}
               />
             </section>
-          )}
+          ) : null}
           <Stored />
         </div>
         <div>
