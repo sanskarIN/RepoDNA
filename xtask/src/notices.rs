@@ -348,15 +348,35 @@ fn read_json(path: &Path) -> Result<Value> {
 /// Adds the npm packages bundled into the web interface.
 fn add_npm_packages(components: &mut Components) -> Result<()> {
     let root = root();
-    let web = read_json(&root.join(WEB_PACKAGE))?;
     let modules = root.join("node_modules");
+    // The web interface's dependencies, and those of RepoDNA's own packages it uses
+    // (`@repodna/...` in packages/), which are bundled with it.
+    let mut names = BTreeSet::new();
+    let mut manifests = vec![read_json(&root.join(WEB_PACKAGE))?];
+    let mut local = BTreeSet::new();
+    while let Some(manifest) = manifests.pop() {
+        for name in manifest["dependencies"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(name, _)| name)
+        {
+            match name.strip_prefix("@repodna/") {
+                Some(package) if local.insert(package.to_owned()) => {
+                    manifests.push(read_json(
+                        &root.join("packages").join(package).join("package.json"),
+                    )?);
+                }
+                Some(_) => {}
+                None => {
+                    names.insert(name.clone());
+                }
+            }
+        }
+    }
     // (name, directory whose node_modules is searched first, follow its dependencies)
-    let mut queue: Vec<(String, PathBuf, bool)> = web["dependencies"]
-        .as_object()
+    let mut queue: Vec<(String, PathBuf, bool)> = names
         .into_iter()
-        .flatten()
-        .map(|(name, _)| name.clone())
-        .filter(|name| !name.starts_with("@repodna/"))
         .map(|name| (name, root.clone(), true))
         .collect();
     queue.extend(
