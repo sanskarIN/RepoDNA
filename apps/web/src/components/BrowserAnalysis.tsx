@@ -17,10 +17,11 @@ import { navigate } from "../lib/router";
 import { useApp } from "../state";
 import { ErrorBox, ExternalLink, Note } from "./common";
 
-const PROFILES: readonly (readonly [Profile, string])[] = [
-  ["standard", "Standard: dependencies, architecture, quality, and security"],
-  ["quick", "Quick: structure, languages, and project conventions"],
-  ["deep", "Deep: adds duplication and file similarity"],
+/** Analysis profiles: their names, short enough for the menu, and what each analyzes here. */
+const PROFILES: readonly (readonly [Profile, string, string])[] = [
+  ["standard", "Standard profile", "Dependencies, architecture, quality, and security."],
+  ["quick", "Quick profile", "Structure, languages, and project conventions."],
+  ["deep", "Deep profile", "Standard, with duplication and file similarity."],
 ];
 
 /** Stage names as the analysis reports them, in words. */
@@ -193,6 +194,7 @@ export function BrowserScan({ engine }: { engine: EngineInfo }) {
           id="browser-profile"
           value={chosen}
           disabled={running}
+          aria-describedby="browser-profile-help"
           onChange={(event) => {
             const next = event.target.value as Profile;
             setChosen(next);
@@ -206,6 +208,9 @@ export function BrowserScan({ engine }: { engine: EngineInfo }) {
           ))}
         </select>
       </div>
+      <p className="muted" id="browser-profile-help">
+        {PROFILES.find(([id]) => id === chosen)?.[2]}
+      </p>
       <input
         ref={folderInput}
         type="file"
