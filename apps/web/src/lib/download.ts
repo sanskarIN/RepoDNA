@@ -15,7 +15,12 @@ export async function downloadText(name: string, text: string, type: string): Pr
     await saveFile(name, text);
     return;
   }
-  const url = URL.createObjectURL(new Blob([text], { type }));
+  downloadBlob(name, new Blob([text], { type }));
+}
+
+/** Offers a file made in the browser, such as a PNG image, as a download. */
+export function downloadBlob(name: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = name;
