@@ -48,7 +48,11 @@ function legalFiles(): Plugin {
 // version analyze a folder or an archive in the browser. It is included when REPODNA_ENGINE
 // names the built program; `repodna serve` and the desktop app analyze on the machine
 // instead, so their builds go without it.
-const ENGINE = process.env.REPODNA_ENGINE ? resolve(process.env.REPODNA_ENGINE) : null;
+// A relative path is taken from where npm was started, which `npm run build -w` from the
+// repository's root leaves for apps/web.
+const ENGINE = process.env.REPODNA_ENGINE
+  ? resolve(process.env.INIT_CWD ?? process.cwd(), process.env.REPODNA_ENGINE)
+  : null;
 
 function engineFiles(): Plugin {
   const files = (): Record<string, () => Buffer | string> =>
