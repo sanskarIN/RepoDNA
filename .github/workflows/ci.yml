@@ -86,6 +86,38 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  wasm:
+    name: WebAssembly analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy for WebAssembly
+        run: cargo clippy --locked -p repodna-wasm --target wasm32-wasip1 -- -D warnings
+      - name: Build
+        run: cargo build --locked -p repodna-wasm --target wasm32-wasip1 --profile web-engine
+      - name: Test it with the package that runs it
+        env:
+          REPODNA_WASM: ${{ github.workspace }}/target/wasm32-wasip1/web-engine/repodna-wasm.wasm
+        run: npm test -w @repodna/wasm
+      - name: Build the web version with it
+        env:
+          REPODNA_ENGINE: target/wasm32-wasip1/web-engine/repodna-wasm.wasm
+        run: |
+          npm run build -w @repodna/web
+          test -s apps/web/dist/engine/repodna.wasm
+          grep -q '"version"' apps/web/dist/engine/engine.json
+
   desktop:
     name: Desktop (${{ matrix.os }})
     needs: web
