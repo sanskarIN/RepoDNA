@@ -2,7 +2,7 @@ Third-party software in RepoDNA
 ===============================
 
 RepoDNA is licensed under the Apache License 2.0 (see LICENSE and NOTICE). Its downloads
-include the third-party software listed here: 367 Rust crates compiled into the `repodna`
+include the third-party software listed here: 368 Rust crates compiled into the `repodna`
 command line, the desktop app, and the analysis the web version runs as WebAssembly,
 6 npm packages bundled into the web interface (which the command line, the desktop
 app, and the web version all contain), and the DejaVu fonts. Each component is listed under
@@ -53,7 +53,7 @@ Used under the Apache License 2.0, whose text is at the end of this file:
   utf8parse, uuid, web-time, web_atoms, window-vibrancy, windows, windows-collections,
   windows-core, windows-future, windows-link, windows-numerics, windows-result,
   windows-strings, windows-sys, windows-targets, windows-threading, windows-version,
-  windows_x86_64_msvc, wry, xattr, yaml-rust2, zeroize
+  windows_aarch64_msvc, windows_x86_64_msvc, wry, xattr, yaml-rust2, zeroize
 
 MIT License
 ===========
