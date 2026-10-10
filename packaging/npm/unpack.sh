@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Unpacks the command line archives of one version into DIR/<target>/repodna (repodna.exe
-# on Windows), the layout that build.mjs --binaries reads.
+# on Windows), the layout that build.mjs --binaries reads, and the archive of the
+# WebAssembly analysis into DIR/wasm32-wasip1/repodna.wasm, which build.mjs --wasm reads.
 #
 # Usage: packaging/npm/unpack.sh VERSION ARCHIVES DIR
 set -euo pipefail

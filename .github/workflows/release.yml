@@ -1,8 +1,8 @@
 name: Release
 
 # Builds and publishes a release when a version tag is pushed: the command line for every
-# platform, the desktop installers, the container images on ghcr.io, and the npm packages
-# on GitHub Packages. Running it by hand with an existing tag rebuilds that tag's code and
+# platform, the WebAssembly analysis, the desktop installers, the container images on
+# ghcr.io, and the npm packages on GitHub Packages and npmjs.com. Running it by hand with an existing tag rebuilds that tag's code and
 # updates the release's files. Running it by hand without a tag is a trial: it builds every
 # file from the selected branch and keeps them as downloads of the run, without publishing
 # anything.
@@ -78,7 +78,39 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build -w @repodna/web
+      # RepoDNA's analysis as WebAssembly, which the web version runs in the browser.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - name: Build the WebAssembly analysis
+        run: cargo build --locked -p repodna-wasm --target wasm32-wasip1 --profile web-engine
+      - name: Test the WebAssembly analysis
+        env:
+          REPODNA_WASM: ${{ github.workspace }}/target/wasm32-wasip1/web-engine/repodna-wasm.wasm
+        run: npm test -w @repodna/wasm
+      - name: Package the WebAssembly analysis
+        # A download of the release, for WASI runtimes such as wasmtime, packaged like the
+        # command line so that the npm job and the release pick it up with it.
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          name="repodna-$VERSION-wasm32-wasip1"
+          mkdir -p "dist/$name"
+          cp target/wasm32-wasip1/web-engine/repodna-wasm.wasm "dist/$name/repodna.wasm"
+          cp LICENSE NOTICE THIRD-PARTY-NOTICES.txt README.md CHANGELOG.md "dist/$name/"
+          (cd dist && zip -qr "$name.zip" "$name")
+          rm -r "dist/$name"
+          ls -l dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cli-wasm32-wasip1
+          path: dist/*
+          if-no-files-found: error
+      - name: Build the web interface
+        env:
+          REPODNA_ENGINE: target/wasm32-wasip1/web-engine/repodna-wasm.wasm
+        run: npm run build -w @repodna/web
       - uses: actions/upload-artifact@v7
         with:
           name: web-dist
@@ -331,9 +363,12 @@ jobs:
           done
           curl --silent --fail http://localhost:8080/ | grep -q '<div id="root">'
           curl --silent --fail --head http://localhost:8080/ | grep -qi '^content-security-policy:'
-          for path in demo/repodna.json THIRD-PARTY-NOTICES.txt LICENSE.txt; do
+          for path in demo/repodna.json THIRD-PARTY-NOTICES.txt LICENSE.txt engine/engine.json; do
             curl --silent --fail --output /dev/null "http://localhost:8080/$path"
           done
+          # Browsers compile the WebAssembly analysis only when it has its own type.
+          curl --silent --fail --head http://localhost:8080/engine/repodna.wasm |
+            grep -qi '^content-type: application/wasm
           docker stop repodna-web
       - name: Log in to the GitHub Container Registry
         if: needs.prepare.outputs.publish == 'true'
@@ -365,7 +400,7 @@ jobs:
 
   npm:
     name: npm packages
-    needs: [prepare, cli]
+    needs: [prepare, web, cli]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -392,11 +427,13 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: packaging/npm/unpack.sh "$VERSION" archives binaries
       - name: Build the web interface
+        env:
+          REPODNA_ENGINE: binaries/wasm32-wasip1/repodna.wasm
         run: npm run build -w @repodna/web
       - name: Stage the packages
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries --web apps/web/dist
+        run: node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries --web apps/web/dist --wasm binaries/wasm32-wasip1/repodna.wasm
       - name: Check the packages
         run: packaging/npm/check.sh npm-packages
       - name: Publish to GitHub Packages
@@ -421,7 +458,7 @@ jobs:
 
   publish:
     name: Publish the release
-    needs: [prepare, cli, desktop, container]
+    needs: [prepare, web, cli, desktop, container]
     if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -498,6 +535,9 @@ jobs:
 
           - `repodna-<version>-<target>`: the `repodna` command line, with the web interface of
             `repodna serve` built in. The Linux builds are static and run on any distribution.
+          - `repodna-<version>-wasm32-wasip1.zip`: RepoDNA's analysis, reports, and cards as
+            WebAssembly, the program the web version runs, for WASI runtimes:
+            `wasmtime run --dir . repodna.wasm analyze .` (without Git history).
           - `RepoDNA_<version>_amd64.deb`, `RepoDNA-<version>-1.x86_64.rpm`,
             `RepoDNA_<version>_universal.dmg`, `RepoDNA_<version>_x64_en-US.msi`, and
             `RepoDNA_<version>_x64-setup.exe`: the desktop app.
@@ -511,6 +551,8 @@ jobs:
           - npm packages on npmjs.com and GitHub Packages: `npm install --global @sanskarin/repodna`
             installs the command line, with one package per platform;
             `npx @sanskarin/repodna-web` runs the web interface on this machine;
+            `npx @sanskarin/repodna-wasm analyze .` analyzes with the WebAssembly program, on any
+            system Node.js runs on, and runs it in browsers too;
             `@sanskarin/repodna-schema` and `@sanskarin/repodna-visualization` are the TypeScript
             libraries.
           EOF
@@ -518,13 +560,14 @@ jobs:
             cat >> notes.md <<'EOF'
           - npm packages on GitHub Packages: `@sanskarin/repodna` (the command line, with one
             package per platform), `@sanskarin/repodna-web` (the web interface),
-            `@sanskarin/repodna-schema`, and `@sanskarin/repodna-visualization`. Installing them
-            needs a GitHub token; see the installation guide.
+            `@sanskarin/repodna-wasm` (the WebAssembly analysis), `@sanskarin/repodna-schema`, and
+            `@sanskarin/repodna-visualization`. Installing them needs a GitHub token; see the
+            installation guide.
           EOF
           fi
           cat >> notes.md <<'EOF'
           - `SHA256SUMS.txt`: checksums of every file.
-          - Web version: https://sanskarin.github.io/RepoDNA/ — open analyses and the demo in your browser, nothing to install.
+          - Web version: https://sanskarin.github.io/RepoDNA/ — analyze a folder or an archive, or open analyses and the demo, in your browser: nothing to install, nothing uploaded.
 
           EOF
           echo "The binaries are not code-signed, so macOS and Windows ask for confirmation the first time they start; see the [installation guide](https://github.com/sanskarIN/RepoDNA/blob/$TAG/docs/installation.md)." >> notes.md
