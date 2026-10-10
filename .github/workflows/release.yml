@@ -135,6 +135,10 @@ jobs:
             target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+          # Windows on Arm, cross-compiled: the x64 image has the ARM64 build tools and the
+          # clang that ring needs for this target.
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v7
         with:
@@ -162,10 +166,21 @@ jobs:
           RUSTFLAGS: ${{ contains(matrix.target, 'windows-msvc') && '-C target-feature=+crt-static' || '' }}
         run: cargo build --release --locked -p repodna-cli --target ${{ matrix.target }}
       - name: Check the binary
-        # The x86_64 macOS binary is cross-compiled on an Arm runner.
-        if: matrix.target != 'x86_64-apple-darwin'
+        # The x86_64 macOS binary is cross-compiled on an Arm runner, and the Windows on Arm
+        # one on an x64 runner.
+        if: matrix.target != 'x86_64-apple-darwin' && matrix.target != 'aarch64-pc-windows-msvc'
         shell: bash
         run: ./target/${{ matrix.target }}/release/repodna --version
+      - name: Check the Windows on Arm binary
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        shell: pwsh
+        run: |
+          # The machine type in the PE header: 0xAA64 is ARM64.
+          $bytes = [System.IO.File]::ReadAllBytes("target/aarch64-pc-windows-msvc/release/repodna.exe")
+          $header = [System.BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [System.BitConverter]::ToUInt16($bytes, $header + 4)
+          if ($machine -ne 0xAA64) { throw ("repodna.exe is built for machine 0x{0:X4}, not ARM64." -f $machine) }
+          Write-Output "repodna.exe is an ARM64 program."
       - name: Package
         shell: bash
         env:
@@ -192,7 +207,7 @@ jobs:
           if-no-files-found: error
 
   desktop:
-    name: Desktop (${{ matrix.os }})
+    name: Desktop (${{ matrix.name }})
     needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
@@ -200,14 +215,22 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            name: Linux
             rust-targets: ""
             bundle-args: ""
           - os: macos-latest
+            name: macOS
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
             bundle-args: --target universal-apple-darwin
           - os: windows-latest
+            name: Windows
             rust-targets: ""
             bundle-args: ""
+          # Windows on Arm, cross-compiled like its command line.
+          - os: windows-latest
+            name: Windows-arm64
+            rust-targets: aarch64-pc-windows-msvc
+            bundle-args: --target aarch64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v7
         with:
@@ -248,7 +271,7 @@ jobs:
           test -n "$(ls dist)"
       - uses: actions/upload-artifact@v7
         with:
-          name: desktop-${{ runner.os }}
+          name: desktop-${{ matrix.name }}
           path: dist/*
           if-no-files-found: error
 
@@ -539,8 +562,10 @@ jobs:
             WebAssembly, the program the web version runs, for WASI runtimes:
             `wasmtime run --dir . repodna.wasm analyze .` (without Git history).
           - `RepoDNA_<version>_amd64.deb`, `RepoDNA-<version>-1.x86_64.rpm`,
-            `RepoDNA_<version>_universal.dmg`, `RepoDNA_<version>_x64_en-US.msi`, and
-            `RepoDNA_<version>_x64-setup.exe`: the desktop app.
+            `RepoDNA_<version>_universal.dmg`, `RepoDNA_<version>_x64_en-US.msi`,
+            `RepoDNA_<version>_x64-setup.exe`, and for Windows on Arm
+            `RepoDNA_<version>_arm64_en-US.msi` and `RepoDNA_<version>_arm64-setup.exe`: the
+            desktop app.
           - `ghcr.io/sanskarin/repodna:<version>`: a container image with the command line and
             Git, for CI jobs: `docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .`
           - `ghcr.io/sanskarin/repodna-web:<version>`: the web interface, served on port 8080, for
