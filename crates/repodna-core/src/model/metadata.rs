@@ -110,12 +110,19 @@ pub struct PlatformInfo {
 }
 
 impl PlatformInfo {
-    /// The current platform.
+    /// The current platform. WebAssembly targets leave the operating system and its family
+    /// unnamed, so they are recorded as `wasi` and `wasm`.
     pub fn current() -> Self {
+        let named =
+            |name: &str, otherwise: &str| if name.is_empty() { otherwise } else { name }.to_owned();
+        let wasm = cfg!(target_family = "wasm");
         Self {
-            os: std::env::consts::OS.to_owned(),
+            os: named(std::env::consts::OS, if wasm { "wasi" } else { "unknown" }),
             arch: std::env::consts::ARCH.to_owned(),
-            family: std::env::consts::FAMILY.to_owned(),
+            family: named(
+                std::env::consts::FAMILY,
+                if wasm { "wasm" } else { "unknown" },
+            ),
         }
     }
 }
