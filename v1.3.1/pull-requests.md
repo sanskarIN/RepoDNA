@@ -1,6 +1,6 @@
 # RepoDNA 1.3.1: pull requests
 
-The pull requests for RepoDNA 1.3.1, which is not released yet, merged into `main` since the release before it on 2026-10-09.
+The pull requests merged into `main` for RepoDNA 1.3.1, released on 2026-10-10, after the release before it on 2026-10-09.
 
 | Pull request | Branch | Merged |
 |---|---|---|
@@ -8,7 +8,7 @@ The pull requests for RepoDNA 1.3.1, which is not released yet, merged into `mai
 | [#34 build(deps): bump the npm group with 7 updates](https://github.com/sanskarIN/RepoDNA/pull/34) | `dependabot/npm_and_yarn/npm-62a67576bc` | 2026-10-10 |
 | [#35 build(deps): bump the desktop group in /apps/desktop/src-tauri with 2 updates](https://github.com/sanskarIN/RepoDNA/pull/35) | `dependabot/cargo/apps/desktop/src-tauri/desktop-8aabb39049` | 2026-10-10 |
 | [#36 build(deps): bump skrifa from 0.47.0 to 0.48.0 in /apps/desktop/src-tauri](https://github.com/sanskarIN/RepoDNA/pull/36) | `dependabot/cargo/apps/desktop/src-tauri/skrifa-0.48.0` | 2026-10-10 |
-| [#37 Release v1.3.1](https://github.com/sanskarIN/RepoDNA/pull/37) | `release-v1.3.1` | open |
+| [#37 Release v1.3.1](https://github.com/sanskarIN/RepoDNA/pull/37) | `release-v1.3.1` | 2026-10-10 |
 
 ## #37 Release v1.3.1
 
