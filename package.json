@@ -13,6 +13,7 @@
   "workspaces": [
     "packages/schema",
     "packages/visualization",
+    "packages/wasm",
     "apps/web",
     "apps/desktop"
   ],
