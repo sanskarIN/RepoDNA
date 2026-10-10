@@ -66,7 +66,7 @@ repodna serve
 
 Open the link it prints and choose **Try the demo**.
 
-![The Overview of RepoDNA's own analysis in the web interface of RepoDNA 1.3.1](docs/images/v1.3.1/desktop/overview-light.png)
+![The Overview of RepoDNA's own analysis in the web interface of RepoDNA 1.3.1](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/overview-light.png)
 
 Without installing anything, you can read what RepoDNA writes about itself in
 [`examples/self-analysis`](examples/self-analysis): the full
@@ -332,28 +332,30 @@ environment variables.
 
 | | |
 |---|---|
-| ![Architecture view: the module map in dependency layers](docs/images/v1.3.1/desktop/architecture-dark.png) | ![History view: commits over time and when commits happen](docs/images/v1.3.1/desktop/history-light.png) |
+| ![Architecture view: the module map in dependency layers](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/architecture-dark.png) | ![History view: commits over time and when commits happen](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/history-light.png) |
 | **Architecture:** modules in dependency layers; select one to see why it matters. | **History:** activity, contributors, releases, and where work happens. |
-| ![Time Machine view: a snapshot with its languages and largest areas](docs/images/v1.3.1/desktop/time-machine-light.png) | ![Code quality view: functions measured, complexity distribution, and complexity by language](docs/images/v1.3.1/desktop/quality-light.png) |
+| ![Time Machine view: a snapshot with its languages and largest areas](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/time-machine-light.png) | ![Code quality view: functions measured, complexity distribution, and complexity by language](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/quality-light.png) |
 | **Time Machine:** snapshots, epochs, events, and the story of the project. | **Code quality:** complexity, size, duplication, and markers. |
-| ![Tests, build and docs view: a getting-started guide assembled from the repository, with commands to copy](docs/images/v1.3.1/desktop/project-light.png) | ![The web version's start page: analyze a folder or an archive in this browser, and open recent analyses](docs/images/v1.3.1/desktop/start-light.png) |
+| ![Tests, build and docs view: a getting-started guide assembled from the repository, with commands to copy](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/project-light.png) | ![The web version's start page: analyze a folder or an archive in this browser, and open recent analyses](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/start-light.png) |
 | **Tests, build and docs:** how to set up, build, and test the project. | **Web version:** analyze a folder or an archive right in the browser; nothing is uploaded. |
-| ![Hotspots view: the hotspot map of files that change often and are large or complex](docs/images/v1.3.1/desktop/hotspots-dark.png) | ![The desktop app's start page: analyze a folder, an archive, or a Git URL, and open the analyses stored on this machine](docs/images/v1.3.1/desktop-app/start-light.png) |
+| ![Hotspots view: the hotspot map of files that change often and are large or complex](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/hotspots-dark.png) | ![The desktop app's start page: analyze a folder, an archive, or a Git URL, and open the analyses stored on this machine](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop-app/start-light.png) |
 | **Hotspots:** files that change often and are large or complex, the first places to look. | **Desktop app:** the same interface as a native app. |
 
 On a phone, the interface fits the screen and the navigation folds behind a Menu button:
 
 <p>
-<img src="docs/images/v1.3.1/phone/overview-light.png" alt="The overview on a phone, in the light theme" width="230">
-<img src="docs/images/v1.3.1/phone/menu-dark.png" alt="The navigation menu open on a phone, in the dark theme" width="230">
-<img src="docs/images/v1.3.1/phone/history-dark.png" alt="History on a phone, in the dark theme" width="230">
+<img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/phone/overview-light.png" alt="The overview on a phone, in the light theme" width="230">
+<img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/phone/menu-dark.png" alt="The navigation menu open on a phone, in the dark theme" width="230">
+<img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/phone/history-dark.png" alt="History on a phone, in the dark theme" width="230">
 </p>
 
 All screenshots show RepoDNA 1.3.1 and its analysis of its own repository; the
-[screenshots of every release](docs/images/README.md) compare the versions side by side.
-For posts and talks, the [media kit](docs/media/README.md) has larger screenshots on a
-desktop and a phone, in light and dark, along with promo images and Project DNA cards
-sized for social networks.
+[screenshots of every release](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md)
+compare the versions side by side. For posts and talks, the
+[media kit](https://github.com/sanskarIN/RepoDNA/blob/images/media/README.md) has larger
+screenshots on a desktop and a phone, in light and dark, along with promo images and
+Project DNA cards sized for social networks. The images are kept on the
+[`images`](https://github.com/sanskarIN/RepoDNA/tree/images) branch, apart from the code.
 
 ## Project DNA cards and badges
 
@@ -585,8 +587,9 @@ Next on the list are lexical analysis for more languages, deeper import resoluti
 request analysis in CI, and installation through package managers such as Homebrew and
 Scoop; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
 now, next, later, and under exploration, and the [changelog](CHANGELOG.md) what each
-release changed. Each release also has its own folder in
-[`docs/releases`](docs/releases/README.md), with its notes, downloads, and install commands.
+release changed. Each release also has its own folder on the
+[`releases-info`](https://github.com/sanskarIN/RepoDNA/tree/releases-info) branch, with its
+notes, downloads, install commands, and pull requests.
 
 ## License
 
