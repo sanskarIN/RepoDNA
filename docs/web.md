@@ -9,7 +9,7 @@ same interface runs in three places:
 |---|---|---|
 | `repodna serve` | A local server on 127.0.0.1 | Browse stored analyses, start new ones, download reports |
 | The [desktop app](desktop.md) | A native window | The same, with native folder pickers and save dialogs |
-| The [web version](https://sanskarin.github.io/RepoDNA/), or any static web server | The built files in `apps/web/dist` | Open the bundled demo and analysis files; no stored analyses or new scans |
+| The [web version](https://sanskarin.github.io/RepoDNA/), or any static web server | The built files in `apps/web/dist` | Analyze a folder or an archive in the browser, without Git history; open analysis files and the bundled demo; make reports and DNA cards; works offline once opened. No stored analyses |
 
 ![The Overview of RepoDNA's own analysis](images/v1.3.0/desktop/overview-light.png)
 
@@ -42,6 +42,9 @@ Open the printed link. The start page lets you:
   in Settings.
 - **Try the demo**: RepoDNA's analysis of its own repository, bundled with the interface.
 
+In the web version, **Analyze a repository in this browser** takes the place of the first
+item: see [the web version](#the-web-version).
+
 Reloading the page keeps the analysis and the view you had open, in the web version too.
 A new tab starts on the start page.
 
@@ -63,7 +66,7 @@ A new tab starts on the start page.
 | Tests, build & docs | Test files and frameworks, build systems, detected commands, CI, environment requirements, and documentation checks |
 | Security signals | Possible secrets, risky patterns, and permissions |
 | Findings | Every finding with its evidence, method, and limitations, 25 at a time, filtered by severity and category and searchable by title, rule, path, and evidence |
-| Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark; the desktop app also saves the full report folder |
+| Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark, as SVG or PNG; the desktop app also saves the full report folder. In the web version, they are made in the browser |
 | Compare | This analysis next to another one: a stored analysis, a file you choose or drop on its drop zone, or the demo |
 | Settings | Theme, recent analyses, privacy notes, keyboard shortcuts, and version information |
 | About & support | The version, ways to support RepoDNA, the project's links, and the legal documents |
@@ -74,9 +77,10 @@ alone. **Download CSV** under a table saves all of its rows, in the order shown,
 spreadsheet: numbers stay numbers, and text that a spreadsheet would run as a formula is
 written so that it does not run.
 
-To print a view, or save it as PDF, use the browser's Print command. The printout leaves
-out the buttons and links made for the screen, shows every column of wide tables, and is in
-the light theme whatever the theme on screen.
+To print a view, or save it as PDF, use the browser's Print command, or **Print this view**
+in the command palette (Ctrl/Cmd + K), which the desktop app needs, having no print menu.
+The printout leaves out the buttons and links made for the screen, shows every column of
+wide tables, and is in the light theme whatever the theme on screen.
 
 ### Finding your way
 
@@ -93,7 +97,7 @@ the light theme whatever the theme on screen.
 
 | Keys | Action |
 |---|---|
-| Ctrl/Cmd + K | Search views, files, modules, packages, and findings; run commands |
+| Ctrl/Cmd + K | Search views, files, modules, packages, and findings; run commands, such as printing the view |
 | Ctrl/Cmd + P | Quick open a file or module |
 | Ctrl/Cmd + F | Search the current view (when it has a search box) |
 | ↑ / ↓ and Enter | Move through results and choose one |
@@ -152,11 +156,32 @@ format is described by [`schemas/repodna-artifact.schema.json`](../schemas/repod
 
 ## The web version
 
-<https://sanskarin.github.io/RepoDNA/> is the interface hosted on GitHub Pages. It opens the
-bundled demo and analysis files you choose (`repodna.json` from `repodna analyze --format
-json` or `repodna report`, or a `.repodna` export); files are read in the page and never
-uploaded. To analyze a repository, use the command line or the desktop app, then open the
-result here or share it with others.
+<https://sanskarin.github.io/RepoDNA/> is the interface hosted on GitHub Pages. It analyzes
+repositories itself, in the browser, with RepoDNA's analysis built as WebAssembly (the same
+Rust code as the command line, as the
+[`@sanskarin/repodna-wasm`](installation.md#npm-packages) package publishes it):
+
+- **Choose a folder** or **Choose an archive** (`.zip`, `.tar`, `.tar.gz`, or `.tgz`) on the
+  start page, or drop one anywhere on the page, and pick a profile. The start page shows
+  each stage as it runs and the files done, with **Stop**. The finished analysis opens like
+  an analysis file and is kept with the recent analyses.
+- Files are read in the page, only when the analysis opens them, so files that
+  `.gitignore` excludes are never read, and nothing is uploaded. The repository's own
+  `repodna.toml` applies, as on the command line.
+- Browsers cannot run Git, so these analyses have no history: no commits, contributors,
+  hotspots by change, or Time Machine. For those, use the command line or the desktop app,
+  then open the result here.
+- The first analysis downloads the analysis program, about 3 MB compressed, which the
+  browser then keeps.
+
+It also opens the bundled demo and analysis files you choose (`repodna.json` from
+`repodna analyze --format json` or `repodna report`, or a `.repodna` export), and on
+**Reports & export** makes the HTML and Markdown reports and the Project DNA card of an
+open analysis, as SVG or PNG, the same way. Files are read in the page and never uploaded.
+
+Once opened, the web version keeps working without a connection: it keeps its page, its
+files, and the demo in the browser, and the analysis program once it has been used. A new
+version takes effect on the next visit online.
 
 Browsers that can install web sites as apps, such as Chrome, Edge, and Safari, can install
 the web version (in Chrome, **Install RepoDNA** in the address bar or the menu; in Safari,
@@ -188,15 +213,24 @@ machine, at <http://127.0.0.1:8080/> (`--port` and `--host` change where):
 
 ```sh
 npx @sanskarin/repodna-web
-``` To build it yourself,
-note that the build in `apps/web/dist` uses relative paths and hash-based routing, so any
-static web host can serve it from any path, with no server configuration:
+```
+
+To build it yourself, note that the build in `apps/web/dist` uses relative paths and
+hash-based routing, so any static web host can serve it from any path, with no server
+configuration. To analyze in the browser, it needs the WebAssembly program, built first
+and named by `REPODNA_ENGINE`; without it, the web version opens files only:
 
 ```sh
 npm ci
-npm run build -w @repodna/web
+rustup target add wasm32-wasip1
+cargo build --locked -p repodna-wasm --target wasm32-wasip1 --profile web-engine
+REPODNA_ENGINE=target/wasm32-wasip1/web-engine/repodna-wasm.wasm npm run build -w @repodna/web
 npm run preview -w @repodna/web      # or serve apps/web/dist with any static file server
 ```
+
+A server that sends its own Content Security Policy must allow `'wasm-unsafe-eval'` in
+`script-src`, as the interface's own policy does, and should send `.wasm` files as
+`application/wasm`.
 
 On a hosting service such as Cloudflare Pages, Netlify, or Vercel, use
 `npm ci && npm run build -w @repodna/web` as the build command and `apps/web/dist` as the
