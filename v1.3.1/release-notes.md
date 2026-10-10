@@ -1,9 +1,8 @@
 # RepoDNA 1.3.1: release notes
 
-The notes for the GitHub release **RepoDNA 1.3.1**, tag `v1.3.1`, made by the release
-workflow from the changelog, the screenshots on the `images` branch, and the downloads.
-Once it is published, the notes as published replace these, and a release page with
-its downloads is added next to them.
+The notes of the GitHub release [RepoDNA 1.3.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.3.1), tag
+`v1.3.1`, as published on 2026-10-10. The [release page](README.md) adds its
+downloads with their sizes.
 
 ---
 
