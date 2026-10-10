@@ -1,9 +1,10 @@
 name: npm packages
 
 # Publishes the npm packages of a release that is already on the releases page, made from
-# the command line archives attached to it: for example to put a release on npmjs.com
-# after the NPM_TOKEN secret was added. The release workflow publishes new releases
-# itself. Versions a registry already has are skipped.
+# the command line archives (and from 1.3.1 on, the WebAssembly analysis) attached to it:
+# for example to put a release on npmjs.com after the NPM_TOKEN secret was added. The
+# release workflow publishes new releases itself. Versions a registry already has are
+# skipped.
 
 on:
   workflow_dispatch:
@@ -61,10 +62,19 @@ jobs:
           sha256sum --check --ignore-missing SHA256SUMS.txt
       - name: Unpack the binaries
         run: packaging/npm/unpack.sh "$VERSION" archives binaries
+      # Releases from 1.3.1 on carry the WebAssembly analysis, which the web interface
+      # includes and @sanskarin/repodna-wasm is made of.
+      - name: Find the WebAssembly analysis
+        run: |
+          if [ -f binaries/wasm32-wasip1/repodna.wasm ]; then
+            echo "REPODNA_ENGINE=binaries/wasm32-wasip1/repodna.wasm" >> "$GITHUB_ENV"
+          fi
       - name: Build the web interface
         run: npm run build -w @repodna/web
       - name: Stage the packages
-        run: node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries --web apps/web/dist
+        run: |
+          node packaging/npm/build.mjs --version "$VERSION" --out npm-packages --binaries binaries \
+            --web apps/web/dist ${REPODNA_ENGINE:+--wasm "$REPODNA_ENGINE"}
       - name: Check the packages
         run: packaging/npm/check.sh npm-packages
       - name: Publish to GitHub Packages
