@@ -37,8 +37,13 @@ To build it yourself, see [apps/desktop/README.md](../apps/desktop/README.md).
 - **Open an analysis file** (`repodna.json` or `.repodna`), by choosing it or dropping it
   on the window, or **try the demo**.
 - **Save reports**: the Reports view saves the HTML report, the Markdown report, the JSON
-  artifact, the DNA card, or the full report folder through native save dialogs. Tables
-  are saved as CSV files the same way, with **Download CSV** under each one.
+  artifact, or the full report folder through native save dialogs, named after the
+  analysis, such as `repodna-widget-2026-10-10.html`. The report folder never replaces one
+  saved before: a second one gets `-2`, and so on. The Project DNA card is saved from its
+  own panel, as SVG or PNG, light or dark as its preview shows it. Tables are saved as CSV
+  files the same way, with **Download CSV** under each one.
+- **Print** a view, or save it as PDF, with **Print this view** in the command palette
+  (Ctrl/Cmd + K).
 - Every view, search, and keyboard shortcut of the [web interface](web.md) works the same
   way.
 - **About & support** shows the version, the project's links, and ways to support
