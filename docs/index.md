@@ -50,11 +50,15 @@ interface, or in a desktop app, and share as reports and Project DNA cards.
 
 - [Examples](../examples/README.md): RepoDNA's analysis of itself, a CI workflow, and
   configurations
-- [Media kit](media/README.md): screenshots, promo images, and Project DNA cards for posts
-  and talks
-- [Screenshots](images/README.md) of the web interface in every release, side by side
-- [Roadmap](../ROADMAP.md), [changelog](../CHANGELOG.md), and the [releases](releases/README.md),
-  one folder per version with its notes, downloads, and install commands
+- [Media kit](https://github.com/sanskarIN/RepoDNA/blob/images/media/README.md):
+  screenshots, promo images, and Project DNA cards for posts and talks, on the `images`
+  branch
+- [Screenshots](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md)
+  of the web interface in every release, side by side, on the `images` branch
+- [Roadmap](../ROADMAP.md), [changelog](../CHANGELOG.md), and the
+  [releases](https://github.com/sanskarIN/RepoDNA/tree/releases-info) on the
+  `releases-info` branch, one folder per version with its notes, downloads, install
+  commands, and pull requests
 - [Security policy](../SECURITY.md), [support](../SUPPORT.md), and the
   [code of conduct](../CODE_OF_CONDUCT.md)
 - [Privacy Policy](../PRIVACY.md), [Terms of Use](../TERMS.md), and the
