@@ -205,8 +205,8 @@ statically linked), macOS (Apple silicon and Intel), or Windows (x86_64). Each i
 `repodna` program with the web interface built in. For example, on Linux:
 
 ```sh
-tar -xzf repodna-1.3.0-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.3.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.3.1-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.3.1-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 repodna --version
 ```
 
