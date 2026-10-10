@@ -44,6 +44,7 @@ const PROGRAMS: [Program; 3] = [
             "x86_64-apple-darwin",
             "aarch64-apple-darwin",
             "x86_64-pc-windows-msvc",
+            "aarch64-pc-windows-msvc",
         ],
     },
     // The analysis of the web version, which the web interface downloads to analyze in the
@@ -63,6 +64,7 @@ const PROGRAMS: [Program; 3] = [
             "x86_64-apple-darwin",
             "aarch64-apple-darwin",
             "x86_64-pc-windows-msvc",
+            "aarch64-pc-windows-msvc",
         ],
     },
 ];
