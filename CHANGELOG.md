@@ -86,13 +86,22 @@ Windows on Arm, and the desktop app saves reports and cards better.
   new packages.
 - The [Privacy Policy](PRIVACY.md) and the [privacy guide](docs/privacy.md) describe the
   web version's analysis and the files it keeps to work offline.
-- A page for 1.3.0 in [`docs/releases`](docs/releases/README.md), with its downloads.
+- The screenshots, promo images, and Project DNA cards of every release moved from
+  `docs/images` and `docs/media` to the [`images`](https://github.com/sanskarIN/RepoDNA/tree/images) branch, and the
+  release pages from `docs/releases` to the [`releases-info`](https://github.com/sanskarIN/RepoDNA/tree/releases-info)
+  branch, which also keeps each release's notes as published and its pull requests. The
+  code is about 42 MB smaller to download and check out. The README, the guides, and the
+  release notes show the images from the `images` branch, and the release steps add each
+  version's images and pages to these branches.
+- A page for 1.3.0 on the [`releases-info`](https://github.com/sanskarIN/RepoDNA/tree/releases-info) branch, with its
+  downloads.
 - The README, the architecture and development guides, and the roadmap describe the
   WebAssembly analysis, the new packages, and the Action.
-- [Screenshots of 1.3.1](docs/images/README.md#131) on a desktop, a phone, and in the
-  desktop app, now also of the web version analyzing in the browser, and the README and
-  the guides show them; the [media kit](docs/media/README.md) has 1.3.1 promo images and
-  Project DNA cards.
+- [Screenshots of 1.3.1](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md#131) on a desktop, a
+  phone, and in the desktop app, now also of the web version analyzing in the browser,
+  and the README and the guides show them; the
+  [media kit](https://github.com/sanskarIN/RepoDNA/blob/images/media/README.md) has 1.3.1 promo images and Project DNA
+  cards.
 
 ## [1.3.0] - 2026-10-09
 
@@ -172,11 +181,11 @@ package, `@sanskarin/repodna-web`, runs it on your own machine.
   analysis, CSV downloads, printing, dropping files, installing the web version, and the
   `@sanskarin/repodna-web` package; the [privacy policy](PRIVACY.md) says what the web
   interface keeps in the browser and how to remove it.
-- A page for 1.2.2 in [`docs/releases`](docs/releases/README.md), with its downloads, and
+- A page for 1.2.2 in [`docs/releases`](https://github.com/sanskarIN/RepoDNA/blob/v1.3.0/docs/releases/README.md), with its downloads, and
   the 1.2.2 entry of this changelog dated on the day it was published.
-- Screenshots of 1.3.0 in [`docs/images`](docs/images/README.md), with one of the start
+- Screenshots of 1.3.0 in [`docs/images`](https://github.com/sanskarIN/RepoDNA/blob/v1.3.0/docs/images/README.md), with one of the start
   page and its recent analyses, and the promo images and Project DNA cards of 1.3.0 in
-  [`docs/media/v1.3.0`](docs/media/README.md). The README and the guides show the 1.3.0
+  [`docs/media/v1.3.0`](https://github.com/sanskarIN/RepoDNA/blob/v1.3.0/docs/media/README.md). The README and the guides show the 1.3.0
   screenshots.
 
 ## [1.2.2] - 2026-10-07
@@ -197,12 +206,12 @@ which put 1.2.0 there too. The notes of this release show its screenshots.
 
 ### Documentation
 
-- Screenshots of 1.2.1 and 1.2.2 in [`docs/images`](docs/images/README.md), and the
+- Screenshots of 1.2.1 and 1.2.2 in [`docs/images`](https://github.com/sanskarIN/RepoDNA/blob/v1.2.2/docs/images/README.md), and the
   promo images and Project DNA cards of 1.2.1 in
-  [`docs/media/v1.2.1`](docs/media/README.md). Each release has a folder of its own in
+  [`docs/media/v1.2.1`](https://github.com/sanskarIN/RepoDNA/blob/v1.2.2/docs/media/README.md). Each release has a folder of its own in
   the media kit, and the README and the guides show the screenshots of 1.2.2.
 - The notes of a release on GitHub show its screenshots, when its tag has them.
-- A page for 1.2.1 in [`docs/releases`](docs/releases/README.md), with its downloads and
+- A page for 1.2.1 in [`docs/releases`](https://github.com/sanskarIN/RepoDNA/blob/v1.2.2/docs/releases/README.md), with its downloads and
   their sizes.
 - The installation guide and the 1.2.0 release page say that 1.2.0 is on npmjs.com too.
 
@@ -260,13 +269,13 @@ tables and long paths on phones.
 
 ### Documentation
 
-- A media kit in [`docs/media`](docs/media/README.md): screenshots of the web interface on
+- A media kit in [`docs/media`](https://github.com/sanskarIN/RepoDNA/blob/v1.2.1/docs/media/README.md): screenshots of the web interface on
   a desktop and a phone, in light and dark, promo images for the 1.2.0 release, and
   RepoDNA's own Project DNA cards, sized for social networks.
-- A folder for every release in [`docs/releases`](docs/releases/README.md), with its notes,
+- A folder for every release in [`docs/releases`](https://github.com/sanskarIN/RepoDNA/blob/v1.2.1/docs/releases/README.md), with its notes,
   its downloads and their sizes, and the commands that install it.
 - Screenshots of the web interface in every release, 1.0.0 to 1.2.0, in
-  [`docs/images`](docs/images/README.md): each shows that release's own analysis of this
+  [`docs/images`](https://github.com/sanskarIN/RepoDNA/blob/v1.2.1/docs/images/README.md): each shows that release's own analysis of this
   repository at its tag, and a gallery page compares them side by side. The screenshots
   of the media kit moved there too.
 - The README and the guides show screenshots of 1.2.0, including the desktop app and the
