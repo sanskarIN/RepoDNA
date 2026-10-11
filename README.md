@@ -610,8 +610,8 @@ its contributors.
 RepoDNA is free, and every feature works without paying for anything. If it helps you,
 you can support its development:
 
-- [Buy Me a Coffee](https://www.buymeacoffee.com/sanskarIN)
-- [Razorpay](https://www.razorpay.me/@sanskarIN)
+- [Buy Me a Coffee](https://www.buymeacoffee.com/SanskarCodes)
+- [Razorpay](https://www.razorpay.me/@SanskarCodes)
 - [About me](https://sanskarin.github.io/about/)
 <div align="center">
 <sub>Made by the Sanskar</sub>
