@@ -51,6 +51,9 @@ pages; the support links lead to the new Buy Me a Coffee and Razorpay pages; and
   build, preview, and check the documentation site, and the README and the documentation
   index link to it. CI and the Web version workflow fail on a broken link or anchor in the
   documentation.
+- [Screenshots of 1.3.2](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md#132)
+  on the `images` branch, the documentation site's among them, and the README and the
+  guides show them.
 
 ## [1.3.1] - 2026-10-10
 
