@@ -15,12 +15,12 @@ export interface ProjectLink {
 export const SUPPORT: ProjectLink[] = [
   {
     label: "Buy Me a Coffee",
-    url: "https://www.buymeacoffee.com/sanskarIN",
+    url: "https://buymeacoffee.com/SanskarCodes",
     description: "Support RepoDNA's development on Buy Me a Coffee.",
   },
   {
     label: "Razorpay",
-    url: "https://www.razorpay.me/@sanskarIN",
+    url: "https://razorpay.me/@SanskarCodes",
     description: "Support RepoDNA's development with Razorpay.",
   },
 ];
