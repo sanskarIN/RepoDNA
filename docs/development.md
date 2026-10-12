@@ -63,7 +63,8 @@ packages/
   schema                TypeScript types generated from the artifact schema
   visualization         layout, color, and formatting helpers for charts
   wasm                  runs repodna-wasm in browsers and Node.js
-packaging/              the container images, the npm packages, and the GitHub Action
+packaging/              the container images, the npm packages, the GitHub Action, and the
+                        documentation site
 plugins/                example plugins
 schemas/                published JSON Schemas
 fixtures/               fixture documentation (repositories are generated)
@@ -161,6 +162,24 @@ REPODNA_ENGINE=target/wasm32-wasip1/web-engine/repodna-wasm.wasm npm run dev -w 
 it. Without `REPODNA_ENGINE`, the interface works as before and offers no analysis in the
 browser; `repodna serve` and the desktop app never include it, since they analyze on the
 machine.
+
+## The documentation site
+
+The guides in `docs/` are also published as a site at
+<https://sanskarin.github.io/RepoDNA/docs/>, beside the web version, with search, the
+changelog, the roadmap, and the project's policies. `packaging/docs/build.mjs` builds it:
+
+```sh
+node packaging/docs/build.mjs --out apps/web/dist/docs --check
+python3 -m http.server --directory apps/web/dist 8000   # then open http://localhost:8000/docs/
+```
+
+Write the guides as for GitHub: relative links between Markdown files, and anchors as
+GitHub makes them. On the site, a link to another guide leads to its page and a link to any
+other file of the repository leads to it on GitHub. `--check`, the documentation site's
+tests in CI, and the Web version workflow fail on a link to a file or a heading that does
+not exist. The sidebar follows the sections and links of `docs/index.md`, so a new guide
+belongs there too; a page it does not link to is listed under More.
 
 ## The desktop app
 
