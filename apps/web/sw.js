@@ -71,6 +71,11 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.includes("/api/")) {
     return;
   }
+  // The documentation, published beside the web version, is a site of its own: its pages
+  // come from the network, never as the web version's page, and are never kept.
+  if (url.href.startsWith(new URL("docs/", scope).href)) {
+    return;
+  }
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request, new URL("./", scope).href));
     return;
