@@ -536,11 +536,18 @@ jobs:
             }
             {
               printf '\n## Screenshots\n\n'
-              image "media/$TAG/promo/launch-16x9.png" "RepoDNA $VERSION on a desktop and a phone" 800
-              printf '\n'
+              # The promo image and the documentation site, for the releases that have them.
+              promo=$(image "media/$TAG/promo/launch-16x9.png" "RepoDNA $VERSION on a desktop and a phone" 800)
+              if [ -n "$promo" ]; then
+                printf '%s\n\n' "$promo"
+              fi
               image "$shots/desktop/overview-light.png" "The overview in RepoDNA $VERSION" 400
               image "$shots/desktop/architecture-dark.png" "The module map in RepoDNA $VERSION" 400
               printf '\n'
+              docs=$(image "$shots/docs-site/index-light.png" "The documentation site of RepoDNA $VERSION" 400)
+              if [ -n "$docs" ]; then
+                printf '%s\n\n' "$docs"
+              fi
               image "$shots/phone/overview-light.png" "The overview on a phone, in the light theme" 190
               image "$shots/phone/menu-dark.png" "The navigation menu on a phone, in the dark theme" 190
               image "$shots/phone/history-dark.png" "History on a phone, in the dark theme" 190
