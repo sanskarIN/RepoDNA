@@ -12,11 +12,17 @@ version=${1:?$usage}
 dir=${2:?$usage}
 repository=${REPODNA_REPOSITORY:-sanskarIN/RepoDNA}
 server=${GITHUB_SERVER_URL:-https://github.com}
+# GitHub's downloads sometimes fail for a while (502, 503, 504): retry them for up to two
+# minutes. curl retries only such passing errors, never a file that does not exist.
+retry=(--retry 6 --retry-delay "${REPODNA_RETRY_DELAY:-5}" --retry-max-time 120 --retry-connrefused)
 
 if [ "$version" = latest ]; then
   # The address of the latest release names its tag. Unlike the API, it has no rate limit
   # shared with every other job on the runner's network.
-  url=$(curl -fsSL -o /dev/null -w '%{url_effective}' "$server/$repository/releases/latest")
+  if ! url=$(curl -fsSL "${retry[@]}" -o /dev/null -w '%{url_effective}' "$server/$repository/releases/latest"); then
+    echo "::error title=RepoDNA::Could not find the latest release of RepoDNA; GitHub may be having trouble, so run the job again." >&2
+    exit 1
+  fi
   version=${url##*/}
 fi
 version=${version#v}
@@ -48,10 +54,18 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 base="$server/$repository/releases/download/v$version"
 for file in "$archive" SHA256SUMS.txt; do
-  if ! curl -fsSL --retry 3 -o "$work/$file" "$base/$file"; then
-    echo "::error title=RepoDNA::RepoDNA $version has no $file; see $server/$repository/releases" >&2
-    exit 1
-  fi
+  status=$(curl -sSL "${retry[@]}" -o "$work/$file" -w '%{http_code}' "$base/$file" || true)
+  case "$status" in
+    200) ;;
+    404)
+      echo "::error title=RepoDNA::RepoDNA $version has no $file; see $server/$repository/releases" >&2
+      exit 1
+      ;;
+    *)
+      echo "::error title=RepoDNA::Downloading $file of RepoDNA $version failed (HTTP ${status:-000}); GitHub may be having trouble, so run the job again." >&2
+      exit 1
+      ;;
+  esac
 done
 
 expected=$(awk -v file="$archive" '$2 == file || $2 == "*" file { print $1 }' "$work/SHA256SUMS.txt")
