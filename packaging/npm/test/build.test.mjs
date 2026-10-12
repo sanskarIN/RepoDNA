@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
+import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { build } from "../build.mjs";
 import { PLATFORMS } from "../launcher/lib/platforms.js";
@@ -111,6 +112,26 @@ test("stages the WebAssembly program with the code that runs it", () => {
   const node = readFileSync(join(out, "repodna-wasm", "dist", "node.js"), "utf8");
   assert.match(node, /from "\.\/index\.js"/);
   assert.ok(statSync(join(out, "repodna-wasm", "dist", "node.d.ts")).isFile());
+});
+
+test("repodna-wasm says plainly what is wrong with its arguments", () => {
+  const command = join(out, "repodna-wasm", "bin", "repodna-wasm.js");
+  const run = (...args) => spawnSync(process.execPath, [command, ...args], { encoding: "utf8" });
+  const missing = run("analyze", join(dir, "no-such-folder"));
+  assert.equal(missing.status, 1);
+  assert.equal(
+    missing.stderr,
+    `repodna-wasm: ${join(dir, "no-such-folder")}: no such file or folder.\n`,
+  );
+  const folder = run("report", dir);
+  assert.equal(folder.status, 2);
+  assert.match(
+    folder.stderr,
+    /is a folder; report needs an analysis file \(\.repodna or \.json\)\./,
+  );
+  const unknown = run("analyse", dir);
+  assert.equal(unknown.status, 2);
+  assert.match(unknown.stderr, /^repodna-wasm: unknown command analyse\./);
 });
 
 test("stages no web interface without a built one", () => {

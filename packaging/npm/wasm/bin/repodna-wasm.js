@@ -5,8 +5,11 @@
 //
 // Usage: see USAGE below.
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { analyze, card, cardPng, load, report } from "../dist/node.js";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+
+// The program is loaded only once the arguments are known to be right, so that a mistake in
+// them is reported at once.
+const program = () => import("../dist/node.js");
 
 const USAGE = `Usage:
   repodna-wasm analyze <folder or archive> [--profile NAME] [--anonymize-contributors] [--output FILE]
@@ -59,6 +62,24 @@ function progress(event) {
   }
 }
 
+/** A plain message for an error reading or writing a file, rather than Node's own. */
+function describe(error) {
+  const path = error?.path;
+  switch (path ? error.code : undefined) {
+    case "ENOENT":
+      return `${path}: no such file or folder.`;
+    case "EACCES":
+    case "EPERM":
+      return `${path}: permission denied.`;
+    case "EISDIR":
+      return `${path} is a folder, not a file.`;
+    case "ENOTDIR":
+      return `${path}: a part of the path is not a folder.`;
+    default:
+      return error instanceof Error ? error.message : String(error);
+  }
+}
+
 function output(result, file) {
   if (file) {
     writeFileSync(file, result);
@@ -74,6 +95,7 @@ async function main() {
     return;
   }
   if (argv[0] === "--version" || argv[0] === "-V") {
+    const { load } = await program();
     process.stdout.write(`repodna-wasm ${await (await load()).version()}\n`);
     return;
   }
@@ -87,6 +109,13 @@ async function main() {
       2,
     );
   }
+  if (!existsSync(operand)) {
+    fail(`${operand}: no such file or folder.`);
+  }
+  if (command !== "analyze" && statSync(operand).isDirectory()) {
+    fail(`${operand} is a folder; ${command} needs an analysis file (.repodna or .json).`, 2);
+  }
+  const { analyze, card, cardPng, report } = await program();
   if (command === "analyze") {
     const text = await analyze(operand, {
       profile: options.profile,
@@ -110,4 +139,4 @@ async function main() {
   }
 }
 
-main().catch((error) => fail(error instanceof Error ? error.message : String(error)));
+main().catch((error) => fail(describe(error)));
