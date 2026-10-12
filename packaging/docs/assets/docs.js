@@ -120,14 +120,21 @@
     }
     return total;
   }
-  // The words around the first term the text contains.
+  // The words around the first term the text contains, beginning and ending on whole words.
   function snippet(text, terms) {
     var lower = text.toLowerCase();
     var at = -1;
     for (var i = 0; i < terms.length && at === -1; i += 1) at = lower.indexOf(terms[i]);
-    if (at === -1) return text.length > 140 ? text.slice(0, 140) + "…" : text;
-    var start = Math.max(0, at - 50);
-    var end = Math.min(text.length, at + 110);
+    var start = at === -1 ? 0 : Math.max(0, at - 50);
+    var end = Math.min(text.length, at === -1 ? 140 : at + 110);
+    if (start > 0) {
+      var space = text.indexOf(" ", start);
+      if (space !== -1 && space < at) start = space + 1;
+    }
+    if (end < text.length) {
+      var last = text.lastIndexOf(" ", end);
+      if (last > Math.max(start, at)) end = last;
+    }
     return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "");
   }
   function search(query) {
