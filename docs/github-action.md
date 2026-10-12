@@ -40,7 +40,7 @@ reason in your `repodna.toml` (`[[suppress]]`, see [configuration](configuration
 | --- | --- | --- |
 | `path` | `.` | The directory to analyze. |
 | `version` | the release of the action's tag | The RepoDNA release to run, such as `1.3.1`, or `latest`. Used at a branch or a commit, the action runs the latest release. |
-| `profile` | the repository's `repodna.toml`, or `standard` | The analysis profile: `quick`, `standard`, `deep`, `history-only`, `architecture-only`, or `dependencies-only`. |
+| `profile` | the repository's `repodna.toml`, or `standard` | The analysis profile: `quick`, `standard`, `deep`, `history-only`, `architecture-only`, `dependencies-only`, or `security-only`. |
 | `fail-on` | `never` | Fail the step when findings at or above this severity exist: `never`, `info`, `attention`, `warning`, or `critical`. |
 | `baseline` | none | An earlier analysis (`.repodna` or JSON) to compare with, such as the base branch's. |
 | `new-only` | `false` | With `baseline`, fail only on findings the baseline does not have. |
