@@ -6,6 +6,52 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-12
+
+A follow-up to 1.3.1. The documentation is now a site of its own, at
+<https://sanskarin.github.io/RepoDNA/docs/>, with every guide, search, and the project's
+pages; the support links lead to the new Buy Me a Coffee and Razorpay pages; and
+`repodna-wasm` says plainly when a file or a folder it is given does not exist.
+
+### Added
+
+- The [documentation site](https://sanskarin.github.io/RepoDNA/docs/), published with the
+  web version: every guide, the changelog, the roadmap, the project's policies, and the
+  examples, benchmarks, and fixtures pages. It has a sidebar that follows the
+  documentation index, search over every section, the sections of each page, previous and
+  next pages, copy buttons on code, and the light or dark theme chosen in the web version.
+  It fits phones and prints cleanly. Links between the guides lead to their pages, and
+  links to other files of the repository to them on GitHub.
+- A Sponsor button on the repository's page on GitHub, with Buy Me a Coffee and Razorpay.
+
+### Changed
+
+- The support links lead to [buymeacoffee.com/SanskarCodes](https://buymeacoffee.com/SanskarCodes)
+  and [razorpay.me/@SanskarCodes](https://razorpay.me/@SanskarCodes): on the About page of
+  the web version and the desktop app, in the README, in SUPPORT.md, and in the FAQ.
+- The Documentation link of the About page, the end of `repodna --help`, and the
+  `repodna.toml` and `config.toml` files that RepoDNA writes lead to the documentation
+  site.
+- The web version's offline cache leaves the documentation published beside it to the
+  network, so that offline a guide is never shown as the web version.
+
+### Fixed
+
+- `repodna-wasm` printed Node's own error for a file or a folder that does not exist
+  (`ENOENT: no such file or directory, stat '/full/path'`), and read a folder given to
+  `report` or `card` as an analysis file. It now says which file or folder does not
+  exist, that `report` and `card` need an analysis file, and why it cannot write its
+  output.
+- The guide to the GitHub Action left the `security-only` profile out of the profiles its
+  `profile` input takes.
+
+### Documentation
+
+- The [development guide](docs/development.md#the-documentation-site) explains how to
+  build, preview, and check the documentation site, and the README and the documentation
+  index link to it. CI and the Web version workflow fail on a broken link or anchor in the
+  documentation.
+
 ## [1.3.1] - 2026-10-10
 
 A release about the web version, which now analyzes repositories itself. Choose or drop a
@@ -518,7 +564,8 @@ every conclusion backed by evidence.
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.
 
-[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/sanskarIN/RepoDNA/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/sanskarIN/RepoDNA/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/sanskarIN/RepoDNA/compare/v1.2.1...v1.2.2
