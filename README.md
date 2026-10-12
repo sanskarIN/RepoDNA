@@ -613,6 +613,6 @@ you can support its development:
 - [Buy Me a Coffee](https://www.buymeacoffee.com/SanskarCodes)
 - [Razorpay](https://www.razorpay.me/@SanskarCodes)
 - [About me](https://sanskarin.github.io/about/)
-<div align="center">
+<!-- <div align="center">
 <sub>Made by the Sanskar</sub>
-</div>
+</div> -->
