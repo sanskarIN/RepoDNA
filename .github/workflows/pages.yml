@@ -1,6 +1,7 @@
 name: Web version
 
-# Publishes the web interface to GitHub Pages at https://sanskarin.github.io/RepoDNA/.
+# Publishes the web interface to GitHub Pages at https://sanskarin.github.io/RepoDNA/, and the
+# documentation at https://sanskarin.github.io/RepoDNA/docs/.
 # It needs GitHub Pages turned on once: Settings > Pages > Build and deployment >
 # Source: GitHub Actions. With "Deploy from a branch" instead, GitHub's own Pages build
 # publishes the repository's files over the interface on every push; this workflow then
@@ -18,8 +19,13 @@ on:
       - crates/**
       - Cargo.toml
       - Cargo.lock
-      - PRIVACY.md
-      - TERMS.md
+      # The documentation: the guides, the project's own pages, and the site's builder.
+      - docs/**
+      - "*.md"
+      - examples/**
+      - benchmarks/README.md
+      - fixtures/README.md
+      - packaging/docs/**
       - LICENSE
       - NOTICE
       - THIRD-PARTY-NOTICES.txt
@@ -62,6 +68,8 @@ jobs:
       - run: npm run build -w @repodna/web
         env:
           REPODNA_ENGINE: target/wasm32-wasip1/web-engine/repodna-wasm.wasm
+      # The documentation, beside the web version. A broken link fails the build.
+      - run: node packaging/docs/build.mjs --out apps/web/dist/docs --check
       - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/web/dist
