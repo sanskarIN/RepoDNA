@@ -208,6 +208,7 @@ a:hover {
   color: var(--muted);
   font-size: 0.8125rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 #results .none {
@@ -563,6 +564,17 @@ footer a {
   .top {
     gap: 0.6rem;
     padding: 0 0.75rem;
+  }
+
+  /* The search box is narrow here: the results take the width of the screen instead. */
+  .search {
+    position: static;
+  }
+
+  #results {
+    left: 0.5rem;
+    right: 0.5rem;
+    max-height: calc(100vh - var(--header) - 1rem);
   }
 
   .layout {
