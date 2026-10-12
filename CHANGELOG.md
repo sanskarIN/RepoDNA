@@ -42,6 +42,10 @@ pages; the support links lead to the new Buy Me a Coffee and Razorpay pages; and
   `report` or `card` as an analysis file. It now says which file or folder does not
   exist, that `report` and `card` need an analysis file, and why it cannot write its
   output.
+- The GitHub Action gave up on downloading RepoDNA after a few seconds of errors from
+  GitHub's servers, such as 504, and then said that the release had no such file. It now
+  retries for up to two minutes, and when a download fails, says so, with the error,
+  rather than that the file does not exist.
 - The guide to the GitHub Action left the `security-only` profile out of the profiles its
   `profile` input takes.
 
