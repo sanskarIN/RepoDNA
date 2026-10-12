@@ -19,7 +19,7 @@ use crate::term::thousands;
 
 /// Template written by `repodna config init`.
 pub const USER_CONFIG_TEMPLATE: &str = r#"# RepoDNA user configuration.
-# Documentation: https://github.com/sanskarIN/RepoDNA/blob/main/docs/configuration.md
+# Documentation: https://sanskarin.github.io/RepoDNA/docs/configuration/
 #
 # These settings apply to every analysis. A repository's own repodna.toml is applied on
 # top of them, but it can never enable AI, plugins, or command execution: only this file

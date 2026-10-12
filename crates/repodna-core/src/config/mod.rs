@@ -661,7 +661,7 @@ impl Config {
 
 /// A commented configuration template written by `repodna init`.
 pub const CONFIG_TEMPLATE: &str = r#"# RepoDNA project configuration.
-# Documentation: https://github.com/sanskarIN/RepoDNA/blob/main/docs/configuration.md
+# Documentation: https://sanskarin.github.io/RepoDNA/docs/configuration/
 #
 # This file is read from the repository being analyzed, so it can only tune what is
 # analyzed. AI providers, plugins, and command execution can only be enabled in your

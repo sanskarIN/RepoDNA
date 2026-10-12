@@ -19,7 +19,7 @@ pub const EXIT_CODES: &str = "Exit codes:
   130  cancelled (Ctrl+C)
 
 Findings are analysis signals backed by evidence, not formal guarantees.
-Documentation: https://github.com/sanskarIN/RepoDNA";
+Documentation: https://sanskarin.github.io/RepoDNA/docs/";
 
 /// Understand any codebase: evidence-backed analysis of structure, architecture, history,
 /// and health. Local-first; no telemetry.
