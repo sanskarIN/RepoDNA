@@ -27,7 +27,7 @@ sends nothing anywhere unless you ask it to.
 
 **[Install](#installation) · [Quick start](#quick-start) ·
 [Web version](https://sanskarin.github.io/RepoDNA/) · [Demo](#demo) ·
-[Documentation](docs/index.md) · [Contributing](CONTRIBUTING.md)**
+[Documentation](https://sanskarin.github.io/RepoDNA/docs/) · [Contributing](CONTRIBUTING.md)**
 
 ## Contents
 
