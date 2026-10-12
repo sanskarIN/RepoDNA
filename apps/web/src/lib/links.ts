@@ -44,7 +44,7 @@ export const PROJECT: ProjectLink[] = [
   },
   {
     label: "Documentation",
-    url: `${REPOSITORY}/tree/main/docs`,
+    url: `${WEB_VERSION}docs/`,
     description: "Guides for every command, the web interface, and the desktop app.",
   },
   {

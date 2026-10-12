@@ -266,6 +266,7 @@ describe("views", () => {
     await renderAt("/about", null);
     for (const url of [
       "https://github.com/sanskarIN/RepoDNA",
+      "https://sanskarin.github.io/RepoDNA/docs/",
       "https://github.com/sanskarIN",
       "https://sanskarin.github.io",
       "https://sanskarIN.gumroad.com",
