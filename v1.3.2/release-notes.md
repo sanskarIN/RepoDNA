@@ -56,10 +56,14 @@ pages; the support links lead to the new Buy Me a Coffee and Razorpay pages; and
   documentation.
 - [Screenshots of 1.3.2](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md#132)
   on the `images` branch, the documentation site's among them, and the README and the
-  guides show them.
+  guides show them; the
+  [media kit](https://github.com/sanskarIN/RepoDNA/blob/images/media/README.md) has 1.3.2
+  promo images and Project DNA cards.
 
 
 ## Screenshots
+
+<a href="https://github.com/sanskarIN/RepoDNA/blob/images/media/v1.3.2/promo/launch-16x9.png"><img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/media/v1.3.2/promo/launch-16x9.png" alt="RepoDNA 1.3.2 on a desktop and a phone" width="800"></a>
 
 <a href="https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/v1.3.2/desktop/overview-light.png"><img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/desktop/overview-light.png" alt="The overview in RepoDNA 1.3.2" width="400"></a>
 <a href="https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/v1.3.2/desktop/architecture-dark.png"><img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/desktop/architecture-dark.png" alt="The module map in RepoDNA 1.3.2" width="400"></a>
@@ -71,7 +75,7 @@ pages; the support links lead to the new Buy Me a Coffee and Razorpay pages; and
 <a href="https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/v1.3.2/phone/history-dark.png"><img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/phone/history-dark.png" alt="History on a phone, in the dark theme" width="190"></a>
 <a href="https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/v1.3.2/phone/hotspots-light.png"><img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/phone/hotspots-light.png" alt="Hotspots on a phone, in the light theme" width="190"></a>
 
-Every screenshot of this release is in [screenshots/v1.3.2](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md#132).
+Every screenshot of this release is in [screenshots/v1.3.2](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md#132), and its promo images and Project DNA cards are in the [media kit](https://github.com/sanskarIN/RepoDNA/blob/images/media/README.md).
 
 ## Downloads
 
