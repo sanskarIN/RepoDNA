@@ -57,7 +57,9 @@ pages; the support links lead to the new Buy Me a Coffee and Razorpay pages; and
   documentation.
 - [Screenshots of 1.3.2](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md#132)
   on the `images` branch, the documentation site's among them, and the README and the
-  guides show them.
+  guides show them; the
+  [media kit](https://github.com/sanskarIN/RepoDNA/blob/images/media/README.md) has 1.3.2
+  promo images and Project DNA cards.
 
 ## [1.3.1] - 2026-10-10
 
