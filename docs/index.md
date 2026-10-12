@@ -5,6 +5,11 @@ It turns a repository into an evidence-backed analysis of its structure, archite
 history, dependencies, and health, which you can explore in the terminal, in a web
 interface, or in a desktop app, and share as reports and Project DNA cards.
 
+This documentation is published at
+[sanskarin.github.io/RepoDNA/docs](https://sanskarin.github.io/RepoDNA/docs/), with search,
+and is in the [`docs` folder](https://github.com/sanskarIN/RepoDNA/tree/main/docs) of the
+repository.
+
 ## Start here
 
 - [Getting started](getting-started.md): analyze your first repository in five minutes
