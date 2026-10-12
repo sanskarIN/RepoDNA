@@ -6,13 +6,13 @@ screenshots of every release and the media kit. They are kept apart from the cod
 
 | Folder | What it holds |
 |---|---|
-| [`screenshots`](screenshots/README.md) | The web interface on a desktop and a phone, and the desktop app, in every release, side by side |
+| [`screenshots`](screenshots/README.md) | The web interface on a desktop and a phone, the desktop app, and from 1.3.2 the documentation site, in every release, side by side |
 | [`media`](media/README.md) | Promo images and Project DNA cards for posts, articles, and talks |
 
 Each release adds a folder named after its tag to each of them, such as
-`screenshots/v1.3.1` and `media/v1.3.1`. The README and the guides on `main`, and the
+`screenshots/v1.3.2` and `media/v1.3.2`. The README and the guides on `main`, and the
 release notes, show these images from this branch, at addresses such as
-`https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.1/desktop/overview-light.png`,
+`https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/desktop/overview-light.png`,
 so a version's folder is never renamed or removed.
 
 The notes and the page of each release are on the
