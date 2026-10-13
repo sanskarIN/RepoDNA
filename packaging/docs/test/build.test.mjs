@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { build, slugify } from "../build.mjs";
+import { build, slugify, withoutTags } from "../build.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -29,6 +29,32 @@ test("anchors are GitHub's", () => {
     ["Example", "Example", "Example"].map((text) => slugify(text, seen)),
     ["example", "example-1", "example-2"],
   );
+});
+
+test("HTML in a heading is left out of its anchor, as on GitHub", () => {
+  assert.equal(withoutTags('<a name="old">'), "");
+  assert.equal(withoutTags("before<br>after"), "beforeafter");
+  // Pieces of tags never make one: no "<" is left at all.
+  assert.equal(withoutTags("<scr<script>ipt>alert(1)"), "ipt>alert(1)");
+  assert.equal(withoutTags("text <script"), "text ");
+  const root = repository({
+    "docs/index.md":
+      '# Docs\n\n## Install <sup>new</sup>\n\n## Use <a name="old"></a>it\n\n' +
+      "See [install](#install-new) and [use](#use-it).\n",
+  });
+  const out = join(root, "site");
+  try {
+    const { problems } = build({ root, out });
+    assert.deepEqual(problems, []);
+    const index = readFileSync(join(out, "index.html"), "utf8");
+    assert.match(index, /<h2 id="install-new">/);
+    assert.match(index, /<h2 id="use-it">/);
+    const search = readFileSync(join(out, "search-index.json"), "utf8");
+    assert.match(search, /"Install new"/);
+    assert.match(search, /"Use it"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("links lead to the pages, to GitHub, or are reported", () => {
