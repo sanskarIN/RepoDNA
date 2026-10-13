@@ -102,12 +102,34 @@ export function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * HTML without its tags: everything from a "<" to the next ">" is left out, and so is the rest
+ * after a "<" that is never closed. What is left has no "<" at all, so no tag can remain.
+ */
+export function withoutTags(html) {
+  let text = "";
+  let at = 0;
+  while (at < html.length) {
+    const open = html.indexOf("<", at);
+    if (open === -1) {
+      return text + html.slice(at);
+    }
+    text += html.slice(at, open);
+    const close = html.indexOf(">", open);
+    if (close === -1) {
+      return text;
+    }
+    at = close + 1;
+  }
+  return text;
+}
+
 /** The text of inline tokens, without markup: what a heading's anchor is made from. */
 function plainText(tokens = []) {
   return tokens
     .map((token) => {
       if (token.type === "html") {
-        return token.text.replace(/<[^>]*>/g, "");
+        return withoutTags(token.text);
       }
       if (token.tokens && token.type !== "codespan") {
         return plainText(token.tokens);
