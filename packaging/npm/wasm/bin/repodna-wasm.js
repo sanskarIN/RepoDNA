@@ -23,6 +23,16 @@ deep. Themes: professional, minimal, technical, dark.
 
 const VALUED = new Set(["--profile", "--format", "--theme", "--privacy", "--output"]);
 const SWITCHES = new Set(["--anonymize-contributors", "--dark", "--png"]);
+const COMMAND_OPTIONS = {
+  analyze: new Set(["profile", "anonymize-contributors", "output"]),
+  report: new Set(["format", "theme", "privacy", "output"]),
+  card: new Set(["dark", "png", "output"]),
+};
+const CHOICES = {
+  format: new Set(["html", "markdown", "json"]),
+  theme: new Set(["professional", "minimal", "technical", "dark"]),
+  privacy: new Set(["local", "share", "public"]),
+};
 
 function fail(message, code = 1) {
   process.stderr.write(`repodna-wasm: ${message}\n`);
@@ -108,6 +118,14 @@ async function main() {
       `${command} needs ${command === "analyze" ? "a folder or an archive" : "an analysis file"}.\n\n${USAGE}`,
       2,
     );
+  }
+  for (const [name, value] of Object.entries(options)) {
+    if (!COMMAND_OPTIONS[command].has(name)) {
+      fail(`--${name} cannot be used with ${command}.\\n\\n${USAGE}`, 2);
+    }
+    if (CHOICES[name] && !CHOICES[name].has(value)) {
+      fail(`invalid --${name} value ${value}.\\n\\n${USAGE}`, 2);
+    }
   }
   if (!existsSync(operand)) {
     fail(`${operand}: no such file or folder.`);
