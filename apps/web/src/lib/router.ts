@@ -10,7 +10,10 @@ export interface Route {
 
 export function parseHash(hash: string): Route {
   const raw = hash.replace(/^#/, "") || "/";
-  const [path = "/", query = ""] = raw.split("?", 2);
+  // Keep later question marks inside the query: String.split("?", 2) drops them.
+  const queryStart = raw.indexOf("?");
+  const path = queryStart === -1 ? raw : raw.slice(0, queryStart);
+  const query = queryStart === -1 ? "" : raw.slice(queryStart + 1);
   return { path: path.startsWith("/") ? path : `/${path}`, params: new URLSearchParams(query) };
 }
 
