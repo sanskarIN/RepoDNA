@@ -10,10 +10,14 @@ screenshots of every release and the media kit. They are kept apart from the cod
 | [`media`](media/README.md) | Promo images and Project DNA cards for posts, articles, and talks |
 
 Each release adds a folder named after its tag to each of them, such as
-`screenshots/v1.3.2` and `media/v1.3.2`. The README and the guides on `main`, and the
+`screenshots/v1.3.3` and `media/v1.3.3`. The README and the guides on `main`, and the
 release notes, show these images from this branch, at addresses such as
-`https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/desktop/overview-light.png`,
+`https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.3/desktop/overview-light.png`,
 so a version's folder is never renamed or removed.
+
+The newest asset set is [v1.3.3 media](media/v1.3.3/README.md) and
+[v1.3.3 screenshots](screenshots/v1.3.3/README.md), with original promo artwork,
+real browser captures, and Project DNA cards generated from the release code.
 
 The notes and the page of each release are on the
 [`releases-info`](https://github.com/sanskarIN/RepoDNA/tree/releases-info) branch.
