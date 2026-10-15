@@ -2,8 +2,8 @@
 
 Images of RepoDNA for posts, articles, and talks: promo images, Project DNA cards, and
 screenshots of the web interface and the documentation site on a desktop and a phone, in
-light and dark. Each release with promo images has a folder of its own, and this page shows
-the newest, made for 1.3.2; 1.2.2, a small follow-up, has screenshots only. Every
+light and dark. Each release with promo images has a folder of its own, and this page includes
+new images for 1.3.3 (and retains the full 1.3.2 gallery below); 1.2.2, a small follow-up, has screenshots only. Every
 screenshot shows RepoDNA's analysis of its own repository: for 1.3.2, at the commit that
 describes the release in its changelog, `d52d099` (832 commits, 508 files). Like the rest
 of this repository, the images are licensed under the
@@ -11,6 +11,7 @@ of this repository, the images are licensed under the
 
 | Version | Promo images | Project DNA cards | Screenshots |
 |---|---|---|---|
+| [1.3.3](v1.3.3/README.md) | [`v1.3.3/promo`](v1.3.3/promo) | [`v1.3.3/cards`](v1.3.3/cards) | [`screenshots/v1.3.3`](../screenshots/README.md#133) |
 | 1.3.2 | [`v1.3.2/promo`](v1.3.2/promo) | [`v1.3.2/cards`](v1.3.2/cards) | [`screenshots/v1.3.2`](../screenshots/README.md#132) |
 | [1.3.1](#131) | [`v1.3.1/promo`](v1.3.1/promo) | [`v1.3.1/cards`](v1.3.1/cards) | [`screenshots/v1.3.1`](../screenshots/README.md#131) |
 | [1.3.0](#130) | [`v1.3.0/promo`](v1.3.0/promo) | [`v1.3.0/cards`](v1.3.0/cards) | [`screenshots/v1.3.0`](../screenshots/README.md#130) |
@@ -28,6 +29,40 @@ of this repository, the images are licensed under the
 - [Images of 1.2.1](#121)
 - [Images of 1.2.0](#120)
 - [How they were made](#how-they-were-made)
+
+## 1.3.3
+
+The v1.3.3 assets include high-resolution vector-built promotional designs, genuine
+screenshots captured from the version's own web interface and generated documentation
+site, and Project DNA cards generated from the source. These are kept separate from
+previous releases. See the [complete v1.3.3 asset guide](v1.3.3/README.md).
+
+### 1.3.3 promotional images
+
+| Image | Size | Use |
+|---|---|---|
+| [Launch banner](v1.3.3/promo/launch-16x9.png) ([SVG](v1.3.3/promo/launch-16x9.svg)) | 3200 × 1800 | X, LinkedIn, Facebook, article cover |
+| [What's new](v1.3.3/promo/whats-new-1x1.png) ([SVG](v1.3.3/promo/whats-new-1x1.svg)) | 2160 × 2160 | Instagram and LinkedIn |
+| [Highlights portrait](v1.3.3/promo/highlights-4x5.png) ([SVG](v1.3.3/promo/highlights-4x5.svg)) | 2160 × 2700 | Instagram portrait and Threads |
+
+<img src="v1.3.3/promo/launch-16x9.png" alt="RepoDNA 1.3.3 release banner with improvements to CLI input safety, artifact preservation, documentation links, and TLS dependencies" width="800">
+
+<img src="v1.3.3/promo/whats-new-1x1.png" alt="Four RepoDNA 1.3.3 improvements: CLI validation, artifact protection, documentation links, and dependency security" width="395"> <img src="v1.3.3/promo/highlights-4x5.png" alt="Portrait summary of RepoDNA 1.3.3 patch release highlights" width="316">
+
+### 1.3.3 Project DNA cards
+
+<img src="v1.3.3/cards/dna-card-light.png" alt="Real RepoDNA 1.3.3 self-analysis card with measured repository statistics in a light theme" width="395"> <img src="v1.3.3/cards/dna-card-dark.png" alt="Real RepoDNA 1.3.3 self-analysis card with measured repository statistics in a dark theme" width="395">
+
+### 1.3.3 screenshots
+
+| Web app: overview, light | Documentation site: index, light |
+|---|---|
+| ![RepoDNA 1.3.3 actual self-analysis overview](../screenshots/v1.3.3/desktop/overview-light.png) | ![RepoDNA 1.3.3 actual documentation site](../screenshots/v1.3.3/docs-site/index-light.png) |
+
+The [screenshot gallery](../screenshots/README.md#133) includes dark themes and
+mobile captures as well.
+
+---
 
 ## Promo images
 
