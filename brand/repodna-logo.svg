@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="160" viewBox="0 0 640 160" role="img" aria-labelledby="title desc">
+  <title id="title">RepoDNA — Understand your codebase. See its DNA.</title>
+  <desc id="desc">The RepoDNA icon is a blue and teal DNA double helix with connected graph nodes on a navy square, followed by the RepoDNA wordmark.</desc>
+  <rect x="6" y="6" width="148" height="148" rx="32" fill="#102338"/>
+  <path d="M51 25C51 61 109 61 109 80S51 99 51 135" fill="none" stroke="#3987e5" stroke-width="13" stroke-linecap="round"/>
+  <path d="M109 25C109 61 51 61 51 80S109 99 109 135" fill="none" stroke="#22c9b4" stroke-width="13" stroke-linecap="round"/>
+  <g stroke="#e5f5ff" stroke-width="5" stroke-linecap="round"><path d="M68 52H92M52 80H108M68 108H92"/></g>
+  <g fill="#e5f5ff"><circle cx="68" cy="52" r="5"/><circle cx="92" cy="52" r="5"/><circle cx="52" cy="80" r="5"/><circle cx="108" cy="80" r="5"/><circle cx="68" cy="108" r="5"/><circle cx="92" cy="108" r="5"/></g>
+  <text x="186" y="105" font-family="Arial,Helvetica,sans-serif" font-size="83" font-weight="700" letter-spacing="-4" fill="#102338">Repo<tspan fill="#2672ce">DNA</tspan></text>
+  <text x="190" y="133" font-family="Arial,Helvetica,sans-serif" font-size="18" fill="#52667a">Understand your codebase. See its DNA.</text>
+</svg>
