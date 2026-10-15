@@ -30,6 +30,23 @@ the release has been published.
 - Updated both Cargo lockfiles to `rustls 0.23.46`, which addresses
   RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348 and RUSTSEC-2026-0349.
 
+## Screenshots and promotional media
+
+The v1.3.3 media and screenshots are maintained on the independent
+[`images` branch](https://github.com/sanskarIN/RepoDNA/tree/images)
+to keep binaries out of the source checkout.
+
+[<img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/media/v1.3.3/promo/launch-16x9.png" alt="RepoDNA 1.3.3 release banner featuring CLI safety, artifact protection, improved documentation links, and patched TLS dependencies" width="760">](https://github.com/sanskarIN/RepoDNA/blob/images/media/v1.3.3/README.md)
+
+| Real v1.3.3 self-analysis overview | Real v1.3.3 documentation site |
+|---|---|
+| ![Actual RepoDNA 1.3.3 Chromium overview screenshot](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.3/desktop/overview-light.png) | ![Actual RepoDNA 1.3.3 generated documentation index](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.3/docs-site/index-light.png) |
+
+The [full image list and capture provenance](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/v1.3.3/README.md)
+names the exact source-based analysis, window sizes, and dark/light captures.
+High-resolution promo images and real [light/dark Project DNA cards](https://github.com/sanskarIN/RepoDNA/blob/images/media/v1.3.3/README.md)
+are available with the originals.
+
 ## Compatibility
 
 - This is a patch release; it does not change the analysis artifact's schema.
