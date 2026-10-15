@@ -11,7 +11,7 @@ same interface runs in three places:
 | The [desktop app](desktop.md) | A native window | The same, with native folder pickers and save dialogs |
 | The [web version](https://sanskarin.github.io/RepoDNA/), or any static web server | The built files in `apps/web/dist` | Analyze a folder or an archive in the browser, without Git history; open analysis files and the bundled demo; make reports and DNA cards; works offline once opened. No stored analyses |
 
-![The Overview of RepoDNA's own analysis](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/desktop/overview-light.png)
+![The Overview of RepoDNA's own analysis](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.3/desktop/overview-light.png)
 
 ## Start it
 
