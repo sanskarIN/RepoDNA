@@ -80,7 +80,7 @@ export class RepoDNA {
     return new RepoDNA(module);
   }
 
-  /** The program's version, such as `1.3.3`. */
+  /** The program's version, such as `1.4.0`. */
   async version(): Promise<string> {
     const output = decoder.decode(await run(this.module, ["version"], new Map()));
     return output.trim().replace(/^repodna-wasm\s+/, "");
