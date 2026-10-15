@@ -48,6 +48,7 @@ repository.
 
 - [Architecture](architecture.md)
 - [Development](development.md): setup, checks, and where to make changes
+- [Branding](branding.md): original SVG logo, colors, startup splash, and icon generation
 - [Contributing](contributing.md)
 - [Benchmarks](../benchmarks/README.md) and [fixture repositories](../fixtures/README.md)
 
