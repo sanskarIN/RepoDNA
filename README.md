@@ -631,6 +631,7 @@ you can support its development:
 
 - [Buy Me a Coffee](https://buymeacoffee.com/SanskarCodes)
 - [Razorpay](https://razorpay.me/@SanskarCodes)
+- [PayPal](https://paypal.me/SanskarCodes)
 - [About me](https://sanskarin.github.io/about/)
 <!-- <div align="center">
 <sub>Made by the Sanskar</sub>
