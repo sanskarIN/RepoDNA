@@ -129,6 +129,25 @@ test("HTML links and images use site-relative targets with either quote style", 
   }
 });
 
+test("malformed percent escapes are reported instead of terminating the build", () => {
+  const root = repository({
+    "docs/index.md": "# Docs\n\nSee [bad path](guide%ZZ.md) and [bad anchor](#part%ZZ).\n",
+  });
+  const out = join(root, "site");
+  try {
+    const { problems } = build({ root, out });
+    assert.deepEqual(problems, [
+      "docs/index.md: invalid URL encoding in link guide%ZZ.md",
+      "docs/index.md: invalid URL encoding in link #part%ZZ",
+    ]);
+    const index = readFileSync(join(out, "index.html"), "utf8");
+    assert.match(index, /href="#">bad path<\/a>/);
+    assert.match(index, /href="#">bad anchor<\/a>/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("RepoDNA's own documentation has no broken links", () => {
   const out = mkdtempSync(join(tmpdir(), "repodna-docs-site-"));
   try {
