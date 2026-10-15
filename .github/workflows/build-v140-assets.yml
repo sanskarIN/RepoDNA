@@ -1,0 +1,185 @@
+name: Create RepoDNA v1.4.0 release imagery
+
+# Temporary generator. Remove from this PR after the images branch has the assets.
+on:
+  push:
+    branches: [release-v1.4.0-finalize]
+    paths:
+      - .github/workflows/build-v140-assets.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: release-v1.4.0-finalize
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-v140-assets
+      - name: Build the exact release interface and CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          cargo build --locked --release -p repodna-cli
+          cargo build --locked --target wasm32-wasip1 --profile web-engine -p repodna-wasm
+          export REPODNA_ENGINE=target/wasm32-wasip1/web-engine/repodna-wasm.wasm
+          npm run build -w @repodna/web
+          node packaging/docs/build.mjs --out apps/web/dist/docs --check
+      - name: Analyze RepoDNA with RepoDNA
+        shell: bash
+        run: |
+          set -euo pipefail
+          target/release/repodna analyze . --profile standard --format json > /tmp/repodna-v140.json
+          python3 -m json.tool /tmp/repodna-v140.json >/dev/null
+          cp /tmp/repodna-v140.json apps/web/dist/demo/repodna.json
+          printf '[{"file":"repodna.json","title":"RepoDNA","description":"RepoDNA 1.4.0 self-analysis on this source revision."}]\n' > apps/web/dist/demo/index.json
+      - name: Check out the independent images branch and render promo PNGs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/heads/images:refs/remotes/origin/images
+          git worktree add --detach /tmp/repodna-images refs/remotes/origin/images
+          if ! command -v rsvg-convert >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y librsvg2-bin
+          fi
+          for spec in "launch-16x9:3200:1800"; do
+            IFS=: read -r name width height <<< "$spec"
+            rsvg-convert -w "$width" -h "$height" \
+              "/tmp/repodna-images/media/v1.4.0/promo/$name.svg" \
+              -o "/tmp/repodna-images/media/v1.4.0/promo/$name.png"
+          done
+      - name: Generate real Project DNA cards from the source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/repodna-images/media/v1.4.0/cards
+          target/release/repodna card . --format png --privacy public \
+            -o /tmp/repodna-images/media/v1.4.0/cards/dna-card-light.png --force
+          target/release/repodna card . --format png --dark --privacy public \
+            -o /tmp/repodna-images/media/v1.4.0/cards/dna-card-dark.png --force
+      - name: Capture real Chromium screenshots of the v1.4.0 web app and docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix /tmp/repodna-browser --no-save --ignore-scripts playwright@1.56.1
+          node /tmp/repodna-browser/node_modules/playwright/cli.js install --with-deps chromium
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory apps/web/dist >/tmp/repodna-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/docs/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node <<'JS'
+          const { chromium } = require('/tmp/repodna-browser/node_modules/playwright');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const base = '/tmp/repodna-images/screenshots/v1.4.0';
+          const endpoint = 'http://127.0.0.1:8765/';
+          async function shot(browser, dir, name, {width, height, scale, theme, route, app}) {
+            const folder = path.join(base, dir);
+            fs.mkdirSync(folder, {recursive: true});
+            const context = await browser.newContext({
+              viewport: {width, height}, deviceScaleFactor: scale,
+              colorScheme: theme === 'dark' ? 'dark' : 'light',
+              reducedMotion: 'reduce',
+            });
+            if (app) await context.addInitScript(t => localStorage.setItem('repodna-theme', t), theme);
+            else await context.addInitScript(t => localStorage.setItem('repodna-docs-theme', t), theme);
+            const page = await context.newPage();
+            if (app) {
+              await page.goto(endpoint + '#/', {waitUntil:'domcontentloaded'});
+              await page.getByRole('button', {name: 'Try the demo'}).click();
+              await page.waitForURL(/#\/overview/, {timeout:30000});
+              if (route !== '/overview') {
+                await page.goto(endpoint + '#' + route, {waitUntil:'domcontentloaded'});
+              }
+              await page.locator('h1').first().waitFor({state:'visible', timeout:15000});
+            } else {
+              await page.goto(endpoint + 'docs/' + route, {waitUntil:'domcontentloaded'});
+              await page.locator('article h1').first().waitFor({state:'visible', timeout:15000});
+            }
+            await page.evaluate(() => document.fonts.ready);
+            await page.waitForTimeout(500);
+            const out = path.join(folder,name);
+            await page.screenshot({path:out, animations:'disabled'});
+            if (!fs.statSync(out).size) throw new Error('Empty image ' + out);
+            console.log('Captured',out);
+            await context.close();
+          }
+          (async () => {
+            const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
+            try {
+              const desktop = {width:1440,height:810,scale:2};
+              const phone = {width:390,height:844,scale:3};
+              await shot(browser,'desktop','overview-light.png',{...desktop,theme:'light',route:'/overview',app:true});
+              await shot(browser,'desktop','overview-dark.png',{...desktop,theme:'dark',route:'/overview',app:true});
+              await shot(browser,'desktop','architecture-dark.png',{...desktop,theme:'dark',route:'/architecture',app:true});
+              await shot(browser,'phone','overview-light.png',{...phone,theme:'light',route:'/overview',app:true});
+              await shot(browser,'docs-site','index-light.png',{...desktop,theme:'light',route:'',app:false});
+              await shot(browser,'docs-site','cli-dark.png',{...desktop,theme:'dark',route:'cli/',app:false});
+              await shot(browser,'docs-site','phone-dark.png',{...phone,theme:'dark',route:'configuration/',app:false});
+            } finally {
+              await browser.close();
+            }
+          })().catch(err => { console.error(err); process.exitCode=1; });
+          JS
+      - name: Verify every asset has the expected PNG dimensions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          from struct import unpack
+          root = Path('/tmp/repodna-images')
+          expected = {
+            'media/v1.4.0/promo/launch-16x9.png': (3200, 1800),
+            'media/v1.4.0/cards/dna-card-light.png': (2400, 1260),
+            'media/v1.4.0/cards/dna-card-dark.png': (2400, 1260),
+            'screenshots/v1.4.0/desktop/overview-light.png': (2880, 1620),
+            'screenshots/v1.4.0/desktop/overview-dark.png': (2880, 1620),
+            'screenshots/v1.4.0/desktop/architecture-dark.png': (2880, 1620),
+            'screenshots/v1.4.0/phone/overview-light.png': (1170, 2532),
+            'screenshots/v1.4.0/docs-site/index-light.png': (2880, 1620),
+            'screenshots/v1.4.0/docs-site/cli-dark.png': (2880, 1620),
+            'screenshots/v1.4.0/docs-site/phone-dark.png': (1170, 2532),
+          }
+          for name, dimensions in expected.items():
+            p = root / name
+            with p.open('rb') as fp:
+              header = fp.read(24)
+            assert header.startswith(b'\x89PNG\r\n\x1a\n'), f'Not a PNG: {p}'
+            actual = unpack('>II', header[16:24])
+            assert actual == dimensions, (p, actual, dimensions)
+            print(name, actual, p.stat().st_size)
+          PY
+      - name: Push genuine release images and screenshots to images
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/repodna-images
+          git add media/v1.4.0 screenshots/v1.4.0
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No asset changes.'
+            exit 0
+          fi
+          git config user.name 'RepoDNA release maintenance'
+          git config user.email 'sanskarin@oulook.in'
+          git commit -m 'media(v1.4.0): add release PNG artwork, real screenshots and cards'
+          git push origin HEAD:images
