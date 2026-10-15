@@ -26,7 +26,7 @@ jobs:
         with:
           # The whole history, for the history, hotspot, and evolution analyses.
           fetch-depth: 0
-      - uses: sanskarIN/RepoDNA@v1.3.3
+      - uses: sanskarIN/RepoDNA@v1.4.0
         with:
           fail-on: warning
 ```
@@ -39,7 +39,7 @@ reason in your `repodna.toml` (`[[suppress]]`, see [configuration](configuration
 | Input | Default | What it does |
 | --- | --- | --- |
 | `path` | `.` | The directory to analyze. |
-| `version` | the release of the action's tag | The RepoDNA release to run, such as `1.3.3`, or `latest`. Used at a branch or a commit, the action runs the latest release. |
+| `version` | the release of the action's tag | The RepoDNA release to run, such as `1.4.0`, or `latest`. Used at a branch or a commit, the action runs the latest release. |
 | `profile` | the repository's `repodna.toml`, or `standard` | The analysis profile: `quick`, `standard`, `deep`, `history-only`, `architecture-only`, `dependencies-only`, or `security-only`. |
 | `fail-on` | `never` | Fail the step when findings at or above this severity exist: `never`, `info`, `attention`, `warning`, or `critical`. |
 | `baseline` | none | An earlier analysis (`.repodna` or JSON) to compare with, such as the base branch's. |
@@ -58,7 +58,7 @@ reason in your `repodna.toml` (`[[suppress]]`, see [configuration](configuration
 
 ```yaml
       - id: repodna
-        uses: sanskarIN/RepoDNA@v1.3.3
+        uses: sanskarIN/RepoDNA@v1.4.0
         with:
           report: ${{ runner.temp }}/repodna-report
       - uses: actions/upload-artifact@v7
@@ -86,11 +86,11 @@ out in a folder of its own, so that neither analysis includes the other:
           path: base
           fetch-depth: 0
       - id: base
-        uses: sanskarIN/RepoDNA@v1.3.3
+        uses: sanskarIN/RepoDNA@v1.4.0
         with:
           path: base
           annotate: false
-      - uses: sanskarIN/RepoDNA@v1.3.3
+      - uses: sanskarIN/RepoDNA@v1.4.0
         with:
           path: head
           baseline: ${{ steps.base.outputs.analysis }}
