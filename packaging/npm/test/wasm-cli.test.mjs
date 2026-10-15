@@ -80,3 +80,15 @@ test("output cannot replace an input file, even through a hard link", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("duplicate options are rejected rather than silently overwritten", () => {
+  for (const args of [
+    ["analyze", ".", "--profile", "quick", "--profile", "deep"],
+    ["card", "missing.repodna", "--dark", "--dark"],
+    ["report", "missing.repodna", "--format", "html", "--format", "json"],
+  ]) {
+    const result = run(...args);
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, /specified more than once/);
+  }
+});
