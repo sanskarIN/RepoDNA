@@ -6,7 +6,7 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-## [1.3.3] - Pending release
+## [1.3.3] - 2026-10-15
 
 ### Fixed
 
@@ -19,6 +19,11 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   single- or double-quoted attributes.
 - Malformed percent escapes in documentation links produce a build diagnostic instead
   of making the documentation-site generator crash.
+
+### Security
+
+- Upgraded to `rustls 0.23.46` in both Rust lockfiles to resolve
+  RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348, and RUSTSEC-2026-0349.
 
 ### Tests
 
