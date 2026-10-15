@@ -6,7 +6,7 @@
 #   - uses: actions/checkout@v7
 #     with:
 #       fetch-depth: 0   # the whole history, for the history analyses
-#   - uses: sanskarIN/RepoDNA@v1.3.3
+#   - uses: sanskarIN/RepoDNA@v1.4.0
 #     with:
 #       fail-on: warning
 
@@ -22,7 +22,7 @@ inputs:
     description: The directory to analyze.
     default: "."
   version:
-    description: The RepoDNA release to run, such as 1.3.3, or latest. By default, the release of this action's tag, or the latest release.
+    description: The RepoDNA release to run, such as 1.4.0, or latest. By default, the release of this action's tag, or the latest release.
     default: ""
   profile:
     description: The analysis profile, such as quick, standard, or deep. By default, the repository's repodna.toml decides, or standard.
@@ -63,7 +63,7 @@ runs:
         set -euo pipefail
         version="$VERSION"
         if [ -z "$version" ]; then
-          # The release of the tag this action was used at, such as v1.3.3, or else the latest.
+          # The release of the tag this action was used at, such as v1.4.0, or else the latest.
           if [[ "$ACTION_REF" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             version="$ACTION_REF"
           else
