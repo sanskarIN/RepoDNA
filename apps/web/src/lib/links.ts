@@ -23,6 +23,11 @@ export const SUPPORT: ProjectLink[] = [
     url: "https://razorpay.me/@SanskarCodes",
     description: "Support RepoDNA's development with Razorpay.",
   },
+  {
+    label: "PayPal",
+    url: "https://paypal.me/SanskarCodes",
+    description: "Support RepoDNA through the official PayPal.Me link.",
+  },
 ];
 
 /** The project and its creator. */
