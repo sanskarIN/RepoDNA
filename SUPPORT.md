@@ -28,6 +28,7 @@ RepoDNA is free and open source. If it is useful to you, you can support its dev
 
 - [Buy Me a Coffee](https://buymeacoffee.com/SanskarCodes)
 - [Razorpay](https://razorpay.me/@SanskarCodes)
+- [PayPal](https://paypal.me/SanskarCodes)
 
 To learn programming with the creator of RepoDNA, visit
 [sanskarIN.gumroad.com](https://sanskarIN.gumroad.com).
