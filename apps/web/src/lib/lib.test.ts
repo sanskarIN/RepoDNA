@@ -17,6 +17,8 @@ describe("router", () => {
     expect(route.params.get("q")).toBe("src/main.rs");
     expect(parseHash("").path).toBe("/");
     expect(parseHash("#overview").path).toBe("/overview");
+    expect(parseHash("#/files?q=why?not").params.get("q")).toBe("why?not");
+    expect(parseHash("#/files?q=who?what&sort=path").params.get("sort")).toBe("path");
   });
 
   it("builds links that round-trip", () => {
