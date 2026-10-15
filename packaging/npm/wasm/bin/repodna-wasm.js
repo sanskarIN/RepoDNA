@@ -45,6 +45,9 @@ function parse(argv) {
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
     if (VALUED.has(arg)) {
+      if (Object.hasOwn(parsed.options, arg.slice(2))) {
+        fail(`${arg} was specified more than once.`, 2);
+      }
       const value = rest[index + 1];
       if (value === undefined || (value.startsWith("-") && value !== "-")) {
         fail(`${arg} needs a value.\n\n${USAGE}`, 2);
@@ -52,6 +55,9 @@ function parse(argv) {
       parsed.options[arg.slice(2)] = value;
       index += 1;
     } else if (SWITCHES.has(arg)) {
+      if (Object.hasOwn(parsed.options, arg.slice(2))) {
+        fail(`${arg} was specified more than once.`, 2);
+      }
       parsed.options[arg.slice(2)] = true;
     } else if (arg.startsWith("-")) {
       fail(`unknown option ${arg}.\n\n${USAGE}`, 2);
