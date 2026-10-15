@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Shell } from "./components/Shell";
+import { SplashScreen } from "./components/SplashScreen";
 import { NAV, neighbors } from "./lib/nav";
 import { href, useRoute } from "./lib/router";
 import type { RecentStore } from "./lib/recent";
@@ -113,7 +114,7 @@ function Routes() {
 
   let content: ReactNode;
   if (!ready) {
-    content = <p className="muted">Starting…</p>;
+    return <SplashScreen />;
   } else if (!View) {
     content = <NotFound />;
   } else if (nav?.needsData && !dataset) {
