@@ -6,7 +6,7 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-## [1.4.0] - Pending release
+## [1.4.0] - 2026-10-15
 
 ### Added
 
@@ -28,6 +28,8 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   was not moved to the content region; the startup transition now restores that focus.
 - The FAQ incorrectly claimed there was no official GitHub Action; it now points to
   the maintained Action and its documentation.
+
+- The web deep-link parser now preserves additional question marks in URL query values.
 
 ### Tests
 
