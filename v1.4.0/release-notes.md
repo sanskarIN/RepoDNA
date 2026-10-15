@@ -1,9 +1,8 @@
-# RepoDNA 1.4.0 — release notes (development draft)
+# RepoDNA 1.4.0 — release notes
 
-**Status:** In development. This document does not indicate that a
-`v1.4.0` GitHub release, tag, or downloadable binaries exist.
+**Status:** Release candidate validated by CI. See the [official GitHub Release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.4.0) for publication status and downloadable assets.
 
-Planned changes tracked in the
+Changes developed on the
 [development branch](https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development):
 
 ## Identity and application startup
@@ -33,9 +32,12 @@ Planned changes tracked in the
 - Verify icon dimensions, package manifests, lockfile consistency,
   startup tests, and CI on supported operating systems.
 
-## Before publication
+## Publication checklist
 
-Required: finish development, pass all CI/security checks, capture versioned
-screenshots and media on the `images` branch, prepare release downloads
-and hashes, merge changes to `main`, create `v1.4.0` only when approved
-for publication, and confirm that the GitHub Release assets are attached.
+The tag and downloadable binary status are verified on the official release page. The workflow publishes cross-platform assets with `SHA256SUMS.txt` once its jobs complete.
+
+## Media
+
+- [Launch artwork](https://github.com/sanskarIN/RepoDNA/blob/images/media/v1.4.0/promo/launch-16x9.png) — hand-authored vector design rendered to PNG.
+- [Official logo](https://github.com/sanskarIN/RepoDNA/blob/images/media/v1.4.0/branding/repodna-mark.svg) — original hand-written SVG.
+- [v1.4.0 screenshots](https://github.com/sanskarIN/RepoDNA/tree/images/screenshots/v1.4.0) — actual web interface and generated docs captures.
