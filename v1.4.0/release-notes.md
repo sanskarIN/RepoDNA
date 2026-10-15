@@ -1,6 +1,6 @@
 # RepoDNA 1.4.0 — release notes
 
-**Status:** Release candidate validated by CI. See the [official GitHub Release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.4.0) for publication status and downloadable assets.
+**Status:** Public stable release, published on GitHub on October 15, 2026. Download all 15 verified release attachments at the [official GitHub Release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.4.0).
 
 Changes developed on the
 [development branch](https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development):
@@ -32,9 +32,9 @@ Changes developed on the
 - Verify icon dimensions, package manifests, lockfile consistency,
   startup tests, and CI on supported operating systems.
 
-## Publication checklist
+## Release verification
 
-The tag and downloadable binary status are verified on the official release page. The workflow publishes cross-platform assets with `SHA256SUMS.txt` once its jobs complete.
+The annotated `v1.4.0` tag and public GitHub Release were verified after publication. The release has 15 attached files including cross-platform binaries, desktop installers, WebAssembly and `SHA256SUMS.txt`.
 
 ## Media
 
