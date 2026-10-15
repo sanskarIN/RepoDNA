@@ -277,18 +277,18 @@ cargo xtask bench --runs 5              # the table in benchmarks/README.md
    third-party notices (`cargo xtask notices`) if dependencies changed.
 4. Add the version's images to the
    [`images`](https://github.com/sanskarIN/RepoDNA/tree/images) branch: its screenshots in
-   `screenshots/v1.3.3`, with the same views as the earlier versions, and a column and a
+   `screenshots/v1.4.0`, with the same views as the earlier versions, and a column and a
    section for it in `screenshots/README.md`; and its promo images and Project DNA cards in
-   `media/v1.3.3`, shown as the newest in `media/README.md`. Point the screenshots in the
+   `media/v1.4.0`, shown as the newest in `media/README.md`. Point the screenshots in the
    README and the guides at the new folder. On the
    [`releases-info`](https://github.com/sanskarIN/RepoDNA/tree/releases-info) branch, add
-   `v1.3.3/release-notes.md` with the notes prepared for the release,
-   `v1.3.3/pull-requests.md`, and a row in its `README.md`.
-5. Commit, then create and push an annotated tag: `git tag -a v1.3.3 -m "RepoDNA 1.3.3"` and
-   `git push origin v1.3.3`. The release notes show the screenshots of the version from
+   `v1.4.0/release-notes.md` with the notes prepared for the release,
+   `v1.4.0/pull-requests.md`, and a row in its `README.md`.
+5. Commit, then create and push an annotated tag: `git tag -a v1.4.0 -m "RepoDNA 1.4.0"` and
+   `git push origin v1.4.0`. The release notes show the screenshots of the version from
    the `images` branch.
 6. Once the release is published, on the `releases-info` branch, replace
-   `v1.3.3/release-notes.md` with the notes as published, and add `v1.3.3/README.md` with
+   `v1.4.0/release-notes.md` with the notes as published, and add `v1.4.0/README.md` with
    its notes, its downloads and their sizes, and how to install it.
 
 The `images` and `releases-info` branches share no history with `main`, so that the code
