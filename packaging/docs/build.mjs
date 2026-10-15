@@ -315,7 +315,7 @@ function render(page, site, root, problems) {
       // Markdown permits single- and double-quoted HTML attributes. Always emit double
       // quotes with HTML escaping, so an apostrophe in a path stays data, not markup.
       return text.replace(
-        /\\b(href|src)\\s*=\\s*(["'])(.*?)\\2/gi,
+        /\b(href|src)\s*=\s*(["'])(.*?)\2/gi,
         (_, name, _quote, value) =>
           `${name}="${escapeHtml(link(decode(value), { image: name.toLowerCase() === "src" }))}"`,
       );
