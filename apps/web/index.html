@@ -15,10 +15,59 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>RepoDNA</title>
+    <!-- Pre-React splash: avoids an empty native window or a blank PWA on slow startup. -->
+    <style>
+      #root .startup-screen {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        padding: 24px;
+        background: #f9f9f7;
+        color: #102338;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+      }
+      #root .startup-panel {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+      }
+      #root .startup-wordmark {
+        margin-top: 18px;
+        font-size: 40px;
+        font-weight: 800;
+      }
+      #root .startup-wordmark span {
+        color: #2672ce;
+      }
+      #root .startup-panel p {
+        color: #52514e;
+      }
+      @media (prefers-color-scheme: dark) {
+        #root .startup-screen {
+          background: #0d0d0d;
+          color: #fff;
+        }
+        #root .startup-panel p {
+          color: #c3c2b7;
+        }
+      }
+    </style>
   </head>
   <body>
     <noscript>RepoDNA's web interface needs JavaScript. The HTML reports work without it.</noscript>
-    <div id="root"></div>
+    <div id="root">
+      <div class="startup-screen" role="status" aria-label="Starting RepoDNA">
+        <div class="startup-panel">
+          <img src="./favicon.svg" width="112" height="112" alt="" />
+          <strong class="startup-wordmark">Repo<span>DNA</span></strong>
+          <p>Understand your codebase. See its DNA.</p>
+          <noscript>Enable JavaScript to open the RepoDNA web interface.</noscript>
+        </div>
+      </div>
+    </div>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
