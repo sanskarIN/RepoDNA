@@ -33,3 +33,28 @@ test("the wasm command line accepts a help request without its engine", () => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /repodna-wasm analyze/);
 });
+
+test("commands reject flags that they cannot use", () => {
+  for (const args of [
+    ["analyze", ".", "--dark"],
+    ["report", "missing.repodna", "--png"],
+    ["card", "missing.repodna", "--privacy", "share"],
+  ]) {
+    const result = run(...args);
+    assert.equal(result.status, 2, `${args.join(" ")}: ${result.stderr}`);
+    assert.match(result.stderr, /cannot be used with/);
+    assert.doesNotMatch(result.stderr, /Cannot find module/);
+  }
+});
+
+test("report rejects unsupported values before loading the engine", () => {
+  for (const [flag, value] of [
+    ["--format", "xml"],
+    ["--theme", "unknown"],
+    ["--privacy", "everything"],
+  ]) {
+    const result = run("report", "missing.repodna", flag, value);
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, new RegExp(`invalid ${flag} value`));
+  }
+});
