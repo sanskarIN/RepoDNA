@@ -1,3 +1,89 @@
+/* A local-first startup splash, also used by the desktop WebView.
+ * It disappears as soon as initialization completes; no artificial waiting.
+ */
+.startup-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px;
+  color: var(--ink);
+  background: var(--page);
+}
+
+.startup-panel {
+  display: flex;
+  max-width: 460px;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.startup-icon {
+  width: 112px;
+  height: 112px;
+  flex-shrink: 0;
+}
+
+.startup-wordmark {
+  margin-top: 20px;
+  font-size: clamp(32px, 6vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.startup-wordmark span {
+  color: var(--accent-ink);
+}
+
+.startup-panel p {
+  margin: 14px 0 28px;
+  color: var(--ink-secondary);
+}
+
+.startup-indicator {
+  width: 120px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--line);
+}
+
+.startup-indicator::after {
+  display: block;
+  width: 45%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  content: "";
+  animation: repodna-startup 1.5s ease-in-out infinite alternate;
+}
+
+.startup-status {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@keyframes repodna-startup {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(125%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .startup-indicator::after {
+    animation: none;
+    transform: translateX(60%);
+  }
+}
+
 /* RepoDNA web interface. Colors mirror the report palette; charts use the chart tokens. */
 
 :root {
