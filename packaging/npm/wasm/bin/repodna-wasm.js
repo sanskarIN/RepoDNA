@@ -133,6 +133,15 @@ async function main() {
   if (command !== "analyze" && statSync(operand).isDirectory()) {
     fail(`${operand} is a folder; ${command} needs an analysis file (.repodna or .json).`, 2);
   }
+  // Compare file identities, not just paths: aliases and hard links can name the same file.
+  // Without this check, a report or a card could silently replace its input artifact.
+  if (options.output && existsSync(options.output)) {
+    const input = statSync(operand);
+    const destination = statSync(options.output);
+    if (input.dev === destination.dev && input.ino === destination.ino) {
+      fail(`${options.output} is the input file; refusing to overwrite it.`, 2);
+    }
+  }
   const { analyze, card, cardPng, report } = await program();
   if (command === "analyze") {
     const text = await analyze(operand, {
