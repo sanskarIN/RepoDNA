@@ -312,10 +312,12 @@ function render(page, site, root, problems) {
       return `<div class="table" tabindex="0">${Renderer.prototype.table.call(this, token)}</div>\n`;
     },
     html({ text }) {
+      // Markdown permits single- and double-quoted HTML attributes. Always emit double
+      // quotes with HTML escaping, so an apostrophe in a path stays data, not markup.
       return text.replace(
-        /\b(href|src)="([^"]+)"/g,
-        (_, name, value) =>
-          `${name}="${escapeHtml(link(decode(value), { image: name === "src" }))}"`,
+        /\\b(href|src)\\s*=\\s*(["'])(.*?)\\2/gi,
+        (_, name, _quote, value) =>
+          `${name}="${escapeHtml(link(decode(value), { image: name.toLowerCase() === "src" }))}"`,
       );
     },
   };
