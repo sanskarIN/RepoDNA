@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3200" height="1800" viewBox="0 0 3200 1800" role="img" aria-labelledby="title desc">
+<title id="title">RepoDNA 1.4.0 — New identity, safer startup</title>
+<desc id="desc">Dark navy original vector launch graphic featuring the RepoDNA double helix graph emblem, handcrafted branding, better startup, PayPal support and fixes.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#0b1422"/><stop offset="1" stop-color="#193754"/></linearGradient></defs>
+<rect width="3200" height="1800" fill="url(#bg)"/>
+<g stroke="#295073" stroke-width="4" fill="none" opacity=".55">
+<path d="M0 930L470 700L860 900L1210 650L1550 810L2040 460L2600 715L3200 370"/>
+<path d="M0 1160L420 1300L900 1120L1500 1460L2040 1200L2670 1510L3200 1310"/>
+</g>
+<g fill="#3987e5"><circle cx="470" cy="700" r="24"/><circle cx="1210" cy="650" r="22"/><circle cx="2040" cy="460" r="23"/><circle cx="2670" cy="1510" r="19"/></g>
+<g fill="#22c9b4"><circle cx="860" cy="900" r="19"/><circle cx="1550" cy="810" r="21"/><circle cx="2040" cy="1200" r="23"/></g>
+<rect x="168" y="175" width="250" height="250" rx="48" fill="#102338" stroke="#4d7797" stroke-width="5"/>
+<g transform="translate(168 175) scale(1.953125)">
+<path d="M39 17C39 47 89 47 89 64S39 81 39 111" fill="none" stroke="#3987e5" stroke-width="12" stroke-linecap="round"/>
+<path d="M89 17C89 47 39 47 39 64S89 81 89 111" fill="none" stroke="#22c9b4" stroke-width="12" stroke-linecap="round"/>
+<g stroke="#e5f5ff" stroke-width="5"><path d="M54 41H74M42 64H86M54 87H74"/></g>
+<g fill="#e5f5ff"><circle cx="54" cy="41" r="5"/><circle cx="74" cy="41" r="5"/><circle cx="42" cy="64" r="5"/><circle cx="86" cy="64" r="5"/><circle cx="54" cy="87" r="5"/><circle cx="74" cy="87" r="5"/></g></g>
+<g font-family="DejaVu Sans,Arial,sans-serif">
+<text x="472" y="290" fill="#ffffff" font-size="116" font-weight="700">Repo<tspan fill="#66a7ff">DNA</tspan></text>
+<text x="475" y="377" fill="#a7c4dc" font-size="48">Understand your codebase. See its DNA.</text>
+<rect x="2630" y="210" width="405" height="137" rx="60" fill="#214c77" stroke="#4589c9" stroke-width="5"/>
+<text x="2700" y="305" fill="#d3e8fb" font-size="80" font-weight="700">v1.4.0</text>
+<text x="176" y="750" fill="#ffffff" font-size="152" font-weight="700">A new look.</text>
+<text x="176" y="920" fill="#79b8f9" font-size="141" font-weight="700">The same local-first trust.</text>
+<rect x="170" y="1060" width="1350" height="320" rx="36" fill="#12273d" stroke="#43688a" stroke-width="4"/>
+<text x="230" y="1175" fill="#ffffff" font-size="64" font-weight="700">Original vector branding</text>
+<text x="230" y="1263" fill="#d0deee" font-size="47">Logo, application icons, startup splash</text>
+<rect x="1590" y="1060" width="1434" height="320" rx="36" fill="#12273d" stroke="#43688a" stroke-width="4"/>
+<text x="1650" y="1175" fill="#ffffff" font-size="64" font-weight="700">Reliability and support</text>
+<text x="1650" y="1263" fill="#d0deee" font-size="45">Deep-link fixes · Accessibility · PayPal</text>
+<text x="182" y="1630" fill="#a8c1d9" font-size="50">github.com/sanskarIN/RepoDNA</text>
+<text x="3020" y="1630" fill="#71cebe" font-size="48" text-anchor="end">OPEN SOURCE</text>
+</g>
+</svg>
