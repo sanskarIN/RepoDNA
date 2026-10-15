@@ -3,7 +3,7 @@
 # runner's system and processor, checked against the release's SHA256SUMS.txt.
 #
 # Usage: install.sh VERSION DIR
-#   VERSION  a release such as 1.3.3 (or v1.3.3), or "latest"
+#   VERSION  a release such as 1.4.0 (or v1.4.0), or "latest"
 #   DIR      where to put the repodna binary
 set -euo pipefail
 
@@ -27,7 +27,7 @@ if [ "$version" = latest ]; then
 fi
 version=${version#v}
 if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-  echo "::error title=RepoDNA::$version is not a RepoDNA version such as 1.3.3." >&2
+  echo "::error title=RepoDNA::$version is not a RepoDNA version such as 1.4.0." >&2
   exit 1
 fi
 
