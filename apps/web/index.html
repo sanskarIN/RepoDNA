@@ -24,8 +24,8 @@
         place-items: center;
         min-height: 100vh;
         padding: 24px;
-        background: #f9f9f7;
-        color: #102338;
+        background: var(--page, #f9f9f7);
+        color: var(--ink, #102338);
         font-family: system-ui, sans-serif;
         text-align: center;
       }
@@ -46,11 +46,11 @@
         color: #52514e;
       }
       @media (prefers-color-scheme: dark) {
-        #root .startup-screen {
+        :root:not([data-theme]) #root .startup-screen {
           background: #0d0d0d;
           color: #fff;
         }
-        #root .startup-panel p {
+        :root:not([data-theme]) #root .startup-panel p {
           color: #c3c2b7;
         }
       }
