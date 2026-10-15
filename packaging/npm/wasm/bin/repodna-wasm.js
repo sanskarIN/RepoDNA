@@ -121,10 +121,10 @@ async function main() {
   }
   for (const [name, value] of Object.entries(options)) {
     if (!COMMAND_OPTIONS[command].has(name)) {
-      fail(`--${name} cannot be used with ${command}.\\n\\n${USAGE}`, 2);
+      fail(`--${name} cannot be used with ${command}.\n\n${USAGE}`, 2);
     }
     if (CHOICES[name] && !CHOICES[name].has(value)) {
-      fail(`invalid --${name} value ${value}.\\n\\n${USAGE}`, 2);
+      fail(`invalid --${name} value ${value}.\n\n${USAGE}`, 2);
     }
   }
   if (!existsSync(operand)) {
