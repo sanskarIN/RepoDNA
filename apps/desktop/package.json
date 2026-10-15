@@ -1,6 +1,6 @@
 {
   "name": "@repodna/desktop",
-  "version": "1.3.3",
+  "version": "1.4.0",
   "private": true,
   "description": "The RepoDNA desktop app, built with Tauri.",
   "license": "Apache-2.0",
