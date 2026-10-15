@@ -143,16 +143,31 @@ function plainText(tokens = []) {
  * Resolves a link of the page at `source` (relative to the repository): a page of the site,
  * a file on GitHub, or the address as it is. Returns `{ href, page?, anchor?, missing? }`.
  */
+function decodeLinkPart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 export function resolveLink(href, source, site, root, { image = false } = {}) {
   if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) {
     return { href };
   }
   if (href.startsWith("#")) {
-    return { href, page: site.bySource.get(source), anchor: decodeURIComponent(href.slice(1)) };
+    const anchor = decodeLinkPart(href.slice(1));
+    return anchor === null
+      ? { href: "#", invalid: true }
+      : { href, page: site.bySource.get(source), anchor };
   }
   const [pathPart, anchorPart] = splitAnchor(href);
-  const target = posix.normalize(posix.join(posix.dirname(source), decodeURIComponent(pathPart)));
-  const anchor = anchorPart === undefined ? undefined : decodeURIComponent(anchorPart);
+  const decodedPath = decodeLinkPart(pathPart);
+  const anchor = anchorPart === undefined ? undefined : decodeLinkPart(anchorPart);
+  if (decodedPath === null || anchor === null) {
+    return { href: "#", invalid: true };
+  }
+  const target = posix.normalize(posix.join(posix.dirname(source), decodedPath));
   const page = site.bySource.get(target.replace(/\/$/, ""));
   if (page && !image) {
     return { href: null, page, anchor };
@@ -250,6 +265,9 @@ function render(page, site, root, problems) {
   let description = null;
   const link = (href, opts) => {
     const resolved = resolveLink(href, page.source, site, root, opts);
+    if (resolved.invalid) {
+      problems.push(`${page.source}: invalid URL encoding in link ${href}`);
+    }
     if (resolved.missing) {
       problems.push(
         `${page.source}: links to ${resolved.missing}, which the repository does not have`,
