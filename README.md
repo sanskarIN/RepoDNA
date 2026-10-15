@@ -2,6 +2,8 @@
 
 # RepoDNA
 
+<img src="brand/repodna-logo.svg" width="540" alt="RepoDNA: blue and teal DNA helix joined by code graph nodes" />
+
 **Understand your codebase. See its DNA.**<br>
 Trace its history. Explore its architecture.
 
