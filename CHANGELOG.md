@@ -6,6 +6,24 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- The `repodna-wasm` command line now rejects missing option values, flags for the wrong
+  command, unsupported report formats, themes, and privacy presets, and repeated flags
+  before it loads the WebAssembly program.
+- `repodna-wasm` refuses to replace the input analysis with a report or card when
+  `--output` points to the same file, including a hard link to that file.
+- The documentation site rewrites relative links and image paths in raw HTML with either
+  single- or double-quoted attributes.
+- Malformed percent escapes in documentation links produce a build diagnostic instead
+  of making the documentation-site generator crash.
+
+### Tests
+
+- Regression tests for WebAssembly command-line argument validation and input-file
+  preservation run without needing to build a WebAssembly engine.
+- Documentation-site tests cover raw HTML links and malformed URL encodings.
+
 ## [1.3.2] - 2026-10-12
 
 A follow-up to 1.3.1. The documentation is now a site of its own, at
