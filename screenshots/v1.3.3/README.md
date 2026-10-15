@@ -1,5 +1,10 @@
 # RepoDNA v1.3.3 — screenshots
 
+Capture job: [GitHub Actions run 38664630144](https://github.com/sanskarIN/RepoDNA/actions/runs/38664630144),
+source commit `f89250a6472a94e083cec0418351f007ccc95973` on the v1.3.3
+finalization branch (before release tagging). The browser captured the rendered
+release-source interface, not a manually reconstructed mockup.
+
 These images were captured from the **real v1.3.3 web interface and documentation
 site**, using headless Chromium against a locally built copy of the v1.3.3 source.
 The web views use a new `repodna analyze . --profile standard --format json` artifact
