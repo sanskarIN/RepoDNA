@@ -36,7 +36,7 @@ function parse(argv) {
     const arg = rest[index];
     if (VALUED.has(arg)) {
       const value = rest[index + 1];
-      if (value === undefined) {
+      if (value === undefined || (value.startsWith("-") && value !== "-")) {
         fail(`${arg} needs a value.\n\n${USAGE}`, 2);
       }
       parsed.options[arg.slice(2)] = value;
