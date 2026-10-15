@@ -150,7 +150,7 @@ right in your browser and works offline, all built on the same analysis.
 
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
-(`uses: sanskarIN/RepoDNA@v1.3.3`) does all of this in one step.
+(`uses: sanskarIN/RepoDNA@v1.4.0`) does all of this in one step.
 
 **Optional AI explanations.** Explanations in prose, built only from the analysis evidence,
 through a local program or an API you configure. Off by default.
@@ -213,8 +213,8 @@ statically linked), macOS (Apple silicon and Intel), or Windows (x86_64 and ARM6
 a single `repodna` program with the web interface built in. For example, on Linux:
 
 ```sh
-tar -xzf repodna-1.3.3-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.3.3-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.4.0-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.4.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 repodna --version
 ```
 
@@ -244,7 +244,7 @@ WebAssembly for Node.js and browsers on any system (`@sanskarin/repodna-wasm`:
 artifact (`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on npm too.
 See [the npm packages](docs/installation.md#npm-packages).
 
-**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.3.3` analyzes the repository in a workflow,
+**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.4.0` analyzes the repository in a workflow,
 annotates findings, and keeps the report. See [the GitHub Action](docs/github-action.md).
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
