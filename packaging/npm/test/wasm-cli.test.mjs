@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
+import { linkSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -56,5 +58,25 @@ test("report rejects unsupported values before loading the engine", () => {
     const result = run("report", "missing.repodna", flag, value);
     assert.equal(result.status, 2, result.stderr);
     assert.match(result.stderr, new RegExp(`invalid ${flag} value`));
+  }
+});
+
+test("output cannot replace an input file, even through a hard link", () => {
+  const dir = mkdtempSync(join(tmpdir(), "repodna-wasm-cli-"));
+  try {
+    const artifact = join(dir, "analysis.repodna");
+    const alias = join(dir, "same-file.repodna");
+    writeFileSync(artifact, '{"important":"original"}');
+    linkSync(artifact, alias);
+    for (const command of ["report", "card"]) {
+      for (const output of [artifact, alias]) {
+        const result = run(command, artifact, "--output", output);
+        assert.equal(result.status, 2, result.stderr);
+        assert.match(result.stderr, /refusing to overwrite/);
+        assert.equal(readFileSync(artifact, "utf8"), '{"important":"original"}');
+      }
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
