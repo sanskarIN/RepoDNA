@@ -155,4 +155,8 @@ jobs:
           git config user.name "RepoDNA release maintenance"
           git config user.email "sanskarin@oulook.in"
           git commit -m "build(v1.4.0): synchronize versions and regenerate web/desktop branded icons"
+          # Other bug-fix commits may land while the runner builds icons.
+          # Replay this generated commit on the latest branch rather than overwrite them.
+          git fetch origin release-v1.4.0-development
+          git rebase origin/release-v1.4.0-development
           git push origin HEAD:release-v1.4.0-development
