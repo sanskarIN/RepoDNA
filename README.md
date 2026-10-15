@@ -17,6 +17,7 @@ the changes of every release on one page.
 
 | Version | Released | Highlights |
 |---|---|---|
+| [1.3.3](v1.3.3/release-notes.md) | prepared | Safer WebAssembly CLI arguments and file output, more reliable documentation links, updated TLS security dependency |
 | [1.3.2](v1.3.2/release-notes.md) | not yet | The documentation as a site at sanskarin.github.io/RepoDNA/docs, with search; the new Buy Me a Coffee and Razorpay links; and plainer messages from `repodna-wasm` |
 | [1.3.1](v1.3.1/README.md) | 2026-10-10 | Analysis of a folder or an archive in the browser, reports and cards there too, a web version that works offline, a GitHub Action, Windows on Arm, and RepoDNA as WebAssembly |
 | [1.3.0](v1.3.0/README.md) | 2026-10-09 | Recent analyses, the open analysis kept across reloads, ways through an analysis, and a web version that installs as an app, saves tables as CSV, and prints cleanly |
