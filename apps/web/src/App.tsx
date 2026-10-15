@@ -110,7 +110,7 @@ function Routes() {
   useEffect(() => {
     window.scrollTo?.({ top: 0 });
     document.getElementById("main")?.focus({ preventScroll: true });
-  }, [route.path]);
+  }, [route.path, ready]);
 
   let content: ReactNode;
   if (!ready) {
