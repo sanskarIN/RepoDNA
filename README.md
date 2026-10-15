@@ -66,7 +66,7 @@ repodna serve
 
 Open the link it prints and choose **Try the demo**.
 
-![The Overview of RepoDNA's own analysis in the web interface of RepoDNA 1.3.2](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/desktop/overview-light.png)
+![The Overview of RepoDNA's self-analysis captured from the v1.3.3 web interface](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.3/desktop/overview-light.png)
 
 Without installing anything, you can read what RepoDNA writes about itself in
 [`examples/self-analysis`](examples/self-analysis): the full
@@ -330,6 +330,24 @@ environment variables.
 
 ## Screenshots
 
+### New in v1.3.3
+
+These captures were made using the **v1.3.3 source**, a fresh analysis of this
+repository, and the documentation site built from the same checkout.
+
+| Overview · light | Documentation · light |
+|---|---|
+| ![Actual RepoDNA v1.3.3 self-analysis overview](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.3/desktop/overview-light.png) | ![Actual v1.3.3 documentation site](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.3/docs-site/index-light.png) |
+
+[More v1.3.3 screenshots](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/v1.3.3/README.md) ·
+[1.3.3 media and PNG cards](https://github.com/sanskarIN/RepoDNA/blob/images/media/v1.3.3/README.md)
+
+### Historical v1.3.2 feature gallery
+
+The remaining feature and native desktop-app screenshots in this gallery were
+captured for **v1.3.2** and are retained with their original version labels.
+
+
 | | |
 |---|---|
 | ![Architecture view: the module map in dependency layers](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/desktop/architecture-dark.png) | ![History view: commits over time and when commits happen](https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/desktop/history-light.png) |
@@ -349,7 +367,8 @@ On a phone, the interface fits the screen and the navigation folds behind a Menu
 <img src="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images/screenshots/v1.3.2/phone/history-dark.png" alt="History on a phone, in the dark theme" width="230">
 </p>
 
-All screenshots show RepoDNA 1.3.2 and its analysis of its own repository; the
+The historical gallery above shows RepoDNA 1.3.2, while the new first row
+shows v1.3.3; the
 [screenshots of every release](https://github.com/sanskarIN/RepoDNA/blob/images/screenshots/README.md)
 compare the versions side by side. For posts and talks, the
 [media kit](https://github.com/sanskarIN/RepoDNA/blob/images/media/README.md) has larger
