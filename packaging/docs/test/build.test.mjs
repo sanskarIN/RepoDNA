@@ -104,6 +104,31 @@ test("links lead to the pages, to GitHub, or are reported", () => {
   }
 });
 
+test("HTML links and images use site-relative targets with either quote style", () => {
+  const root = repository({
+    "docs/index.md":
+      "# Docs\n\n<a href='guide.md#part'>Single</a>\n\n" +
+      '<a href="guide.md#part">Double</a>\n\n' +
+      "<img src='../assets/logo.svg' alt='Logo'>\n",
+    "docs/guide.md": "# Guide\n\n## Part\n",
+    "assets/logo.svg": "<svg/>",
+  });
+  const out = join(root, "site");
+  try {
+    const { problems } = build({ root, out });
+    assert.deepEqual(problems, []);
+    const index = readFileSync(join(out, "index.html"), "utf8");
+    assert.match(index, /<a href="guide\/#part">Single<\/a>/);
+    assert.match(index, /<a href="guide\/#part">Double<\/a>/);
+    assert.match(
+      index,
+      /<img src="https:\/\/raw\.githubusercontent\.com\/sanskarIN\/RepoDNA\/main\/assets\/logo\.svg"/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("RepoDNA's own documentation has no broken links", () => {
   const out = mkdtempSync(join(tmpdir(), "repodna-docs-site-"));
   try {
