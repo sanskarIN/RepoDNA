@@ -1,6 +1,8 @@
 # RepoDNA v1.3.3 — media assets
 
-Images for the 1.3.3 patch release. The graphics use the same blue, charcoal, and
+Images for the 1.3.3 patch release. PNG generation and image-size verification
+completed in [GitHub Actions run 38664630144](https://github.com/sanskarIN/RepoDNA/actions/runs/38664630144)
+using source commit `f89250a6472a94e083cec0418351f007ccc95973`. The graphics use the same blue, charcoal, and
 light neutrals as the RepoDNA web interface. Editable SVGs are retained alongside
 high-resolution PNG exports. All images are covered by the repository's
 [Apache-2.0 license](../../LICENSE).
