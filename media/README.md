@@ -11,7 +11,7 @@ of this repository, the images are licensed under the
 
 | Version | Promo images | Project DNA cards | Screenshots |
 |---|---|---|---|
-| [1.4.0 logo (in development)](v1.4.0/README.md) | [Original SVG and PNG mark](v1.4.0/branding) | Not generated yet | Not captured yet |
+| [1.4.0](v1.4.0/README.md) | [Original SVG logo and PNG artwork](v1.4.0/branding) · [Launch banner](v1.4.0/promo/launch-16x9.png) | [Project DNA cards](v1.4.0/cards) | [7 real screenshots](../screenshots/v1.4.0/README.md) |
 | [1.3.3](v1.3.3/README.md) | [`v1.3.3/promo`](v1.3.3/promo) | [`v1.3.3/cards`](v1.3.3/cards) | [`screenshots/v1.3.3`](../screenshots/README.md#133) |
 | 1.3.2 | [`v1.3.2/promo`](v1.3.2/promo) | [`v1.3.2/cards`](v1.3.2/cards) | [`screenshots/v1.3.2`](../screenshots/README.md#132) |
 | [1.3.1](#131) | [`v1.3.1/promo`](v1.3.1/promo) | [`v1.3.1/cards`](v1.3.1/cards) | [`screenshots/v1.3.1`](../screenshots/README.md#131) |
