@@ -73,8 +73,9 @@ Yes: `repodna ci --fail-on warning` exits with code 5 when findings at that seve
 and `--format github` adds annotations. See the [example workflow](../examples/ci/repodna.yml).
 
 **Is there a GitHub Action?**
-Not yet. The [example workflow](../examples/ci/repodna.yml) installs the release binary and
-runs `repodna ci`.
+Yes. Use the official [`sanskarIN/RepoDNA` GitHub Action](github-action.md) at a
+versioned tag; it supports automated repository analysis in your CI workflow.
+The [example workflow](../examples/ci/repodna.yml) also shows the available inputs.
 
 **Can I share results without sharing my code?**
 Yes. Reports, cards, and `.repodna` exports contain the analysis, not the source code, and
