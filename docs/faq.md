@@ -97,4 +97,5 @@ Sanskar are at [sanskarin.github.io](https://sanskarin.github.io).
 Report bugs, suggest features, add a language or an ecosystem, improve the documentation,
 or share RepoDNA with others. See [CONTRIBUTING.md](../CONTRIBUTING.md). You can also
 support the project through [Buy Me a Coffee](https://buymeacoffee.com/SanskarCodes) or
-[Razorpay](https://razorpay.me/@SanskarCodes).
+[Razorpay](https://razorpay.me/@SanskarCodes), or
+[PayPal](https://paypal.me/SanskarCodes).
