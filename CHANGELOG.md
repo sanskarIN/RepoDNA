@@ -6,6 +6,35 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.4.0] - Pending release
+
+### Added
+
+- A hand-authored, scalable SVG logo combining a DNA helix with graph nodes, plus a
+  matching vector wordmark and platform icon rendering.
+- A branded startup screen for the web version and desktop window, visible before
+  JavaScript loads and while RepoDNA initializes, without forcing an artificial delay.
+- A third official way to support the project, [PayPal.Me](https://paypal.me/SanskarCodes),
+  in the About page, README, SUPPORT.md, and GitHub Sponsor button.
+
+### Changed
+
+- Updated branded PWA and desktop icons to match the hand-authored source artwork.
+- Updated workspace and packaging versions for the v1.4.0 development line.
+
+### Fixed
+
+- When initialization finished after the splash screen was displayed, keyboard focus
+  was not moved to the content region; the startup transition now restores that focus.
+- The FAQ incorrectly claimed there was no official GitHub Action; it now points to
+  the maintained Action and its documentation.
+
+### Tests
+
+- Regression checks verify startup branding and the three supported donation links.
+- The release CI checks Rust, WebAssembly, TypeScript, desktop app, documentation,
+  and dependency advisories before publication.
+
 ## [1.3.3] - 2026-10-15
 
 ### Fixed
