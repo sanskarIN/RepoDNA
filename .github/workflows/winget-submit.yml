@@ -95,9 +95,25 @@ jobs:
             exit 0
           }
           $folders = Get-ChildItem manifests -Recurse -Filter '*.installer.yaml' -File | ForEach-Object { $_.DirectoryName }
+          Write-Host ("Installed WinGet client: " + (& winget --version))
           foreach ($folder in $folders) {
-            & winget validate --manifest $folder --disable-interactivity
-            if ($LASTEXITCODE -ne 0) { throw "WinGet manifest validation failed for $folder" }
+            $result = (& winget validate --manifest $folder --disable-interactivity 2>&1 | Out-String)
+            $status = $LASTEXITCODE
+            Write-Host $result
+            if ($status -eq 0) { continue }
+            # Some hosted clients accept schema 1.12 but exit nonzero on the new
+            # header URL warning. Accept ONLY that known warning, not other errors.
+            if ($result -notmatch 'Manifest validation succeeded with warnings\\.') {
+              throw "WinGet manifest validation failed for $folder (exit $status)"
+            }
+            $warnings = @($result -split "[\r\n]+" | Where-Object { $_ -like 'Manifest Warning:*' })
+            if (-not $warnings.Count) { throw "Validation warned without details: $folder" }
+            foreach ($warning in $warnings) {
+              if ($warning -notmatch 'schema header URL does not match the expected pattern') {
+                throw "Unexpected manifest warning for $folder: $warning"
+              }
+            }
+            Write-Warning "Only schema URL header warnings from the runner client; official upstream schema 1.12 validation still required."
           }
 
   submit:
