@@ -1,0 +1,64 @@
+name: Publish RepoDNA v1.4.1 once
+
+# One-time release handoff after PR verification, using existing release.yml.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/finalize-v141.yml
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: publish-v1.4.1
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'sanskarIN/RepoDNA'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify release metadata and WinGet delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "repodna-cli") | .version')" = "1.4.1"
+          grep -Fqx '## [1.4.1] - 2026-10-16' CHANGELOG.md
+          test "$(node -p \"require('./package.json').version\")" = "1.4.1"
+          test "$(node -p \"require('./apps/desktop/package.json').version\")" = "1.4.1"
+          test "$(node -p \"require('./apps/desktop/src-tauri/tauri.conf.json').version\")" = "1.4.1"
+          test -s packaging/winget/generate.mjs
+          test -s packaging/winget/test/generate.test.mjs
+          grep -Fq 'name: Prepare WinGet manifests' .github/workflows/release.yml
+          node --test packaging/winget/test/*.test.mjs
+      - name: Create annotated v1.4.1 tag if absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin --tags
+          if git show-ref --verify --quiet refs/tags/v1.4.1; then
+            actual=$(git rev-list -n 1 v1.4.1)
+            test "$actual" = "$GITHUB_SHA" || {
+              echo '::error::v1.4.1 already points at another commit.'
+              exit 1
+            }
+          else
+            git config user.name 'RepoDNA release maintenance'
+            git config user.email 'sanskarin@outlook.in'
+            git tag -a v1.4.1 -m 'RepoDNA 1.4.1'
+            git push origin refs/tags/v1.4.1
+          fi
+      - name: Dispatch release workflow for the exact version tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # GITHUB_TOKEN tag pushes do not recursively trigger release.yml.
+          gh workflow run release.yml --ref main --field tag=v1.4.1
