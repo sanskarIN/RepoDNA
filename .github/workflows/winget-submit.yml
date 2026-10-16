@@ -115,6 +115,9 @@ jobs:
             }
             Write-Warning "Only schema URL header warnings from the runner client; official upstream schema 1.12 validation still required."
           }
+          # The older WinGet client returned a warning exit code, not a manifest error.
+          # Do not leave that native exit code as the PowerShell step result.
+          $global:LASTEXITCODE = 0
 
   submit:
     name: Open independent Microsoft WinGet pull requests
