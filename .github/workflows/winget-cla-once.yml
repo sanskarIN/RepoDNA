@@ -16,7 +16,7 @@ jobs:
     name: Post the explicitly authorized CLA confirmation
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: \${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
     steps:
       - name: Confirm account, PR identities, and comment only when needed
         shell: bash
@@ -32,8 +32,8 @@ jobs:
             exit 1
           fi
           for pair in '453917:repodna-v1.4.1-desktop' '453918:repodna-v1.4.1-cli'; do
-            pr="\${pair%%:*}"
-            branch="\${pair#*:}"
+            pr="${pair%%:*}"
+            branch="${pair#*:}"
             url="repos/microsoft/winget-pkgs/pulls/$pr"
             owner="$(gh api "$url" --jq '.head.repo.full_name')"
             head="$(gh api "$url" --jq '.head.ref')"
