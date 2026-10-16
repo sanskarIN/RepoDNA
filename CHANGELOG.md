@@ -6,6 +6,24 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-16
+
+### Added
+
+- Generate WinGet community manifest sets for the Windows desktop MSI and portable CLI
+  ZIP on both x64 and ARM64. The release workflow calculates SHA-256 hashes directly
+  from built files and checks the nested CLI executable paths before packaging six YAML
+  files in `repodna-1.4.1-winget-manifests.zip`.
+- An opt-in WinGet submission workflow verifies the published checksum and can submit
+  both packages for Microsoft review with a maintainer-provided secret.
+- Windows installation and upgrade guidance, including the requirement that Microsoft
+  accept and index each version before `winget upgrade` discovers it.
+
+### Tests
+
+- Regression tests check generated hashes, archive paths, architectures, missing files,
+  and unsupported version strings; release and CI run the tests automatically.
+
 ## [1.4.0] - 2026-10-15
 
 ### Added
