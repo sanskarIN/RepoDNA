@@ -7,6 +7,10 @@ on:
     branches: [main]
     paths:
       - .github/workflows/winget-submit.yml
+  pull_request:
+    paths:
+      - .github/workflows/winget-submit.yml
+      - packaging/winget/**
   workflow_dispatch:
     inputs:
       tag:
@@ -98,6 +102,7 @@ jobs:
 
   submit:
     name: Open independent Microsoft WinGet pull requests
+    if: github.event_name != 'pull_request'
     needs: [prepare, validate]
     runs-on: ubuntu-latest
     env:
