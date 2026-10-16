@@ -28,7 +28,8 @@ const archives = option('--archives');
 const output = option('--out');
 const repo = 'https://github.com/sanskarIN/RepoDNA';
 const baseUrl = repo + '/releases/download/v' + version + '/';
-const schema = '1.10.0';
+// Keep this aligned with microsoft/winget-pkgs/.github/PULL_REQUEST_TEMPLATE.md.
+const schema = '1.12.0';
 
 const variants = [
   {
@@ -53,23 +54,24 @@ const variants = [
   },
 ];
 
-function emit(packageId, name, body) {
+function emit(packageId, name, manifestType, body) {
   const dir = join(output, 'manifests', 's', ...packageId.split('.'), version);
   mkdirSync(dir, { recursive: true });
   const path = join(dir, packageId + name + '.yaml');
-  writeFileSync(path, body.join('\n') + '\n');
+  const schemaHeader = `# yaml-language-server: $schema=https://aka.ms/winget-manifest.${manifestType}.${schema}.schema.json`;
+  writeFileSync(path, [schemaHeader, '', ...body, ''].join('\n'));
   console.log('Generated ' + path);
 }
 for (const pkg of variants) {
   const id = pkg.id;
-  emit(id, '', [
+  emit(id, '', 'version', [
     'PackageIdentifier: ' + id,
     'PackageVersion: ' + version,
     'DefaultLocale: en-US',
     'ManifestType: version',
     'ManifestVersion: ' + schema,
   ]);
-  emit(id, '.locale.en-US', [
+  emit(id, '.locale.en-US', 'defaultLocale', [
     'PackageIdentifier: ' + id,
     'PackageVersion: ' + version,
     'PackageLocale: en-US',
@@ -125,5 +127,5 @@ for (const pkg of variants) {
     }
   }
   content.push('ManifestType: installer', 'ManifestVersion: ' + schema);
-  emit(id, '.installer', content);
+  emit(id, '.installer', 'installer', content);
 }
