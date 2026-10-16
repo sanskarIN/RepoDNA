@@ -275,6 +275,44 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  winget:
+    name: Prepare WinGet manifests
+    needs: [prepare, cli, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*-windows-msvc
+          path: archives
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-Windows*
+          path: archives
+          merge-multiple: true
+      - name: Test the manifest generator
+        run: node --test packaging/winget/test/*.test.mjs
+      - name: Generate manifests from the binaries that will be published
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          node packaging/winget/generate.mjs --version "$VERSION" --archives archives --out winget-manifests
+          test "$(find winget-manifests -name '*.yaml' -type f | wc -l)" -eq 6
+          mkdir -p dist
+          (cd winget-manifests && zip -q -r "../dist/repodna-$VERSION-winget-manifests.zip" manifests)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: winget-manifests
+          path: dist/*.zip
+          if-no-files-found: error
+
   container:
     name: Container image
     needs: [prepare, cli]
@@ -481,7 +519,7 @@ jobs:
 
   publish:
     name: Publish the release
-    needs: [prepare, web, cli, desktop, container]
+    needs: [prepare, web, cli, desktop, container, winget]
     if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -500,6 +538,10 @@ jobs:
           pattern: desktop-*
           path: dist
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: winget-manifests
+          path: dist
       - name: Checksums
         working-directory: dist
         run: |
@@ -599,6 +641,9 @@ jobs:
           EOF
           fi
           cat >> notes.md <<'EOF'
+          - `repodna-<version>-winget-manifests.zip`: WinGet community manifests for
+            the Windows desktop app (`SanskarIN.RepoDNA`) and CLI (`SanskarIN.RepoDNA.CLI`).
+            After Microsoft accepts the manifests, install and upgrade through `winget`.
           - `SHA256SUMS.txt`: checksums of every file.
           - Web version: https://sanskarin.github.io/RepoDNA/ — analyze a folder or an archive, or open analyses and the demo, in your browser: nothing to install, nothing uploaded.
 
