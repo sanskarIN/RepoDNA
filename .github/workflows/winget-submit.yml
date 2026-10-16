@@ -110,7 +110,7 @@ jobs:
             if (-not $warnings.Count) { throw "Validation warned without details: $folder" }
             foreach ($warning in $warnings) {
               if ($warning -notmatch 'schema header URL does not match the expected pattern') {
-                throw "Unexpected manifest warning for $folder: $warning"
+                throw "Unexpected manifest warning for $folder - $warning"
               }
             }
             Write-Warning "Only schema URL header warnings from the runner client; official upstream schema 1.12 validation still required."
