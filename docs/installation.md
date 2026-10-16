@@ -7,6 +7,7 @@ analyzes in your browser, without Git history. In GitHub Actions, use the
 [GitHub Action](github-action.md).
 
 - [Prebuilt binaries](#prebuilt-binaries)
+- [WinGet on Windows](#winget-on-windows)
 - [The desktop app](#the-desktop-app)
 - [Container image](#container-image)
 - [Web interface image](#web-interface-image)
@@ -39,16 +40,35 @@ The Linux binaries are statically linked and run on any distribution.
 ### Linux and macOS
 
 ```sh
-tar -xzf repodna-1.4.0-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.4.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.4.1-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.4.1-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 # or, without sudo:
-mkdir -p ~/.local/bin && install -m 0755 repodna-1.4.0-x86_64-unknown-linux-musl/repodna ~/.local/bin/
+mkdir -p ~/.local/bin && install -m 0755 repodna-1.4.1-x86_64-unknown-linux-musl/repodna ~/.local/bin/
 ```
 
 ### Windows
 
 Extract the `.zip`, move `repodna.exe` to a folder of your choice (for example
 `%LOCALAPPDATA%\Programs\RepoDNA`), and add that folder to your `PATH`.
+
+## WinGet on Windows
+
+Starting with v1.4.1, RepoDNA releases include ready-to-submit WinGet manifests for
+the Windows desktop app (`SanskarIN.RepoDNA`, MSI) and portable command line
+(`SanskarIN.RepoDNA.CLI`, ZIP), both on x64 and ARM64. After Microsoft's community
+catalog accepts the packages, these commands will install and upgrade them:
+
+```powershell
+winget source update
+winget install --id SanskarIN.RepoDNA --exact
+winget install --id SanskarIN.RepoDNA.CLI --exact
+winget upgrade
+winget upgrade --id SanskarIN.RepoDNA --exact
+winget upgrade --id SanskarIN.RepoDNA.CLI --exact
+```
+
+WinGet updates require a newer package manifest to be accepted and indexed; a GitHub
+release alone is not sufficient. See [WinGet setup, verification and publication](winget.md).
 
 ### Verify the download
 
@@ -60,7 +80,7 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt       # macOS
 ```
 
 ```powershell
-Get-FileHash .\repodna-1.4.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # compare with SHA256SUMS.txt
+Get-FileHash .\repodna-1.4.1-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # compare with SHA256SUMS.txt
 ```
 
 ### Unsigned binaries
@@ -95,7 +115,7 @@ docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" \
 ```
 
 The current directory is mounted as `/work`, and `--user` makes the files RepoDNA writes
-yours. Tags follow the releases: `1.4.0`, `1.4`, `1`, and `latest`. Stored analyses live in
+yours. Tags follow the releases: `1.4.1`, `1.4`, `1`, and `latest`. Stored analyses live in
 `/tmp/repodna` inside the container and disappear with it; mount a volume there
 (`-v repodna-data:/tmp/repodna`) to keep them. `repodna serve` in a container listens on the
 container's own loopback address, so use an installed binary, the desktop app, or the
@@ -202,7 +222,7 @@ interface of `repodna serve`, which then shows a basic page that lists stored an
 their reports. You can also install directly from Git this way:
 
 ```sh
-cargo install --git https://github.com/sanskarIN/RepoDNA --tag v1.4.0 --locked repodna-cli
+cargo install --git https://github.com/sanskarIN/RepoDNA --tag v1.4.1 --locked repodna-cli
 ```
 
 To build the desktop app, see [apps/desktop/README.md](../apps/desktop/README.md). For
