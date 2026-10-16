@@ -30,9 +30,9 @@ jobs:
           set -euo pipefail
           test "$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "repodna-cli") | .version')" = "1.4.1"
           grep -Fqx '## [1.4.1] - 2026-10-16' CHANGELOG.md
-          test "$(node -p \"require('./package.json').version\")" = "1.4.1"
-          test "$(node -p \"require('./apps/desktop/package.json').version\")" = "1.4.1"
-          test "$(node -p \"require('./apps/desktop/src-tauri/tauri.conf.json').version\")" = "1.4.1"
+          test "$(node -p 'require("./package.json").version')" = "1.4.1"
+          test "$(node -p 'require("./apps/desktop/package.json").version')" = "1.4.1"
+          test "$(node -p 'require("./apps/desktop/src-tauri/tauri.conf.json").version')" = "1.4.1"
           test -s packaging/winget/generate.mjs
           test -s packaging/winget/test/generate.test.mjs
           grep -Fq 'name: Prepare WinGet manifests' .github/workflows/release.yml
