@@ -77,7 +77,7 @@ jobs:
         run: npm test
       - name: Test the npm packaging, the Action's installer, and the documentation site
         # The documentation site's tests also build it and fail on a broken link.
-        run: node --test "packaging/npm/test/*.test.mjs" "packaging/action/test/*.test.mjs" "packaging/docs/test/*.test.mjs"
+        run: node --test "packaging/npm/test/*.test.mjs" "packaging/action/test/*.test.mjs" "packaging/docs/test/*.test.mjs" "packaging/winget/test/*.test.mjs"
       - name: Build
         run: npm run build -w @repodna/web
       - uses: actions/upload-artifact@v7
