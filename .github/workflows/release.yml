@@ -665,3 +665,24 @@ jobs:
           else
             gh release create "$TAG" dist/* --verify-tag --title "RepoDNA $VERSION" --notes-file notes.md
           fi
+
+  catalog:
+    name: Queue Microsoft WinGet community submission
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch the independently validated WinGet submission workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Publishing through the GITHUB_TOKEN does not recursively run other
+          # workflows from its release event; workflow_dispatch does.
+          # The submission workflow uses the latest main branch and only attempts
+          # external Microsoft PRs when owner-provided authorization is available.
+          gh workflow run winget-submit.yml --repo "$GITHUB_REPOSITORY" --ref main --field "tag=$TAG"
