@@ -103,7 +103,7 @@ jobs:
             if ($status -eq 0) { continue }
             # Some hosted clients accept schema 1.12 but exit nonzero on the new
             # header URL warning. Accept ONLY that known warning, not other errors.
-            if ($result -notmatch 'Manifest validation succeeded with warnings\\.') {
+            if ($result -notmatch 'Manifest validation succeeded with warnings\.') {
               throw "WinGet manifest validation failed for $folder (exit $status)"
             }
             $warnings = @($result -split "[\r\n]+" | Where-Object { $_ -like 'Manifest Warning:*' })
