@@ -1,0 +1,62 @@
+name: Submit WinGet manifests
+
+# This is intentionally opt-in: a GitHub release alone does not add a package to WinGet.
+# First configure the WINGET_CREATE_GITHUB_TOKEN secret, then dispatch with a published tag.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable release tag, for example v1.4.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: Submit desktop and CLI packages to microsoft/winget-pkgs
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Verify published release and checksum
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:WINGET_CREATE_GITHUB_TOKEN) { throw 'Set the WINGET_CREATE_GITHUB_TOKEN secret before dispatching this workflow.' }
+          if ($env:RELEASE_TAG -notmatch '^v([0-9]+\.[0-9]+\.[0-9]+)$') { throw 'Expected a stable release tag such as v1.4.1.' }
+          $version = $Matches[1]
+          $filename = "repodna-$version-winget-manifests.zip"
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern $filename
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download WinGet manifests from the published release.' }
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern SHA256SUMS.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download published SHA256 checksums.' }
+          $line = Get-Content SHA256SUMS.txt | Where-Object { $_.EndsWith("  $filename") } | Select-Object -First 1
+          if (-not $line) { throw 'The manifest ZIP is missing from the release checksum list.' }
+          $expected = ($line -split '\s+')[0].ToUpperInvariant()
+          $actual = (Get-FileHash $filename -Algorithm SHA256).Hash
+          if ($expected -ne $actual) { throw 'Checksum mismatch for published manifest ZIP.' }
+          Expand-Archive -LiteralPath $filename -DestinationPath unpacked
+          "VERSION=$version" >> $env:GITHUB_ENV
+      - name: Download official WinGet Manifest Creator
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-WebRequest 'https://aka.ms/wingetcreate/latest' -OutFile wingetcreate.exe
+          if (-not (Test-Path wingetcreate.exe)) { throw 'Could not download WingetCreate.' }
+      - name: Submit two independent manifest sets
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($package in @('SanskarIN.RepoDNA', 'SanskarIN.RepoDNA.CLI')) {
+            $segments = $package.Split('.')
+            $folder = Join-Path 'unpacked/manifests/s' ($segments -join '/')
+            $folder = Join-Path $folder $env:VERSION
+            if ((Get-ChildItem -LiteralPath $folder -Filter '*.yaml' -File).Count -ne 3) { throw "Incomplete manifest: $package" }
+            & .\wingetcreate.exe submit --no-open --prtitle "RepoDNA $env:VERSION ($package)" $folder
+            if ($LASTEXITCODE -ne 0) { throw "Submission failed for $package. Check existing pull requests before retrying." }
+          }
+          Write-Host 'Submission requested. Microsoft review and indexing are still required.'
