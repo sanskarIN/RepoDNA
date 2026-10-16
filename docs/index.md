@@ -15,6 +15,7 @@ repository.
 - [Getting started](getting-started.md): analyze your first repository in five minutes
 - [Installation](installation.md): binaries, the desktop app, npm, WebAssembly, and building
   from source
+- [WinGet on Windows](winget.md): desktop and CLI installation, upgrades, and publishing
 - [The web version](web.md#the-web-version): analyze a folder in your browser, with nothing to
   install
 - [FAQ](faq.md)
