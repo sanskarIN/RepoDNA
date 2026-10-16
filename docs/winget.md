@@ -81,7 +81,7 @@ node packaging/winget/generate.mjs \
 No made-up hashes or placeholder URLs are accepted by this generator: all
 four platform artifacts must be present locally. Before submission, check
 the public URLs, inspect the YAML, verify the ZIP file contents, and on Windows
-run `winget validate <manifest-version-directory>` for each
+run `winget validate --manifest <manifest-version-directory>` for each
 package. Test installation and upgrading on clean Windows x64/ARM64 machines,
 including uninstall/reinstall and CLI PATH recognition.
 
