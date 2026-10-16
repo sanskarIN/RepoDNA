@@ -102,8 +102,8 @@ perform this **one-time authorization** (never share the token in an issue or ch
 2. In **RepoDNA → Settings → Secrets and variables → Actions**, add a
    repository secret named `WINGET_CREATE_GITHUB_TOKEN` with that token as its value.
 3. Go to **RepoDNA → Actions → Submit RepoDNA to WinGet → Run workflow** and select
-   `v1.4.1`. The workflow also performs an initial attempt automatically
-   when the updated workflow is merged into `main`.
+   `v1.4.1` to submit the already-published version. New successful tagged releases
+   automatically dispatch this workflow after they finish publishing.
 
 When the secret is available, [`packaging/winget/submit.sh`](../packaging/winget/submit.sh)
 creates or synchronizes the personal fork of
@@ -111,8 +111,9 @@ creates or synchronizes the personal fork of
 version to a **separate branch**, and opens **two independent pull requests**.
 The commits have author and committer email `sanskarin@outlook.in`.
 It checks for already-open PRs to avoid duplicates. Without the secret, the
-workflow still verifies and archives the six manifests, but emits a warning
-and cannot submit them to Microsoft.
+workflow still verifies and archives the six manifests, reports the missing
+credential as an explicit warning, and marks the external submission job
+**skipped**, not successful. It cannot submit the files to Microsoft.
 
 The community repository requires **one package version per PR** and schema-header
 comments in all three YAML files. Its PR template currently recommends schema
@@ -135,7 +136,11 @@ on behalf of the user in the external community repository.
 ### Future releases
 
 Keep the existing archive and MSI file naming stable. Each subsequent tag
-(v1.4.2, v1.4.3, etc.) regenerates new manifests and checksums. After each
-public release, submit that **new** manifest version through the community
-repository. Users then get normal version comparisons from WinGet without
-RepoDNA needing a background updater or network calls of its own.
+(v1.4.2, v1.4.3, etc.) regenerates new manifests and checksums.
+The release pipeline automatically queues a fresh community submission
+after successfully publishing a tagged GitHub release. Once the owner
+configures the authorization secret, that workflow can open a separate
+upstream PR for each package for the new version. Microsoft must then
+accept and index it before `winget upgrade` will list the newer version.
+Without the authorization secret, only manifest verification runs, and
+the external submission is explicitly skipped.
