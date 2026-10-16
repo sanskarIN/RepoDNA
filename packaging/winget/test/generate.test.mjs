@@ -32,7 +32,7 @@ test('generates two complete and correctly hashed multi-file manifests', () => {
   const paths = prepare();
   const result = run(paths);
   assert.equal(result.status, 0, result.stderr);
-  for (const id of ['SanskarIN.RepoDNA', 'SanskarIN.RepoDNA.CLI']) {
+  for (const id of ['Sanskar.RepoDNA', 'Sanskar.RepoDNA.CLI']) {
     const dir = join(paths.out, 'manifests', 's', ...id.split('.'), version);
     const installer = readFileSync(join(dir, id + '.installer.yaml'), 'utf8');
     const metadata = readFileSync(join(dir, id + '.locale.en-US.yaml'), 'utf8');

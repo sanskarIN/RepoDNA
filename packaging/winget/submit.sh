@@ -37,7 +37,7 @@ fi
 gh api -X POST "repos/$fork/merge-upstream" -f branch=master --silent
 base="$(gh api "repos/$fork/git/ref/heads/master" --jq .object.sha)"
 base_tree="$(gh api "repos/$fork/git/commits/$base" --jq .tree.sha)"
-for entry in "SanskarIN.RepoDNA:desktop" "SanskarIN.RepoDNA.CLI:cli"; do
+for entry in "Sanskar.RepoDNA:desktop" "Sanskar.RepoDNA.CLI:cli"; do
   id="$(printf '%s' "$entry" | cut -d: -f1)"
   label="$(printf '%s' "$entry" | cut -d: -f2)"
   folder="$root/s/$(printf '%s' "$id" | tr . /)/$version"

@@ -642,7 +642,7 @@ jobs:
           fi
           cat >> notes.md <<'EOF'
           - `repodna-<version>-winget-manifests.zip`: WinGet community manifests for
-            the Windows desktop app (`SanskarIN.RepoDNA`) and CLI (`SanskarIN.RepoDNA.CLI`).
+            the Windows desktop app (`Sanskar.RepoDNA`) and CLI (`Sanskar.RepoDNA.CLI`).
             After Microsoft accepts the manifests, install and upgrade through `winget`.
           - `SHA256SUMS.txt`: checksums of every file.
           - Web version: https://sanskarin.github.io/RepoDNA/ — analyze a folder or an archive, or open analyses and the demo, in your browser: nothing to install, nothing uploaded.

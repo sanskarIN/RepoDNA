@@ -1,12 +1,12 @@
 # Installing and upgrading RepoDNA with WinGet
 
-RepoDNA has two distinct Windows packages in the Microsoft Windows Package Manager
+RepoDNA uses the `Sanskar` publisher prefix in its two Microsoft Windows Package Manager
 (WinGet) manifest format:
 
 | Package ID | Installs | Release artifact |
 |---|---|---|
-| `SanskarIN.RepoDNA` | Desktop application | x64 / ARM64 MSI |
-| `SanskarIN.RepoDNA.CLI` | `repodna` CLI (with the local web UI built in) | x64 / ARM64 portable ZIP |
+| `Sanskar.RepoDNA` | Desktop application | x64 / ARM64 MSI |
+| `Sanskar.RepoDNA.CLI` | `repodna` CLI (with the local web UI built in) | x64 / ARM64 portable ZIP |
 
 **Important:** The manifests generated with RepoDNA v1.4.1 must first be accepted
 into [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) and
@@ -22,12 +22,12 @@ installations (WinGet 1.5 or newer), open PowerShell:
 
 ```powershell
 winget source update
-winget search --id SanskarIN.RepoDNA --exact
-winget search --id SanskarIN.RepoDNA.CLI --exact
+winget search --id Sanskar.RepoDNA --exact
+winget search --id Sanskar.RepoDNA.CLI --exact
 
 # Choose the desktop app, CLI, or both:
-winget install --id SanskarIN.RepoDNA --exact --source winget
-winget install --id SanskarIN.RepoDNA.CLI --exact --source winget
+winget install --id Sanskar.RepoDNA --exact --source winget
+winget install --id Sanskar.RepoDNA.CLI --exact --source winget
 repodna --version
 
 # Show available upgrades, including RepoDNA when a newer
@@ -35,8 +35,8 @@ repodna --version
 winget upgrade
 
 # Upgrade either package, when an upgrade is available:
-winget upgrade --id SanskarIN.RepoDNA --exact --source winget
-winget upgrade --id SanskarIN.RepoDNA.CLI --exact --source winget
+winget upgrade --id Sanskar.RepoDNA --exact --source winget
+winget upgrade --id Sanskar.RepoDNA.CLI --exact --source winget
 
 # Or upgrade all supported packages:
 winget upgrade --all
@@ -117,16 +117,18 @@ credential as an explicit warning, and marks the external submission job
 
 The community repository requires **one package version per PR** and schema-header
 comments in all three YAML files. Its PR template currently recommends schema
-`1.12.0`; the older v1.4.1 GitHub release manifest ZIP was generated with
-schema `1.10.0`, so the submission workflow regenerates the corrected
-`1.12.0` files from the exact release binaries rather than submitting that ZIP.
+`1.12.0`; the original v1.4.1 GitHub release manifest ZIP was generated with
+schema `1.10.0` and the former `SanskarIN` package identifiers. Do **not**
+submit that historical ZIP to Microsoft. The submission workflow regenerates
+schema `1.12.0` files using the selected `Sanskar.RepoDNA` and
+`Sanskar.RepoDNA.CLI` IDs directly from the original verified release binaries.
 Any later release uses the updated generator directly.
 
 Microsoft's own validation checks and any required contributor-license agreement
 remain mandatory. Opening a PR does **not** mean the package has been approved,
 indexed, or made available through `winget install` or `winget upgrade`.
 After Microsoft merges and indexes the manifests, run `winget source update`,
-then `winget search --id SanskarIN.RepoDNA --exact` and check the CLI identifier
+then `winget search --id Sanskar.RepoDNA --exact` and check the CLI identifier
 separately to verify public availability.
 
 Do not put tokens in source files, release ZIPs, logs, or workflow inputs.

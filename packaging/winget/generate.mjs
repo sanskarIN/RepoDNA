@@ -33,7 +33,7 @@ const schema = '1.12.0';
 
 const variants = [
   {
-    id: 'SanskarIN.RepoDNA',
+    id: 'Sanskar.RepoDNA',
     name: 'RepoDNA',
     description: 'Local-first desktop repository intelligence and code archaeology.',
     kind: 'msi',
@@ -43,7 +43,7 @@ const variants = [
     ],
   },
   {
-    id: 'SanskarIN.RepoDNA.CLI',
+    id: 'Sanskar.RepoDNA.CLI',
     name: 'RepoDNA CLI',
     description: 'Local-first repository analysis command-line tool with a built-in web interface.',
     kind: 'zip',

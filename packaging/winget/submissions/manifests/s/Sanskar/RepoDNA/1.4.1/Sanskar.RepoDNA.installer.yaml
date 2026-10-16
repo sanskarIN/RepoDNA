@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 
-PackageIdentifier: SanskarIN.RepoDNA
+PackageIdentifier: Sanskar.RepoDNA
 PackageVersion: 1.4.1
 InstallerType: msi
 Installers:

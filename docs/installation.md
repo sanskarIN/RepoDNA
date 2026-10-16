@@ -54,17 +54,17 @@ Extract the `.zip`, move `repodna.exe` to a folder of your choice (for example
 ## WinGet on Windows
 
 Starting with v1.4.1, RepoDNA releases include ready-to-submit WinGet manifests for
-the Windows desktop app (`SanskarIN.RepoDNA`, MSI) and portable command line
-(`SanskarIN.RepoDNA.CLI`, ZIP), both on x64 and ARM64. After Microsoft's community
+the Windows desktop app (`Sanskar.RepoDNA`, MSI) and portable command line
+(`Sanskar.RepoDNA.CLI`, ZIP), both on x64 and ARM64. After Microsoft's community
 catalog accepts the packages, these commands will install and upgrade them:
 
 ```powershell
 winget source update
-winget install --id SanskarIN.RepoDNA --exact
-winget install --id SanskarIN.RepoDNA.CLI --exact
+winget install --id Sanskar.RepoDNA --exact
+winget install --id Sanskar.RepoDNA.CLI --exact
 winget upgrade
-winget upgrade --id SanskarIN.RepoDNA --exact
-winget upgrade --id SanskarIN.RepoDNA.CLI --exact
+winget upgrade --id Sanskar.RepoDNA --exact
+winget upgrade --id Sanskar.RepoDNA.CLI --exact
 ```
 
 WinGet updates require a newer package manifest to be accepted and indexed; a GitHub

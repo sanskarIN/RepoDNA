@@ -219,7 +219,7 @@ repodna --version
 ```
 
 **WinGet (Windows).** Starting with v1.4.1, release artifacts include manifest sets for
-the desktop app (`SanskarIN.RepoDNA`) and CLI (`SanskarIN.RepoDNA.CLI`) on x64 and ARM64.
+the desktop app (`Sanskar.RepoDNA`) and CLI (`Sanskar.RepoDNA.CLI`) on x64 and ARM64.
 Once Microsoft accepts them into the community catalog, you can use `winget install` and
 `winget upgrade`. See [WinGet instructions](docs/winget.md) for commands and availability.
 
