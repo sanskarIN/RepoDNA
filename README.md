@@ -150,7 +150,7 @@ right in your browser and works offline, all built on the same analysis.
 
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
-(`uses: sanskarIN/RepoDNA@v1.4.0`) does all of this in one step.
+(`uses: sanskarIN/RepoDNA@v1.4.1`) does all of this in one step.
 
 **Optional AI explanations.** Explanations in prose, built only from the analysis evidence,
 through a local program or an API you configure. Off by default.
@@ -213,10 +213,15 @@ statically linked), macOS (Apple silicon and Intel), or Windows (x86_64 and ARM6
 a single `repodna` program with the web interface built in. For example, on Linux:
 
 ```sh
-tar -xzf repodna-1.4.0-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.4.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.4.1-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.4.1-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 repodna --version
 ```
+
+**WinGet (Windows).** Starting with v1.4.1, release artifacts include manifest sets for
+the desktop app (`SanskarIN.RepoDNA`) and CLI (`SanskarIN.RepoDNA.CLI`) on x64 and ARM64.
+Once Microsoft accepts them into the community catalog, you can use `winget install` and
+`winget upgrade`. See [WinGet instructions](docs/winget.md) for commands and availability.
 
 **The desktop app.** Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows
 on x64 and Arm (`.msi`, `.exe`) are attached to each release. See
