@@ -87,21 +87,50 @@ including uninstall/reinstall and CLI PATH recognition.
 
 ### Submit to Microsoft
 
-A maintainer must submit **both** complete version directories from the
-release ZIP to the [WinGet package repository](https://github.com/microsoft/winget-pkgs).
-Use the official [WinGet Manifest Creator](https://github.com/microsoft/winget-create)
-or open pull requests with the YAML under the appropriate
-`manifests/s/SanskarIN/RepoDNA/...` paths. On the first
-submission, confirm the identifiers are available; keep them unchanged for
-future releases. The optional [WinGet submission workflow](../.github/workflows/winget-submit.yml)
-can create those pull requests after a release is published if a maintainer
-has configured the GitHub secret `WINGET_CREATE_GITHUB_TOKEN`
-with appropriate permissions; it is never required for ordinary builds.
+RepoDNA has a dedicated [WinGet submission workflow](../.github/workflows/winget-submit.yml).
+It verifies all four Windows binaries against the published release SHA-256 list,
+regenerates the manifests with the schema required by the community repository,
+and publishes the validated YAML as a GitHub Actions artifact. For v1.4.1,
+the exact six proposed files are also checked in under
+[`packaging/winget/submissions/manifests`](../packaging/winget/submissions/manifests/).
 
-Do not store tokens in source files, workflow inputs, release ZIPs or logs.
-An external GitHub token is not provided by the standard `GITHUB_TOKEN`
-for creating community-repository pull requests. Microsoft controls review,
-acceptance and indexing, so submission does not guarantee immediate availability.
+For the upstream pull requests to be created automatically, the repository owner must
+perform this **one-time authorization** (never share the token in an issue or chat):
+
+1. On GitHub, create a **classic personal access token**, owned by `sanskarIN`,
+   with only the `public_repo` scope required for public-repository submissions.
+2. In **RepoDNA → Settings → Secrets and variables → Actions**, add a
+   repository secret named `WINGET_CREATE_GITHUB_TOKEN` with that token as its value.
+3. Go to **RepoDNA → Actions → Submit RepoDNA to WinGet → Run workflow** and select
+   `v1.4.1`. The workflow also performs an initial attempt automatically
+   when the updated workflow is merged into `main`.
+
+When the secret is available, [`packaging/winget/submit.sh`](../packaging/winget/submit.sh)
+creates or synchronizes the personal fork of
+[microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs), commits each package
+version to a **separate branch**, and opens **two independent pull requests**.
+The commits have author and committer email `sanskarin@outlook.in`.
+It checks for already-open PRs to avoid duplicates. Without the secret, the
+workflow still verifies and archives the six manifests, but emits a warning
+and cannot submit them to Microsoft.
+
+The community repository requires **one package version per PR** and schema-header
+comments in all three YAML files. Its PR template currently recommends schema
+`1.12.0`; the older v1.4.1 GitHub release manifest ZIP was generated with
+schema `1.10.0`, so the submission workflow regenerates the corrected
+`1.12.0` files from the exact release binaries rather than submitting that ZIP.
+Any later release uses the updated generator directly.
+
+Microsoft's own validation checks and any required contributor-license agreement
+remain mandatory. Opening a PR does **not** mean the package has been approved,
+indexed, or made available through `winget install` or `winget upgrade`.
+After Microsoft merges and indexes the manifests, run `winget source update`,
+then `winget search --id SanskarIN.RepoDNA --exact` and check the CLI identifier
+separately to verify public availability.
+
+Do not put tokens in source files, release ZIPs, logs, or workflow inputs.
+The standard repository `GITHUB_TOKEN` cannot create commits or pull requests
+on behalf of the user in the external community repository.
 
 ### Future releases
 
