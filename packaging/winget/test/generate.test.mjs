@@ -41,8 +41,11 @@ test('generates two complete and correctly hashed multi-file manifests', () => {
     assert.match(installer, /Architecture: arm64/);
     assert.match(metadata, /ManifestType: defaultLocale/);
     assert.match(versionFile, /DefaultLocale: en-US/);
+    assert.ok(versionFile.startsWith('# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json\n'));
+    assert.ok(metadata.startsWith('# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json\n'));
+    assert.ok(installer.startsWith('# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json\n'));
     assert.match(installer, /ManifestType: installer/);
-    assert.match(installer, /ManifestVersion: 1\.10\.0/);
+    assert.match(installer, /ManifestVersion: 1\.12\.0/);
     const filenames = id.endsWith('.CLI')
       ? ['repodna-' + version + '-x86_64-pc-windows-msvc.zip', 'repodna-' + version + '-aarch64-pc-windows-msvc.zip']
       : ['RepoDNA_' + version + '_x64_en-US.msi', 'RepoDNA_' + version + '_arm64_en-US.msi'];
