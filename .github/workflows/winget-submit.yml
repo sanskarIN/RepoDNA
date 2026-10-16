@@ -30,6 +30,8 @@ jobs:
   prepare:
     name: Verify published installers and prepare community manifests
     runs-on: ubuntu-latest
+    outputs:
+      authorized: ${{ steps.auth.outputs.authorized }}
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || 'v1.4.1' }}
@@ -38,6 +40,20 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      - name: Check external GitHub submission authorization
+        id: auth
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
+        run: |
+          if [ -z "$WINGET_TOKEN" ]; then
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            echo '::warning::WinGet files can be validated, but Microsoft PR submission is SKIPPED: configure the WINGET_CREATE_GITHUB_TOKEN repository secret to enable it.'
+          else
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::A WinGet submission credential is configured; upstream PR creation will be attempted after validation."
+          fi
       - name: Validate scripts and package generator tests
         run: |
           set -euo pipefail
@@ -121,8 +137,8 @@ jobs:
 
   submit:
     name: Open independent Microsoft WinGet pull requests
-    if: github.event_name != 'pull_request'
     needs: [prepare, validate]
+    if: github.event_name != 'pull_request' && needs.prepare.outputs.authorized == 'true'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
@@ -141,8 +157,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$GH_TOKEN" ]; then
-            echo '::warning::No WINGET_CREATE_GITHUB_TOKEN secret configured. Manifests verified, but upstream PR creation requires authorized user credentials.'
-            exit 0
+            echo '::error::Cannot create upstream WinGet pull requests without a user-authorized token.'
+            exit 1
           fi
           git config --global user.name sanskarIN
           git config --global user.email sanskarin@outlook.in
