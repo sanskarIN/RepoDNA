@@ -236,6 +236,10 @@ jobs:
           out="$RUNNER_TEMP/out"
           repodna() { ./target/release/repodna "$@"; }
           repodna --version
+          # Match Windows package-manager executable probes: a plain launch
+          # must succeed and print help, without touching user data.
+          repodna > "$RUNNER_TEMP/repodna-launch-help.txt"
+          grep -q 'Usage:' "$RUNNER_TEMP/repodna-launch-help.txt"
           repodna doctor --export "$out/diagnostics.zip"
           test -s "$out/diagnostics.zip"
           for fixture in fixtures/generated/*/; do
