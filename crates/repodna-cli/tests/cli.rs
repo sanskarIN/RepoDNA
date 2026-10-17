@@ -416,7 +416,10 @@ fn doctor_exports_diagnostics_without_the_home_directory() {
 
     let file = std::fs::File::open(env.work("diagnostics.zip")).unwrap();
     let mut archive = zip::ZipArchive::new(file).unwrap();
-    let names: Vec<String> = archive.file_names().map(str::to_owned).collect();
+    let names: Vec<String> = archive
+        .file_names()
+        .map(|name| name.expect("valid ZIP entry name").into_owned())
+        .collect();
     let expected = [
         "README.txt",
         "doctor.json",
