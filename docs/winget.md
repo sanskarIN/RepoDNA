@@ -137,6 +137,16 @@ on behalf of the user in the external community repository.
 
 ### Future releases
 
+For v1.4.2 development, the CLI's no-argument launch has a regression test and
+returns success after printing help. The v1.4.1 CLI community PR was labeled
+`Validation-Executable-Error` even though its overall validation pipeline
+passed; its actual cause has **not been conclusively established**. Before
+submitting a future CLI version, run the new release smoke checks on native
+Windows x64 and ARM64 devices, verify `repodna.exe`, `repodna.exe --help`, and
+`repodna.exe --version`, and confirm that WinGet installs the portable alias.
+Treat external package-manager validation as an additional requirement; never
+mark a version installable before Microsoft has merged and indexed it.
+
 Keep the existing archive and MSI file naming stable. Each subsequent tag
 (v1.4.2, v1.4.3, etc.) regenerates new manifests and checksums.
 The release pipeline automatically queues a fresh community submission
