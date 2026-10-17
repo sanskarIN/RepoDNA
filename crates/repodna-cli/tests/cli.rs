@@ -108,6 +108,18 @@ fn prints_version_help_and_usage_errors() {
     let help = env.run(&["--help"]);
     assert_eq!(code(&help), 0);
     assert!(stdout(&help).contains("Exit codes:"));
+
+    // Windows WinGet installation validation also probes the binary with no
+    // arguments. A plain launch must be useful and return success, not exit 2.
+    let plain_launch = env.run(&[]);
+    assert_eq!(code(&plain_launch), 0, "{}", stderr(&plain_launch));
+    assert!(stdout(&plain_launch).contains("Usage:"));
+    assert!(stdout(&plain_launch).contains("Exit codes:"));
+    assert!(stderr(&plain_launch).is_empty());
+
+    let version_flag = env.run(&["--version"]);
+    assert_eq!(code(&version_flag), 0);
+    assert!(stdout(&version_flag).contains(env!("CARGO_PKG_VERSION")));
     assert_eq!(code(&env.run(&["no-such-command"])), 2);
     assert_eq!(code(&env.run(&["compare", "only-one"])), 2);
     let completions = env.run(&["completions", "bash"]);
@@ -404,7 +416,10 @@ fn doctor_exports_diagnostics_without_the_home_directory() {
 
     let file = std::fs::File::open(env.work("diagnostics.zip")).unwrap();
     let mut archive = zip::ZipArchive::new(file).unwrap();
-    let names: Vec<String> = archive.file_names().map(str::to_owned).collect();
+    let names: Vec<String> = archive
+        .file_names()
+        .map(|name| name.expect("valid ZIP entry name").into_owned())
+        .collect();
     let expected = [
         "README.txt",
         "doctor.json",

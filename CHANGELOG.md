@@ -6,6 +6,27 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Launching the portable `repodna` CLI without arguments now prints the full
+  command reference and exits successfully instead of returning usage error 2.
+  Invalid options and subcommands continue to return usage error 2. This may
+  improve package-manager executable validation; Microsoft's v1.4.1 CLI
+  validation warning is not yet confirmed to have this cause.
+
+### Security
+
+- Upgrade the core and desktop lockfiles to `zip 9.0.4` to address
+  published archive-extraction security advisories affecting `zip 8.6.0`.
+  ZIP entry-name decoding is now treated as fallible; malformed names are
+  rejected instead of being passed to the extraction path sanitizer.
+
+### Tests
+
+- Regression coverage checks the no-argument launch, help output, and
+  `--version` exit status. CI and the release pipeline smoke-test the
+  no-argument startup on supported build runners before publishing artifacts.
+
 ## [1.4.1] - 2026-10-16
 
 ### Added

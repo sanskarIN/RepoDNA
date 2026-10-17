@@ -13,7 +13,7 @@ pub mod term;
 use std::io::{IsTerminal, Write};
 use std::process::ExitCode;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use repodna_app::{AppError, AppPaths, ErrorKind};
 use repodna_core::CancellationToken;
 
@@ -88,6 +88,20 @@ fn exit_code(code: i32) -> ExitCode {
 
 /// Parses the command line, runs the command, and returns the process exit code.
 pub fn run() -> ExitCode {
+    // Windows package managers may launch a portable executable without arguments
+    // to verify that it starts. Treat this as a request for help rather than a
+    // failed invocation; invalid options and subcommands still exit with code 2.
+    if std::env::args_os().len() == 1 {
+        let mut command = Cli::command();
+        return match command
+            .print_long_help()
+            .and_then(|_| std::io::stdout().lock().write_all(b"\n"))
+        {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(_) => ExitCode::FAILURE,
+        };
+    }
+
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(error) => {

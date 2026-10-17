@@ -241,7 +241,12 @@ fn extract_zip(path: &Path, file: File, extractor: &mut Extractor<'_>) -> Result
         let mut entry = archive
             .by_index(index)
             .map_err(|error| malformed(error.to_string()))?;
-        let raw_name = entry.name().to_owned();
+        // zip 9.x makes decoding an archive entry name fallible. Reject
+        // malformed entry names rather than interpreting them as safe paths.
+        let raw_name = entry
+            .name()
+            .map_err(|error| malformed(error.to_string()))?
+            .into_owned();
         let Some(relative) = extractor.target(&raw_name)? else {
             continue;
         };
