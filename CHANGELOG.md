@@ -14,6 +14,13 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   improve package-manager executable validation; Microsoft's v1.4.1 CLI
   validation warning is not yet confirmed to have this cause.
 
+### Security
+
+- Upgrade the core and desktop lockfiles to `zip 9.0.4` to address
+  published archive-extraction security advisories affecting `zip 8.6.0`.
+  ZIP entry-name decoding is now treated as fallible; malformed names are
+  rejected instead of being passed to the extraction path sanitizer.
+
 ### Tests
 
 - Regression coverage checks the no-argument launch, help output, and
