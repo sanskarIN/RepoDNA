@@ -170,7 +170,14 @@ jobs:
         # one on an x64 runner.
         if: matrix.target != 'x86_64-apple-darwin' && matrix.target != 'aarch64-pc-windows-msvc'
         shell: bash
-        run: ./target/${{ matrix.target }}/release/repodna --version
+        run: |
+          set -euo pipefail
+          bin="./target/${{ matrix.target }}/release/repodna"
+          "$bin" --version
+          # A package-manager launch without options should print help and
+          # return success before a new release is made public.
+          "$bin" > "$RUNNER_TEMP/repodna-launch-help.txt"
+          grep -q 'Usage:' "$RUNNER_TEMP/repodna-launch-help.txt"
       - name: Check the Windows on Arm binary
         if: matrix.target == 'aarch64-pc-windows-msvc'
         shell: pwsh
