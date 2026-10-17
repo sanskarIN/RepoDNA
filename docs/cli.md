@@ -1,7 +1,9 @@
 # Command-line reference
 
 `repodna` is the command-line interface. Every command prints help with `--help`, and
-`repodna --help` lists them all.
+`repodna --help` lists them all. In upcoming releases, running `repodna`
+without arguments also displays help and exits successfully. Invalid arguments
+and unknown commands remain errors (exit code 2).
 
 ```sh
 repodna <command> [options] [target]
