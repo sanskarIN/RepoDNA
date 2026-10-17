@@ -18,6 +18,6 @@
     "@bjorn3/browser_wasi_shim": "0.4.2"
   },
   "devDependencies": {
-    "@types/node": "26.6.3"
+    "@types/node": "26.6.5"
   }
 }
