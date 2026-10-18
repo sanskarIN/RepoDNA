@@ -109,6 +109,9 @@ try {
             $env:REPODNA_HOME = $oldHome
         }
     }
+    # The deliberately invalid command above exits 2 as expected. PowerShell
+    # must not propagate that expected native exit code as the CI step status.
+    $global:LASTEXITCODE = 0
     Write-Output "Validated $folder portable ZIP (architecture, layout, and CLI launch checks)."
 }
 finally {
