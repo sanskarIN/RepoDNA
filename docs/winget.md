@@ -137,6 +137,25 @@ on behalf of the user in the external community repository.
 
 ### Future releases
 
+During v1.4.2 development, use the included PowerShell verifier to smoke-test
+Windows CLI ZIP packages **without installing them** (no WinGet source, admin
+privileges, or account configuration are required):
+
+```powershell
+./packaging/winget/check-windows-cli.ps1 `
+  -Archive "./repodna-1.4.2-x86_64-pc-windows-msvc.zip" `
+  -Version "1.4.2" -Target "x86_64-pc-windows-msvc"
+```
+
+This checks archive paths and duplicates, the presence of the expected
+`repodna.exe`, the PE architecture, and the CLI's version/help/no-argument
+launch behavior and invalid-argument exit code in a disposable directory.
+Use `-Target "aarch64-pc-windows-msvc" -SkipExecution` to statically
+validate ARM64 packages on x64 Windows; executable validation on ARM64 still
+requires a native Windows-on-Arm runner or device. CI creates an x64 debug ZIP
+for the same checks, and release builds check their **actual packaged ZIPs**
+before upload. These checks do not guarantee acceptance by Microsoft.
+
 For v1.4.2 development, the CLI's no-argument launch has a regression test and
 returns success after printing help. The v1.4.1 CLI community PR was labeled
 `Validation-Executable-Error` even though its overall validation pipeline
