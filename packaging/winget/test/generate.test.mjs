@@ -75,3 +75,32 @@ test('refuses malformed or prerelease versions', () => {
     assert.notEqual(run(paths, value).status, 0);
   }
 });
+
+test('rejects a portable ZIP that is missing the nested executable', () => {
+  const paths = prepare();
+  const name = 'repodna-' + version + '-x86_64-pc-windows-msvc';
+  execFileSync('zip', ['-d', join(paths.archives, name + '.zip'), name + '/repodna.exe']);
+  const result = run(paths);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /missing.*repodna\.exe/);
+});
+
+test('rejects unsafe relative paths in portable ZIP files', () => {
+  const paths = prepare();
+  const name = 'repodna-' + version + '-x86_64-pc-windows-msvc';
+  writeFileSync(join(paths.root, 'outside'), 'not part of this release');
+  execFileSync('zip', [
+    '-q', join(paths.archives, name + '.zip'), '../outside',
+  ], { cwd: join(paths.root, name) });
+  const result = run(paths);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /unsafe ZIP entry/);
+});
+
+test('rejects a zero-length installer rather than publishing its hash', () => {
+  const paths = prepare();
+  writeFileSync(join(paths.archives, 'RepoDNA_' + version + '_arm64_en-US.msi'), '');
+  const result = run(paths);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Empty or non-file release artifact/);
+});
