@@ -21,8 +21,22 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   ZIP entry-name decoding is now treated as fallible; malformed names are
   rejected instead of being passed to the extraction path sanitizer.
 
+### Packaging
+
+- Harden WinGet manifest generation: hash large release installers in fixed-size
+  chunks and reject portable ZIP archives with unsafe or duplicate entry paths,
+  missing executable paths, or empty installer files.
+- Add a Windows portable ZIP smoke verifier: check the nested binary layout,
+  PE machine architecture, and CLI startup, help, version and usage exit codes.
+  ARM64 cross-compiled archives undergo static validation until a native
+  Windows-on-Arm execution test is available.
+
 ### Tests
 
+- New WinGet regression tests exercise missing executables, ZIP path traversal,
+  and zero-byte MSI assets. Windows CI now packages and executes the CLI from a
+  clean temporary ZIP extraction, and the release workflow rechecks both x64
+  and ARM64 archives before they can be uploaded.
 - Regression coverage checks the no-argument launch, help output, and
   `--version` exit status. CI and the release pipeline smoke-test the
   no-argument startup on supported build runners before publishing artifacts.

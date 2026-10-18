@@ -3,7 +3,7 @@
 // No external npm dependencies, downloads, or secrets are required.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, lstatSync, mkdirSync, openSync, readSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const args = process.argv.slice(2);
@@ -15,10 +15,53 @@ function option(name) {
   return args[i + 1];
 }
 function sha256(path) {
-  if (!statSync(path).isFile() || statSync(path).size === 0) {
+  const info = lstatSync(path);
+  if (!info.isFile() || info.size === 0) {
     throw new Error('Empty or non-file release artifact: ' + path);
   }
-  return createHash('sha256').update(readFileSync(path)).digest('hex').toUpperCase();
+  // Streaming-sized chunks avoid loading whole MSI installers into Node memory.
+  const hash = createHash('sha256');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  const fd = openSync(path, 'r');
+  try {
+    let bytes;
+    while ((bytes = readSync(fd, buffer, 0, buffer.length, null)) !== 0) {
+      hash.update(buffer.subarray(0, bytes));
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest('hex').toUpperCase();
+}
+function inspectZipPaths(filepath, filename, nestedFile) {
+  // Release archives are untrusted inputs until their layout is verified.
+  const entries = execFileSync('unzip', ['-Z1', filepath], {
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  }).split(/\r?\n/).filter(Boolean);
+  const seen = new Set();
+  for (const entry of entries) {
+    const normalized = entry.replaceAll('\\', '/');
+    const segments = normalized.split('/');
+    if (
+      !normalized ||
+      normalized.startsWith('/') ||
+      /^[A-Za-z]:/.test(normalized) ||
+      segments.some((part) => part === '.' || part === '..') ||
+      entry.includes('\\') ||
+      entry.includes('\0')
+    ) {
+      throw new Error(filename + ' contains an unsafe ZIP entry: ' + entry);
+    }
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) {
+      throw new Error(filename + ' contains a duplicate ZIP entry: ' + entry);
+    }
+    seen.add(key);
+  }
+  if (!seen.has(nestedFile.toLowerCase()) || !entries.includes(nestedFile)) {
+    throw new Error(filename + ' is missing ' + nestedFile);
+  }
 }
 const version = option('--version');
 if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) {
@@ -113,12 +156,8 @@ for (const pkg of variants) {
     );
     if (pkg.kind === 'zip') {
       const nestedFile = 'repodna-' + version + '-' + item.target + '/repodna.exe';
-      // Fail instead of publishing a valid hash for an archive with a wrong layout.
-      const files = execFileSync('unzip', ['-Z1', filepath], { encoding: 'utf8' })
-        .split(/\r?\n/).filter(Boolean).map((p) => p.replaceAll('\\', '/'));
-      if (!files.includes(nestedFile)) {
-        throw new Error(filename + ' is missing ' + nestedFile);
-      }
+      // Reject unsafe archive entries and require the exact portable binary path.
+      inspectZipPaths(filepath, filename, nestedFile);
       content.push(
         '    NestedInstallerFiles:',
         '      - RelativeFilePath: ' + nestedFile,

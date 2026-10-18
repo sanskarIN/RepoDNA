@@ -102,6 +102,20 @@ jobs:
           (cd dist && zip -qr "$name.zip" "$name")
           rm -r "dist/$name"
           ls -l dist
+      - name: Check Windows portable ZIP structure and CLI startup
+        if: matrix.target == 'x86_64-pc-windows-msvc' || matrix.target == 'aarch64-pc-windows-msvc'
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          $zip = "dist/repodna-$env:VERSION-$env:TARGET.zip"
+          if ($env:TARGET -eq 'aarch64-pc-windows-msvc') {
+            # Cross-compiled on x64; inspect the ARM64 PE without executing it.
+            & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version $env:VERSION -Target $env:TARGET -SkipExecution
+          } else {
+            & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version $env:VERSION -Target $env:TARGET
+          }
       - uses: actions/upload-artifact@v7
         with:
           name: cli-wasm32-wasip1

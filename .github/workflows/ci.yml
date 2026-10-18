@@ -38,6 +38,25 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
         run: cargo test --workspace --locked
+      - name: Smoke-check a packaged Windows CLI in a clean temporary folder
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo build --locked -p repodna-cli
+          if ($LASTEXITCODE -ne 0) { throw 'Could not build the Windows CLI' }
+          $versionLine = & ./target/debug/repodna.exe --version
+          if ($LASTEXITCODE -ne 0) { throw 'Could not identify the CLI version' }
+          $version = [regex]::Match($versionLine, '\b\d+\.\d+\.\d+\b').Value
+          if (-not $version) { throw 'Invalid CLI version' }
+          $target = 'x86_64-pc-windows-msvc'
+          $name = "repodna-$version-$target"
+          $folder = Join-Path $env:RUNNER_TEMP $name
+          New-Item -ItemType Directory -Path $folder -Force | Out-Null
+          Copy-Item target/debug/repodna.exe (Join-Path $folder 'repodna.exe')
+          $zip = Join-Path $env:RUNNER_TEMP "$name.zip"
+          Compress-Archive -Path $folder -DestinationPath $zip -CompressionLevel Optimal
+          & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version $version -Target $target
 
   docs:
     name: API documentation
