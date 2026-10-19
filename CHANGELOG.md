@@ -23,6 +23,13 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Packaging
 
+- Validate **all four** Windows release artifacts before writing any WinGet
+  manifests; a missing or invalid later artifact no longer leaves partial YAML
+  files that could be mistaken for submission-ready packages.
+- The portable ZIP preflight now rejects out-of-package entries and symbolic
+  links and verifies archive payload integrity, in addition to existing
+  traversal, duplicate-name and executable-path checks.
+
 - Harden WinGet manifest generation: hash large release installers in fixed-size
   chunks and reject portable ZIP archives with unsafe or duplicate entry paths,
   missing executable paths, or empty installer files.
