@@ -137,6 +137,25 @@ on behalf of the user in the external community repository.
 
 ### Future releases
 
+**v1.4.2 release gate.** Do not treat an open Microsoft PR, a passing upstream
+validation pipeline, or the presence of a GitHub release as proof that WinGet
+has activated a package. For the v1.4.1 baseline, confirm that **both**
+[Desktop PR #453917](https://github.com/microsoft/winget-pkgs/pull/453917) and
+[CLI PR #453918](https://github.com/microsoft/winget-pkgs/pull/453918)
+are merged, and verify both package IDs appear in the public `winget` source:
+
+```powershell
+winget source update
+winget show --id Sanskar.RepoDNA --exact --source winget
+winget show --id Sanskar.RepoDNA.CLI --exact --source winget
+```
+
+Only then begin final v1.4.2 release preparation. Still require green
+repository CI/CodeQL, actual Windows release-binary checks, complete version
+bump and release notes, and the maintainer's desired release scope. Publication
+of a new GitHub version does not itself activate its WinGet upgrade: Microsoft
+must separately accept and index the **new** 1.4.2 manifests.
+
 During v1.4.2 development, use the included PowerShell verifier to smoke-test
 Windows CLI ZIP packages **without installing them** (no WinGet source, admin
 privileges, or account configuration are required):

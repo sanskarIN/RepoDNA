@@ -39,6 +39,7 @@ function inspectZipPaths(filepath, filename, nestedFile) {
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
   }).split(/\r?\n/).filter(Boolean);
+  const expectedRoot = nestedFile.slice(0, nestedFile.lastIndexOf('/') + 1);
   const seen = new Set();
   for (const entry of entries) {
     const normalized = entry.replaceAll('\\', '/');
@@ -49,7 +50,8 @@ function inspectZipPaths(filepath, filename, nestedFile) {
       /^[A-Za-z]:/.test(normalized) ||
       segments.some((part) => part === '.' || part === '..') ||
       entry.includes('\\') ||
-      entry.includes('\0')
+      entry.includes('\0') ||
+      !normalized.startsWith(expectedRoot)
     ) {
       throw new Error(filename + ' contains an unsafe ZIP entry: ' + entry);
     }
@@ -62,6 +64,16 @@ function inspectZipPaths(filepath, filename, nestedFile) {
   if (!seen.has(nestedFile.toLowerCase()) || !entries.includes(nestedFile)) {
     throw new Error(filename + ' is missing ' + nestedFile);
   }
+  // ZIP listing marks links with a leading 'l' in Unix file permissions.
+  const listing = execFileSync('unzip', ['-Z', '-l', filepath], {
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (listing.split(/\r?\n/).some((line) => /^l[^\s]{9}\s/.test(line))) {
+    throw new Error(filename + ' contains a symbolic link');
+  }
+  // Include a full integrity test, not just a central-directory listing.
+  execFileSync('unzip', ['-tqq', filepath], { stdio: 'pipe', maxBuffer: 16 * 1024 * 1024 });
 }
 const version = option('--version');
 if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) {
@@ -96,6 +108,20 @@ const variants = [
     ],
   },
 ];
+
+// Validate all four original artifacts before creating any manifest files.
+const verifiedHashes = new Map();
+for (const pkg of variants) {
+  for (const item of pkg.installers) {
+    const filename = item.file || 'repodna-' + version + '-' + item.target + '.zip';
+    const filepath = join(archives, filename);
+    const hash = sha256(filepath);
+    if (pkg.kind === 'zip') {
+      inspectZipPaths(filepath, filename, 'repodna-' + version + '-' + item.target + '/repodna.exe');
+    }
+    verifiedHashes.set(filename, hash);
+  }
+}
 
 function emit(packageId, name, manifestType, body) {
   const dir = join(output, 'manifests', 's', ...packageId.split('.'), version);
@@ -147,8 +173,7 @@ for (const pkg of variants) {
   content.push('Installers:');
   for (const item of pkg.installers) {
     const filename = item.file || 'repodna-' + version + '-' + item.target + '.zip';
-    const filepath = join(archives, filename);
-    const hash = sha256(filepath);
+    const hash = verifiedHashes.get(filename);
     content.push(
       '  - Architecture: ' + item.architecture,
       '    InstallerUrl: ' + baseUrl + filename,
@@ -156,8 +181,6 @@ for (const pkg of variants) {
     );
     if (pkg.kind === 'zip') {
       const nestedFile = 'repodna-' + version + '-' + item.target + '/repodna.exe';
-      // Reject unsafe archive entries and require the exact portable binary path.
-      inspectZipPaths(filepath, filename, nestedFile);
       content.push(
         '    NestedInstallerFiles:',
         '      - RelativeFilePath: ' + nestedFile,
