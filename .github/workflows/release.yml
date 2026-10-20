@@ -102,20 +102,6 @@ jobs:
           (cd dist && zip -qr "$name.zip" "$name")
           rm -r "dist/$name"
           ls -l dist
-      - name: Check Windows portable ZIP structure and CLI startup
-        if: matrix.target == 'x86_64-pc-windows-msvc' || matrix.target == 'aarch64-pc-windows-msvc'
-        shell: pwsh
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-          TARGET: ${{ matrix.target }}
-        run: |
-          $zip = "dist/repodna-$env:VERSION-$env:TARGET.zip"
-          if ($env:TARGET -eq 'aarch64-pc-windows-msvc') {
-            # Cross-compiled on x64; inspect the ARM64 PE without executing it.
-            & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version $env:VERSION -Target $env:TARGET -SkipExecution
-          } else {
-            & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version $env:VERSION -Target $env:TARGET
-          }
       - uses: actions/upload-artifact@v7
         with:
           name: cli-wasm32-wasip1
@@ -221,6 +207,20 @@ jobs:
           fi
           rm -r "dist/$name"
           ls -l dist
+      - name: Check Windows portable ZIP structure and CLI startup
+        if: matrix.target == 'x86_64-pc-windows-msvc' || matrix.target == 'aarch64-pc-windows-msvc'
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          $zip = "dist/repodna-$env:VERSION-$env:TARGET.zip"
+          if ($env:TARGET -eq 'aarch64-pc-windows-msvc') {
+            # Cross-compiled on x64; inspect the ARM64 PE without executing it.
+            & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version $env:VERSION -Target $env:TARGET -SkipExecution
+          } else {
+            & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version $env:VERSION -Target $env:TARGET
+          }
       - uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.target }}
@@ -290,6 +290,16 @@ jobs:
             -exec cp {} dist/ \;
           ls -l dist
           test -n "$(ls dist)"
+          if [[ "$RUNNER_OS" = Windows ]]; then
+            version=$(node -p 'require("./apps/desktop/src-tauri/tauri.conf.json").version')
+            case "${{ matrix.name }}" in
+              Windows) arch=x64 ;;
+              Windows-arm64) arch=arm64 ;;
+              *) echo '::error::Unexpected Windows desktop architecture'; exit 1 ;;
+            esac
+            test -s "dist/RepoDNA_${version}_${arch}_en-US.msi"
+            test -s "dist/RepoDNA_${version}_${arch}-setup.exe"
+          fi
       - uses: actions/upload-artifact@v7
         with:
           name: desktop-${{ matrix.name }}
