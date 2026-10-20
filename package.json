@@ -18,6 +18,7 @@
     "apps/desktop"
   ],
   "scripts": {
+    "release:check": "node packaging/release/check-version.mjs",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
