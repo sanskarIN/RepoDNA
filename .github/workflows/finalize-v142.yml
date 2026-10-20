@@ -62,6 +62,27 @@ jobs:
             fi
             sleep 15
           done
+      - name: Dry-run every release artifact before creating the immutable tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          started_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          gh workflow run release.yml --ref main --field tag=
+          run_id=''
+          for attempt in $(seq 1 60); do
+            run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=workflow_dispatch&branch=main&per_page=40" \
+              --jq '.workflow_runs[] | select(.head_sha == "'"$GITHUB_SHA"'" and .created_at >= "'"$started_at"'") | .id' | head -n 1)"
+            if [ -n "$run_id" ]; then break; fi
+            sleep 5
+          done
+          if [ -z "$run_id" ]; then
+            echo '::error::Cannot find the dry-run release build.'
+            exit 1
+          fi
+          echo "::notice::Full release dry run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$run_id"
+          # Trials build Windows installers, CLI, macOS, Linux, npm archives,
+          # WebAssembly, the container and WinGet manifest ZIP, but publish none.
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status --interval 20
       - name: Create stable v1.4.2 tag, never overwrite an existing tag
         shell: bash
         run: |
