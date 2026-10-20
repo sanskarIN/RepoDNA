@@ -6,6 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-10-20
+
+A stability-focused release that improves Windows CLI startup, updates a
+vulnerable archive dependency, strengthens validation of untrusted archives,
+and adds checks for packaged Windows executables and installer artifacts.
+
 ### Fixed
 
 - Launching the portable `repodna` CLI without arguments now prints the full
@@ -47,6 +53,17 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 - Regression coverage checks the no-argument launch, help output, and
   `--version` exit status. CI and the release pipeline smoke-test the
   no-argument startup on supported build runners before publishing artifacts.
+
+### Release validation
+
+- The release workflow now runs actual Windows ZIP smoke tests inside the CLI
+  matrix, rather than leaving an inapplicable check in the WebAssembly job.
+- Windows x64 and ARM64 builds must each produce nonempty MSI and setup EXE
+  artifacts before the desktop job succeeds.
+- GitHub release downloads and WinGet catalog publication remain separate:
+  Microsoft's review of the v1.4.1 desktop and CLI package submissions was
+  still pending when this release was prepared. Do not describe WinGet
+  installation of v1.4.2 as available until it is independently indexed.
 
 ## [1.4.1] - 2026-10-16
 
@@ -689,7 +706,8 @@ every conclusion backed by evidence.
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.
 
-[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/sanskarIN/RepoDNA/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/sanskarIN/RepoDNA/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/sanskarIN/RepoDNA/compare/v1.3.3...v1.4.0
 [1.3.3]: https://github.com/sanskarIN/RepoDNA/compare/v1.3.2...v1.3.3
