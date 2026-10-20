@@ -150,7 +150,7 @@ right in your browser and works offline, all built on the same analysis.
 
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
-(`uses: sanskarIN/RepoDNA@v1.4.1`) does all of this in one step.
+(`uses: sanskarIN/RepoDNA@v1.4.2`) does all of this in one step.
 
 **Optional AI explanations.** Explanations in prose, built only from the analysis evidence,
 through a local program or an API you configure. Off by default.
@@ -213,8 +213,8 @@ statically linked), macOS (Apple silicon and Intel), or Windows (x86_64 and ARM6
 a single `repodna` program with the web interface built in. For example, on Linux:
 
 ```sh
-tar -xzf repodna-1.4.1-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.4.1-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.4.2-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.4.2-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 repodna --version
 ```
 
