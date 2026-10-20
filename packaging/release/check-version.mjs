@@ -55,6 +55,13 @@ for (const path of ['Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock']) {
   for (const [, name, lockedVersion] of matches) {
     assert.equal(lockedVersion, version, path + ': ' + name + ' is out of sync');
   }
+  if (path === 'Cargo.lock') {
+    assert.equal(
+      text.match(/name = "xtask"\r?\nversion = "([^"]+)"/)?.[1],
+      version,
+      'xtask CLI workspace package version is out of sync',
+    );
+  }
 }
 assert.ok(
   read('CHANGELOG.md').includes('## [' + version + '] - '),
