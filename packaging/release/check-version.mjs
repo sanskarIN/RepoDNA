@@ -37,9 +37,17 @@ for (const path of ['apps/web/package.json', 'package-lock.json']) {
 }
 
 const workspace = read('Cargo.toml');
-assert.match(workspace, new RegExp('\\\\[workspace\\\\.package\\\\]\\\\s*version = "' + version.replaceAll('.', '\\\\.') + '"'));
+assert.equal(
+  workspace.match(/^\[workspace\.package\]\r?\nversion = "([^"]+)"/m)?.[1],
+  version,
+  'Cargo.toml workspace.package version is out of sync',
+);
 const desktop = read('apps/desktop/src-tauri/Cargo.toml');
-assert.match(desktop, new RegExp('\\\\[package\\\\][\\\\s\\\\S]*?\\\\nversion = "' + version.replaceAll('.', '\\\\.') + '"'));
+assert.equal(
+  desktop.match(/^version = "([^"]+)"/m)?.[1],
+  version,
+  'desktop Cargo.toml version is out of sync',
+);
 for (const path of ['Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock']) {
   const text = read(path);
   const matches = [...text.matchAll(/name = "(repodna-[^"]+)"\r?\nversion = "([^"]+)"/g)];
