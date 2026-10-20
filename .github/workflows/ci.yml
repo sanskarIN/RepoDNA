@@ -81,6 +81,8 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
+      - name: Check release metadata consistency
+        run: node packaging/release/check-version.mjs
       - name: Check formatting
         run: npm run format:check
       - uses: dtolnay/rust-toolchain@stable
