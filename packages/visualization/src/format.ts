@@ -7,8 +7,11 @@ export function thousands(value: number): string {
   return grouping.format(Math.round(value));
 }
 
-/** 1284 → "1,284"; 12900 → "12.9K"; 4200000 → "4.2M". */
+/** 1284 → "1,284"; 12900 → "12.9K"; negative deltas keep their sign. */
 export function compact(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "–";
+  }
   const abs = Math.abs(value);
   if (abs < 10_000) {
     return thousands(value);
@@ -21,7 +24,9 @@ export function compact(value: number): string {
   for (const [size, unit] of units) {
     if (abs >= size) {
       const scaled = value / size;
-      return `${scaled >= 100 ? Math.round(scaled) : Math.round(scaled * 10) / 10}${unit}`;
+      const magnitude = Math.abs(scaled);
+      const rounded = magnitude >= 100 ? Math.round(magnitude) : Math.round(magnitude * 10) / 10;
+      return `${scaled < 0 ? "-" : ""}${rounded}${unit}`;
     }
   }
   return thousands(value);

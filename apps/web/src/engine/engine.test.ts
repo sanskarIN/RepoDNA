@@ -86,6 +86,15 @@ describe("input", () => {
       ],
     } as unknown as DataTransfer;
     expect(droppedFolder(transfer)).toBe(directory);
+    // A file (or an unreadable entry) before the directory must not hide the folder.
+    const mixed = {
+      items: [
+        { kind: "file", webkitGetAsEntry: () => entry("README.md") },
+        { kind: "file", webkitGetAsEntry: () => null },
+        { kind: "file", webkitGetAsEntry: () => directory },
+      ],
+    } as unknown as DataTransfer;
+    expect(droppedFolder(mixed)).toBe(directory);
     const file = { items: [{ kind: "file", webkitGetAsEntry: () => entry("a.zip") }] };
     expect(droppedFolder(file as unknown as DataTransfer)).toBeNull();
     expect(droppedFolder(null)).toBeNull();
