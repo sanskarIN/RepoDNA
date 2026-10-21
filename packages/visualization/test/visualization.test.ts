@@ -142,6 +142,9 @@ describe("heatmap and formatting", () => {
     expect(compact(1284)).toBe("1,284");
     expect(compact(12_900)).toBe("12.9K");
     expect(compact(4_200_000)).toBe("4.2M");
+    expect(compact(-12_900)).toBe("-12.9K");
+    expect(compact(-123_456_789)).toBe("-123M");
+    expect(compact(Number.POSITIVE_INFINITY)).toBe("–");
     expect(percent(0.125)).toBe("12.5%");
     expect(percent(Number.NaN)).toBe("–");
     expect(percent(0.0003)).toBe("<0.1%");

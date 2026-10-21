@@ -90,7 +90,14 @@ export async function folderFromEntry(
  * drop is handled: the browser forgets what was dropped afterwards.
  */
 export function droppedFolder(transfer: DataTransfer | null): FileSystemDirectoryEntry | null {
-  const item = Array.from(transfer?.items ?? []).find((candidate) => candidate.kind === "file");
-  const entry = item?.webkitGetAsEntry?.() ?? null;
-  return entry?.isDirectory ? (entry as FileSystemDirectoryEntry) : null;
+  for (const item of Array.from(transfer?.items ?? [])) {
+    if (item.kind !== "file") {
+      continue;
+    }
+    const entry = item.webkitGetAsEntry?.();
+    if (entry?.isDirectory) {
+      return entry as FileSystemDirectoryEntry;
+    }
+  }
+  return null;
 }
