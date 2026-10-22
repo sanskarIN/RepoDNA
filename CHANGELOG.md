@@ -6,6 +6,19 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Make browser-exported analysis filenames portable and predictable: normalize accented
+  repository names, limit the filename length, and use a safe date fallback when metadata
+  contains an invalid date.
+
+### Maintenance
+
+- Lock Razorpay donations to the single official link,
+  <https://razorpay.me/@SanskarCodes>, across the website, project documentation,
+  and GitHub Sponsors configuration. Run an automated audit and regression tests in CI
+  to reject alternate, insecure, or outdated destinations.
+
 ## [1.4.2] - 2026-10-20
 
 A stability-focused release that improves Windows CLI startup, updates a
@@ -160,7 +173,7 @@ pages; the support links lead to the new Buy Me a Coffee and Razorpay pages; and
 ### Changed
 
 - The support links lead to [buymeacoffee.com/SanskarCodes](https://buymeacoffee.com/SanskarCodes)
-  and [razorpay.me/@SanskarCodes](https://razorpay.me/@SanskarCodes): on the About page of
+  and [https://razorpay.me/@SanskarCodes](https://razorpay.me/@SanskarCodes): on the About page of
   the web version and the desktop app, in the README, in SUPPORT.md, and in the FAQ.
 - The Documentation link of the About page, the end of `repodna --help`, and the
   `repodna.toml` and `config.toml` files that RepoDNA writes lead to the documentation
