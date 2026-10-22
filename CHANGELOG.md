@@ -19,7 +19,6 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   and GitHub Sponsors configuration. Run an automated audit and regression tests in CI
   to reject alternate, insecure, or outdated destinations.
 
-
 ## [1.4.2] - 2026-10-20
 
 A stability-focused release that improves Windows CLI startup, updates a
