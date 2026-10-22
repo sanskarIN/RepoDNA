@@ -19,6 +19,8 @@
   ],
   "scripts": {
     "release:check": "node packaging/release/check-version.mjs",
+    "links:check": "node packaging/release/check-support-links.mjs",
+    "links:test": "node --test packaging/release/test/*.test.mjs",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
