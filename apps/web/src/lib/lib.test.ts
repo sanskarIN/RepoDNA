@@ -55,6 +55,30 @@ describe("names", () => {
   it("names exported files like the command line", () => {
     expect(artifactFileName(dna)).toBe("repodna-demo-project-2026-09-24.repodna");
   });
+
+  it("makes portable export names for accents and long repository names", () => {
+    const renamed = (name: string) => ({
+      ...dna,
+      identity: { ...dna.identity, name },
+    });
+    expect(artifactFileName(renamed("Répo Café"))).toBe("repodna-repo-cafe-2026-09-24.repodna");
+    expect(artifactFileName(renamed("... / ..."))).toBe(
+      "repodna-repository-2026-09-24.repodna",
+    );
+    expect(artifactFileName(renamed("X".repeat(300)))).toBe(
+      "repodna-" + "x".repeat(80) + "-2026-09-24.repodna",
+    );
+  });
+
+  it("uses a safe fallback date when an artifact has an invalid timestamp", () => {
+    for (const generatedAt of ["not-a-date", "2026-02-30T00:00:00Z", ""]) {
+      const changed = {
+        ...dna,
+        analysisMetadata: { ...dna.analysisMetadata, generatedAt },
+      };
+      expect(artifactFileName(changed)).toBe("repodna-demo-project-unknown-date.repodna");
+    }
+  });
 });
 
 describe("activity", () => {
