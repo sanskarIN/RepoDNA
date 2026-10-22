@@ -33,12 +33,24 @@ export function downloadBlob(name: string, blob: Blob): void {
 
 /** The file name `repodna export` uses: `repodna-<name>-<date>.repodna`. */
 export function artifactFileName(dna: RepositoryDna): string {
+  // Keep exports portable on Windows, macOS and Linux (255-byte filename limits).
   const name = dna.identity.name
-    .split("")
-    .map((c) => (/[A-Za-z0-9._-]/.test(c) ? c.toLowerCase() : "-"))
-    .join("")
-    .replace(/^[-.]+|[-.]+$/g, "");
-  return `repodna-${name || "repository"}-${dna.analysisMetadata.generatedAt.slice(0, 10)}.repodna`;
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[.-]+|[.-]+$/g, "")
+    .slice(0, 80)
+    .replace(/[.-]+$/g, "");
+  const stamp = dna.analysisMetadata.generatedAt.slice(0, 10);
+  const date =
+    /^\d{4}-\d{2}-\d{2}$/.test(stamp) &&
+    Number.isFinite(Date.parse(stamp)) &&
+    new Date(stamp).toISOString().slice(0, 10) === stamp
+      ? stamp
+      : "unknown-date";
+  return `repodna-${name || "repository"}-${date}.repodna`;
 }
 
 /** `downloadText`, and why the last file could not be saved, for the page to show. */
