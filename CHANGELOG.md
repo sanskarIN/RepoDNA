@@ -6,6 +6,20 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Make browser-exported analysis filenames portable and predictable: normalize accented
+  repository names, limit the filename length, and use a safe date fallback when metadata
+  contains an invalid date.
+
+### Maintenance
+
+- Lock Razorpay donations to the single official link,
+  <https://razorpay.me/@SanskarCodes>, across the website, project documentation,
+  and GitHub Sponsors configuration. Run an automated audit and regression tests in CI
+  to reject alternate, insecure, or outdated destinations.
+
+
 ## [1.4.2] - 2026-10-20
 
 A stability-focused release that improves Windows CLI startup, updates a
