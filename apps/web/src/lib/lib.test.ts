@@ -62,9 +62,7 @@ describe("names", () => {
       identity: { ...dna.identity, name },
     });
     expect(artifactFileName(renamed("Répo Café"))).toBe("repodna-repo-cafe-2026-09-24.repodna");
-    expect(artifactFileName(renamed("... / ..."))).toBe(
-      "repodna-repository-2026-09-24.repodna",
-    );
+    expect(artifactFileName(renamed("... / ..."))).toBe("repodna-repository-2026-09-24.repodna");
     expect(artifactFileName(renamed("X".repeat(300)))).toBe(
       "repodna-" + "x".repeat(80) + "-2026-09-24.repodna",
     );
