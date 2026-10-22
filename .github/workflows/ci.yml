@@ -83,6 +83,8 @@ jobs:
         run: npm ci
       - name: Check release metadata consistency
         run: node packaging/release/check-version.mjs
+      - name: Verify official support links
+        run: npm run links:check && npm run links:test
       - name: Check formatting
         run: npm run format:check
       - uses: dtolnay/rust-toolchain@stable
