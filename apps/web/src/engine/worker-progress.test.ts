@@ -4,7 +4,7 @@ import { analyzeFolder } from "./client";
 afterEach(() => vi.unstubAllGlobals());
 
 it("still resolves an analysis after the progress subscriber throws", async () => {
-  let worker: { onmessage: ((event: { data: unknown }) => void) | null } | null = null;
+  let worker: WorkerStub | null = null;
   class WorkerStub {
     onmessage: ((event: { data: unknown }) => void) | null = null;
     onerror = null;
@@ -20,9 +20,10 @@ it("still resolves an analysis after the progress subscriber throws", async () =
   });
   const deliver = (data: unknown) => {
     if (!worker) throw new Error("Worker was not constructed");
-    (worker as WorkerStub).onmessage?.({ data });
+    worker.onmessage?.({ data });
   };
-  expect(() => deliver({ id: 1, kind: "progress", progress: { event: "files", done: 1, total: 2 } })).not.toThrow();
+  const progress = { id: 1, kind: "progress", progress: { event: "files", done: 1, total: 2 } };
+  expect(() => deliver(progress)).not.toThrow();
   deliver({ id: 1, kind: "done", output: "{}", size: 2 });
   await expect(task.result).resolves.toEqual({ text: "{}", size: 2 });
 });
