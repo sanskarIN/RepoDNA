@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  indexedDbStore,
   memoryStore,
   newest,
   openPointer,
@@ -77,6 +78,44 @@ describe("recent analyses", () => {
     expect(openPointer()).toBeNull();
     window.sessionStorage.setItem("repodna-open", JSON.stringify({ kind: "file" }));
     expect(openPointer()).toBeNull();
+  });
+
+  it("rejects incomplete or corrupt session pointers without exposing partial data", () => {
+    for (const invalid of [
+      null,
+      [],
+      { kind: "stored", repositoryId: "repo" },
+      { kind: "stored", repositoryId: "repo", name: "Demo", scanId: 7 },
+      { kind: "stored", repositoryId: "", name: "Demo" },
+      { kind: "file", id: "" },
+      { kind: "demo", file: "repodna.json" },
+      { kind: "demo", file: "", title: "Demo" },
+    ]) {
+      window.sessionStorage.setItem("repodna-open", JSON.stringify(invalid));
+      expect(openPointer()).toBeNull();
+    }
+    window.sessionStorage.setItem(
+      "repodna-open",
+      JSON.stringify({ kind: "stored", repositoryId: "repo", name: "Demo", extra: "ignored" }),
+    );
+    expect(openPointer()).toEqual({ kind: "stored", repositoryId: "repo", name: "Demo" });
+  });
+
+  it("retries transient IndexedDB open failures instead of caching rejected promises", async () => {
+    const factory = {
+      open: vi.fn(() => {
+        const request = {
+          error: new DOMException("temporarily blocked", "UnknownError"),
+          onerror: null,
+        } as unknown as IDBOpenDBRequest;
+        queueMicrotask(() => request.onerror?.call(request, new Event("error")));
+        return request;
+      }),
+    } as unknown as IDBFactory;
+    const store = indexedDbStore(factory);
+    await expect(store.list()).rejects.toThrow("temporarily blocked");
+    await expect(store.list()).rejects.toThrow("temporarily blocked");
+    expect(factory.open).toHaveBeenCalledTimes(2);
   });
 
   it("keeps recent analyses unless turned off", () => {
