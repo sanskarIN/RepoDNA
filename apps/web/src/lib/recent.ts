@@ -218,21 +218,29 @@ export function openPointer(): OpenPointer | null {
     const pointer = value as Record<string, unknown>;
     switch (pointer.kind) {
       case "stored":
-        return typeof pointer.repositoryId === "string" &&
-          pointer.repositoryId.length > 0 &&
-          typeof pointer.name === "string" &&
-          (pointer.scanId === undefined || typeof pointer.scanId === "string")
-          ? (pointer as OpenPointer)
-          : null;
+        if (
+          typeof pointer.repositoryId !== "string" ||
+          !pointer.repositoryId ||
+          typeof pointer.name !== "string" ||
+          (pointer.scanId !== undefined && typeof pointer.scanId !== "string")
+        ) {
+          return null;
+        }
+        return {
+          kind: "stored",
+          repositoryId: pointer.repositoryId,
+          name: pointer.name,
+          ...(typeof pointer.scanId === "string" ? { scanId: pointer.scanId } : {}),
+        };
       case "file":
         return typeof pointer.id === "string" && pointer.id.length > 0
-          ? (pointer as OpenPointer)
+          ? { kind: "file", id: pointer.id }
           : null;
       case "demo":
         return typeof pointer.file === "string" &&
           pointer.file.length > 0 &&
           typeof pointer.title === "string"
-          ? (pointer as OpenPointer)
+          ? { kind: "demo", file: pointer.file, title: pointer.title }
           : null;
       default:
         return null;
