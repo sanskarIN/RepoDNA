@@ -9,7 +9,12 @@ export function WhatsNewDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const dialog = ref.current;
     if (dialog && !dialog.open) {
-      dialog.showModal();
+      if (typeof dialog.showModal === "function") {
+        dialog.showModal();
+      } else {
+        // The jsdom test browser and older embedded webviews lack showModal().
+        dialog.open = true;
+      }
     }
   }, []);
 
