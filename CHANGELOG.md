@@ -6,6 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Security
+
+- Require advisory, source, license, and dependency-ban checks for both the workspace and
+  desktop dependency trees before release jobs publish GitHub packages, npm packages,
+  container images, or release installers.
+
 ### Fixed
 
 - Make browser-exported analysis filenames portable and predictable: normalize accented
