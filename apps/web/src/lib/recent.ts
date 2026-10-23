@@ -183,16 +183,20 @@ export function browserStore(): RecentStore {
   return memoryStore();
 }
 
+// Keep Settings effective for the current tab when storage is blocked.
+let ephemeralRememberChoice: boolean | null = null;
+
 /** Whether recent analyses are kept in this browser; on unless turned off in Settings. */
 export function rememberRecent(): boolean {
   try {
     return window.localStorage.getItem(REMEMBER_KEY) !== "off";
   } catch {
-    return true;
+    return ephemeralRememberChoice ?? true;
   }
 }
 
 export function setRememberRecent(on: boolean): void {
+  ephemeralRememberChoice = on;
   try {
     if (on) {
       window.localStorage.removeItem(REMEMBER_KEY);
