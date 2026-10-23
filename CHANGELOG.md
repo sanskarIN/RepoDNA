@@ -6,6 +6,24 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-10-23
+
+*Stable release candidate: these notes are being reviewed; no v1.4.3 public tag has
+been published.*
+
+### Highlights
+
+- Added a **What's New** sidebar page and an offline first-launch announcement on
+  installation or update, with notes for the installed version.
+- Opened the Windows desktop in a smaller **centered, resizable** default window
+  instead of occupying nearly the full display.
+- Added Files explorer filters for generated, vendored, binary, skipped, and
+  ordinary files.
+- Improved local-first browser analysis reliability, including WebAssembly engine
+  discovery, progress events, worker callback handling and export filenames.
+- Strengthened package publication gates and Windows installer validation with
+  safer npm staging, version checks, and checksum/inventory verification.
+
 ### Added
 
 - A **What's New** section in the sidebar showing the current version's highlights
