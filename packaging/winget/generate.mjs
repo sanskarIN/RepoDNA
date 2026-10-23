@@ -44,13 +44,23 @@ function inspectZipPaths(filepath, filename, nestedFile) {
   for (const entry of entries) {
     const normalized = entry.replaceAll('\\', '/');
     const segments = normalized.split('/');
+    // WinGet extracts onto Windows. Reject paths that unzip can list but NTFS cannot
+    // safely represent (device names, alternate streams, trailing dots/spaces).
+    const parts = normalized.endsWith('/') ? segments.slice(0, -1) : segments;
+    const invalidPart = parts.some((part) =>
+      !part ||
+      part === '.' ||
+      part === '..' ||
+      /[\x00-\x1f\x7f:]/.test(part) ||
+      /[. ]$/.test(part) ||
+      /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(part)
+    );
     if (
       !normalized ||
       normalized.startsWith('/') ||
       /^[A-Za-z]:/.test(normalized) ||
-      segments.some((part) => part === '.' || part === '..') ||
+      invalidPart ||
       entry.includes('\\') ||
-      entry.includes('\0') ||
       !normalized.startsWith(expectedRoot)
     ) {
       throw new Error(filename + ' contains an unsafe ZIP entry: ' + entry);

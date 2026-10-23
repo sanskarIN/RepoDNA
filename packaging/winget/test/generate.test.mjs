@@ -162,3 +162,20 @@ test('checks ZIP payload integrity, not only filename listings', () => {
   assert.notEqual(result.status, 0);
   assert.equal(existsSync(paths.out), false);
 });
+
+test('rejects Windows device names, alternate streams, and trailing-dot archive entries', {
+  skip: process.platform === 'win32',
+}, () => {
+  for (const badName of ['CON.txt', 'readme:payload', 'notes.', 'trailing ']) {
+    const paths = prepare();
+    const name = 'repodna-' + version + '-x86_64-pc-windows-msvc';
+    writeFileSync(join(paths.root, name, badName), 'invalid Windows path');
+    execFileSync('zip', [
+      '-q', join(paths.archives, name + '.zip'), name + '/' + badName,
+    ], { cwd: paths.root });
+    const result = run(paths);
+    assert.notEqual(result.status, 0, badName);
+    assert.match(result.stderr, /contains an unsafe ZIP entry/, badName);
+    assert.equal(existsSync(paths.out), false, badName);
+  }
+});
