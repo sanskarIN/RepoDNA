@@ -42,6 +42,15 @@ describe("local server API responses", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
     await expect(new ServerBackend(null).cancelJob("job-1")).resolves.toBeUndefined();
   });
+
+  it("rejects a malformed successful session response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ version: "1.4.2", allowScans: "yes" }), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).session()).rejects.toThrow(
+      "The server returned an invalid session.",
+    );
+  });
 });
 
 describe("local server token URLs", () => {

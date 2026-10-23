@@ -181,8 +181,19 @@ export class ServerBackend implements Backend {
     return body as T;
   }
 
-  session(): Promise<Session> {
-    return this.request<Session>("session");
+  async session(): Promise<Session> {
+    const value = await this.request<unknown>("session");
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("version" in value) ||
+      typeof value.version !== "string" ||
+      !("allowScans" in value) ||
+      typeof value.allowScans !== "boolean"
+    ) {
+      throw new BackendError("The server returned an invalid session.", 200);
+    }
+    return value as Session;
   }
 
   repositories(): Promise<RepositorySummary[]> {
