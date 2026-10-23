@@ -59,6 +59,7 @@ jobs:
           $zip = Join-Path $env:RUNNER_TEMP "$name.zip"
           Compress-Archive -Path $folder -DestinationPath $zip -CompressionLevel Optimal
           & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version $version -Target $target
+          & ./packaging/winget/test/check-windows-cli.test.ps1
 
   docs:
     name: API documentation

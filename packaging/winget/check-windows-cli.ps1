@@ -31,10 +31,26 @@ try {
         if (
             ($normalized -cne $name) -or
             (-not $normalized.StartsWith("$folder/", [System.StringComparison]::Ordinal)) -or
-            ($normalized -match '(^|/)\.\.?(/|$)') -or
             (-not $seen.Add($normalized))
         ) {
             throw "Unsafe or duplicate ZIP entry: $name"
+        }
+        # Check forbidden Win32 path components before attempting extraction.
+        $segments = @($normalized.Split('/'))
+        if ($normalized.EndsWith('/')) {
+            $segments = @($segments[0..($segments.Length - 2)])
+        }
+        foreach ($segment in $segments) {
+            if (
+                (-not $segment) -or
+                ($segment -eq '.') -or
+                ($segment -eq '..') -or
+                ($segment -match '[\x00-\x1f\x7f<>:"|?*]') -or
+                ($segment -match '[. ]$') -or
+                ($segment -match '^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$')
+            ) {
+                throw "Unsafe or duplicate ZIP entry: $name"
+            }
         }
         # Unix symbolic links can redirect an extracted executable outside its folder.
         $unixType = ($entry.ExternalAttributes -shr 16) -band 0xF000
