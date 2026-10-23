@@ -7,6 +7,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { parseArtifact } from "@repodna/schema";
 import { App } from "../App";
 import { NAV } from "../lib/nav";
+import { WHATS_NEW_SEEN_KEY } from "../lib/whats-new";
 import type { Dataset } from "../state";
 import demoText from "../../public/demo/repodna.json?raw";
 
@@ -20,6 +21,8 @@ function demo(): Dataset {
 }
 
 async function renderAt(path: string, dataset: Dataset | null) {
+  // General view tests represent a returning user who already dismissed What's New.
+  window.localStorage.setItem(WHATS_NEW_SEEN_KEY, __REPODNA_VERSION__);
   window.location.hash = `#${path}`;
   await act(async () => {
     render(<App initial={dataset} />);
