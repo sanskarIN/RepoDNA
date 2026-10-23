@@ -138,6 +138,18 @@ describe("findings", () => {
     expect(highlights(findings, 2).map((f) => f.id)).toEqual(["a1", "c1"]);
     expect(highlights(findings, 4).map((f) => f.id)).toEqual(["a1", "a2", "c1", "d1"]);
   });
+  it("keeps the original display order when findings share an ID", () => {
+    const findings = [
+      finding("first", "same-id"),
+      finding("first", "second-id"),
+      finding("second", "other-id"),
+      finding("third", "same-id"),
+    ];
+    const rules = (limit: number) => highlights(findings, limit).map(({ rule }) => rule);
+    expect(rules(3)).toEqual(["first", "second", "third"]);
+    expect(rules(4)).toEqual(["first", "first", "second", "third"]);
+    expect(rules(-1)).toEqual([]);
+  });
 });
 
 describe("markdown", () => {
