@@ -233,3 +233,11 @@ test("refuses insecure or ambiguous publishing registry URLs", () => {
     assert.throws(() => npmrc(address, true), /HTTPS URL without credentials or query data/);
   }
 });
+
+test("compares stable and prerelease semver precedence correctly", () => {
+  assert.equal(isOlder("1.2.0-rc.1", "1.2.0"), true);
+  assert.equal(isOlder("1.2.0", "1.2.0-rc.1"), false);
+  assert.equal(isOlder("1.2.0-rc.2", "1.2.0-rc.10"), true);
+  assert.equal(isOlder("1.2.0-alpha", "1.2.0-beta"), true);
+  assert.equal(isOlder("1.2.0-rc.1", "1.2.0-rc.1"), false);
+});
