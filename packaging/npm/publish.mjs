@@ -160,8 +160,13 @@ export function publish({
     const userconfig = join(home, ".npmrc");
     writeFileSync(userconfig, npmrc(registry, Boolean(process.env.NODE_AUTH_TOKEN)));
     const config = ["--userconfig", userconfig, "--registry", normalize(registry)];
+    const packages = publishOrder(dir);
+    const versions = new Set(packages.map((pkg) => pkg.version));
+    if (versions.size > 1) {
+      throw new Error("All staged npm packages must have the same release version.");
+    }
     const done = [];
-    for (const pkg of publishOrder(dir)) {
+    for (const pkg of packages) {
       if (published(npm, config, pkg)) {
         log(`${pkg.name}@${pkg.version} is already on ${normalize(registry)}.`);
         continue;
