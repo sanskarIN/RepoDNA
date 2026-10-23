@@ -222,3 +222,13 @@ test("publishes a prerelease under the next tag", () => {
     ["--tag", "beta"],
   ]);
 });
+
+test("rejects incomplete explicit npm dist-tags before contacting registries", () => {
+  for (const extra of [["--tag"], ["--tag", "--access", "public"], ["--tag="]]) {
+    assert.throws(
+      () => publish({ registry: "https://registry.npmjs.org", dir: staged, npm, extra }),
+      /An explicit npm --tag requires a nonempty tag name/,
+    );
+  }
+  assert.deepEqual(readCalls(), []);
+});
