@@ -233,3 +233,21 @@ test("refuses insecure or ambiguous publishing registry URLs", () => {
     assert.throws(() => npmrc(address, true), /HTTPS URL without credentials or query data/);
   }
 });
+
+test("honors an explicit equals-style publish tag", () => {
+  const prerelease = join(dir, "equals-tag");
+  mkdirSync(join(prerelease, "repodna-schema"), { recursive: true });
+  writeFileSync(
+    join(prerelease, "repodna-schema", "package.json"),
+    JSON.stringify({ name: "@sanskarin/repodna-schema", version: "9.9.0-rc.1" }),
+  );
+  publish({
+    registry: "https://registry.npmjs.org",
+    dir: prerelease,
+    extra: ["--tag=beta"],
+    npm,
+  });
+  const args = readCalls().find((call) => call.args[0] === "publish").args;
+  assert.ok(args.includes("--tag=beta"));
+  assert.equal(args.includes("next"), false);
+});
