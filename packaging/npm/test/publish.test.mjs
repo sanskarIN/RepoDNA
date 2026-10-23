@@ -233,3 +233,16 @@ test("refuses insecure or ambiguous publishing registry URLs", () => {
     assert.throws(() => npmrc(address, true), /HTTPS URL without credentials or query data/);
   }
 });
+
+test("refuses mixed staged versions before contacting the registry", () => {
+  stage("@sanskarin/repodna-schema", "9.8.8");
+  try {
+    assert.throws(
+      () => publish({ registry: "https://registry.npmjs.org", dir: staged, npm }),
+      /All staged npm packages must have the same release version/,
+    );
+    assert.deepEqual(readCalls(), []);
+  } finally {
+    stage("@sanskarin/repodna-schema", "9.8.7");
+  }
+});
