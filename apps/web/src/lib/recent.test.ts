@@ -125,4 +125,26 @@ describe("recent analyses", () => {
     setRememberRecent(true);
     expect(rememberRecent()).toBe(true);
   });
+  it("keeps the recent-analysis preference for the tab when local storage is blocked", () => {
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage denied");
+    });
+    const put = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("storage denied");
+    });
+    const remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("storage denied");
+    });
+    try {
+      setRememberRecent(false);
+      expect(rememberRecent()).toBe(false);
+      setRememberRecent(true);
+      expect(rememberRecent()).toBe(true);
+    } finally {
+      get.mockRestore();
+      put.mockRestore();
+      remove.mockRestore();
+    }
+  });
+
 });
