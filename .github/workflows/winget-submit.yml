@@ -75,6 +75,7 @@ jobs:
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$name" --dir release-files
           done
           (cd release-files && sha256sum --check --ignore-missing SHA256SUMS.txt)
+          node packaging/winget/check-release-checksums.mjs release-files "$version"
           echo "VERSION=$version" >> "$GITHUB_ENV"
       - name: Generate and cross-check WinGet manifests
         shell: bash
