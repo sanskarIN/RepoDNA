@@ -51,7 +51,6 @@ describe("local server API responses", () => {
       "The server returned invalid repository details.",
     );
   });
-
 });
 
 describe("local server token URLs", () => {
