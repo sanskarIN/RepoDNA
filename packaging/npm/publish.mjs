@@ -109,6 +109,21 @@ export function isOlder(a, b) {
       return x[index] < y[index];
     }
   }
+  const prerelease = (value) => value.split("-", 2)[1]?.split("+", 1)[0]?.split(".") ?? [];
+  const aPre = prerelease(a);
+  const bPre = prerelease(b);
+  if (!aPre.length) return false;
+  if (!bPre.length) return true;
+  for (let i = 0; i < Math.max(aPre.length, bPre.length); i += 1) {
+    if (aPre[i] === undefined) return true;
+    if (bPre[i] === undefined) return false;
+    const aNumeric = /^\d+$/.test(aPre[i]);
+    const bNumeric = /^\d+$/.test(bPre[i]);
+    if (aNumeric !== bNumeric) return aNumeric;
+    if (aPre[i] !== bPre[i]) {
+      return aNumeric ? BigInt(aPre[i]) < BigInt(bPre[i]) : aPre[i] < bPre[i];
+    }
+  }
   return false;
 }
 
