@@ -21,9 +21,7 @@ export function ReleaseHighlights({ version = __REPODNA_VERSION__ }: { version?:
       )}
       <p className="muted">
         Full details:{" "}
-        <a href="https://github.com/sanskarIN/RepoDNA/blob/main/CHANGELOG.md">
-          RepoDNA changelog
-        </a>
+        <a href="https://github.com/sanskarIN/RepoDNA/blob/main/CHANGELOG.md">RepoDNA changelog</a>
       </p>
     </div>
   );
