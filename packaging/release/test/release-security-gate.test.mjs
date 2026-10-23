@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const workflow = readFileSync(' .github/workflows/release.yml'.trim(), 'utf8');
+const workflow = readFileSync('.github/workflows/release.yml', 'utf8');
 
 function job(name) {
   const marker = '\n  ' + name + ':\n';
