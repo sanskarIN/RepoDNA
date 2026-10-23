@@ -11,6 +11,6 @@ describe("browser analysis download names", () => {
     expect(analysisFileName("CON.zip")).toBe("repodna-CON.repodna");
     expect(analysisFileName("bad:name?.tar")).toBe("bad-name-.repodna");
     expect(analysisFileName("...")).toBe("repository.repodna");
-    expect(analysisFileName("z".repeat(500)).toBe("z".repeat(100) + ".repodna");
+    expect(analysisFileName("z".repeat(500))).toBe("z".repeat(100) + ".repodna");
   });
 });
