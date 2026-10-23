@@ -59,16 +59,20 @@ function csvValue<T>(column: Column<T>, row: T): number | string {
 }
 
 /**
- * One CSV field. Text that a spreadsheet would read as a formula (=, +, -, @) gets a leading
- * apostrophe, so a file name in an analyzed repository cannot run anything when the file is
- * opened.
+ * One CSV field. Guard strings that a spreadsheet might interpret as formulas, even
+ * after leading whitespace or control characters. Number cells remain numeric.
  */
 export function csvField(value: number | string): string {
   if (typeof value === "number") {
     return Number.isFinite(value) ? String(value) : "";
   }
-  const text = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-  return /[",\n\r]/.test(text) || text !== text.trim() ? `"${text.replace(/"/g, '""')}"` : text;
+  // Whitespace and invisible separators before =, +, -, or @ must not evade
+  // formula protection. A leading tab/newline is also unsafe on its own.
+  const formula = /^[\u0000-\u0020\uFEFF]*[=+\-@]/.test(value) || /^[\t\r\n]/.test(value);
+  const text = formula ? `'${value}` : value;
+  const leadingWhitespace = /^[\u0000-\u0020\uFEFF]/.test(value);
+  const quote = /[",\n\r\t]/.test(text) || leadingWhitespace || text !== text.trim();
+  return quote ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 /** The rows as CSV, every row and column of them, with a header line. */
