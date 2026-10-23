@@ -22,6 +22,17 @@ for (const path of manifests) {
 }
 const npmLock = json('package-lock.json');
 assert.equal(npmLock.version, version);
+const requiredWorkspaces = [
+  '',
+  'apps/web',
+  'apps/desktop',
+  'packages/schema',
+  'packages/visualization',
+  'packages/wasm',
+];
+for (const name of requiredWorkspaces) {
+  assert.ok(npmLock.packages?.[name], 'package-lock.json: missing workspace ' + (name || 'root'));
+}
 for (const [name, pkg] of Object.entries(npmLock.packages)) {
   if (name === '' || /^(apps\/(web|desktop)|packages\/(schema|visualization|wasm))$/.test(name)) {
     assert.equal(pkg.version, version, 'npm lockfile package ' + name);
