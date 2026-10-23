@@ -8,10 +8,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [1.4.3] - 2026-10-23
 
-*Stable release candidate: these notes are being reviewed; no v1.4.3 public tag has
-been published.*
+RepoDNA v1.4.3 improves local-first analysis reliability, desktop startup,
+release integrity, and secure export workflows.
 
 ### Highlights
+
+- Export all currently filtered Findings to spreadsheet-safe CSV, including matching results beyond the visible page.
 
 - Added a **What's New** sidebar page and an offline first-launch announcement on
   installation or update, with notes for the installed version.
@@ -33,7 +35,12 @@ been published.*
 - Filter the Files explorer by generated, vendored, binary, skipped, or ordinary file
   state, alongside its existing category, language, and path search filters.
 
+- Export currently filtered Findings as CSV with inline save-error reporting.
+
 ### Security
+
+- Escape formula-like CSV fields even when whitespace or control characters precede the
+  formula, protecting exported tables from spreadsheet evaluation.
 
 - Check Windows-invalid ZIP filenames in the Windows portable CLI smoke verifier as
   well as the WinGet manifest generator, with negative-case regression tests on CI.
