@@ -52,6 +52,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Maintenance
 
+- Verify the complete Windows CLI, desktop installers and WinGet manifest inventory
+  before publication; run the same check in unpublished release trials.
+
 - Require installers and WinGet manifest validation before npm and container image
   publication; wait for all published packages and images before creating the GitHub
   release, reducing the risk of a partial release.

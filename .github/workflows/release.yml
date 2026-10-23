@@ -365,9 +365,39 @@ jobs:
           path: dist/*.zip
           if-no-files-found: error
 
+  release-assets:
+    name: Check final Windows release assets
+    needs: [prepare, cli, desktop, winget]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*-windows-msvc
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-Windows*
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: winget-manifests
+          path: release-assets
+      - name: Verify the Windows release inventory
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: node packaging/release/check-windows-inventory.mjs release-assets "$VERSION"
+
   container:
     name: Container image
-    needs: [prepare, security, cli, desktop, winget]
+    needs: [prepare, security, cli, desktop, winget, release-assets]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -439,7 +469,7 @@ jobs:
 
   web-image:
     name: Web interface image
-    needs: [prepare, security, web, cli, desktop, winget]
+    needs: [prepare, security, web, cli, desktop, winget, release-assets]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -513,7 +543,7 @@ jobs:
 
   npm:
     name: npm packages
-    needs: [prepare, security, web, cli, desktop, winget]
+    needs: [prepare, security, web, cli, desktop, winget, release-assets]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -571,7 +601,7 @@ jobs:
 
   publish:
     name: Publish the release
-    needs: [prepare, security, web, cli, desktop, winget, container, web-image, npm]
+    needs: [prepare, security, web, cli, desktop, winget, release-assets, container, web-image, npm]
     if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
