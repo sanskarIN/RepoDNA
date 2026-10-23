@@ -6,6 +6,17 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-10-23
+
+Windows review candidate only. This is an unpublished build for hands-on validation;
+the stable v1.4.3 release requires approval after Windows testing.
+
+### Review focus
+
+- Browser engine discovery, export filename safety, worker reliability, and file-state filtering.
+- Secure npm publishing, consistent package versions, safer package staging and Windows installer checksums.
+- Windows x64/Arm64 portable CLI and desktop MSI/NSIS setup verification.
+
 ### Added
 
 - Filter the Files explorer by generated, vendored, binary, skipped, or ordinary file
