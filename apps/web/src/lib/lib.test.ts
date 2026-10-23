@@ -103,6 +103,24 @@ describe("activity", () => {
     ).toBeNull();
     expect(continuousDays([{ date: "yesterday", commits: 1, churn: 1 }])).toBeNull();
   });
+
+  it("rejects impossible calendar dates instead of silently normalizing them", () => {
+    const invalid = ["2026-02-30", "2025-02-29", "2026-13-01", "2026-00-01", "2026-01-00"];
+    for (const date of invalid) {
+      expect(continuousDays([{ date, commits: 1, churn: 1 }])).toBeNull();
+    }
+    expect(continuousDays([{ date: "2024-02-29", commits: 1, churn: 1 }])?.[0]?.date).toBe(
+      "2024-02-29",
+    );
+  });
+
+  it("preserves historical years 00–99 and the following century boundary", () => {
+    const days = continuousDays([
+      { date: "0099-12-31", commits: 1, churn: 3 },
+      { date: "0100-01-02", commits: 2, churn: 4 },
+    ]);
+    expect(days?.map((day) => day.date)).toEqual(["0099-12-31", "0100-01-01", "0100-01-02"]);
+  });
 });
 
 describe("units", () => {
