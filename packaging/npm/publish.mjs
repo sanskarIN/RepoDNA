@@ -172,7 +172,7 @@ export function publish({
         continue;
       }
       let tag = [];
-      if (!extra.includes("--tag")) {
+      if (!extra.some((arg) => arg === "--tag" || arg.startsWith("--tag="))) {
         if (pkg.version.includes("-")) {
           // A prerelease such as 1.3.0-rc.1 must not become what `npm install` picks,
           tag = ["--tag", "next"];
