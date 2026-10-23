@@ -125,17 +125,21 @@ function writeStorage(key: string, value: string): void {
  */
 export function takeToken(): string | null {
   const url = new URL(window.location.href);
-  const token = url.searchParams.get("token");
-  if (token) {
-    writeStorage(TOKEN_KEY, token);
+  if (url.searchParams.has("token")) {
+    const token = url.searchParams.get("token");
+    // Even an empty token should not linger in the address bar. Removing every
+    // token parameter also avoids accidentally sharing it when copying the URL.
     url.searchParams.delete("token");
     window.history.replaceState(null, "", url.toString());
-    return token;
+    if (token) {
+      writeStorage(TOKEN_KEY, token);
+      return token;
+    }
   }
   return readStorage(TOKEN_KEY);
 }
 
-class ServerBackend implements Backend {
+export class ServerBackend implements Backend {
   readonly kind = "server" as const;
 
   constructor(private readonly token: string | null) {}
@@ -156,7 +160,7 @@ class ServerBackend implements Backend {
     try {
       body = text ? JSON.parse(text) : undefined;
     } catch {
-      body = undefined;
+      // Preserve the original HTTP error below, even when a proxy returns HTML.
     }
     if (!response.ok) {
       const message =
@@ -164,6 +168,15 @@ class ServerBackend implements Backend {
           ? String((body as { error: unknown }).error)
           : `The server answered ${response.status}.`;
       throw new BackendError(message, response.status);
+    }
+    // A successful status is not proof that a proxy or local server returned valid
+    // API data. Without this check a malformed response surfaces later as an
+    // unrelated undefined-property error.
+    if (body === undefined || body === null) {
+      if (init?.method?.toUpperCase() === "DELETE" && response.status === 204) {
+        return undefined as T;
+      }
+      throw new BackendError("The server returned an invalid JSON response.", response.status);
     }
     return body as T;
   }
