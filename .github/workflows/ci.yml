@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # Feature branches are tested via pull requests. Avoid running the complete CI
+  # matrix twice for the same change (branch push + pull_request synchronize).
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
   workflow_dispatch:
 

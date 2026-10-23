@@ -79,6 +79,11 @@ See [architecture](architecture.md) for how the pieces fit together.
 
 These are the checks CI runs. Run them before opening a pull request:
 
+The full CI matrix runs for pull requests and pushes to `main`. Feature-branch
+pushes without a pull request do not trigger a duplicate matrix; to check a
+standalone branch, open a pull request or run **CI** manually using
+**Actions → CI → Run workflow** and select the branch.
+
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings

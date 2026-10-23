@@ -25,6 +25,10 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Maintenance
 
+- Run the cross-platform CI matrix once per pull request rather than again for
+  every feature-branch push, while preserving automatic checks on `main` and
+  manual workflow dispatch for standalone branches.
+
 - Lock Razorpay donations to the single official link,
   <https://razorpay.me/@SanskarCodes>, across the website, project documentation,
   and GitHub Sponsors configuration. Run an automated audit and regression tests in CI
