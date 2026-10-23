@@ -42,6 +42,21 @@ describe("local server API responses", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
     await expect(new ServerBackend(null).cancelJob("job-1")).resolves.toBeUndefined();
   });
+
+  it("rejects HTML returned in place of a project DNA SVG card", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html>Sign in</html>", { status: 200 }),
+    );
+    await expect(new ServerBackend(null).card("repo", false)).rejects.toThrow(
+      "The server did not return an SVG card.",
+    );
+  });
+
+  it("accepts an SVG project card response", async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(svg, { status: 200 }));
+    await expect(new ServerBackend(null).card("repo", false)).resolves.toBe(svg);
+  });
 });
 
 describe("local server token URLs", () => {

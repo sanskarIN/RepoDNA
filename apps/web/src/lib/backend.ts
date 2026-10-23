@@ -250,7 +250,13 @@ export class ServerBackend implements Backend {
     if (!response.ok) {
       throw new BackendError(`The server answered ${response.status}.`, response.status);
     }
-    return response.text();
+    const svg = await response.text();
+    // A reverse proxy can answer HTTP 200 with an HTML sign-in page. Never
+    // hand it off to the card renderer as though it were the requested SVG.
+    if (!/^\s*(?:<\?xml[^>]*>\s*)?<svg\b/i.test(svg)) {
+      throw new BackendError("The server did not return an SVG card.", response.status);
+    }
+    return svg;
   }
 }
 
