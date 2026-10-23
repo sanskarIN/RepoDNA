@@ -8,6 +8,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Security
 
+- Reject Windows-forbidden characters and reserved COM/LPT device names, including
+  superscript-digit variants, when validating portable CLI ZIP archives for WinGet.
+
 - Require advisory, source, license, and dependency-ban checks for both the workspace and
   desktop dependency trees before release jobs publish GitHub packages, npm packages,
   container images, or release installers.
