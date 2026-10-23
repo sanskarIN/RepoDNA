@@ -51,7 +51,6 @@ describe("local server API responses", () => {
       "The server returned an invalid session.",
     );
   });
-
 });
 
 describe("local server token URLs", () => {
