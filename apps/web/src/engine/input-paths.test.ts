@@ -9,8 +9,15 @@ describe("folder import path validation", () => {
 
   it("rejects paths that are absolute or escape the selected folder", () => {
     for (const name of [
-      "", "/etc/passwd", "../secret", "src/../secret", "src//file",
-      "./file", "C:\\\\private", "src\\\\other", "unsafe\0path",
+      "",
+      "/etc/passwd",
+      "../secret",
+      "src/../secret",
+      "src//file",
+      "./file",
+      "C:\\\\private",
+      "src\\\\other",
+      "unsafe\0path",
     ]) {
       expect(safeRelativePath(name)).toBe(false);
     }
