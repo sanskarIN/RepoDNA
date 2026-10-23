@@ -14,6 +14,7 @@ import {
 } from "../components/common";
 import { DataTable } from "../components/DataTable";
 import { count, languageNamer } from "../lib/names";
+import { matchesFileState, type FileStateFilter } from "../lib/file-state";
 import { useRoute } from "../lib/router";
 import { useDataset } from "../state";
 
@@ -63,6 +64,7 @@ export function Files() {
   const [query, setQuery] = useState(() => route.params.get("q") ?? "");
   const [category, setCategory] = useState<"all" | FileCategory>("all");
   const [language, setLanguage] = useState("all");
+  const [fileState, setFileState] = useState<FileStateFilter>("all");
   const languageName = useMemo(() => languageNamer(dna), [dna]);
   const languages = useMemo(
     () =>
@@ -77,9 +79,10 @@ export function Files() {
       (f) =>
         (category === "all" || f.category === category) &&
         (language === "all" || f.language === language) &&
+        matchesFileState(f, fileState) &&
         terms.every((term) => f.path.toLowerCase().includes(term)),
     );
-  }, [structure.files, query, category, language]);
+  }, [structure.files, query, category, language, fileState]);
   const symbols = useMemo(() => {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (terms.length === 0) {
@@ -302,6 +305,20 @@ export function Files() {
                 .sort((a, b) => a[1].localeCompare(b[1])),
             ]}
             onChange={setLanguage}
+          />
+          <Select
+            id="file-state"
+            label="File state"
+            value={fileState}
+            options={[
+              ["all", "Any state"],
+              ["regular", "Ordinary files"],
+              ["generated", "Generated"],
+              ["vendored", "Vendored"],
+              ["binary", "Binary"],
+              ["skipped", "Skipped or unreadable"],
+            ]}
+            onChange={setFileState}
           />
           <span className="muted" aria-live="polite">
             {filtered.length === structure.files.length
