@@ -246,3 +246,13 @@ test("refuses mixed staged versions before contacting the registry", () => {
     stage("@sanskarin/repodna-schema", "9.8.7");
   }
 });
+
+test("refuses empty npm staging directories before any registry calls", () => {
+  const empty = join(dir, "no-packages");
+  mkdirSync(empty);
+  assert.throws(
+    () => publish({ registry: "https://registry.npmjs.org", dir: empty, npm }),
+    /No staged npm packages were found/,
+  );
+  assert.deepEqual(readCalls(), []);
+});
