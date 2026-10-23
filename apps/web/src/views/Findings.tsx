@@ -2,33 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 import {
   SEVERITIES,
   categoryLabel,
-  describeEvidence,
   findingCounts,
   isSuppressed,
   severityLabel,
-  severityRank,
-  type Finding,
   type FindingCategory,
   type Severity,
 } from "@repodna/schema";
 import { thousands } from "@repodna/visualization";
-import { PageHeader, SearchBox, Select, SeverityBadge } from "../components/common";
+import { ErrorBox, PageHeader, SearchBox, Select, SeverityBadge } from "../components/common";
 import { FindingItem } from "../components/FindingItem";
+import { useDownload } from "../lib/download";
+import { findingsCsv } from "../lib/findings-export";
+import { filterFindings } from "../lib/findings-filter";
 import { useRoute } from "../lib/router";
 import { useDataset } from "../state";
-
-function searchable(finding: Finding): string {
-  return [
-    finding.title,
-    finding.summary,
-    finding.rule,
-    finding.category,
-    ...(finding.paths ?? []),
-    ...finding.evidence.map(describeEvidence),
-  ]
-    .join(" ")
-    .toLowerCase();
-}
 
 /** Findings shown at first, and added each time more are asked for. */
 export const FINDINGS_PAGE = 25;
@@ -36,6 +23,7 @@ export const FINDINGS_PAGE = 25;
 export function Findings() {
   const { dna } = useDataset();
   const route = useRoute();
+  const [download, downloadFailure] = useDownload();
   const [query, setQuery] = useState(() => route.params.get("q") ?? "");
   const [severity, setSeverity] = useState<"all" | Severity>(() => {
     const value = route.params.get("severity");
@@ -51,26 +39,10 @@ export function Findings() {
     () => [...new Set(dna.findings.map((f) => f.category))].sort(),
     [dna.findings],
   );
-  const texts = useMemo(
-    () => new Map(dna.findings.map((f) => [f.id, searchable(f)])),
-    [dna.findings],
+  const filtered = useMemo(
+    () => filterFindings(dna.findings, { query, severity, category, showSuppressed }),
+    [dna.findings, query, severity, category, showSuppressed],
   );
-  const filtered = useMemo(() => {
-    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return (
-      dna.findings
-        .filter(
-          (f) =>
-            (showSuppressed || !isSuppressed(f)) &&
-            (severity === "all" || f.severity === severity) &&
-            (category === "all" || f.category === category) &&
-            terms.every((term) => (texts.get(f.id) ?? "").includes(term)),
-        )
-        // Findings are stored in display order (by severity, category, and rule, each rule in
-        // its analyzer's order), so a stable sort by severity keeps that order.
-        .sort((a, b) => severityRank(b.severity) - severityRank(a.severity))
-    );
-  }, [dna.findings, query, severity, category, showSuppressed, texts]);
   const suppressed = dna.findings.filter(isSuppressed).length;
   // Changing a filter starts again from the first page.
   useEffect(() => setShown(FINDINGS_PAGE), [query, severity, category, showSuppressed]);
@@ -135,12 +107,23 @@ export function Findings() {
             Show {suppressed} suppressed
           </label>
         ) : null}
+        <button
+          type="button"
+          className="ghost"
+          disabled={filtered.length === 0}
+          onClick={() =>
+            download("repodna-findings.csv", findingsCsv(filtered), "text/csv;charset=utf-8")
+          }
+        >
+          Export filtered CSV
+        </button>
         <span className="muted" aria-live="polite">
           {filtered.length > shown
             ? `Showing ${thousands(shown)} of ${thousands(filtered.length)} findings`
             : `${thousands(filtered.length)} ${filtered.length === 1 ? "finding" : "findings"}`}
         </span>
       </div>
+      {downloadFailure ? <ErrorBox>{downloadFailure}</ErrorBox> : null}
       {filtered.length === 0 ? (
         <p className="muted">
           {dna.findings.length === 0
