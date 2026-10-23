@@ -88,10 +88,12 @@ function progress(event: ProgressEvent): void {
 }
 
 /** Keep malformed worker progress counters from overflowing progress indicators. */
-export function normalizeFileProgress(done: number, total: number): {
+interface FileProgress {
   done: number;
   total: number;
-} {
+}
+
+export function normalizeFileProgress(done: number, total: number): FileProgress {
   const limit = Number.isFinite(total) ? Math.max(0, Math.trunc(total)) : 0;
   const count = Number.isFinite(done) ? Math.max(0, Math.trunc(done)) : 0;
   return { done: Math.min(count, limit), total: limit };
