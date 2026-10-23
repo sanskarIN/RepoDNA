@@ -1,0 +1,193 @@
+name: Windows v1.4.3 Review (Unpublished)
+
+# Runs only on the isolated review branch. NEVER publish a release or registry package.
+on:
+  push:
+    branches:
+      - preview/v1.4.3-windows-review
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repodna-windows-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Validate v1.4.3 metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify release version
+        run: |
+          npm run release:check
+          test "$(node -p 'require("./package.json").version')" = "1.4.3"
+
+  web:
+    name: Build embedded web UI
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - name: Build browser analysis engine
+        run: cargo build --locked -p repodna-wasm --target wasm32-wasip1 --profile web-engine
+      - name: Build embedded interface
+        env:
+          REPODNA_ENGINE: target/wasm32-wasip1/web-engine/repodna-wasm.wasm
+        run: npm run build -w @repodna/web
+      - uses: actions/upload-artifact@v7
+        with:
+          name: preview-web-dist
+          path: apps/web/dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-cli:
+    name: Windows CLI (${{ matrix.arch }})
+    needs: [preflight, web]
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: preview-web-dist
+          path: apps/web/dist
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Embed the review commit
+        shell: bash
+        run: echo "REPODNA_BUILD_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Build Windows CLI
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --release --locked -p repodna-cli --target ${{ matrix.target }}
+      - name: Package Windows portable ZIP
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          name="repodna-1.4.3-$TARGET"
+          mkdir -p "dist/$name"
+          cp "target/$TARGET/release/repodna.exe" "dist/$name/"
+          cp LICENSE NOTICE THIRD-PARTY-NOTICES.txt README.md CHANGELOG.md "dist/$name/"
+          (cd dist && 7z a -tzip "$name.zip" "$name" >/dev/null)
+          rm -rf "dist/$name"
+      - name: Verify Windows CLI and ZIP
+        shell: pwsh
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          $zip = "dist/repodna-1.4.3-$env:TARGET.zip"
+          if ($env:TARGET -eq "aarch64-pc-windows-msvc") {
+            & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version "1.4.3" -Target $env:TARGET -SkipExecution
+          } else {
+            & ./packaging/winget/check-windows-cli.ps1 -Archive $zip -Version "1.4.3" -Target $env:TARGET
+          }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: review-cli-${{ matrix.arch }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-desktop:
+    name: Windows desktop (${{ matrix.arch }})
+    needs: preflight
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+            bundle_args: ''
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+            bundle_args: --target aarch64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build Windows desktop MSI and setup
+        run: npm run bundle -w @repodna/desktop -- ${{ matrix.bundle_args }}
+      - name: Verify and collect desktop installers
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find apps/desktop/src-tauri/target -path '*/release/bundle/*' -type f \
+            \( -name '*.msi' -o -name '*-setup.exe' \) -exec cp {} dist/ \;
+          test -s "dist/RepoDNA_1.4.3_${ARCH}_en-US.msi"
+          test -s "dist/RepoDNA_1.4.3_${ARCH}-setup.exe"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: review-desktop-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  review-package:
+    name: Collect downloadable Windows review package
+    needs: [windows-cli, windows-desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: review-*
+          path: output
+          merge-multiple: true
+      - name: Verify six executables and add SHA-256 checksums
+        working-directory: output
+        run: |
+          set -euo pipefail
+          for filename in \
+            repodna-1.4.3-x86_64-pc-windows-msvc.zip \
+            repodna-1.4.3-aarch64-pc-windows-msvc.zip \
+            RepoDNA_1.4.3_x64_en-US.msi \
+            RepoDNA_1.4.3_arm64_en-US.msi \
+            RepoDNA_1.4.3_x64-setup.exe \
+            RepoDNA_1.4.3_arm64-setup.exe; do
+            test -s "$filename"
+          done
+          sha256sum *.zip *.msi *.exe > SHA256SUMS.txt
+          printf 'UNPUBLISHED v1.4.3 WINDOWS REVIEW BUILD.\nThis is not a stable release.\nPlease test and approve before any public release.\n' > REVIEW-NOT-RELEASED.txt
+          cat SHA256SUMS.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: RepoDNA-v1.4.3-Windows-REVIEW
+          path: output/*
+          if-no-files-found: error
+          retention-days: 14
