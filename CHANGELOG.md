@@ -20,6 +20,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- Refuse to clear unrelated, nonempty npm package staging directories or the repository
+  itself; allow repeat builds only for explicitly RepoDNA-owned staging directories.
+
 - Preserve the original display order of highlighted findings when imported artifacts
   contain duplicate finding identifiers.
 

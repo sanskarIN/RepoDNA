@@ -22,6 +22,7 @@ import {
   chmodSync,
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -29,7 +30,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PLATFORMS, SCOPE, platformPackage } from "./launcher/lib/platforms.js";
 
@@ -357,9 +358,32 @@ function stageLauncher(options) {
   return dir;
 }
 
+const STAGING_MARKER = ".repodna-npm-staging";
+
+/** Clean only a directory this packager owns, never an unrelated output directory. */
+export function prepareOutput(directory) {
+  const out = resolve(directory);
+  const relation = relative(out, root);
+  // Includes the repository itself and its parent directories (potentially /).
+  if (!relation || (relation !== ".." && !relation.startsWith(".." + sep) && !isAbsolute(relation))) {
+    throw new Error("Refusing to replace the repository or one of its parent directories: " + out);
+  }
+  if (existsSync(out)) {
+    if (!lstatSync(out).isDirectory()) {
+      throw new Error("The npm staging destination is not a directory: " + out);
+    }
+    if (readdirSync(out).length > 0 && !existsSync(join(out, STAGING_MARKER))) {
+      throw new Error("Refusing to delete an unrecognized, nonempty npm staging directory: " + out);
+    }
+  }
+  rmSync(out, { recursive: true, force: true });
+  mkdirSync(out, { recursive: true });
+  writeFileSync(join(out, STAGING_MARKER), "RepoDNA npm staging directory.\n");
+}
+
+/** Stage the set of publishable npm packages in a recognized output directory. */
 export function build(options) {
-  rmSync(options.out, { recursive: true, force: true });
-  mkdirSync(options.out, { recursive: true });
+  prepareOutput(options.out);
   const staged = LIBRARIES.map((library) => stageLibrary(library, options));
   if (options.web) {
     staged.push(stageWeb(options));

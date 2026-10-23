@@ -2,13 +2,13 @@
 // node --test "packaging/npm/test/*.test.mjs"
 
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { build } from "../build.mjs";
+import { build, prepareOutput } from "../build.mjs";
 import { PLATFORMS } from "../launcher/lib/platforms.js";
 
 let dir;
@@ -145,4 +145,29 @@ test("stages no web interface without a built one", () => {
       }),
     /index\.html is missing/,
   );
+});
+
+test("refuses to erase unrelated output directories", (t) => {
+  const destination = mkdtempSync(join(tmpdir(), "repodna-unowned-"));
+  t.after(() => rmSync(destination, { recursive: true, force: true }));
+  const existing = join(destination, "keep.txt");
+  writeFileSync(existing, "important content");
+  assert.throws(() => prepareOutput(destination), /unrecognized, nonempty npm staging directory/);
+  assert.equal(readFileSync(existing, "utf8"), "important content");
+});
+
+test("rejects a repository root or ancestor without modifying it", () => {
+  assert.throws(() => prepareOutput(resolve(".")), /Refusing to replace the repository/);
+  assert.ok(existsSync(resolve("package.json")));
+});
+
+test("permits an owned staging directory to be refreshed safely", (t) => {
+  const destination = join(mkdtempSync(join(tmpdir(), "repodna-owned-")), "staged");
+  t.after(() => rmSync(resolve(destination, ".."), { recursive: true, force: true }));
+  prepareOutput(destination);
+  assert.ok(existsSync(join(destination, ".repodna-npm-staging")));
+  writeFileSync(join(destination, "previous-package.txt"), "old");
+  prepareOutput(destination);
+  assert.equal(existsSync(join(destination, "previous-package.txt")), false);
+  assert.ok(existsSync(join(destination, ".repodna-npm-staging")));
 });
