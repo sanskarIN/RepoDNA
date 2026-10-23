@@ -8,6 +8,10 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- A **What's New** section in the sidebar showing the current version's highlights
+  from the bundled changelog, with a once-per-version first-launch announcement after
+  installing or updating RepoDNA. The announcement works offline and remains dismissible.
+
 - Filter the Files explorer by generated, vendored, binary, skipped, or ordinary file
   state, alongside its existing category, language, and path search filters.
 
