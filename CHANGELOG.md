@@ -6,6 +6,26 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-10-23
+
+RepoDNA v1.4.3 improves local-first analysis reliability, desktop startup,
+release integrity, and secure export workflows.
+
+### Highlights
+
+- Export all currently filtered Findings to spreadsheet-safe CSV, including matching results beyond the visible page.
+
+- Added a **What's New** sidebar page and an offline first-launch announcement on
+  installation or update, with notes for the installed version.
+- Opened the Windows desktop in a smaller **centered, resizable** default window
+  instead of occupying nearly the full display.
+- Added Files explorer filters for generated, vendored, binary, skipped, and
+  ordinary files.
+- Improved local-first browser analysis reliability, including WebAssembly engine
+  discovery, progress events, worker callback handling and export filenames.
+- Strengthened package publication gates and Windows installer validation with
+  safer npm staging, version checks, and checksum/inventory verification.
+
 ### Added
 
 - A **What's New** section in the sidebar showing the current version's highlights
@@ -14,6 +34,8 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 - Filter the Files explorer by generated, vendored, binary, skipped, or ordinary file
   state, alongside its existing category, language, and path search filters.
+
+- Export currently filtered Findings as CSV with inline save-error reporting.
 
 ### Security
 
