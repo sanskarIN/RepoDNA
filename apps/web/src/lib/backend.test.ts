@@ -42,6 +42,16 @@ describe("local server API responses", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
     await expect(new ServerBackend(null).cancelJob("job-1")).resolves.toBeUndefined();
   });
+
+  it("rejects non-array repository list responses", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ repositories: [] }), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).repositories()).rejects.toThrow(
+      "The server returned an invalid repository list.",
+    );
+  });
+
 });
 
 describe("local server token URLs", () => {
