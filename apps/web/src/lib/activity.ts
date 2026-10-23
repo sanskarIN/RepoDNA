@@ -39,7 +39,9 @@ export function continuousDays(days: readonly DailyActivity[]): DailyActivity[] 
   const byDay = new Map<number, DailyActivity>();
   for (const day of days) {
     const number = dayNumber(day.date);
-    if (number === null) {
+    if (number === null || byDay.has(number)) {
+      // A duplicate calendar entry must not silently replace an earlier
+      // day's metrics and mislead the history chart.
       return null;
     }
     byDay.set(number, day);
