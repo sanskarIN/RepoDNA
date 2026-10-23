@@ -14,6 +14,11 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- Reject malformed or empty successful responses from the local server API instead
+  of letting invalid JSON cause misleading downstream interface failures.
+- Remove empty or repeated `?token=` parameters from local web interface URLs,
+  while retaining valid tokens for the current tab.
+
 - Make browser-exported analysis filenames portable and predictable: normalize accented
   repository names, limit the filename length, and use a safe date fallback when metadata
   contains an invalid date.
