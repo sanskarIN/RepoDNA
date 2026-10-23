@@ -8,14 +8,21 @@ describe("browser engine manifest validation", () => {
   });
 
   it("rejects malformed and nonfinite engine metadata", () => {
-    for (const value of [
-      null, [], 2, {}, { version: "", bytes: 100 },
+    const invalid = [
+      null,
+      [],
+      2,
+      {},
+      { version: "", bytes: 100 },
       { version: "latest", bytes: 100 },
       { version: "1.4.2", bytes: 0 },
       { version: "1.4.2", bytes: -5 },
       { version: "1.4.2", bytes: NaN },
       { version: "1.4.2", bytes: Infinity },
       { version: "1.4.2", bytes: 2.4 },
-    ]) expect(isInfo(value)).toBe(false);
+    ];
+    for (const value of invalid) {
+      expect(isInfo(value)).toBe(false);
+    }
   });
 });
