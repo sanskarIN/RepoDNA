@@ -15,6 +15,8 @@ describe("folder import path validation", () => {
       "src/../secret",
       "src//file",
       "./file",
+      "C:/private",
+      "src/file:stream",
       "C:\\\\private",
       "src\\\\other",
       "unsafe\0path",
