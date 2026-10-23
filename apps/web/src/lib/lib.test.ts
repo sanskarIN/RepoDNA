@@ -103,8 +103,10 @@ describe("activity", () => {
     ).toBeNull();
     expect(continuousDays([{ date: "yesterday", commits: 1, churn: 1 }])).toBeNull();
   });
+
   it("rejects impossible calendar dates instead of silently normalizing them", () => {
-    for (const date of ["2026-02-30", "2025-02-29", "2026-13-01", "2026-00-01", "2026-01-00"]) {
+    const invalid = ["2026-02-30", "2025-02-29", "2026-13-01", "2026-00-01", "2026-01-00"];
+    for (const date of invalid) {
       expect(continuousDays([{ date, commits: 1, churn: 1 }])).toBeNull();
     }
     expect(continuousDays([{ date: "2024-02-29", commits: 1, churn: 1 }])?.[0]?.date).toBe(
