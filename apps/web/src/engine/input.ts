@@ -27,7 +27,12 @@ export function folderFromList(list: ArrayLike<File>): AnalysisInput | null {
   for (const file of Array.from(list)) {
     const relative = file.webkitRelativePath || file.name;
     const slash = relative.indexOf("/");
-    name ||= slash > 0 ? relative.slice(0, slash) : "";
+    if (slash > 0) {
+      const root = relative.slice(0, slash);
+      // Never collapse two unrelated selected repositories into one report.
+      if (name && root !== name) return null;
+      name = root;
+    }
     const path = slash > 0 ? relative.slice(slash + 1) : relative;
     if (keep(path)) {
       files.push({ path, file });
