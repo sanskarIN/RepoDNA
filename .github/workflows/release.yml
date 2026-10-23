@@ -367,7 +367,7 @@ jobs:
 
   container:
     name: Container image
-    needs: [prepare, security, cli]
+    needs: [prepare, security, cli, desktop, winget]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -439,7 +439,7 @@ jobs:
 
   web-image:
     name: Web interface image
-    needs: [prepare, security, web]
+    needs: [prepare, security, web, cli, desktop, winget]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -513,7 +513,7 @@ jobs:
 
   npm:
     name: npm packages
-    needs: [prepare, security, web, cli]
+    needs: [prepare, security, web, cli, desktop, winget]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -571,7 +571,7 @@ jobs:
 
   publish:
     name: Publish the release
-    needs: [prepare, security, web, cli, desktop, container, winget]
+    needs: [prepare, security, web, cli, desktop, winget, container, web-image, npm]
     if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
