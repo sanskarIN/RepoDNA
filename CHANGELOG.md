@@ -25,6 +25,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- The desktop app now starts in a smaller, centered, resizable window instead of
+  occupying nearly the entire screen on common Windows laptop displays.
+
 - Refuse to clear unrelated, nonempty npm package staging directories or the repository
   itself; allow repeat builds only for explicitly RepoDNA-owned staging directories.
 
