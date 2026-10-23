@@ -88,8 +88,16 @@ function progress(event: ProgressEvent): void {
 }
 
 /** The name of the file an analysis of `name` is kept as. */
-function fileName(name: string): string {
-  return `${name.replace(/\.(zip|tar|tar\.gz|tgz)$/i, "")}.repodna`;
+export function analysisFileName(name: string): string {
+  const stem = name
+    .replace(/\.(zip|tar|tar\.gz|tgz)$/i, "")
+    .replace(/[\\/\x00-\x1f\x7f<>:"|?*]/g, "-")
+    .replace(/[. ]+$/g, "")
+    .slice(0, 100)
+    .replace(/[. ]+$/g, "");
+  // Windows device names stay reserved even when a file extension is present.
+  const safe = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(stem) ? "repodna-" + stem : stem;
+  return `${safe || "repository"}.repodna`;
 }
 
 /** Analyzes a folder's files or an archive with the analysis profile `profile`. */
@@ -118,7 +126,7 @@ export function analyze(input: AnalysisInput, profile: Profile): void {
     ({ text, size }) => {
       if (task === running) {
         task = null;
-        set({ phase: "finished", name: fileName(name), text, size });
+        set({ phase: "finished", name: analysisFileName(name), text, size });
       }
     },
     (error: unknown) => {
