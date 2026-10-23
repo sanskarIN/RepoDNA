@@ -56,6 +56,15 @@ function usage(message) {
   process.exit(2);
 }
 
+/** Accept numeric SemVer releases and correctly formed prerelease identifiers. */
+export function isReleaseVersion(value) {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(value);
+  if (!match) return false;
+  return !match[4]?.split(".").some((identifier) =>
+    /^\d+$/.test(identifier) && identifier.length > 1 && identifier.startsWith("0")
+  );
+}
+
 function parseArgs(argv) {
   const options = {
     version: JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version,
@@ -83,7 +92,7 @@ function parseArgs(argv) {
       usage(`Unknown option ${flag}.`);
     }
   }
-  if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(options.version)) {
+  if (!isReleaseVersion(options.version)) {
     usage(`${options.version} is not a version such as 1.2.0.`);
   }
   return options;
