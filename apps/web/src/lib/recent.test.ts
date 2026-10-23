@@ -75,9 +75,8 @@ describe("recent analyses", () => {
       { id: "bad-date", name: "Bad", openedAt: "unparseable", size: 12 },
       { id: "bad-size", name: "Bad", openedAt: "2026-10-22T00:00:00Z", size: -3 },
     ] as unknown as RecentEntry[];
-    expect(newest([...broken, entry("valid", "2026-10-23T00:00:00Z")]).map((item) => item.id)).toEqual([
-      "valid",
-    ]);
+    const valid = newest([...broken, entry("valid", "2026-10-23T00:00:00Z")]);
+    expect(valid.map((item) => item.id)).toEqual(["valid"]);
   });
 
   it("remembers what is open in the tab, and ignores what it cannot read", () => {
