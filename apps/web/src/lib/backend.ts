@@ -189,8 +189,20 @@ export class ServerBackend implements Backend {
     return this.request<RepositorySummary[]>("repositories");
   }
 
-  repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
-    return this.request(`repositories/${encodeURIComponent(id)}`);
+  async repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
+    const value = await this.request<unknown>(`repositories/${encodeURIComponent(id)}`);
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("repository" in value) ||
+      !value.repository ||
+      typeof value.repository !== "object" ||
+      !("scans" in value) ||
+      !Array.isArray(value.scans)
+    ) {
+      throw new BackendError("The server returned invalid repository details.", 200);
+    }
+    return value as { repository: RepositorySummary; scans: ScanSummary[] };
   }
 
   async artifact(id: string, scan?: string): Promise<RepositoryDna> {
