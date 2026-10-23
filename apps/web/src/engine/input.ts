@@ -16,6 +16,7 @@ export function safeRelativePath(path: string): boolean {
   return (
     path.length > 0 &&
     !path.includes("\\") &&
+    !path.includes(":") &&
     !path.includes("\0") &&
     path.split("/").every((part) => part !== "" && part !== "." && part !== "..")
   );
