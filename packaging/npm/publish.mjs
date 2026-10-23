@@ -57,6 +57,17 @@ function parseArgs(argv) {
 /** The registry address with a trailing slash, as npm configurations write it. */
 function normalize(registry) {
   const url = new URL(registry);
+  // Publishing may attach an authorization token. Never send it to an insecure
+  // endpoint or silently discard credentials, fragments, or query parameters.
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("The npm registry must be an HTTPS URL without credentials or query data.");
+  }
   return `${url.origin}${url.pathname.replace(/\/?$/, "/")}`;
 }
 
