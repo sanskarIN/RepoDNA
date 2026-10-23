@@ -9,17 +9,13 @@ function selected(path: string): File {
 
 describe("browser file import uniqueness", () => {
   it("rejects duplicate relative file paths in a selected folder", () => {
-    expect(folderFromList([
-      selected("project/src/main.ts"),
-      selected("project/src/main.ts"),
-    ])).toBeNull();
+    const chosen = [selected("project/src/main.ts"), selected("project/src/main.ts")];
+    expect(folderFromList(chosen)).toBeNull();
   });
 
   it("keeps unique files from a single folder", () => {
-    const result = folderFromList([
-      selected("project/src/main.ts"),
-      selected("project/src/other.ts"),
-    ]);
+    const chosen = [selected("project/src/main.ts"), selected("project/src/other.ts")];
+    const result = folderFromList(chosen);
     expect(result?.kind).toBe("folder");
     if (result?.kind !== "folder") throw new Error("Expected a folder");
     expect(result.files.map(({ path }) => path)).toEqual(["src/main.ts", "src/other.ts"]);
