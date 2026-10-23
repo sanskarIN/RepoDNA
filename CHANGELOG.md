@@ -8,6 +8,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- Export the current filtered findings to spreadsheet-safe CSV, including rule,
+  severity, confidence, paths, and suppression state.
+
 - Filter the Files explorer by generated, vendored, binary, skipped, or ordinary file
   state, alongside its existing category, language, and path search filters.
 
@@ -24,6 +27,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
   container images, or release installers.
 
 ### Fixed
+
+- Search each finding's own text even when imported analysis files contain
+  repeated IDs; findings CSV now matches the on-screen filtered results.
 
 - Refuse to clear unrelated, nonempty npm package staging directories or the repository
   itself; allow repeat builds only for explicitly RepoDNA-owned staging directories.
