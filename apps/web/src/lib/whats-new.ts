@@ -5,7 +5,7 @@ export interface ReleaseNotes {
   highlights: string[];
 }
 
-const KEY = "repodna-whats-new-seen";
+export const WHATS_NEW_SEEN_KEY = "repodna-whats-new-seen";
 let sessionSeen: string | null = null;
 
 /** Return only the chosen released version, never upcoming Unreleased changes. */
@@ -37,7 +37,7 @@ export function releaseNotes(changelog: string, version: string, maximum = 6): R
 export function needsWhatsNew(version: string, storage?: Pick<Storage, "getItem">): boolean {
   if (!version.trim()) return false;
   try {
-    return (storage ?? window.localStorage).getItem(KEY) !== version;
+    return (storage ?? window.localStorage).getItem(WHATS_NEW_SEEN_KEY) !== version;
   } catch {
     return sessionSeen !== version;
   }
@@ -47,7 +47,7 @@ export function needsWhatsNew(version: string, storage?: Pick<Storage, "getItem"
 export function markWhatsNewSeen(version: string, storage?: Pick<Storage, "setItem">): void {
   sessionSeen = version;
   try {
-    (storage ?? window.localStorage).setItem(KEY, version);
+    (storage ?? window.localStorage).setItem(WHATS_NEW_SEEN_KEY, version);
   } catch {
     // Disabled storage does not prevent dismissing the announcement in this session.
   }
