@@ -105,7 +105,12 @@ function started(): Worker {
       return;
     }
     if (reply.kind === "progress") {
-      request.onProgress?.(reply.progress);
+      try {
+        request.onProgress?.(reply.progress);
+      } catch {
+        // A UI progress handler must not break message delivery from the analysis
+        // worker. The final result still needs to be received and resolved.
+      }
       return;
     }
     pending.delete(reply.id);
