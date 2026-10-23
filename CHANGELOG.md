@@ -8,6 +8,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Security
 
+- Check Windows-invalid ZIP filenames in the Windows portable CLI smoke verifier as
+  well as the WinGet manifest generator, with negative-case regression tests on CI.
+
 - Reject Windows-forbidden characters and reserved COM/LPT device names, including
   superscript-digit variants, when validating portable CLI ZIP archives for WinGet.
 
