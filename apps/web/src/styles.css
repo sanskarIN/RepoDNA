@@ -1305,6 +1305,38 @@ tbody tr:hover {
   margin-top: 0;
 }
 
+/* Native, keyboard-accessible release announcement; never exceeds a laptop screen. */
+.whats-new-dialog {
+  position: fixed;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  margin: auto;
+  color: var(--ink);
+}
+
+.whats-new-dialog::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+
+.release-highlights li {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+.whats-new-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+@media print {
+  .whats-new-dialog {
+    display: none !important;
+  }
+}
+
 .shortcuts td:first-child {
   white-space: nowrap;
 }
