@@ -222,3 +222,26 @@ test("publishes a prerelease under the next tag", () => {
     ["--tag", "beta"],
   ]);
 });
+
+test("rejects packages from unrelated scopes before invoking npm", () => {
+  stage("@external/unexpected", "9.8.7");
+  try {
+    assert.throws(() => publishOrder(staged), /Invalid or duplicate staged npm package identity/);
+    assert.deepEqual(readCalls(), []);
+  } finally {
+    rmSync(join(staged, "unexpected"), { recursive: true, force: true });
+  }
+});
+
+test("rejects duplicate package identities in distinct staging folders", () => {
+  mkdirSync(join(staged, "duplicate"), { recursive: true });
+  writeFileSync(
+    join(staged, "duplicate", "package.json"),
+    JSON.stringify({ name: "@sanskarin/repodna", version: "9.8.7" }),
+  );
+  try {
+    assert.throws(() => publishOrder(staged), /Invalid or duplicate staged npm package identity/);
+  } finally {
+    rmSync(join(staged, "duplicate"), { recursive: true, force: true });
+  }
+});
