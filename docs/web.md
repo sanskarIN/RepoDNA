@@ -2,7 +2,13 @@
 
 The web interface is the interactive way to explore an analysis: an overview, an
 architecture map, history charts, the Time Machine, file and symbol browsers, hotspots,
-quality and security signals, findings with their evidence, reports, and comparisons. The
+quality and security signals, findings with their evidence, reports, and comparisons.
+
+**What's New:** After installing RepoDNA or updating it to a new version, an offline
+announcement opens once at startup with highlights from the installed version's
+changelog. Choose **Continue to RepoDNA** to dismiss it. Open **App > What's New**
+in the sidebar at any time to review the version's changes. The dismissed version is
+stored locally in the browser/WebView; no network request or telemetry is involved. The
 same interface runs in three places:
 
 | Where | How | What it can do |
