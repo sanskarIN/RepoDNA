@@ -161,6 +161,9 @@ export function publish({
     writeFileSync(userconfig, npmrc(registry, Boolean(process.env.NODE_AUTH_TOKEN)));
     const config = ["--userconfig", userconfig, "--registry", normalize(registry)];
     const packages = publishOrder(dir);
+    if (packages.length === 0) {
+      throw new Error("No staged npm packages were found; refusing an empty release.");
+    }
     const versions = new Set(packages.map((pkg) => pkg.version));
     if (versions.size > 1) {
       throw new Error("All staged npm packages must have the same release version.");
