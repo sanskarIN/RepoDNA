@@ -62,8 +62,12 @@ describe("What's New version gate", () => {
 
   it("continues to work for a session when persistent storage is denied", () => {
     const denied = {
-      getItem: () => { throw new Error("blocked"); },
-      setItem: () => { throw new Error("blocked"); },
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
     };
     expect(needsWhatsNew("8.9.0", denied)).toBe(true);
     expect(() => markWhatsNewSeen("8.9.0", denied)).not.toThrow();
