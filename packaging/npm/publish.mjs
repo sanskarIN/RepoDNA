@@ -81,6 +81,13 @@ export function publishOrder(dir) {
       return { dir: path, name, version };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+  const names = new Set();
+  for (const pkg of packages) {
+    if (!pkg.name.startsWith(`${SCOPE}/`) || names.has(pkg.name)) {
+      throw new Error(`Invalid or duplicate staged npm package identity: ${pkg.name}`);
+    }
+    names.add(pkg.name);
+  }
   const platforms = new Set(PLATFORMS.map(platformPackage));
   return [
     ...packages.filter((pkg) => platforms.has(pkg.name)),
