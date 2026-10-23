@@ -60,7 +60,7 @@ A new tab starts on the start page.
 | Dependencies | Ecosystems, manifests, lockfiles, declared packages, and dependency signals |
 | History | Commit activity over time, contributors, releases, quiet periods, and change hotspots |
 | Time Machine | Snapshots of the repository at points in its history, epochs, events, and the project story |
-| Files | Every file with its language, category, size, and lines, and the symbols found in it |
+| Files | Every file with its language, category, size, and lines, and the symbols found in it; filter the explorer to ordinary, generated, vendored, binary, or skipped files |
 | Hotspots | Files ranked by change frequency and complexity, with the reasons |
 | Code quality | Complexity, long functions, deep nesting, duplication, similar files, markers, and dead-code candidates |
 | Tests, build & docs | Test files and frameworks, build systems, detected commands, CI, environment requirements, and documentation checks |

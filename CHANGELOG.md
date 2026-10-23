@@ -6,6 +6,11 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Added
+
+- Filter the Files explorer by generated, vendored, binary, skipped, or ordinary file
+  state, alongside its existing category, language, and path search filters.
+
 ### Security
 
 - Check Windows-invalid ZIP filenames in the Windows portable CLI smoke verifier as
