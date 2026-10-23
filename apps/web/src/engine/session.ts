@@ -83,8 +83,18 @@ function progress(event: ProgressEvent): void {
         : { ...state, stage: null, stages: [...state.stages, [event.stage, event.status]] },
     );
   } else if (event.event === "files") {
-    set({ ...state, done: event.done, total: event.total });
+    set({ ...state, ...normalizeFileProgress(event.done, event.total) });
   }
+}
+
+/** Keep malformed worker progress counters from overflowing progress indicators. */
+export function normalizeFileProgress(done: number, total: number): {
+  done: number;
+  total: number;
+} {
+  const limit = Number.isFinite(total) ? Math.max(0, Math.trunc(total)) : 0;
+  const count = Number.isFinite(done) ? Math.max(0, Math.trunc(done)) : 0;
+  return { done: Math.min(count, limit), total: limit };
 }
 
 /** The name of the file an analysis of `name` is kept as. */
