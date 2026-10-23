@@ -14,6 +14,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- Recover from temporary browser database opening failures and validate saved recent-analysis
+  pointers so malformed session state cannot disrupt returning to an analysis.
+
 - Reject malformed or empty successful responses from the local server API instead
   of letting invalid JSON cause misleading downstream interface failures.
 - Remove empty or repeated `?token=` parameters from local web interface URLs,
