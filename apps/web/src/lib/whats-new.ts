@@ -13,7 +13,7 @@ export function releaseNotes(changelog: string, version: string, maximum = 6): R
   const lines = changelog.split(/\r?\n/);
   const heading = `## [${version}]`;
   const start = lines.findIndex((line) => line === heading || line.startsWith(heading + " - "));
-  if (start === -1) return { version, date: null, highlights: [] };
+  if (start === -1 || maximum <= 0) return { version, date: null, highlights: [] };
 
   const title = lines[start] ?? "";
   const date = title.startsWith(heading + " - ") ? title.slice(heading.length + 3).trim() : null;
