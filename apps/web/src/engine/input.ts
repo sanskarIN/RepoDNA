@@ -22,6 +22,7 @@ export function isArchive(name: string): boolean {
  */
 export function folderFromList(list: ArrayLike<File>): AnalysisInput | null {
   const files: InputFile[] = [];
+  const seen = new Set<string>();
   let name = "";
   let bytes = 0;
   for (const file of Array.from(list)) {
@@ -30,6 +31,8 @@ export function folderFromList(list: ArrayLike<File>): AnalysisInput | null {
     name ||= slash > 0 ? relative.slice(0, slash) : "";
     const path = slash > 0 ? relative.slice(slash + 1) : relative;
     if (keep(path)) {
+      if (seen.has(path)) return null;
+      seen.add(path);
       files.push({ path, file });
       bytes += file.size;
     }
@@ -54,6 +57,7 @@ export async function folderFromEntry(
   onCount?: (files: number) => void,
 ): Promise<AnalysisInput | null> {
   const files: InputFile[] = [];
+  const seen = new Set<string>();
   let bytes = 0;
   const walk = async (directory: FileSystemDirectoryEntry, prefix: string): Promise<void> => {
     const reader = directory.createReader();
@@ -74,6 +78,10 @@ export async function folderFromEntry(
       );
       for (const input of found) {
         if (input) {
+          if (seen.has(input.path)) {
+            throw new Error("The selected folder contains duplicate file paths: " + input.path);
+          }
+          seen.add(input.path);
           files.push(input);
           bytes += input.file.size;
         }
