@@ -13,6 +13,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Security
 
+- Protect CSV exports against spreadsheet formulas hidden behind leading whitespace
+  and control characters, including filtered Findings exports.
+
 - Check Windows-invalid ZIP filenames in the Windows portable CLI smoke verifier as
   well as the WinGet manifest generator, with negative-case regression tests on CI.
 
