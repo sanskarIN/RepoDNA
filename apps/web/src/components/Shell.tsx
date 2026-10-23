@@ -10,6 +10,8 @@ import { ExternalLink } from "./common";
 import { BrowserAnalysisOpener } from "./BrowserAnalysis";
 import { FileDrop } from "./FileDrop";
 import { ShortcutHelp } from "./ShortcutHelp";
+import { WhatsNewDialog } from "./WhatsNewDialog";
+import { markWhatsNewSeen, needsWhatsNew } from "../lib/whats-new";
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -61,6 +63,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const route = useRoute();
   const [palette, setPalette] = useState<"all" | "open" | null>(null);
   const [help, setHelp] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(() => needsWhatsNew(__REPODNA_VERSION__));
   // The navigation is folded away on narrow screens until the Menu button opens it.
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -230,6 +233,14 @@ export function Shell({ children }: { children: ReactNode }) {
       <BrowserAnalysisOpener />
       {palette ? <CommandPalette mode={palette} onClose={() => setPalette(null)} /> : null}
       {help ? <ShortcutHelp onClose={() => setHelp(false)} /> : null}
+      {showWhatsNew ? (
+        <WhatsNewDialog
+          onClose={() => {
+            markWhatsNewSeen(__REPODNA_VERSION__);
+            setShowWhatsNew(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

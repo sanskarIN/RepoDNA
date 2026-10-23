@@ -1,8 +1,14 @@
 // jsdom lacks a few browser APIs the interface uses; these stand-ins keep tests honest
 // about behavior without pretending to lay anything out.
 
-import { afterEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { WHATS_NEW_SEEN_KEY } from "../lib/whats-new";
+
+beforeEach(() => {
+  // Existing UI tests represent returning users; announcement tests opt in explicitly.
+  window.localStorage.setItem(WHATS_NEW_SEEN_KEY, __REPODNA_VERSION__);
+});
 
 afterEach(() => {
   cleanup();
