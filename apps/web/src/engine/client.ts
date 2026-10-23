@@ -22,9 +22,16 @@ export interface EngineInfo {
   bytes: number;
 }
 
-function isInfo(value: unknown): value is EngineInfo {
-  const info = value as Partial<EngineInfo> | null;
-  return typeof info?.version === "string" && typeof info.bytes === "number";
+export function isInfo(value: unknown): value is EngineInfo {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const info = value as Record<string, unknown>;
+  return (
+    typeof info.version === "string" &&
+    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(info.version) &&
+    typeof info.bytes === "number" &&
+    Number.isSafeInteger(info.bytes) &&
+    info.bytes > 0
+  );
 }
 
 let info: Promise<EngineInfo | null> | null = null;
