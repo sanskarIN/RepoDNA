@@ -254,3 +254,21 @@ test("compares stable and prerelease semver precedence correctly", () => {
   assert.equal(isOlder("1.2.0-alpha", "1.2.0-beta"), true);
   assert.equal(isOlder("1.2.0-rc.1", "1.2.0-rc.1"), false);
 });
+
+test("honors an explicit equals-style publish tag", () => {
+  const prerelease = join(dir, "equals-tag");
+  mkdirSync(join(prerelease, "repodna-schema"), { recursive: true });
+  writeFileSync(
+    join(prerelease, "repodna-schema", "package.json"),
+    JSON.stringify({ name: "@sanskarin/repodna-schema", version: "9.9.0-rc.1" }),
+  );
+  publish({
+    registry: "https://registry.npmjs.org",
+    dir: prerelease,
+    extra: ["--tag=beta"],
+    npm,
+  });
+  const args = readCalls().find((call) => call.args[0] === "publish").args;
+  assert.ok(args.includes("--tag=beta"));
+  assert.equal(args.includes("next"), false);
+});
