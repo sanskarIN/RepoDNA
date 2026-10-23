@@ -106,6 +106,11 @@ describe("CSV", () => {
     expect(csvField("@SUM(A1)")).toBe("'@SUM(A1)");
     expect(csvField("=1,2")).toBe('"\'=1,2"');
     expect(csvField(-2)).toBe("-2");
+    expect(csvField("  =1+2")).toBe('"\'  =1+2"');
+    expect(csvField("\t=SUM(A1)")).toBe('"\'\t=SUM(A1)"');
+    expect(csvField("\r+1")).toBe('"\'\r+1"');
+    expect(csvField("\n-2")).toBe('"\'\n-2"');
+    expect(csvField(" safe text")).toBe('" safe text"');
   });
 
   it("writes every row with the text of its cells, numbers as numbers, and – as nothing", () => {
