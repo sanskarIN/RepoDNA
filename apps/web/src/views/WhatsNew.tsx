@@ -33,8 +33,7 @@ export function WhatsNew() {
   return (
     <>
       <PageHeader title="What's New">
-        Explore the improvements shipped with RepoDNA v{__REPODNA_VERSION__}. You can return here
-        any time from the sidebar.
+        Browse highlights for your installed RepoDNA v{__REPODNA_VERSION__}.
       </PageHeader>
       <Panel title={`RepoDNA v${__REPODNA_VERSION__}`}>
         <ReleaseHighlights />
