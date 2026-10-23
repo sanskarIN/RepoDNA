@@ -51,9 +51,10 @@ function inspectZipPaths(filepath, filename, nestedFile) {
       !part ||
       part === '.' ||
       part === '..' ||
-      /[\x00-\x1f\x7f:]/.test(part) ||
+      /[\x00-\x1f\x7f<>:"|?*]/.test(part) ||
       /[. ]$/.test(part) ||
-      /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(part)
+      // The Win32 device namespace also reserves superscript 1, 2 and 3.
+      /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$/i.test(part)
     );
     if (
       !normalized ||

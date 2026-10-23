@@ -166,7 +166,7 @@ test('checks ZIP payload integrity, not only filename listings', () => {
 test('rejects Windows device names, alternate streams, and trailing-dot archive entries', {
   skip: process.platform === 'win32',
 }, () => {
-  for (const badName of ['CON.txt', 'readme:payload', 'notes.', 'trailing ']) {
+  for (const badName of ['CON.txt', 'COM¹.txt', 'LPT²', 'bad<name', 'bad|name', 'bad"quote', 'readme:payload', 'notes.', 'trailing ']) {
     const paths = prepare();
     const name = 'repodna-' + version + '-x86_64-pc-windows-msvc';
     writeFileSync(join(paths.root, name, badName), 'invalid Windows path');
