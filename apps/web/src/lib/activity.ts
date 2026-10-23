@@ -13,7 +13,22 @@ function dayNumber(date: string): number | null {
   if (!match) {
     return null;
   }
-  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / DAY_MS;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  // Date.UTC interprets years 0–99 as 1900–1999, while Date constructors normalize
+  // impossible dates such as February 30. Keep the activity series honest.
+  const parsed = new Date(0);
+  parsed.setUTCFullYear(year, month - 1, day);
+  parsed.setUTCHours(0, 0, 0, 0);
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return parsed.getTime() / DAY_MS;
 }
 
 /**
