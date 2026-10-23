@@ -9,14 +9,16 @@ import { type Finding, isSuppressed } from "@repodna/schema";
 export function highlights(findings: readonly Finding[], limit: number): Finding[] {
   const active = findings.filter((finding) => !isSuppressed(finding));
   const rules = new Set<string>();
-  const firsts: Finding[] = [];
-  const rest: Finding[] = [];
-  for (const finding of active) {
-    (rules.has(finding.rule) ? rest : firsts).push(finding);
+  // Keep original positions, not IDs: imported artifacts may contain duplicate IDs
+  // and a map keyed by ID would silently overwrite earlier positions.
+  const firsts: Array<{ finding: Finding; index: number }> = [];
+  const rest: Array<{ finding: Finding; index: number }> = [];
+  for (const [index, finding] of active.entries()) {
+    (rules.has(finding.rule) ? rest : firsts).push({ finding, index });
     rules.add(finding.rule);
   }
-  const picked = firsts.slice(0, limit);
-  picked.push(...rest.slice(0, limit - picked.length));
-  const position = new Map(active.map((finding, index) => [finding.id, index]));
-  return picked.sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0));
+  const count = Math.max(0, limit);
+  const picked = firsts.slice(0, count);
+  picked.push(...rest.slice(0, count - picked.length));
+  return picked.sort((a, b) => a.index - b.index).map(({ finding }) => finding);
 }
