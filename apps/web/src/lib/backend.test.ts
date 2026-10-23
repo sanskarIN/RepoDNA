@@ -42,6 +42,15 @@ describe("local server API responses", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
     await expect(new ServerBackend(null).cancelJob("job-1")).resolves.toBeUndefined();
   });
+
+  it("rejects unknown scan job statuses", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "job-1", status: "unexpected" }), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).job("job-1")).rejects.toThrow(
+      "The server returned an invalid scan job.",
+    );
+  });
 });
 
 describe("local server token URLs", () => {

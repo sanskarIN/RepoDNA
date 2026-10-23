@@ -209,8 +209,19 @@ export class ServerBackend implements Backend {
     });
   }
 
-  job(id: string): Promise<JobState> {
-    return this.request<JobState>(`scans/${encodeURIComponent(id)}`);
+  async job(id: string): Promise<JobState> {
+    const value = await this.request<unknown>(`scans/${encodeURIComponent(id)}`);
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("id" in value) ||
+      typeof value.id !== "string" ||
+      !("status" in value) ||
+      !["running", "completed", "failed", "cancelled"].includes(String(value.status))
+    ) {
+      throw new BackendError("The server returned an invalid scan job.", 200);
+    }
+    return value as JobState;
   }
 
   async cancelJob(id: string): Promise<void> {
