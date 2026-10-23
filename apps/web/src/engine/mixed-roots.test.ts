@@ -9,10 +9,8 @@ function selected(path: string): File {
 
 describe("browser directory selection roots", () => {
   it("imports files that share one selected directory", () => {
-    const result = folderFromList([
-      selected("project/src/main.ts"),
-      selected("project/src/util.ts"),
-    ]);
+    const chosen = [selected("project/src/main.ts"), selected("project/src/util.ts")];
+    const result = folderFromList(chosen);
     expect(result?.kind).toBe("folder");
     if (result?.kind !== "folder") throw new Error("Expected folder");
     expect(result.name).toBe("project");
@@ -20,9 +18,7 @@ describe("browser directory selection roots", () => {
   });
 
   it("refuses to merge unrelated roots into the same analysis", () => {
-    expect(folderFromList([
-      selected("first/src/main.ts"),
-      selected("other/src/main.ts"),
-    ])).toBeNull();
+    const chosen = [selected("first/src/main.ts"), selected("other/src/main.ts")];
+    expect(folderFromList(chosen)).toBeNull();
   });
 });
