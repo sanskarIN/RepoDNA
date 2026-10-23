@@ -51,7 +51,6 @@ describe("local server API responses", () => {
       "The server returned an invalid scan job.",
     );
   });
-
 });
 
 describe("local server token URLs", () => {
