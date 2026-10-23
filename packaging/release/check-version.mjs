@@ -20,20 +20,30 @@ const manifests = [
 for (const path of manifests) {
   assert.equal(json(path).version, version, path + ' version is out of sync');
 }
-assert.equal(json('package-lock.json').version, version);
-for (const [name, pkg] of Object.entries(json('package-lock.json').packages)) {
+const npmLock = json('package-lock.json');
+assert.equal(npmLock.version, version);
+for (const [name, pkg] of Object.entries(npmLock.packages)) {
   if (name === '' || /^(apps\/(web|desktop)|packages\/(schema|visualization|wasm))$/.test(name)) {
     assert.equal(pkg.version, version, 'npm lockfile package ' + name);
   }
 }
-for (const path of ['apps/web/package.json', 'package-lock.json']) {
-  const contents = read(path);
-  for (const name of ['schema', 'visualization', 'wasm']) {
-    assert.ok(
-      contents.includes('"@repodna/' + name + '": "' + version + '"'),
-      path + ': internal dependency @repodna/' + name + ' must match ' + version
-    );
-  }
+// Inspect the actual dependency objects: looking for version strings anywhere in the
+// JSON can pass even when a particular workspace has an out-of-sync dependency.
+const webManifest = json('apps/web/package.json');
+const webLock = npmLock.packages['apps/web'];
+assert.ok(webLock, 'package-lock.json: missing apps/web workspace');
+for (const name of ['schema', 'visualization', 'wasm']) {
+  const dependency = '@repodna/' + name;
+  assert.equal(
+    webManifest.dependencies?.[dependency],
+    version,
+    'apps/web/package.json: ' + dependency + ' must match ' + version,
+  );
+  assert.equal(
+    webLock.dependencies?.[dependency],
+    version,
+    'package-lock.json: apps/web ' + dependency + ' must match ' + version,
+  );
 }
 
 const workspace = read('Cargo.toml');
