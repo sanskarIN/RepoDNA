@@ -19,8 +19,9 @@ export function WhatsNewDialog({ onClose }: { onClose: () => void }) {
   }, []);
 
   const dismiss = () => {
-    if (ref.current?.open) {
-      ref.current.close();
+    const dialog = ref.current;
+    if (dialog?.open && typeof dialog.close === "function") {
+      dialog.close();
     } else {
       onClose();
     }
