@@ -53,6 +53,10 @@ export function Settings() {
               (unless you turn that off below), and, when it is served by <code>repodna serve</code>
               , the sign-in token for that server. All of it stays in this browser.
             </li>
+            <li>
+              The What's New announcement stores only the last version you dismissed in this
+              browser, so it appears again after the next update.
+            </li>
             <li>Files you open here are read on this machine and never uploaded.</li>
             <li>
               AI explanations are off unless you configure a provider; remote providers need your

@@ -23,6 +23,7 @@ import { Reports } from "./views/Reports";
 import { Security } from "./views/Security";
 import { Settings } from "./views/Settings";
 import { TimeMachine } from "./views/TimeMachine";
+import { WhatsNew } from "./views/WhatsNew";
 
 const VIEWS: Record<string, () => ReactNode> = {
   "/": Home,
@@ -40,6 +41,7 @@ const VIEWS: Record<string, () => ReactNode> = {
   "/reports": Reports,
   "/compare": Compare,
   "/settings": Settings,
+  "/whats-new": WhatsNew,
   "/about": About,
   "/privacy": PrivacyPolicy,
   "/terms": TermsOfUse,
