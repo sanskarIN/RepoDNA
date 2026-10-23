@@ -13,6 +13,9 @@ the stable v1.4.3 release requires approval after Windows testing.
 
 ### Review focus
 
+- A centered, smaller Windows window that leaves screen space for the desktop and taskbar.
+- A first-launch **What's New** announcement after installing or updating, plus a sidebar
+  page to review highlights from the installed release's bundled changelog.
 - Browser engine discovery, export filename safety, worker reliability, and file-state filtering.
 - Secure npm publishing, consistent package versions, safer package staging and Windows installer checksums.
 - Windows x64/Arm64 portable CLI and desktop MSI/NSIS setup verification.
