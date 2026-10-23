@@ -125,6 +125,7 @@ describe("recent analyses", () => {
     setRememberRecent(true);
     expect(rememberRecent()).toBe(true);
   });
+
   it("keeps the recent-analysis preference for the tab when local storage is blocked", () => {
     const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("storage denied");
@@ -146,5 +147,4 @@ describe("recent analyses", () => {
       remove.mockRestore();
     }
   });
-
 });
