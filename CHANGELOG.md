@@ -17,6 +17,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- Preserve the original display order of highlighted findings when imported artifacts
+  contain duplicate finding identifiers.
+
 - Recover from temporary browser database opening failures and validate saved recent-analysis
   pointers so malformed session state cannot disrupt returning to an analysis.
 
