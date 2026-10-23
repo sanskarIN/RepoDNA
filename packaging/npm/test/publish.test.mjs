@@ -224,7 +224,11 @@ test("publishes a prerelease under the next tag", () => {
 });
 
 test("rejects packages from unrelated scopes before invoking npm", () => {
-  stage("@external/unexpected", "9.8.7");
+  mkdirSync(join(staged, "unexpected"), { recursive: true });
+  writeFileSync(
+    join(staged, "unexpected", "package.json"),
+    JSON.stringify({ name: "@external/unexpected", version: "9.8.7" }),
+  );
   try {
     assert.throws(() => publishOrder(staged), /Invalid or duplicate staged npm package identity/);
     assert.deepEqual(readCalls(), []);
