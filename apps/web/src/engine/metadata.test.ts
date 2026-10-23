@@ -18,4 +18,4 @@ describe("browser engine manifest validation", () => {
       { version: "1.4.2", bytes: 2.4 },
     ]) expect(isInfo(value)).toBe(false);
   });
-}
+});
