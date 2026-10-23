@@ -131,14 +131,26 @@ type Body = EngineRequest extends infer R
 
 function request(body: Body, onProgress?: (event: ProgressEvent) => void): EngineTask<Output> {
   const id = nextId++;
+  let rejectPending: (error: Error) => void = () => {};
   const result = new Promise<Output>((resolve, reject) => {
+    rejectPending = reject;
     pending.set(id, { resolve, reject, onProgress });
   });
   const wasm = new URL(
     `${DIRECTORY}repodna.wasm?v=${encodeURIComponent(version)}`,
     document.baseURI,
   ).href;
-  started().postMessage({ ...body, id, wasm } as EngineRequest);
+  try {
+    started().postMessage({ ...body, id, wasm } as EngineRequest);
+  } catch (error) {
+    // Worker construction or structured cloning can fail synchronously (for
+    // example when the browser refuses a transferred file). Reject the task
+    // rather than leaving a permanently pending request behind.
+    pending.delete(id);
+    const reason = error instanceof Error ? error : new Error(String(error));
+    // The promise is already returned as the task's result to the caller.
+    rejectPending(reason);
+  }
   return {
     result,
     cancel: () => {
