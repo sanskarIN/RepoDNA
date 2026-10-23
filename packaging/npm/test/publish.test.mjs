@@ -246,3 +246,11 @@ test("refuses mixed staged versions before contacting the registry", () => {
     stage("@sanskarin/repodna-schema", "9.8.7");
   }
 });
+
+test("compares stable and prerelease semver precedence correctly", () => {
+  assert.equal(isOlder("1.2.0-rc.1", "1.2.0"), true);
+  assert.equal(isOlder("1.2.0", "1.2.0-rc.1"), false);
+  assert.equal(isOlder("1.2.0-rc.2", "1.2.0-rc.10"), true);
+  assert.equal(isOlder("1.2.0-alpha", "1.2.0-beta"), true);
+  assert.equal(isOlder("1.2.0-rc.1", "1.2.0-rc.1"), false);
+});
