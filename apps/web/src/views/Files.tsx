@@ -311,12 +311,12 @@ export function Files() {
             label="File state"
             value={fileState}
             options={[
-              ["all", "Any state"],
-              ["regular", "Ordinary files"],
-              ["generated", "Generated"],
-              ["vendored", "Vendored"],
-              ["binary", "Binary"],
-              ["skipped", "Skipped or unreadable"],
+              ["all", "Any state"] as const,
+              ["regular", "Ordinary files"] as const,
+              ["generated", "Generated"] as const,
+              ["vendored", "Vendored"] as const,
+              ["binary", "Binary"] as const,
+              ["skipped", "Skipped or unreadable"] as const,
             ]}
             onChange={setFileState}
           />
