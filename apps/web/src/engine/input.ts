@@ -11,6 +11,17 @@ export type AnalysisInput =
   | { kind: "folder"; name: string; files: InputFile[]; bytes: number }
   | { kind: "archive"; file: File };
 
+/** Refuse absolute, empty, or escaping paths from imported folder entries. */
+export function safeRelativePath(path: string): boolean {
+  return (
+    path.length > 0 &&
+    !path.includes("\\") &&
+    !path.includes(":") &&
+    !path.includes("\0") &&
+    path.split("/").every((part) => part !== "" && part !== "." && part !== "..")
+  );
+}
+
 /** Whether a file name is one of the archives RepoDNA analyzes. */
 export function isArchive(name: string): boolean {
   return /\.(zip|tar|tar\.gz|tgz)$/i.test(name);
@@ -29,7 +40,7 @@ export function folderFromList(list: ArrayLike<File>): AnalysisInput | null {
     const slash = relative.indexOf("/");
     name ||= slash > 0 ? relative.slice(0, slash) : "";
     const path = slash > 0 ? relative.slice(slash + 1) : relative;
-    if (keep(path)) {
+    if (safeRelativePath(path) && keep(path)) {
       files.push({ path, file });
       bytes += file.size;
     }
@@ -62,7 +73,7 @@ export async function folderFromEntry(
       const found = await Promise.all(
         batch.map(async (entry) => {
           const path = prefix + entry.name;
-          if (!keep(path)) {
+          if (!safeRelativePath(path) || !keep(path)) {
             return null;
           }
           if (entry.isDirectory) {
