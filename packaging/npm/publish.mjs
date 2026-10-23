@@ -144,6 +144,13 @@ export function publish({
   npm = process.env.REPODNA_NPM || "npm",
   log = (line) => process.stdout.write(`${line}\n`),
 }) {
+  const flagIndex = extra.indexOf("--tag");
+  if (
+    (flagIndex !== -1 && (!extra[flagIndex + 1] || extra[flagIndex + 1].startsWith("-"))) ||
+    extra.includes("--tag=")
+  ) {
+    throw new Error("An explicit npm --tag requires a nonempty tag name.");
+  }
   const home = mkdtempSync(join(tmpdir(), "repodna-publish-"));
   try {
     const userconfig = join(home, ".npmrc");
