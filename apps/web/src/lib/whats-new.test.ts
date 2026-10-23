@@ -47,7 +47,9 @@ describe("What's New version gate", () => {
     const data = new Map<string, string>();
     const storage = {
       getItem: vi.fn((key: string) => data.get(key) ?? null),
-      setItem: vi.fn((key: string, value: string) => { data.set(key, value); }),
+      setItem: vi.fn((key: string, value: string) => {
+        data.set(key, value);
+      }),
     };
     expect(needsWhatsNew("1.4.2", storage)).toBe(true);
     markWhatsNewSeen("1.4.2", storage);
