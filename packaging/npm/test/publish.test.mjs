@@ -222,3 +222,14 @@ test("publishes a prerelease under the next tag", () => {
     ["--tag", "beta"],
   ]);
 });
+
+test("refuses insecure or ambiguous publishing registry URLs", () => {
+  for (const address of [
+    "http://registry.npmjs.org/",
+    "https://user:pass@registry.npmjs.org/",
+    "https://registry.npmjs.org/?token=abc",
+    "https://registry.npmjs.org/#fragment",
+  ]) {
+    assert.throws(() => npmrc(address, true), /HTTPS URL without credentials or query data/);
+  }
+});
