@@ -44,7 +44,21 @@ const REMEMBER_KEY = "repodna-remember-recent";
 
 /** Newest first, at most `RECENT_LIMIT`. */
 export function newest(entries: readonly RecentEntry[]): RecentEntry[] {
-  return [...entries].sort((a, b) => b.openedAt.localeCompare(a.openedAt)).slice(0, RECENT_LIMIT);
+  // IndexedDB is persistent external input: older versions, extensions, or a
+  // damaged record can leave entries with missing dates and invalid sizes.
+  const valid = entries.filter(
+    (entry) =>
+      entry &&
+      typeof entry.id === "string" &&
+      typeof entry.name === "string" &&
+      typeof entry.openedAt === "string" &&
+      Number.isFinite(Date.parse(entry.openedAt)) &&
+      typeof entry.size === "number" &&
+      Number.isFinite(entry.size) &&
+      entry.size >= 0 &&
+      entry.size <= RECENT_MAX_BYTES,
+  );
+  return valid.sort((a, b) => b.openedAt.localeCompare(a.openedAt)).slice(0, RECENT_LIMIT);
 }
 
 /** Keeps entries and texts in memory: for tests, and browsers without IndexedDB. */
