@@ -17,6 +17,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Security
 
+- Escape spreadsheet-formula values even when leading whitespace or control characters
+  precede the formula, protecting all downloaded CSV tables.
+
 - Check Windows-invalid ZIP filenames in the Windows portable CLI smoke verifier as
   well as the WinGet manifest generator, with negative-case regression tests on CI.
 
