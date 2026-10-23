@@ -65,12 +65,17 @@ A new tab starts on the start page.
 | Code quality | Complexity, long functions, deep nesting, duplication, similar files, markers, and dead-code candidates |
 | Tests, build & docs | Test files and frameworks, build systems, detected commands, CI, environment requirements, and documentation checks |
 | Security signals | Possible secrets, risky patterns, and permissions |
-| Findings | Every finding with its evidence, method, and limitations, 25 at a time, filtered by severity and category and searchable by title, rule, path, and evidence |
+| Findings | Every finding with its evidence, method, and limitations, 25 at a time, filtered by severity and category and searchable by title, rule, path, and evidence; download the current filtered result set as CSV |
 | Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark, as SVG or PNG; the desktop app also saves the full report folder. In the web version, they are made in the browser |
 | Compare | This analysis next to another one: a stored analysis, a file you choose or drop on its drop zone, or the demo |
 | Settings | Theme, recent analyses, privacy notes, keyboard shortcuts, and version information |
 | About & support | The version, ways to support RepoDNA, the project's links, and the legal documents |
 | Privacy Policy, Terms of Use, Licenses | The policies, RepoDNA's license, and the licenses of the third-party software it includes, linked at the bottom of the sidebar |
+
+On **Findings**, select severity, category and search terms, then choose **Export filtered CSV**
+to save all matching rows (not just the 25 currently visible). The export includes severity,
+category, rule, title, summary, confidence, file paths and suppression status. Like the
+table exports, text beginning with spreadsheet formula characters is escaped.
 
 Every chart has a table view, and severity is always written out, never shown by color
 alone. **Download CSV** under a table saves all of its rows, in the order shown, for a
