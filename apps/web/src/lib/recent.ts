@@ -103,7 +103,7 @@ function done(transaction: IDBTransaction): Promise<void> {
 export function indexedDbStore(factory: IDBFactory): RecentStore {
   let database: Promise<IDBDatabase> | null = null;
   const open = () => {
-    database ??= new Promise((resolve, reject) => {
+    database ??= new Promise<IDBDatabase>((resolve, reject) => {
       const req = factory.open("repodna", 1);
       req.onupgradeneeded = () => {
         req.result.createObjectStore("recent", { keyPath: "id" });
@@ -111,6 +111,11 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error ?? new Error("The browser storage is not available."));
+    }).catch((error: unknown) => {
+      // The browser can temporarily block IndexedDB (privacy settings, quota, or
+      // an interrupted upgrade). Do not cache a rejected opening attempt forever.
+      database = null;
+      throw error;
     });
     return database;
   };
@@ -206,14 +211,29 @@ export function openPointer(): OpenPointer | null {
     if (!raw) {
       return null;
     }
-    const value = JSON.parse(raw) as Partial<OpenPointer> & { kind?: string };
-    switch (value.kind) {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+    const pointer = value as Record<string, unknown>;
+    switch (pointer.kind) {
       case "stored":
-        return typeof value.repositoryId === "string" ? (value as OpenPointer) : null;
+        return typeof pointer.repositoryId === "string" &&
+          pointer.repositoryId.length > 0 &&
+          typeof pointer.name === "string" &&
+          (pointer.scanId === undefined || typeof pointer.scanId === "string")
+          ? (pointer as OpenPointer)
+          : null;
       case "file":
-        return typeof value.id === "string" ? (value as OpenPointer) : null;
+        return typeof pointer.id === "string" && pointer.id.length > 0
+          ? (pointer as OpenPointer)
+          : null;
       case "demo":
-        return typeof value.file === "string" ? (value as OpenPointer) : null;
+        return typeof pointer.file === "string" &&
+          pointer.file.length > 0 &&
+          typeof pointer.title === "string"
+          ? (pointer as OpenPointer)
+          : null;
       default:
         return null;
     }
