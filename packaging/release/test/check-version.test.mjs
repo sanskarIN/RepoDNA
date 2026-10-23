@@ -78,3 +78,23 @@ test('rejects a missing internal dependency in the web workspace lockfile entry'
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /package-lock\.json: apps\/web @repodna\/visualization/);
 });
+
+test('rejects missing workspace records in the npm lockfile', (t) => {
+  const root = fixture(t);
+  editJson(root, 'package-lock.json', (data) => {
+    delete data.packages['packages/schema'];
+  });
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /missing workspace packages\/schema/);
+});
+
+test('rejects missing root entry in the npm lockfile', (t) => {
+  const root = fixture(t);
+  editJson(root, 'package-lock.json', (data) => {
+    delete data.packages[''];
+  });
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /missing workspace root/);
+});
