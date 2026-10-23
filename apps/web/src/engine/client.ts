@@ -46,7 +46,13 @@ export function engineInfo(): Promise<EngineInfo | null> {
       version = value.version;
       return value;
     })
-    .catch(() => null);
+    .catch(() => null)
+    .then((result) => {
+      // Offline or transient HTTP failures must not be cached permanently:
+      // users can reconnect and retry analysis without reloading the entire page.
+      if (result === null) info = null;
+      return result;
+    });
   return info;
 }
 
