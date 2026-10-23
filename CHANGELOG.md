@@ -25,6 +25,10 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Maintenance
 
+- Require installers and WinGet manifest validation before npm and container image
+  publication; wait for all published packages and images before creating the GitHub
+  release, reducing the risk of a partial release.
+
 - Run the cross-platform CI matrix once per pull request rather than again for
   every feature-branch push, while preserving automatic checks on `main` and
   manual workflow dispatch for standalone branches.
