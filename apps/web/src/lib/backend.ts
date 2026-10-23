@@ -201,12 +201,23 @@ export class ServerBackend implements Backend {
     return checkArtifact(value).artifact;
   }
 
-  startScan(input: string, profile?: string): Promise<JobState> {
-    return this.request<JobState>("scans", {
+  async startScan(input: string, profile?: string): Promise<JobState> {
+    const value = await this.request<unknown>("scans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(profile ? { input, profile } : { input }),
     });
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("id" in value) ||
+      typeof value.id !== "string" ||
+      !("status" in value) ||
+      value.status !== "running"
+    ) {
+      throw new BackendError("The server returned an invalid new scan job.", 200);
+    }
+    return value as JobState;
   }
 
   job(id: string): Promise<JobState> {
