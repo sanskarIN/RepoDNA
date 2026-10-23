@@ -25,6 +25,7 @@ export const NAV: NavItem[] = [
   { path: "/compare", label: "Compare", needsData: true, group: "Share" },
   { path: "/", label: "Open or analyze", needsData: false, group: "App" },
   { path: "/settings", label: "Settings", needsData: false, group: "App" },
+  { path: "/whats-new", label: "What's New", needsData: false, group: "App" },
   { path: "/about", label: "About & support", needsData: false, group: "App" },
   { path: "/privacy", label: "Privacy Policy", needsData: false, group: "Legal" },
   { path: "/terms", label: "Terms of Use", needsData: false, group: "Legal" },
