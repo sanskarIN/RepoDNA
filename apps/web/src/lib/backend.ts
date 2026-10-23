@@ -185,8 +185,12 @@ export class ServerBackend implements Backend {
     return this.request<Session>("session");
   }
 
-  repositories(): Promise<RepositorySummary[]> {
-    return this.request<RepositorySummary[]>("repositories");
+  async repositories(): Promise<RepositorySummary[]> {
+    const value = await this.request<unknown>("repositories");
+    if (!Array.isArray(value)) {
+      throw new BackendError("The server returned an invalid repository list.", 200);
+    }
+    return value as RepositorySummary[];
   }
 
   repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
