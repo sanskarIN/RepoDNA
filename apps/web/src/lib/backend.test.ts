@@ -57,7 +57,6 @@ describe("local server API responses", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(svg, { status: 200 }));
     await expect(new ServerBackend(null).card("repo", false)).resolves.toBe(svg);
   });
-
 });
 
 describe("local server token URLs", () => {
