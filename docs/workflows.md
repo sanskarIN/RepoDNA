@@ -79,7 +79,7 @@ artifact** made from your baseline revision. For example, while checked out
 at the baseline commit or branch, save an artifact:
 
 ```sh
-repodna analyze . --format json > baseline.json
+repodna analyze . --format json > ../baseline.json
 ```
 
 In your CI job, make that artifact available as a file and check out the
