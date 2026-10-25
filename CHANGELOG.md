@@ -8,6 +8,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- Validate local server repository, job, and SVG responses before display; reject
+  malformed proxy responses with clear errors rather than rendering broken data.
+
 - Reject unsafe, duplicate or mixed-root paths in browser folder imports, including
   files returned in separate drag-and-drop reader batches. Add regression coverage
   for traversal, malformed paths and normal folder imports.
