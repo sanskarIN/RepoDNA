@@ -86,7 +86,10 @@ written so that it does not run.
 On the **Findings** page, **Export filtered CSV** downloads the current matching
 findings as spreadsheet-safe text. **Export filtered JSON** downloads the same full
 matching set as a JSON array, including each finding's original structured evidence,
-methods, and limitations. Both exports respect search, severity, category, and the
+methods, and limitations. **Export filtered Markdown** saves the same current selection as a human-readable review
+with severity, confidence, paths, evidence, method, limitations and suggested next
+steps. Repository-provided text is escaped to prevent unintended Markdown links or
+headings. All three exports respect search, severity, category, and the
 **Show suppressed** selection and include matching findings beyond the visible page.
 They are saved locally without uploading repository data. A findings-only JSON array
 is **not** a complete RepoDNA analysis file; use **Reports & export** for the full
