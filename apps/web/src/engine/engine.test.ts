@@ -114,16 +114,15 @@ describe("input", () => {
   });
 
   it("rejects duplicate chosen file paths without double-counting files", () => {
-    expect(folderFromList([chosen("widget/src/main.rs"), chosen("widget/src/main.rs")])).toBeNull();
+    const chosenFiles = [chosen("widget/src/main.rs"), chosen("widget/src/main.rs")];
+    expect(folderFromList(chosenFiles)).toBeNull();
   });
 
   it("rejects unsafe dropped paths before passing any files to the engine", async () => {
-    await expect(folderFromEntry(folder("widget", [entry("../outside.rs")]))).rejects.toThrow(
-      /unsafe path/,
-    );
-    await expect(
-      folderFromEntry(folder("widget", [folder("src", [entry("bad\\\\file.rs")])])),
-    ).rejects.toThrow(/unsafe path/);
+    const traversal = folder("widget", [entry("../outside.rs")]);
+    await expect(folderFromEntry(traversal)).rejects.toThrow(/unsafe path/);
+    const backslash = folder("widget", [folder("src", [entry("bad\\\\file.rs")])]);
+    await expect(folderFromEntry(backslash)).rejects.toThrow(/unsafe path/);
   });
 
   it("rejects repeated file paths across separate dropped-folder reader batches", async () => {
