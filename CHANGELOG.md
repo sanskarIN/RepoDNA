@@ -6,6 +6,11 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Ignore invalid recent-analysis metadata in browser storage so damaged entries cannot
+  prevent valid local analyses from appearing on the start page.
+
 ### Added
 
 - Export the current filtered Findings as structured JSON alongside spreadsheet-safe CSV.
