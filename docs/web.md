@@ -83,6 +83,15 @@ alone. **Download CSV** under a table saves all of its rows, in the order shown,
 spreadsheet: numbers stay numbers, and text that a spreadsheet would run as a formula is
 written so that it does not run.
 
+On the **Findings** page, **Export filtered CSV** downloads the current matching
+findings as spreadsheet-safe text. **Export filtered JSON** downloads the same full
+matching set as a JSON array, including each finding's original structured evidence,
+methods, and limitations. Both exports respect search, severity, category, and the
+**Show suppressed** selection and include matching findings beyond the visible page.
+They are saved locally without uploading repository data. A findings-only JSON array
+is **not** a complete RepoDNA analysis file; use **Reports & export** for the full
+RepositoryDNA artifact. Review file paths and evidence before sharing either export.
+
 To print a view, or save it as PDF, use the browser's Print command, or **Print this view**
 in the command palette (Ctrl/Cmd + K), which the desktop app needs, having no print menu.
 The printout leaves out the buttons and links made for the screen, shows every column of
