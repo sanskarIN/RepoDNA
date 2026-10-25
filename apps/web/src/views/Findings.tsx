@@ -13,6 +13,7 @@ import { ErrorBox, PageHeader, SearchBox, Select, SeverityBadge } from "../compo
 import { FindingItem } from "../components/FindingItem";
 import { useDownload } from "../lib/download";
 import { findingsCsv, findingsJson } from "../lib/findings-export";
+import { findingsMarkdown } from "../lib/findings-markdown";
 import { filterFindings } from "../lib/findings-filter";
 import { useRoute } from "../lib/router";
 import { useDataset } from "../state";
@@ -130,6 +131,20 @@ export function Findings() {
           }
         >
           Export filtered JSON
+        </button>
+        <button
+          type="button"
+          className="ghost"
+          disabled={filtered.length === 0}
+          onClick={() =>
+            download(
+              "repodna-findings.md",
+              findingsMarkdown(filtered),
+              "text/markdown;charset=utf-8",
+            )
+          }
+        >
+          Export filtered Markdown
         </button>
         <span className="muted" aria-live="polite">
           {filtered.length > shown
