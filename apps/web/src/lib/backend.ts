@@ -100,6 +100,21 @@ export class BackendError extends Error {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Protect the UI from a malformed job envelope returned by a local proxy or server. */
+function isJobState(value: unknown, allowed: readonly JobState["status"][]): value is JobState {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    value.id.length > 0 &&
+    typeof value.status === "string" &&
+    allowed.includes(value.status as JobState["status"])
+  );
+}
+
 const TOKEN_KEY = "repodna-token";
 
 function readStorage(key: string): string | null {
@@ -196,12 +211,20 @@ export class ServerBackend implements Backend {
     return value as Session;
   }
 
-  repositories(): Promise<RepositorySummary[]> {
-    return this.request<RepositorySummary[]>("repositories");
+  async repositories(): Promise<RepositorySummary[]> {
+    const value = await this.request<unknown>("repositories");
+    if (!Array.isArray(value)) {
+      throw new BackendError("The server returned an invalid repository list.", 200);
+    }
+    return value as RepositorySummary[];
   }
 
-  repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
-    return this.request(`repositories/${encodeURIComponent(id)}`);
+  async repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
+    const value = await this.request<unknown>(`repositories/${encodeURIComponent(id)}`);
+    if (!isRecord(value) || !isRecord(value.repository) || !Array.isArray(value.scans)) {
+      throw new BackendError("The server returned invalid repository details.", 200);
+    }
+    return value as { repository: RepositorySummary; scans: ScanSummary[] };
   }
 
   async artifact(id: string, scan?: string): Promise<RepositoryDna> {
@@ -212,16 +235,24 @@ export class ServerBackend implements Backend {
     return checkArtifact(value).artifact;
   }
 
-  startScan(input: string, profile?: string): Promise<JobState> {
-    return this.request<JobState>("scans", {
+  async startScan(input: string, profile?: string): Promise<JobState> {
+    const value = await this.request<unknown>("scans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(profile ? { input, profile } : { input }),
     });
+    if (!isJobState(value, ["running"])) {
+      throw new BackendError("The server returned an invalid new scan job.", 200);
+    }
+    return value;
   }
 
-  job(id: string): Promise<JobState> {
-    return this.request<JobState>(`scans/${encodeURIComponent(id)}`);
+  async job(id: string): Promise<JobState> {
+    const value = await this.request<unknown>(`scans/${encodeURIComponent(id)}`);
+    if (!isJobState(value, ["running", "completed", "failed", "cancelled"])) {
+      throw new BackendError("The server returned an invalid scan job.", 200);
+    }
+    return value;
   }
 
   async cancelJob(id: string): Promise<void> {
@@ -261,7 +292,12 @@ export class ServerBackend implements Backend {
     if (!response.ok) {
       throw new BackendError(`The server answered ${response.status}.`, response.status);
     }
-    return response.text();
+    const svg = await response.text();
+    // A reverse proxy may return an HTML login page with HTTP 200.
+    if (!/^\s*(?:<\?xml[^>]*>\s*)?<svg\b/i.test(svg)) {
+      throw new BackendError("The server did not return an SVG card.", response.status);
+    }
+    return svg;
   }
 }
 
