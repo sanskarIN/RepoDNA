@@ -6,6 +6,18 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Added
+
+- Export the current filtered Findings as structured JSON alongside spreadsheet-safe CSV.
+  The JSON includes all matching findings, including results beyond the visible page,
+  and preserves their full evidence for scripting and review without uploading data.
+
+### Tests
+
+- Cover JSON findings export fidelity, nested evidence, empty results, and the web
+  interface's enabled/disabled export controls.
+
+
 ## [1.4.3] - 2026-10-23
 
 RepoDNA v1.4.3 improves local-first analysis reliability, desktop startup,
