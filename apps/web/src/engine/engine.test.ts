@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { droppedFolder, folderFromEntry, folderFromList, isArchive, keep } from "./input";
+import {
+  droppedFolder,
+  folderFromEntry,
+  folderFromList,
+  isArchive,
+  keep,
+  safeRelativePath,
+} from "./input";
 
 /** A file as a folder chooser gives it: named by its path from the chosen folder. */
 function chosen(path: string, text = "x"): File {
@@ -75,6 +82,55 @@ describe("input", () => {
     ]);
     expect(input).toMatchObject({ name: "widget", bytes: 4 });
     expect(counts.at(-1)).toBe(4);
+  });
+
+  it("accepts normal relative paths and rejects traversal, absolute and malformed paths", () => {
+    expect(safeRelativePath("src/core/module.rs")).toBe(true);
+    expect(safeRelativePath(".gitignore")).toBe(true);
+    for (const path of [
+      "",
+      "/etc/passwd",
+      "../secret",
+      "src/../secret",
+      "src/./module.rs",
+      "src//module.rs",
+      "src/",
+      "C:/private",
+      "src/file:alternate",
+      "src\\\\windows",
+      "src/unsafe\0name",
+    ]) {
+      expect(safeRelativePath(path), path).toBe(false);
+    }
+  });
+
+  it("does not combine separate folder roots or rooted and unrooted paths", () => {
+    expect(folderFromList([chosen("first/src/main.rs"), chosen("other/README.md")])).toBeNull();
+    expect(folderFromList([chosen("first/src/main.rs"), chosen("readme.md")])).toBeNull();
+    expect(folderFromList([chosen("first/src/../secret.rs")])).toBeNull();
+    const good = folderFromList([chosen("first/src/main.rs"), chosen("first/README.md")]);
+    expect(good?.kind).toBe("folder");
+    expect(good?.name).toBe("first");
+  });
+
+  it("rejects duplicate chosen file paths without double-counting files", () => {
+    expect(folderFromList([chosen("widget/src/main.rs"), chosen("widget/src/main.rs")])).toBeNull();
+  });
+
+  it("rejects unsafe dropped paths before passing any files to the engine", async () => {
+    await expect(folderFromEntry(folder("widget", [entry("../outside.rs")]))).rejects.toThrow(
+      /unsafe path/,
+    );
+    await expect(
+      folderFromEntry(folder("widget", [folder("src", [entry("bad\\\\file.rs")])])),
+    ).rejects.toThrow(/unsafe path/);
+  });
+
+  it("rejects repeated file paths across separate dropped-folder reader batches", async () => {
+    const files = [entry("main.rs"), entry("helper.rs"), entry("main.rs")];
+    await expect(folderFromEntry(folder("widget", files))).rejects.toThrow(
+      /duplicate file paths/,
+    );
   });
 
   it("finds a dropped folder among the dropped items", () => {
