@@ -18,11 +18,13 @@ the browser, and an official GitHub Action runs RepoDNA in workflows.
 ## Immediate maintenance gates (after v1.4.3)
 
 Before proposing another stable release, validate and integrate the independently reviewed
-browser-import, cache, and local-API hardening changes already under review, resolve
-the Rust TLS trust dependency advisory tracking issue (#59), and confirm both
-workspace and desktop advisory checks pass. Verify native desktop installer and
-portable CLI artifacts on Windows as part of release trials. A passing overall
-workflow alone is not evidence that every advisory job passed.
+browser-import, cache, and local-API hardening changes already under review.
+The two lockfiles now contain the patched `rustls-webpki 0.103.16` and
+`webpki-roots 1.0.10` versions. Verify workspace and desktop advisory checks
+and complete the runtime follow-up for issue #59 before closing it. Verify native
+desktop installer and portable CLI artifacts on Windows as part of release
+trials; an overall green workflow is not proof that skipped or tolerated
+individual checks were clean.
 
 ## Candidate feature milestones
 
