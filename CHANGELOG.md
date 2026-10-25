@@ -6,6 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Validate local server repository lists, repository details, scan job envelopes,
+  and SVG cards before passing responses to the interface. Show specific errors
+  for malformed responses, including HTML login pages returned by proxies.
+
 ### Added
 
 - Export the current filtered Findings as structured JSON alongside spreadsheet-safe CSV.
