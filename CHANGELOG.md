@@ -8,6 +8,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
+- Ignore corrupted or incomplete recent-analysis entries recovered from browser
+  storage while retaining valid locally saved analyses.
+
 - Reject unsafe, duplicate or mixed-root paths in browser folder imports, including
   files returned in separate drag-and-drop reader batches. Add regression coverage
   for traversal, malformed paths and normal folder imports.
