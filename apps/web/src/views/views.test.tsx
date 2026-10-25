@@ -266,6 +266,16 @@ describe("views", () => {
     expect(json).toHaveProperty("disabled", true);
   });
 
+  it("offers Markdown as a third filtered findings export", async () => {
+    await renderAt("/findings", dataset);
+    const markdown = screen.getByRole("button", { name: "Export filtered Markdown" });
+    expect(markdown).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Search findings"), {
+      target: { value: "a query matching no findings 723" },
+    });
+    expect(markdown).toHaveProperty("disabled", true);
+  });
+
   it("shows the privacy policy and links the other legal pages inside the app", async () => {
     await renderAt("/privacy", dataset);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Privacy Policy");
