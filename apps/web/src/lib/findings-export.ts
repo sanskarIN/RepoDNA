@@ -31,3 +31,11 @@ const columns: Column<Finding>[] = [
 export function findingsCsv(findings: readonly Finding[]): string {
   return toCsv(findings, columns);
 }
+/**
+ * Export the selected findings with all of their original, structured evidence.
+ * This is a JSON array of findings, not a full RepositoryDNA artifact. The
+ * ordering and suppression selection are owned by the Findings view.
+ */
+export function findingsJson(findings: readonly Finding[]): string {
+  return `${JSON.stringify(findings, null, 2)}\n`;
+}
