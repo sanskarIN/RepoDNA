@@ -183,6 +183,9 @@ Rust code as the command line, as the
 - Files are read in the page, only when the analysis opens them, so files that
   `.gitignore` excludes are never read, and nothing is uploaded. The repository's own
   `repodna.toml` applies, as on the command line.
+- The browser rejects unsafe relative paths, duplicate files, and file selections
+  combining multiple folder roots rather than building misleading or unsafe
+  analyses. Choose a single repository folder and retry if a selection fails.
 - Browsers cannot run Git, so these analyses have no history: no commits, contributors,
   hotspots by change, or Time Machine. For those, use the command line or the desktop app,
   then open the result here.

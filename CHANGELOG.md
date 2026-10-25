@@ -6,6 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject unsafe, duplicate or mixed-root paths in browser folder imports, including
+  files returned in separate drag-and-drop reader batches. Add regression coverage
+  for traversal, malformed paths and normal folder imports.
+
 ### Added
 
 - Export the current filtered Findings as structured JSON alongside spreadsheet-safe CSV.
