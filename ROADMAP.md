@@ -15,6 +15,36 @@ the browser, and an official GitHub Action runs RepoDNA in workflows.
 - Measure and improve performance on large repositories and long histories, and publish the
   results with the [benchmarks](benchmarks/README.md).
 
+## Immediate maintenance gates (after v1.4.3)
+
+Before proposing another stable release, validate and integrate the independently reviewed
+browser-import, cache, and local-API hardening changes already under review, resolve
+the Rust TLS trust dependency advisory tracking issue (#59), and confirm both
+workspace and desktop advisory checks pass. Verify native desktop installer and
+portable CLI artifacts on Windows as part of release trials. A passing overall
+workflow alone is not evidence that every advisory job passed.
+
+## Candidate feature milestones
+
+These are prioritized candidates, not features claimed to be complete or a promised
+release schedule. Ship each behind tests and independent PR review:
+
+1. **Review-ready findings exports.** Keep the interactive CSV workflow and add a
+   filtered JSON export retaining structured finding evidence; then explore an
+   optional privacy-preview step before sharing sensitive paths or history.
+2. **Pull request impact summaries.** Build on `repodna ci --baseline` to show
+   introduced and resolved findings plus affected modules and dependency edges,
+   with a stable machine-readable output for CI comments.
+3. **Incremental local analysis.** Cache stages by revision, profile, and relevant
+   configuration hash; invalidate safely when ignore patterns or analyzer versions
+   change. Measure correctness against cold full analyses.
+4. **Large-repository performance.** Add deterministic memory budgets and progress
+   reporting for browser imports, then benchmark monorepos and histories with
+   repeatable fixtures.
+5. **Navigable onboarding views.** Let readers jump from a finding or module to
+   the exact evidence and export a filtered, privacy-reviewed onboarding brief
+   without uploading code.
+
 ## Next
 
 - **Lexical analysis for more languages.** Imports, symbols, and complexity for languages
