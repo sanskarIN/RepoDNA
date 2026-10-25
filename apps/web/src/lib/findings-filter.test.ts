@@ -62,9 +62,7 @@ describe("findings search and export filtering", () => {
     const high = finding("Precise signal", { confidence: "high" });
     const low = finding("Heuristic signal", { confidence: "low" });
     const unknown = finding("Unavailable signal", { confidence: "unavailable" });
-    expect(filterFindings([high, low, unknown], { ...defaults, confidence: "low" })).toEqual([
-      low,
-    ]);
+    expect(filterFindings([high, low, unknown], { ...defaults, confidence: "low" })).toEqual([low]);
     expect(
       filterFindings([high, low, unknown], { ...defaults, confidence: "unavailable" }),
     ).toEqual([unknown]);
