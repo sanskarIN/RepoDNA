@@ -6,6 +6,13 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Added
+
+- Filter the Findings explorer by analysis confidence (high, medium, low or
+  unavailable), combine the filter with search, severity, category and
+  suppression choices, and reset all filters in one click. Filtered exports
+  automatically use the same selection.
+
 ### Fixed
 
 - Reject unsafe, duplicate or mixed-root paths in browser folder imports, including
