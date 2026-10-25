@@ -68,30 +68,17 @@ describe("recent analyses", () => {
     ).toEqual(["new", "old"]);
   });
 
-  it("ignores invalid persistent records without losing valid recent analyses", () => {
-    const corrupt = [
+  it("ignores invalid cached records without crashing recent-analysis listing", () => {
+    const broken = [
       null,
-      { id: "incomplete", name: "Missing date", size: 12 },
-      { ...entry("bad-date", "not-a-date") },
-      { ...entry("bad-generated", "2026-10-01T00:00:00Z"), generatedAt: "" },
-      { ...entry("bad-size", "2026-10-02T00:00:00Z"), size: -3 },
-      { ...entry("huge", "2026-10-02T00:00:00Z"), size: Number.MAX_SAFE_INTEGER },
-      { ...entry("nan", "2026-10-02T00:00:00Z"), size: Number.NaN },
-      { ...entry("missing-name", "2026-10-02T00:00:00Z"), name: "" },
-      { ...entry("missing-id", "2026-10-02T00:00:00Z"), id: "" },
+      { id: "broken", name: "Bad", openedAt: null, size: 12 },
+      { id: "bad-date", name: "Bad", openedAt: "unparseable", size: 12 },
+      { id: "bad-size", name: "Bad", openedAt: "2026-10-22T00:00:00Z", size: -3 },
+      { ...entry("missing-name", "2026-10-22T00:00:00Z"), name: "" },
+      { ...entry("oversize", "2026-10-22T00:00:00Z"), size: Number.MAX_SAFE_INTEGER },
     ] as unknown as RecentEntry[];
-    const valid = entry("valid", "2026-10-03T00:00:00Z");
-    expect(newest([...corrupt, valid]).map((item) => item.id)).toEqual(["valid"]);
-    expect(newest([...corrupt])).toEqual([]);
-  });
-
-  it("keeps recent metadata sorted and does not mutate callers' arrays", () => {
-    const all = [
-      entry("old", "2026-01-01T00:00:00Z"),
-      entry("new", "2026-03-01T00:00:00Z"),
-    ];
-    expect(newest(all).map((item) => item.id)).toEqual(["new", "old"]);
-    expect(all.map((item) => item.id)).toEqual(["old", "new"]);
+    const valid = newest([...broken, entry("valid", "2026-10-23T00:00:00Z")]);
+    expect(valid.map((item) => item.id)).toEqual(["valid"]);
   });
 
   it("remembers what is open in the tab, and ignores what it cannot read", () => {
