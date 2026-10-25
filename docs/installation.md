@@ -86,12 +86,12 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt       # macOS
 
 ```powershell
 Get-FileHash .\repodna-1.4.3-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # compare with SHA256SUMS.txt
+```
 
 Confirm the calculated hash matches the entry for the exact ZIP filename in
 `SHA256SUMS.txt`. On Linux or macOS, make sure the check reports the selected
 archive as **OK**; `--ignore-missing` skips other assets you did not download.
 Do not install an archive whose checksum does not match.
-```
 
 ### Unsigned binaries
 
