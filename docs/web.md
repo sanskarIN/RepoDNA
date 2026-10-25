@@ -138,7 +138,8 @@ The server is meant for one person on one machine:
   from other sites.
 
 The interface's own files contain no data and are served without the token; everything
-about your repositories comes from the API.
+about your repositories comes from the API. The client checks repository, scan job,
+and SVG-card response shapes to handle malformed proxy responses safely.
 
 ## The local API
 
