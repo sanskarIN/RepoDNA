@@ -45,7 +45,7 @@ Open the printed link. The start page lets you:
   never uploaded.
 - **Open a recent analysis**: the last five files you opened, kept in this browser so that
   they open again in one click. Remove them one by one, or forget them all or turn this off
-  in Settings.
+  in Settings. Damaged cached entries are ignored rather than interrupting this list.
 - **Try the demo**: RepoDNA's analysis of its own repository, bundled with the interface.
 
 In the web version, **Analyze a repository in this browser** takes the place of the first
