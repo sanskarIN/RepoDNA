@@ -20,6 +20,7 @@ const defaults: FindingFilters = {
   query: "",
   severity: "all",
   category: "all",
+  confidence: "all",
   showSuppressed: false,
 };
 
@@ -53,6 +54,33 @@ describe("findings search and export filtering", () => {
     });
     expect(filterFindings([suppressed], defaults)).toEqual([]);
     expect(filterFindings([suppressed], { ...defaults, showSuppressed: true })).toEqual([
+      suppressed,
+    ]);
+  });
+
+  it("filters by confidence without treating unknown confidence as high confidence", () => {
+    const high = finding("Precise signal", { confidence: "high" });
+    const low = finding("Heuristic signal", { confidence: "low" });
+    const unknown = finding("Unavailable signal", { confidence: "unavailable" });
+    expect(filterFindings([high, low, unknown], { ...defaults, confidence: "low" })).toEqual([
+      low,
+    ]);
+    expect(
+      filterFindings([high, low, unknown], { ...defaults, confidence: "unavailable" }),
+    ).toEqual([unknown]);
+  });
+
+  it("combines confidence with query and suppression filters", () => {
+    const high = finding("Tracked cycle", { confidence: "high" });
+    const low = finding("Tracked cycle", { confidence: "low" });
+    const suppressed = finding("Tracked cycle", {
+      confidence: "high",
+      suppressed: { reason: "reviewed", source: "config" },
+    });
+    const filters: FindingFilters = { ...defaults, query: "tracked", confidence: "high" };
+    expect(filterFindings([high, low, suppressed], filters)).toEqual([high]);
+    expect(filterFindings([high, low, suppressed], { ...filters, showSuppressed: true })).toEqual([
+      high,
       suppressed,
     ]);
   });
