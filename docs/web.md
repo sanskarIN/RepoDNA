@@ -138,7 +138,9 @@ The server is meant for one person on one machine:
   from other sites.
 
 The interface's own files contain no data and are served without the token; everything
-about your repositories comes from the API.
+about your repositories comes from the API. The client also validates the shape of
+repository, scan-job, and SVG-card responses so malformed proxy pages or incomplete
+JSON cause an explicit error rather than breaking the interface.
 
 ## The local API
 
