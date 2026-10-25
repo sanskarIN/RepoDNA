@@ -6,6 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Added
+
+- Export filtered findings as a standalone Markdown review with evidence,
+  limitations, suppression context, and suggested follow-up steps. Escape
+  repository-supplied Markdown/HTML and preserve the selected display order.
+
 ### Fixed
 
 - Reject unsafe, duplicate or mixed-root paths in browser folder imports, including
