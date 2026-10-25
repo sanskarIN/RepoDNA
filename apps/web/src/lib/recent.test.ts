@@ -68,6 +68,32 @@ describe("recent analyses", () => {
     ).toEqual(["new", "old"]);
   });
 
+  it("ignores invalid persistent records without losing valid recent analyses", () => {
+    const corrupt = [
+      null,
+      { id: "incomplete", name: "Missing date", size: 12 },
+      { ...entry("bad-date", "not-a-date") },
+      { ...entry("bad-generated", "2026-10-01T00:00:00Z"), generatedAt: "" },
+      { ...entry("bad-size", "2026-10-02T00:00:00Z"), size: -3 },
+      { ...entry("huge", "2026-10-02T00:00:00Z"), size: Number.MAX_SAFE_INTEGER },
+      { ...entry("nan", "2026-10-02T00:00:00Z"), size: Number.NaN },
+      { ...entry("missing-name", "2026-10-02T00:00:00Z"), name: "" },
+      { ...entry("missing-id", "2026-10-02T00:00:00Z"), id: "" },
+    ] as unknown as RecentEntry[];
+    const valid = entry("valid", "2026-10-03T00:00:00Z");
+    expect(newest([...corrupt, valid]).map((item) => item.id)).toEqual(["valid"]);
+    expect(newest([...corrupt])).toEqual([]);
+  });
+
+  it("keeps recent metadata sorted and does not mutate callers' arrays", () => {
+    const all = [
+      entry("old", "2026-01-01T00:00:00Z"),
+      entry("new", "2026-03-01T00:00:00Z"),
+    ];
+    expect(newest(all).map((item) => item.id)).toEqual(["new", "old"]);
+    expect(all.map((item) => item.id)).toEqual(["old", "new"]);
+  });
+
   it("remembers what is open in the tab, and ignores what it cannot read", () => {
     expect(openPointer()).toBeNull();
     setOpenPointer({ kind: "demo", file: "repodna.json", title: "RepoDNA" });
