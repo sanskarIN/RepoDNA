@@ -112,6 +112,24 @@ Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows (`.msi`, `.ex
 attached to each release, and from 1.3.1 on for Windows on Arm (`_arm64_en-US.msi`,
 `_arm64-setup.exe`). See [the desktop app](desktop.md).
 
+For the published v1.4.3 release, choose the installer matching your system:
+
+| Operating system | Published installer asset |
+|---|---|
+| Windows x64, setup | `RepoDNA_1.4.3_x64-setup.exe` |
+| Windows x64, MSI | `RepoDNA_1.4.3_x64_en-US.msi` |
+| Windows ARM64, setup | `RepoDNA_1.4.3_arm64-setup.exe` |
+| Windows ARM64, MSI | `RepoDNA_1.4.3_arm64_en-US.msi` |
+| macOS (Intel or Apple silicon) | `RepoDNA_1.4.3_universal.dmg` |
+| Debian/Ubuntu, x64 | `RepoDNA_1.4.3_amd64.deb` |
+| RPM-based Linux, x64 | `RepoDNA-1.4.3-1.x86_64.rpm` |
+
+Windows ARM64 installers are for Arm-based computers, not standard Intel or
+AMD x64 systems. Linux ARM64 and macOS-specific **CLI** archives are also
+available in [prebuilt binaries](#prebuilt-binaries); do not assume every
+CLI architecture has a matching desktop installer. Verify the assets available
+for the version you choose on the release page.
+
 ## Container image
 
 Each release is also published as a container image with the command line and Git, for CI
