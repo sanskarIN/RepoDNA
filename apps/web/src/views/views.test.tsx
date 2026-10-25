@@ -256,6 +256,16 @@ describe("views", () => {
     expect(screen.getByText("No findings match these filters.")).toBeTruthy();
   });
 
+  it("offers JSON alongside CSV for matching findings, and disables both when filters match none", async () => {
+    await renderAt("/findings", dataset);
+    const csv = screen.getByRole("button", { name: "Export filtered CSV" });
+    const json = screen.getByRole("button", { name: "Export filtered JSON" });
+    const search = screen.getByLabelText("Search findings");
+    fireEvent.change(search, { target: { value: "no matching finding 80276498" } });
+    expect(csv).toHaveProperty("disabled", true);
+    expect(json).toHaveProperty("disabled", true);
+  });
+
   it("shows the privacy policy and links the other legal pages inside the app", async () => {
     await renderAt("/privacy", dataset);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Privacy Policy");
