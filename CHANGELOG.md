@@ -8,6 +8,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- Add confidence-level filtering (high, medium, low and unavailable) and a
+  one-click filter reset in the Findings explorer. Filtered CSV, JSON and
+  Markdown exports use the same matching selection.
+
+### Added
+
 - Export filtered findings as a standalone Markdown review with evidence,
   limitations, suppression context, and suggested follow-up steps. Escape
   repository-supplied Markdown/HTML and preserve the selected display order.
