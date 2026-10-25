@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Finding } from "@repodna/schema";
-import { findingsCsv } from "./findings-export";
+import { findingsCsv, findingsJson } from "./findings-export";
 
 function sample(values: Record<string, unknown> = {}): Finding {
   return {
@@ -38,5 +38,31 @@ describe("findings CSV export", () => {
 
   it("exports only headers when no findings match", () => {
     expect(findingsCsv([]).split("\r\n")).toHaveLength(2);
+  });
+});
+
+describe("findings JSON export", () => {
+  it("keeps the supplied findings and their display order without changing any fields", () => {
+    const first = sample({ id: "one", title: "First", severity: "critical" });
+    const second = sample({ id: "two", title: "Second", severity: "warning" });
+    const json = findingsJson([first, second]);
+    expect(json.endsWith("\n")).toBe(true);
+    expect(JSON.parse(json)).toEqual([first, second]);
+  });
+
+  it("preserves nested evidence and safely encodes untrusted repository text", () => {
+    const record = sample({
+      title: 'Quoted "message" with =SUM(1,2)',
+      evidence: [{ kind: "source", path: "src/test.rs", detail: "line\n<script>" }],
+      paths: ["src/a\tb.rs"],
+    });
+    const json = findingsJson([record]);
+    expect(JSON.parse(json)).toEqual([record]);
+    expect(json).toContain('Quoted \\"message\\"');
+    expect(json).toContain("line\\n<script>");
+  });
+
+  it("serializes no matching findings as a valid empty array", () => {
+    expect(findingsJson([])).toBe("[]\n");
   });
 });
