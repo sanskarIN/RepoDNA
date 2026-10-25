@@ -266,6 +266,23 @@ describe("views", () => {
     expect(json).toHaveProperty("disabled", true);
   });
 
+  it("filters findings by confidence and resets every selected filter", async () => {
+    await renderAt("/findings", dataset);
+    const confidence = screen.getByLabelText("Confidence") as HTMLSelectElement;
+    const reset = screen.getByRole("button", { name: "Reset filters" });
+    expect(reset).toHaveProperty("disabled", true);
+    fireEvent.change(confidence, { target: { value: "unavailable" } });
+    expect(confidence.value).toBe("unavailable");
+    expect(reset).toHaveProperty("disabled", false);
+    fireEvent.change(screen.getByLabelText("Search findings"), {
+      target: { value: "no matching finding" },
+    });
+    fireEvent.click(reset);
+    expect(confidence.value).toBe("all");
+    expect((screen.getByLabelText("Search findings") as HTMLInputElement).value).toBe("");
+    expect(reset).toHaveProperty("disabled", true);
+  });
+
   it("shows the privacy policy and links the other legal pages inside the app", async () => {
     await renderAt("/privacy", dataset);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Privacy Policy");
