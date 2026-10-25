@@ -122,7 +122,11 @@ export function Findings() {
           className="ghost"
           disabled={filtered.length === 0}
           onClick={() =>
-            download("repodna-findings.json", findingsJson(filtered), "application/json;charset=utf-8")
+            download(
+              "repodna-findings.json",
+              findingsJson(filtered),
+              "application/json;charset=utf-8",
+            )
           }
         >
           Export filtered JSON
