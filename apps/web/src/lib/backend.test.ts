@@ -51,6 +51,71 @@ describe("local server API responses", () => {
       "The server returned an invalid session.",
     );
   });
+  it("rejects non-array repository list responses", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ repositories: [] }), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).repositories()).rejects.toThrow(
+      "The server returned an invalid repository list.",
+    );
+  });
+
+  it("accepts a valid repository list response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).repositories()).resolves.toEqual([]);
+  });
+
+  it("rejects repository details without an array of scans", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ repository: { id: "repo" }, scans: null }), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).repository("repo")).rejects.toThrow(
+      "The server returned invalid repository details.",
+    );
+  });
+
+  it("rejects malformed new scan responses", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: null, status: "running" }), { status: 202 }),
+    );
+    await expect(new ServerBackend(null).startScan("project")).rejects.toThrow(
+      "The server returned an invalid new scan job.",
+    );
+  });
+
+  it("rejects unknown scan job statuses", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "job-1", status: "unexpected" }), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).job("job-1")).rejects.toThrow(
+      "The server returned an invalid scan job.",
+    );
+  });
+
+  it("accepts a valid running scan job response", async () => {
+    const job = { id: "job-1", status: "running" };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(job), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).job("job-1")).resolves.toEqual(job);
+  });
+
+  it("rejects HTML returned in place of a project DNA SVG card", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html>Sign in</html>", { status: 200 }),
+    );
+    await expect(new ServerBackend(null).card("repo", false)).rejects.toThrow(
+      "The server did not return an SVG card.",
+    );
+  });
+
+  it("accepts an SVG project card response", async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(svg, { status: 200 }));
+    await expect(new ServerBackend(null).card("repo", false)).resolves.toBe(svg);
+  });
 });
 
 describe("local server token URLs", () => {
