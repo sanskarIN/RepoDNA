@@ -3,6 +3,10 @@
 //! It predicts which facts are useful for a task, not prose or program behavior.
 //! No external model runtime, pretrained weights, network access, or GPU.
 
+mod evaluation;
+
+pub use evaluation::RetrievalEvaluation;
+
 use crate::context::{EvidenceItem, EvidenceKind};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;

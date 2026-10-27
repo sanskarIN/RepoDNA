@@ -40,6 +40,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     validate_repository_split(&training, &holdout).map_err(io::Error::other)?;
     let model = RankerModel::train(&training, 60).map_err(io::Error::other)?;
     let evaluation = model.evaluate(&holdout);
+    let retrieval = model.evaluate_retrieval(&holdout, 5).map_err(io::Error::other)?;
     let payload = serde_json::to_vec_pretty(&model)?;
     // Never silently destroy an existing or unrelated checkpoint.
     let mut output = OpenOptions::new()
@@ -55,7 +56,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "trainingRepositories": model.training_repositories,
         "holdout": evaluation,
         "holdoutAccuracy": evaluation.accuracy(),
-        "note": "A ranking baseline only; no generative model and no measured factual correctness"
+        "retrieval": retrieval,
+        "note": "Synthetic fixtures demonstrate the pipeline, not real-world quality; retrieval scores only evaluate labels, not factual correctness"
     });
     let mut stdout = io::stdout().lock();
     serde_json::to_writer_pretty(&mut stdout, &results)?;

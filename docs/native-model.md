@@ -81,8 +81,12 @@ cargo run --locked -p repodna-ai --bin train-repodna-ranker -- \
 ```
 
 The command writes a versioned JSON checkpoint and prints holdout classification
-metrics. Existing output files are not overwritten. The example datasets are
+and per-question retrieval metrics (MRR, precision@5, recall@5, NDCG@5). Existing output files are not overwritten. The example datasets are
 **synthetic pipeline smoke tests only**, not evidence of model quality.
+Ranking metrics group examples by repository and exact question; groups without any
+known relevant evidence are counted separately and excluded from ranking averages.
+Precision@5 divides by five even when a group has fewer than five candidates.
+These numbers do not establish that cited statements are correct.
 Real validation must use many unrelated, clearly licensed repositories, reviewed
 labels, human-measured citation correctness and representative tasks. Do not
 publish accuracy claims from these synthetic samples.
