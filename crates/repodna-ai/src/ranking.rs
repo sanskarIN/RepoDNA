@@ -3,9 +3,9 @@
 //! It predicts which facts are useful for a task, not prose or program behavior.
 //! No external model runtime, pretrained weights, network access, or GPU.
 
-use std::collections::HashSet;
-use serde::{Deserialize, Serialize};
 use crate::context::{EvidenceItem, EvidenceKind};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// Versioned JSON checkpoint identifier.
 pub const MODEL_FORMAT: &str = "repodna-evidence-ranker/1";
@@ -61,7 +61,11 @@ pub struct RankerEvaluation {
 impl RankerEvaluation {
     /// Fraction of correct classifications.
     pub fn accuracy(self) -> f64 {
-        if self.samples == 0 { 0.0 } else { self.correct as f64 / self.samples as f64 }
+        if self.samples == 0 {
+            0.0
+        } else {
+            self.correct as f64 / self.samples as f64
+        }
     }
 }
 
@@ -73,7 +77,9 @@ fn terms(text: &str) -> HashSet<String> {
 }
 
 fn overlap(query: &HashSet<String>, candidate: &str) -> f64 {
-    if query.is_empty() { return 0.0; }
+    if query.is_empty() {
+        return 0.0;
+    }
     query.intersection(&terms(candidate)).count() as f64 / query.len() as f64
 }
 
@@ -103,16 +109,30 @@ pub fn features(query: &str, item: &EvidenceItem) -> [f64; FEATURE_COUNT] {
     features
 }
 
-fn sigmoid(v: f64) -> f64 { 1.0 / (1.0 + (-v.clamp(-32.0, 32.0)).exp()) }
+fn sigmoid(v: f64) -> f64 {
+    1.0 / (1.0 + (-v.clamp(-32.0, 32.0)).exp())
+}
 
 /// Reject samples from the same repository in training and holdout datasets.
-pub fn validate_repository_split(train: &[LabeledEvidence], test: &[LabeledEvidence]) -> Result<(), String> {
-    if train.is_empty() || test.is_empty() { return Err("training and holdout must both be nonempty".into()); }
+pub fn validate_repository_split(
+    train: &[LabeledEvidence],
+    test: &[LabeledEvidence],
+) -> Result<(), String> {
+    if train.is_empty() || test.is_empty() {
+        return Err("training and holdout must both be nonempty".into());
+    }
     let repo_ids: HashSet<&str> = train.iter().map(|s| s.repository.as_str()).collect();
-    if train.iter().chain(test.iter()).any(|s| s.repository.trim().is_empty() || s.query.trim().is_empty() || s.evidence.detail.trim().is_empty()) {
+    if train.iter().chain(test.iter()).any(|s| {
+        s.repository.trim().is_empty()
+            || s.query.trim().is_empty()
+            || s.evidence.detail.trim().is_empty()
+    }) {
         return Err("every example needs a repository, query, and evidence detail".into());
     }
-    if test.iter().any(|s| repo_ids.contains(s.repository.as_str())) {
+    if test
+        .iter()
+        .any(|s| repo_ids.contains(s.repository.as_str()))
+    {
         return Err("repository leakage: training and test repository IDs overlap".into());
     }
     Ok(())
@@ -121,30 +141,55 @@ pub fn validate_repository_split(train: &[LabeledEvidence], test: &[LabeledEvide
 impl RankerModel {
     /// Strictly validate checkpoint metadata and numeric weights.
     pub fn validate(&self) -> Result<(), String> {
-        if self.format != MODEL_FORMAT { return Err("unsupported ranker checkpoint format".into()); }
-        if self.weights.len() != FEATURE_COUNT { return Err("incorrect number of ranker weights".into()); }
-        if self.training_examples == 0 || self.training_repositories == 0 { return Err("ranker has no training provenance".into()); }
-        if self.weights.iter().any(|w| !w.is_finite() || w.abs() > 32.0) { return Err("ranker weights must be finite and bounded".into()); }
+        if self.format != MODEL_FORMAT {
+            return Err("unsupported ranker checkpoint format".into());
+        }
+        if self.weights.len() != FEATURE_COUNT {
+            return Err("incorrect number of ranker weights".into());
+        }
+        if self.training_examples == 0 || self.training_repositories == 0 {
+            return Err("ranker has no training provenance".into());
+        }
+        if self
+            .weights
+            .iter()
+            .any(|w| !w.is_finite() || w.abs() > 32.0)
+        {
+            return Err("ranker weights must be finite and bounded".into());
+        }
         Ok(())
     }
 
     /// Fit logistic relevance weights using deterministic bounded SGD.
     pub fn train(samples: &[LabeledEvidence], epochs: u32) -> Result<Self, String> {
-        if !(2..=MAX_EXAMPLES).contains(&samples.len()) { return Err("training set size is outside supported bounds".into()); }
-        if !(1..=200).contains(&epochs) { return Err("epochs must be 1..=200".into()); }
+        if !(2..=MAX_EXAMPLES).contains(&samples.len()) {
+            return Err("training set size is outside supported bounds".into());
+        }
+        if !(1..=200).contains(&epochs) {
+            return Err("epochs must be 1..=200".into());
+        }
         if !samples.iter().any(|s| s.relevant) || !samples.iter().any(|s| !s.relevant) {
             return Err("training requires positive and negative labels".into());
         }
-        if samples.iter().any(|s| s.repository.trim().is_empty() || s.query.trim().is_empty() ||
-            s.evidence.detail.trim().is_empty() || s.query.len() > 4_000 || s.evidence.detail.len() > 8_000) {
+        if samples.iter().any(|s| {
+            s.repository.trim().is_empty()
+                || s.query.trim().is_empty()
+                || s.evidence.detail.trim().is_empty()
+                || s.query.len() > 4_000
+                || s.evidence.detail.len() > 8_000
+        }) {
             return Err("invalid or oversized training example".into());
         }
-        let training_repositories = samples.iter().map(|s| s.repository.as_str()).collect::<HashSet<_>>().len();
+        let training_repositories = samples
+            .iter()
+            .map(|s| s.repository.as_str())
+            .collect::<HashSet<_>>()
+            .len();
         let mut weights = vec![0.0_f64; FEATURE_COUNT];
         for _ in 0..epochs {
             for sample in samples {
                 let x = features(&sample.query, &sample.evidence);
-                let logit = weights.iter().zip(x).map(|(w, x)| w*x).sum::<f64>();
+                let logit = weights.iter().zip(x).map(|(w, x)| w * x).sum::<f64>();
                 let target = if sample.relevant { 1.0 } else { 0.0 };
                 let error = target - sigmoid(logit);
                 for (w, feature) in weights.iter_mut().zip(x) {
@@ -152,14 +197,23 @@ impl RankerModel {
                 }
             }
         }
-        let result = Self { format: MODEL_FORMAT.into(), weights, training_examples: samples.len(), training_repositories };
+        let result = Self {
+            format: MODEL_FORMAT.into(),
+            weights,
+            training_examples: samples.len(),
+            training_repositories,
+        };
         result.validate()?;
         Ok(result)
     }
 
     /// Ranking probability, not a calibrated semantic confidence score.
     pub fn relevance(&self, query: &str, item: &EvidenceItem) -> f64 {
-        self.weights.iter().zip(features(query, item)).map(|(w,x)| w*x).sum::<f64>()
+        self.weights
+            .iter()
+            .zip(features(query, item))
+            .map(|(w, x)| w * x)
+            .sum::<f64>()
             .pipe_sigmoid()
     }
 
@@ -167,7 +221,8 @@ impl RankerModel {
     pub fn rank_indices(&self, query: &str, evidence: &[EvidenceItem]) -> Vec<usize> {
         let mut indices: Vec<usize> = (0..evidence.len()).collect();
         indices.sort_by(|&a, &b| {
-            self.relevance(query, &evidence[b]).total_cmp(&self.relevance(query, &evidence[a]))
+            self.relevance(query, &evidence[b])
+                .total_cmp(&self.relevance(query, &evidence[a]))
                 .then(a.cmp(&b))
         });
         indices
@@ -175,10 +230,18 @@ impl RankerModel {
 
     /// Score labels not used during training without changing weights.
     pub fn evaluate(&self, holdout: &[LabeledEvidence]) -> RankerEvaluation {
-        let mut result = RankerEvaluation { samples: holdout.len(), correct: 0, true_positives: 0, false_positives: 0, false_negatives: 0 };
+        let mut result = RankerEvaluation {
+            samples: holdout.len(),
+            correct: 0,
+            true_positives: 0,
+            false_positives: 0,
+            false_negatives: 0,
+        };
         for sample in holdout {
             let yes = self.relevance(&sample.query, &sample.evidence) >= 0.5;
-            if yes == sample.relevant { result.correct += 1; }
+            if yes == sample.relevant {
+                result.correct += 1;
+            }
             match (yes, sample.relevant) {
                 (true, true) => result.true_positives += 1,
                 (true, false) => result.false_positives += 1,
@@ -191,24 +254,81 @@ impl RankerModel {
 }
 
 /// Private helper to keep numeric computation readable.
-trait SigmoidExt { fn pipe_sigmoid(self) -> f64; }
-impl SigmoidExt for f64 { fn pipe_sigmoid(self) -> f64 { sigmoid(self) } }
+trait SigmoidExt {
+    fn pipe_sigmoid(self) -> f64;
+}
+impl SigmoidExt for f64 {
+    fn pipe_sigmoid(self) -> f64 {
+        sigmoid(self)
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn sample(repo: &str, query: &str, kind: EvidenceKind, detail: &str, relevant: bool) -> LabeledEvidence {
-        LabeledEvidence { repository: repo.into(), query: query.into(),
-            evidence: EvidenceItem { id: "E1".into(), kind, reference: "src/main.rs".into(), detail: detail.into() }, relevant }
+    fn sample(
+        repo: &str,
+        query: &str,
+        kind: EvidenceKind,
+        detail: &str,
+        relevant: bool,
+    ) -> LabeledEvidence {
+        LabeledEvidence {
+            repository: repo.into(),
+            query: query.into(),
+            evidence: EvidenceItem {
+                id: "E1".into(),
+                kind,
+                reference: "src/main.rs".into(),
+                detail: detail.into(),
+            },
+            relevant,
+        }
     }
     fn training() -> Vec<LabeledEvidence> {
         vec![
-            sample("r1","dependency package versions",EvidenceKind::Package,"Dependency package versions in lockfile",true),
-            sample("r1","dependency package versions",EvidenceKind::Commit,"Contributor activity over time",false),
-            sample("r1","build commands",EvidenceKind::Command,"Build commands detected in package manifest",true),
-            sample("r1","build commands",EvidenceKind::Finding,"Code complexity finding",false),
-            sample("r2","security finding",EvidenceKind::Finding,"Security finding in configuration",true),
-            sample("r2","security finding",EvidenceKind::Metric,"Code lines by language",false),
+            sample(
+                "r1",
+                "dependency package versions",
+                EvidenceKind::Package,
+                "Dependency package versions in lockfile",
+                true,
+            ),
+            sample(
+                "r1",
+                "dependency package versions",
+                EvidenceKind::Commit,
+                "Contributor activity over time",
+                false,
+            ),
+            sample(
+                "r1",
+                "build commands",
+                EvidenceKind::Command,
+                "Build commands detected in package manifest",
+                true,
+            ),
+            sample(
+                "r1",
+                "build commands",
+                EvidenceKind::Finding,
+                "Code complexity finding",
+                false,
+            ),
+            sample(
+                "r2",
+                "security finding",
+                EvidenceKind::Finding,
+                "Security finding in configuration",
+                true,
+            ),
+            sample(
+                "r2",
+                "security finding",
+                EvidenceKind::Metric,
+                "Code lines by language",
+                false,
+            ),
         ]
     }
     #[test]
@@ -217,9 +337,12 @@ mod tests {
         let m = RankerModel::train(&data, 60).unwrap();
         assert_eq!(m, RankerModel::train(&data, 60).unwrap());
         assert_eq!(m.training_repositories, 2);
-        assert!(m.relevance(&data[0].query, &data[0].evidence) > m.relevance(&data[0].query, &data[1].evidence));
-        let candidates = vec![data[1].evidence.clone(),data[0].evidence.clone()];
-        assert_eq!(m.rank_indices(&data[0].query, &candidates), vec![1,0]);
+        assert!(
+            m.relevance(&data[0].query, &data[0].evidence)
+                > m.relevance(&data[0].query, &data[1].evidence)
+        );
+        let candidates = vec![data[1].evidence.clone(), data[0].evidence.clone()];
+        assert_eq!(m.rank_indices(&data[0].query, &candidates), vec![1, 0]);
         let serialized = serde_json::to_string(&m).unwrap();
         let decoded: RankerModel = serde_json::from_str(&serialized).unwrap();
         assert_eq!(decoded, m);
@@ -227,23 +350,35 @@ mod tests {
     #[test]
     fn prevents_leakage_and_invalid_checkpoints() {
         let data = training();
-        let holdout = vec![sample("r3","build commands",EvidenceKind::Command,"Build commands",true)];
+        let holdout = vec![sample(
+            "r3",
+            "build commands",
+            EvidenceKind::Command,
+            "Build commands",
+            true,
+        )];
         validate_repository_split(&data, &holdout).unwrap();
-        assert!(validate_repository_split(&data,&data).is_err());
-        let mut m = RankerModel::train(&data,10).unwrap();
-        assert_eq!(m.evaluate(&holdout).samples,1);
-        m.weights[0]=f64::NAN;
+        assert!(validate_repository_split(&data, &data).is_err());
+        let mut m = RankerModel::train(&data, 10).unwrap();
+        assert_eq!(m.evaluate(&holdout).samples, 1);
+        m.weights[0] = f64::NAN;
         assert!(m.validate().is_err());
-        assert!(RankerModel::train(&data,0).is_err());
-        assert!(RankerModel::train(&data[..1],10).is_err());
+        assert!(RankerModel::train(&data, 0).is_err());
+        assert!(RankerModel::train(&data[..1], 10).is_err());
     }
     #[test]
     fn handles_non_english_text_without_nan() {
-        let sample=sample("r1","मॉड्यूल परीक्षण",EvidenceKind::Module,"मॉड्यूल परीक्षण",true);
-        let f=features(&sample.query,&sample.evidence);
-        assert_eq!(f[0],1.0);
-        assert_eq!(f[5],1.0);
-        assert!(f[2]>0.0);
-        assert!(f.iter().all(|v|v.is_finite()));
+        let sample = sample(
+            "r1",
+            "मॉड्यूल परीक्षण",
+            EvidenceKind::Module,
+            "मॉड्यूल परीक्षण",
+            true,
+        );
+        let f = features(&sample.query, &sample.evidence);
+        assert_eq!(f[0], 1.0);
+        assert_eq!(f[5], 1.0);
+        assert!(f[2] > 0.0);
+        assert!(f.iter().all(|v| v.is_finite()));
     }
 }
