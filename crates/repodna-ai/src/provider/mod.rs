@@ -209,8 +209,8 @@ mod tests {
             Err(AiError::Disabled)
         ));
 
-        let built_in = build_provider_with_env(&config(AiProviderKind::Native), false, &|_| None)
-            .unwrap();
+        let built_in =
+            build_provider_with_env(&config(AiProviderKind::Native), false, &|_| None).unwrap();
         assert_eq!(built_in.id(), "native");
         assert_eq!(built_in.model(), NATIVE_MODEL);
         assert!(!built_in.remote());
