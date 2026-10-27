@@ -7,7 +7,7 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::Path;
 
-use repodna_ai::ranking::{LabeledEvidence, MAX_EXAMPLES, RankerModel, validate_repository_split};
+use repodna_ai::ranking::{LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, validate_repository_split};
 
 const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 
@@ -43,6 +43,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let retrieval = model
         .evaluate_retrieval(&holdout, 5)
         .map_err(io::Error::other)?;
+    let baseline = evaluate_original_order(&holdout, 5).map_err(io::Error::other)?;
     let payload = serde_json::to_vec_pretty(&model)?;
     // Never silently destroy an existing or unrelated checkpoint.
     let mut output = OpenOptions::new()
@@ -59,6 +60,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "holdout": evaluation,
         "holdoutAccuracy": evaluation.accuracy(),
         "retrieval": retrieval,
+        "originalOrderBaseline": baseline,
         "note": "Synthetic fixtures demonstrate the pipeline, not real-world quality; retrieval scores only evaluate labels, not factual correctness"
     });
     let mut stdout = io::stdout().lock();
