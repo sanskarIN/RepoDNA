@@ -32,6 +32,15 @@ pub struct RetrievalEvaluation {
     pub ndcg_at_k: f64,
 }
 
+/// Evaluate the original input order of selected evidence without trained weights.
+/// This is a necessary baseline, not a quality target by itself.
+pub fn evaluate_original_order(
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<RetrievalEvaluation, String> {
+    evaluate_retrieval_inner(None, holdout, k)
+}
+
 impl RankerModel {
     /// Evaluate ranking effectiveness on held-out, manually labeled evidence.
     ///
@@ -48,6 +57,15 @@ impl RankerModel {
         k: usize,
     ) -> Result<RetrievalEvaluation, String> {
         self.validate()?;
+        evaluate_retrieval_inner(Some(self), holdout, k)
+    }
+}
+
+fn evaluate_retrieval_inner(
+    model: Option<&RankerModel>,
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<RetrievalEvaluation, String> {
         if !(1..=100).contains(&k) {
             return Err("retrieval cutoff k must be between 1 and 100".to_owned());
         }
@@ -94,10 +112,13 @@ impl RankerModel {
             }
             evaluated_queries += 1;
             // Stable sort preserves input order when scores tie.
-            group.sort_by(|left, right| {
-                self.relevance(query, &right.evidence)
-                    .total_cmp(&self.relevance(query, &left.evidence))
-            });
+            if let Some(model) = model {
+                group.sort_by(|left, right| {
+                    model
+                        .relevance(query, &right.evidence)
+                        .total_cmp(&model.relevance(query, &left.evidence))
+                });
+            }
             if let Some(position) = group.iter().position(|item| item.relevant) {
                 mrr += 1.0 / (position + 1) as f64;
             }
@@ -240,6 +261,20 @@ mod tests {
         assert!(model().evaluate_retrieval(&samples, 101).is_err());
         assert!(model().evaluate_retrieval(&[], 1).is_err());
         assert!(model().evaluate_retrieval(&samples, 2).is_err());
+    }
+
+    #[test]
+    fn original_order_baseline_exposes_ranking_improvement() {
+        let sample = [
+            labeled("repo", "Dependency?", "E1", EvidenceKind::Commit, false),
+            labeled("repo", "Dependency?", "E2", EvidenceKind::Package, true),
+        ];
+        let baseline = evaluate_original_order(&sample, 1).unwrap();
+        let learned = model().evaluate_retrieval(&sample, 1).unwrap();
+        assert_eq!(baseline.mean_reciprocal_rank, 0.5);
+        assert_eq!(baseline.recall_at_k, 0.0);
+        assert_eq!(learned.mean_reciprocal_rank, 1.0);
+        assert_eq!(learned.recall_at_k, 1.0);
     }
 
     #[test]
