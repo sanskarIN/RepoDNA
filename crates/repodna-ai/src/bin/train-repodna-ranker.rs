@@ -7,7 +7,9 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::Path;
 
-use repodna_ai::ranking::{LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, validate_repository_split};
+use repodna_ai::ranking::{
+    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, validate_repository_split,
+};
 
 const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 
