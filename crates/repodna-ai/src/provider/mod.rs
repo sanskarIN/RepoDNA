@@ -4,6 +4,7 @@
 mod anthropic;
 mod command;
 mod http;
+mod native;
 mod openai;
 
 use repodna_core::CancellationToken;
@@ -14,6 +15,7 @@ use crate::error::AiError;
 pub use anthropic::{ANTHROPIC_ENDPOINT, AnthropicProvider};
 pub use command::CommandProvider;
 pub use http::Endpoint;
+pub use native::{NATIVE_MODEL, NativeProvider};
 pub use openai::OpenAiCompatibleProvider;
 
 /// Default output limit for Anthropic models, whose limit also covers thinking tokens.
@@ -120,6 +122,7 @@ pub fn build_provider_with_env(
 ) -> Result<Box<dyn AiProvider>, AiError> {
     match config.provider {
         AiProviderKind::None => Err(AiError::Disabled),
+        AiProviderKind::Native => Ok(Box::new(NativeProvider)),
         AiProviderKind::Command => {
             let (program, args) = config.command.split_first().ok_or_else(|| {
                 AiError::Configuration("ai.command must name the program to run".to_owned())
@@ -205,6 +208,13 @@ mod tests {
             build_provider_with_env(&config(AiProviderKind::None), true, &env),
             Err(AiError::Disabled)
         ));
+
+        let built_in = build_provider_with_env(&config(AiProviderKind::Native), false, &|_| None)
+            .unwrap();
+        assert_eq!(built_in.id(), "native");
+        assert_eq!(built_in.model(), NATIVE_MODEL);
+        assert!(!built_in.remote());
+        assert!(built_in.destination().contains("in-process"));
 
         let mut command = config(AiProviderKind::Command);
         assert!(build_provider_with_env(&command, false, &env).is_err());
