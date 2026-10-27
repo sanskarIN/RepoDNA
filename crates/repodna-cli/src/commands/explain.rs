@@ -91,7 +91,9 @@ pub fn run(ctx: &Ctx, cmd: &ExplainCmd) -> Result<(), AppError> {
     }
 
     if config.ai.provider == repodna_core::config::AiProviderKind::Native {
-        ctx.note(&ctx.err.dim("Composing an offline evidence digest (no API key, download or external runtime)."));
+        ctx.note(&ctx.err.dim(
+            "Composing an offline evidence digest (no API key, download or external runtime).",
+        ));
     } else {
         ctx.note(&ctx.err.dim("Asking the configured AI provider; its answer is checked against the evidence it was given."));
     }
