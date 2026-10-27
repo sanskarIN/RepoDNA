@@ -3,7 +3,10 @@
 //! It predicts which facts are useful for a task, not prose or program behavior.
 //! No external model runtime, pretrained weights, network access, or GPU.
 
+mod annotation;
 mod evaluation;
+
+pub use annotation::{AnnotationExample, annotation_template, finish_annotations};
 
 pub use evaluation::RetrievalEvaluation;
 
