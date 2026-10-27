@@ -24,9 +24,9 @@ fn evidence_from_prompt(user: &str) -> Result<Vec<EvidenceItem>, AiError> {
     let (_, rest) = user
         .split_once("<evidence>\n")
         .ok_or_else(|| AiError::InvalidResponse("native prompt has no evidence block".into()))?;
-    let (raw, _) = rest
-        .split_once("\n</evidence>")
-        .ok_or_else(|| AiError::InvalidResponse("native prompt has no evidence terminator".into()))?;
+    let (raw, _) = rest.split_once("\n</evidence>").ok_or_else(|| {
+        AiError::InvalidResponse("native prompt has no evidence terminator".into())
+    })?;
     serde_json::from_str(raw)
         .map_err(|_| AiError::InvalidResponse("native prompt has invalid evidence data".into()))
 }
@@ -40,12 +40,12 @@ fn digest(items: &[EvidenceItem], limit: u32) -> Result<String, AiError> {
         "This is an extractive evidence digest, not a trained generative language model. It cannot infer behavior or answer questions beyond the selected facts.".to_owned(),
     ];
     if has_excerpts {
-        limitations.push(
-            "Source excerpts were intentionally not reproduced in this digest.".to_owned(),
-        );
+        limitations
+            .push("Source excerpts were intentionally not reproduced in this digest.".to_owned());
     }
     if items.is_empty() {
-        limitations.push("No evidence was available within the selected context budget.".to_owned());
+        limitations
+            .push("No evidence was available within the selected context budget.".to_owned());
     }
     let summary = if items.is_empty() {
         "RepoDNA has no selected evidence to summarize.".to_owned()
