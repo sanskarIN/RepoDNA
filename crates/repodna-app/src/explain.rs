@@ -157,6 +157,31 @@ mod tests {
     }
 
     #[test]
+    fn native_explanation_works_without_keys_and_uses_cache() {
+        let home = tempfile::tempdir().unwrap();
+        let paths = AppPaths::in_directory(home.path());
+        let mut config = Config::default();
+        config.ai.provider = AiProviderKind::Native;
+        let request = ExplainRequest {
+            task: AiTask::Repository,
+            allow_remote: false,
+            use_cache: true,
+            checkout: None,
+        };
+        let cancel = CancellationToken::new();
+        let first = explain(&paths, &config, &dna(), &request, &cancel).unwrap();
+        assert!(!first.cached);
+        assert_eq!(first.explanation.usage.ai.provider, "native");
+        assert!(!first.explanation.usage.ai.remote);
+        assert!(first.explanation.answer.structured);
+        assert!(!first.explanation.answer.points.is_empty());
+        assert!(first.explanation.notice.contains("not a trained"));
+        let cached = explain(&paths, &config, &dna(), &request, &cancel).unwrap();
+        assert!(cached.cached);
+        assert_eq!(cached.explanation, first.explanation);
+    }
+
+    #[test]
     fn explains_with_a_local_command_and_caches_the_answer() {
         let home = tempfile::tempdir().unwrap();
         let paths = AppPaths::in_directory(home.path());
