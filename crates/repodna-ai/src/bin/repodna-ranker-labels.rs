@@ -1,7 +1,7 @@
 //! Offline, opt-in annotation workflow for native evidence-ranker training.
 //!
-//! prepare ARTIFACT.json REPOSITORY_ID TASK OUTPUT.json [SUBJECT]
-//! finalize REVIEWED-1.json [REVIEWED-2.json ...] OUTPUT.json
+//! `prepare ARTIFACT.json REPOSITORY_ID TASK OUTPUT.json [SUBJECT]`
+//! `finalize REVIEWED-1.json [REVIEWED-2.json ...] OUTPUT.json`
 
 use std::collections::HashSet;
 use std::ffi::OsString;
