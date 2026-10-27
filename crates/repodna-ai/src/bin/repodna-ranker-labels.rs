@@ -51,12 +51,13 @@ fn prepare(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
     }
     let repository = required_utf8(&args[2], "repository ID")?;
     let task_id = required_utf8(&args[3], "task ID")?;
-    let subject = args.get(5).map(|x| required_utf8(x, "subject")).transpose()?;
+    let subject = args
+        .get(5)
+        .map(|x| required_utf8(x, "subject"))
+        .transpose()?;
     let task = AiTask::parse(task_id, subject).map_err(io::Error::other)?;
-    let artifact: RepositoryDna = serde_json::from_slice(&read_bounded(
-        Path::new(&args[1]),
-        MAX_ARTIFACT_BYTES,
-    )?)?;
+    let artifact: RepositoryDna =
+        serde_json::from_slice(&read_bounded(Path::new(&args[1]), MAX_ARTIFACT_BYTES)?)?;
     // No checkout path is supplied, so reading source excerpts is impossible.
     let context = select_context(
         &artifact,
@@ -107,7 +108,11 @@ fn finalize(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     save(output, &serde_json::to_vec_pretty(&labeled)?)?;
-    writeln!(io::stdout().lock(), "Finalized {} reviewed labels.", labeled.len())?;
+    writeln!(
+        io::stdout().lock(),
+        "Finalized {} reviewed labels.",
+        labeled.len()
+    )?;
     Ok(())
 }
 

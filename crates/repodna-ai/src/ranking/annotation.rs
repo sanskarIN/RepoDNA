@@ -71,17 +71,26 @@ pub fn finish_annotations(
         .enumerate()
         .map(|(index, sample)| {
             let relevant = sample.relevant.ok_or_else(|| {
-                format!("annotation {} has no relevance label (expected true or false)", index + 1)
+                format!(
+                    "annotation {} has no relevance label (expected true or false)",
+                    index + 1
+                )
             })?;
             if sample.repository.trim().is_empty()
                 || sample.query.trim().is_empty()
                 || sample.evidence.id.trim().is_empty()
                 || sample.evidence.detail.trim().is_empty()
             {
-                return Err(format!("annotation {} has missing required evidence fields", index + 1));
+                return Err(format!(
+                    "annotation {} has missing required evidence fields",
+                    index + 1
+                ));
             }
             if sample.evidence.kind == EvidenceKind::Excerpt {
-                return Err(format!("annotation {} contains a source excerpt", index + 1));
+                return Err(format!(
+                    "annotation {} contains a source excerpt",
+                    index + 1
+                ));
             }
             Ok(LabeledEvidence {
                 repository: sample.repository,
@@ -122,7 +131,8 @@ mod tests {
 
     #[test]
     fn requires_real_labels_and_skips_excerpts() {
-        let mut template = annotation_template("repo-a", "Which dependencies?", &context()).unwrap();
+        let mut template =
+            annotation_template("repo-a", "Which dependencies?", &context()).unwrap();
         assert_eq!(template.len(), 1);
         assert_eq!(template[0].evidence.id, "E1");
         assert!(template[0].relevant.is_none());
