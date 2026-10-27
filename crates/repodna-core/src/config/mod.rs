@@ -617,7 +617,7 @@ impl Config {
             );
         }
         match self.ai.provider {
-            AiProviderKind::None => {}
+            AiProviderKind::None | AiProviderKind::Native => {}
             AiProviderKind::Command => {
                 if self.ai.command.is_empty() {
                     problems
