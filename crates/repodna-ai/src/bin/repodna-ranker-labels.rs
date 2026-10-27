@@ -129,3 +129,89 @@ fn main() {
         std::process::exit(1);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use repodna_ai::ranking::AnnotationExample;
+    use repodna_core::model::identity::RepositoryIdentity;
+    use repodna_core::model::metadata::AnalysisMetadata;
+
+    #[test]
+    fn prepare_requires_explicit_review_before_finalize() {
+        let temp = tempfile::tempdir().unwrap();
+        let dna_path = temp.path().join("dna.json");
+        let template_path = temp.path().join("unreviewed.json");
+        let reviewed_path = temp.path().join("reviewed.json");
+        let final_path = temp.path().join("labeled.json");
+        let artifact = RepositoryDna::new(
+            RepositoryIdentity {
+                name: "sample-project".into(),
+                ..RepositoryIdentity::default()
+            },
+            AnalysisMetadata::default(),
+        );
+        fs::write(&dna_path, serde_json::to_vec(&artifact).unwrap()).unwrap();
+        let args = vec![
+            OsString::from("prepare"),
+            dna_path.as_os_str().to_owned(),
+            OsString::from("sample-repository"),
+            OsString::from("repository"),
+            template_path.as_os_str().to_owned(),
+        ];
+        prepare(&args).unwrap();
+        let mut rows: Vec<AnnotationExample> =
+            serde_json::from_slice(&fs::read(&template_path).unwrap()).unwrap();
+        assert!(!rows.is_empty());
+        assert!(rows.iter().all(|row| row.relevant.is_none()));
+        let finalize_args = vec![
+            OsString::from("finalize"),
+            template_path.as_os_str().to_owned(),
+            final_path.as_os_str().to_owned(),
+        ];
+        assert!(finalize(&finalize_args).is_err());
+        assert!(!final_path.exists());
+        for row in &mut rows {
+            row.relevant = Some(true);
+        }
+        fs::write(&reviewed_path, serde_json::to_vec(&rows).unwrap()).unwrap();
+        let complete_args = vec![
+            OsString::from("finalize"),
+            reviewed_path.as_os_str().to_owned(),
+            final_path.as_os_str().to_owned(),
+        ];
+        finalize(&complete_args).unwrap();
+        let finished: Vec<repodna_ai::ranking::LabeledEvidence> =
+            serde_json::from_slice(&fs::read(&final_path).unwrap()).unwrap();
+        assert_eq!(rows.len(), finished.len());
+        assert!(finished.iter().all(|row| row.relevant));
+        assert!(finalize(&complete_args).is_err());
+    }
+
+    #[test]
+    fn finalize_rejects_duplicate_evidence_in_combined_batches() {
+        let temp = tempfile::tempdir().unwrap();
+        let input = temp.path().join("labels.json");
+        let output = temp.path().join("output.json");
+        let data = vec![AnnotationExample {
+            repository: "repo".into(),
+            query: "question".into(),
+            evidence: repodna_ai::EvidenceItem {
+                id: "E1".into(),
+                kind: repodna_ai::EvidenceKind::Metric,
+                reference: "size".into(),
+                detail: "Three files".into(),
+            },
+            relevant: Some(true),
+        }];
+        fs::write(&input, serde_json::to_vec(&data).unwrap()).unwrap();
+        let args = vec![
+            OsString::from("finalize"),
+            input.as_os_str().to_owned(),
+            input.as_os_str().to_owned(),
+            output.as_os_str().to_owned(),
+        ];
+        assert!(finalize(&args).is_err());
+        assert!(!output.exists());
+    }
+}
