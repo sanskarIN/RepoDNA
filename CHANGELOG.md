@@ -8,6 +8,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- Compare the native trained ranker against original evidence ordering on the
+  same repository-disjoint holdout, reporting both sets of retrieval metrics
+  to avoid publishing ranking performance without a baseline.
+
+### Added
+
 - Add a local annotation workflow for the RepoDNA evidence ranker: produce
   human-reviewable templates from real analysis artifacts, require explicit
   relevance labels, exclude source excerpts, reject duplicate evidence IDs
