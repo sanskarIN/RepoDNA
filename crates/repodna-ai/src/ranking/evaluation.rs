@@ -66,89 +66,88 @@ fn evaluate_retrieval_inner(
     holdout: &[LabeledEvidence],
     k: usize,
 ) -> Result<RetrievalEvaluation, String> {
-        if !(1..=100).contains(&k) {
-            return Err("retrieval cutoff k must be between 1 and 100".to_owned());
-        }
-        if holdout.is_empty() {
-            return Err("retrieval evaluation needs labeled holdout examples".to_owned());
-        }
-        let mut groups: BTreeMap<(&str, &str), Vec<&LabeledEvidence>> = BTreeMap::new();
-        let mut ids = HashSet::new();
-        for item in holdout {
-            if item.repository.trim().is_empty()
-                || item.query.trim().is_empty()
-                || item.evidence.id.trim().is_empty()
-                || item.evidence.detail.trim().is_empty()
-            {
-                return Err(
-                    "holdout examples require repository, query, evidence ID and detail".to_owned(),
-                );
-            }
-            let identity = (
-                item.repository.as_str(),
-                item.query.as_str(),
-                item.evidence.id.as_str(),
-            );
-            if !ids.insert(identity) {
-                return Err("duplicate evidence ID within repository/question group".to_owned());
-            }
-            groups
-                .entry((&item.repository, &item.query))
-                .or_default()
-                .push(item);
-        }
-        let total_queries = groups.len();
-        let mut evaluated_queries = 0_usize;
-        let mut unanswerable_queries = 0_usize;
-        let mut mrr = 0.0;
-        let mut precision = 0.0;
-        let mut recall = 0.0;
-        let mut ndcg = 0.0;
-        for ((_, query), mut group) in groups {
-            let total_relevant = group.iter().filter(|item| item.relevant).count();
-            if total_relevant == 0 {
-                unanswerable_queries += 1;
-                continue;
-            }
-            evaluated_queries += 1;
-            // Stable sort preserves input order when scores tie.
-            if let Some(model) = model {
-                group.sort_by(|left, right| {
-                    model
-                        .relevance(query, &right.evidence)
-                        .total_cmp(&model.relevance(query, &left.evidence))
-                });
-            }
-            if let Some(position) = group.iter().position(|item| item.relevant) {
-                mrr += 1.0 / (position + 1) as f64;
-            }
-            let mut found = 0_usize;
-            let mut dcg = 0.0;
-            for (position, item) in group.iter().take(k).enumerate() {
-                if item.relevant {
-                    found += 1;
-                    dcg += 1.0 / ((position + 2) as f64).log2();
-                }
-            }
-            let ideal_dcg: f64 = (0..total_relevant.min(k))
-                .map(|position| 1.0 / ((position + 2) as f64).log2())
-                .sum();
-            precision += found as f64 / k as f64;
-            recall += found as f64 / total_relevant as f64;
-            ndcg += dcg / ideal_dcg;
-        }
-        let divisor = evaluated_queries.max(1) as f64;
-        Ok(RetrievalEvaluation {
-            k,
-            total_queries,
-            evaluated_queries,
-            unanswerable_queries,
-            mean_reciprocal_rank: mrr / divisor,
-            precision_at_k: precision / divisor,
-            recall_at_k: recall / divisor,
-            ndcg_at_k: ndcg / divisor,
-        })
+    if !(1..=100).contains(&k) {
+        return Err("retrieval cutoff k must be between 1 and 100".to_owned());
     }
+    if holdout.is_empty() {
+        return Err("retrieval evaluation needs labeled holdout examples".to_owned());
+    }
+    let mut groups: BTreeMap<(&str, &str), Vec<&LabeledEvidence>> = BTreeMap::new();
+    let mut ids = HashSet::new();
+    for item in holdout {
+        if item.repository.trim().is_empty()
+            || item.query.trim().is_empty()
+            || item.evidence.id.trim().is_empty()
+            || item.evidence.detail.trim().is_empty()
+        {
+            return Err(
+                "holdout examples require repository, query, evidence ID and detail".to_owned(),
+            );
+        }
+        let identity = (
+            item.repository.as_str(),
+            item.query.as_str(),
+            item.evidence.id.as_str(),
+        );
+        if !ids.insert(identity) {
+            return Err("duplicate evidence ID within repository/question group".to_owned());
+        }
+        groups
+            .entry((&item.repository, &item.query))
+            .or_default()
+            .push(item);
+    }
+    let total_queries = groups.len();
+    let mut evaluated_queries = 0_usize;
+    let mut unanswerable_queries = 0_usize;
+    let mut mrr = 0.0;
+    let mut precision = 0.0;
+    let mut recall = 0.0;
+    let mut ndcg = 0.0;
+    for ((_, query), mut group) in groups {
+        let total_relevant = group.iter().filter(|item| item.relevant).count();
+        if total_relevant == 0 {
+            unanswerable_queries += 1;
+            continue;
+        }
+        evaluated_queries += 1;
+        // Stable sort preserves input order when scores tie.
+        if let Some(model) = model {
+            group.sort_by(|left, right| {
+                model
+                    .relevance(query, &right.evidence)
+                    .total_cmp(&model.relevance(query, &left.evidence))
+            });
+        }
+        if let Some(position) = group.iter().position(|item| item.relevant) {
+            mrr += 1.0 / (position + 1) as f64;
+        }
+        let mut found = 0_usize;
+        let mut dcg = 0.0;
+        for (position, item) in group.iter().take(k).enumerate() {
+            if item.relevant {
+                found += 1;
+                dcg += 1.0 / ((position + 2) as f64).log2();
+            }
+        }
+        let ideal_dcg: f64 = (0..total_relevant.min(k))
+            .map(|position| 1.0 / ((position + 2) as f64).log2())
+            .sum();
+        precision += found as f64 / k as f64;
+        recall += found as f64 / total_relevant as f64;
+        ndcg += dcg / ideal_dcg;
+    }
+    let divisor = evaluated_queries.max(1) as f64;
+    Ok(RetrievalEvaluation {
+        k,
+        total_queries,
+        evaluated_queries,
+        unanswerable_queries,
+        mean_reciprocal_rank: mrr / divisor,
+        precision_at_k: precision / divisor,
+        recall_at_k: recall / divisor,
+        ndcg_at_k: ndcg / divisor,
+    })
 }
 
 #[cfg(test)]
