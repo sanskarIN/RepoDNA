@@ -1,12 +1,16 @@
 # AI explanations
 
-RepoDNA's analysis is deterministic and never needs AI. `repodna explain` optionally asks
-a language model to turn the analysis into prose: a first-look explanation of a
-repository, its architecture, its history, its dependencies, one module, one hotspot, or
-an answer to a question. It is **off until you configure a provider**, and it only ever
-sends a small, numbered set of facts from the analysis, never the repository itself.
+RepoDNA's analysis is deterministic and never needs AI. `repodna explain` now also
+supports a built-in, fully offline extractive evidence digest, with **no API keys,
+external AI runtime, model downloads, or network calls**. This initial `native`
+provider is not a trained language model. Optional language-model providers remain
+available for richer prose. Explanations are off until enabled in your user config.
 
 ## How it works
+
+The language-model providers use the process below. The `native` digest shares
+bounded evidence selection and citation checking, but composes results in-process
+without running a generative model. See [Native model development](native-model.md).
 
 1. RepoDNA selects evidence items from the analysis artifact that fit the task: facts,
    metrics, modules, commands, files, packages, and findings. Each gets an identifier
@@ -41,6 +45,21 @@ and user message. Nothing is sent.
 
 Configure a provider in your **user configuration** (`repodna config path` shows where it
 is). A repository's own `repodna.toml` can never configure AI.
+
+### Built-in RepoDNA native digest (`native`)
+
+Add this to your **user configuration** (`repodna config path`):
+
+```toml
+[ai]
+provider = "native"
+```
+
+Then run `repodna explain --about repository` or `repodna explain --about architecture`.
+No model files, subprocesses, downloads, API keys, or remote access are needed.
+The current native mode creates concise cited observations from existing evidence.
+It does not interpret code behavior or answer arbitrary questions like a trained LLM.
+Source excerpts are not reproduced.
 
 ### A local program (`command`)
 
@@ -144,6 +163,7 @@ generate (16000 by default for `anthropic`, 2000 for the other providers).
 
 - Explanations are only as good as the analysis: they describe what RepoDNA measured, not
   what the code does at run time.
-- A model can still misread the evidence. RepoDNA labels unsupported statements but cannot
-  prove that a supported statement is correct; check the cited evidence.
+- Language models can still misread evidence. RepoDNA labels unsupported statements but
+  cannot prove that a cited statement is correct; check the cited evidence.
+- `native` is an extractive, non-generative baseline and is explicitly labeled as such.
 - AI features are optional. Every other command, report, and view works without them.

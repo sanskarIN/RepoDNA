@@ -8,6 +8,13 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- Introduce an opt-in built-in `ai.provider = "native"` evidence digest for
+  `repodna explain`: offline, keyless, no external model runtime, and explicitly
+  labeled as extractive rather than trained generative AI.
+- Document the development and evaluation plan for a learned native model.
+
+### Added
+
 - Export filtered findings as a standalone Markdown review with evidence,
   limitations, suppression context, and suggested follow-up steps. Escape
   repository-supplied Markdown/HTML and preserve the selected display order.

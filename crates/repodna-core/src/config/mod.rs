@@ -419,6 +419,8 @@ pub enum AiProviderKind {
     /// AI features are disabled.
     #[default]
     None,
+    /// Built-in offline extractive digest (not a trained language model).
+    Native,
     /// A local command that reads a prompt on standard input (e.g. `ollama run <model>`).
     Command,
     /// An OpenAI-compatible HTTP API (local servers or cloud providers).
@@ -432,6 +434,7 @@ impl AiProviderKind {
     pub const fn id(self) -> &'static str {
         match self {
             AiProviderKind::None => "none",
+            AiProviderKind::Native => "native",
             AiProviderKind::Command => "command",
             AiProviderKind::OpenaiCompatible => "openai-compatible",
             AiProviderKind::Anthropic => "anthropic",
@@ -614,7 +617,7 @@ impl Config {
             );
         }
         match self.ai.provider {
-            AiProviderKind::None => {}
+            AiProviderKind::None | AiProviderKind::Native => {}
             AiProviderKind::Command => {
                 if self.ai.command.is_empty() {
                     problems

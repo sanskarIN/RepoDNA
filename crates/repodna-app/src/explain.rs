@@ -45,7 +45,11 @@ fn options<'a>(config: &Config, checkout: Option<&'a Path>) -> ExplainOptions<'a
         max_context_tokens: config.ai.max_context_tokens,
         max_output_tokens: max_output_tokens(&config.ai),
         excerpt_root: checkout.filter(|_| config.ai.include_source_excerpts),
-        prices: Prices::from_config(&config.ai),
+        prices: if config.ai.provider == repodna_core::config::AiProviderKind::Native {
+            Prices::default()
+        } else {
+            Prices::from_config(&config.ai)
+        },
     }
 }
 
@@ -154,6 +158,34 @@ mod tests {
             },
             AnalysisMetadata::default(),
         )
+    }
+
+    #[test]
+    fn native_explanation_works_without_keys_and_uses_cache() {
+        let home = tempfile::tempdir().unwrap();
+        let paths = AppPaths::in_directory(home.path());
+        let mut config = Config::default();
+        config.ai.provider = AiProviderKind::Native;
+        config.ai.input_cost_per_million = Some(99.0);
+        config.ai.output_cost_per_million = Some(99.0);
+        let request = ExplainRequest {
+            task: AiTask::Repository,
+            allow_remote: false,
+            use_cache: true,
+            checkout: None,
+        };
+        let cancel = CancellationToken::new();
+        let first = explain(&paths, &config, &dna(), &request, &cancel).unwrap();
+        assert!(!first.cached);
+        assert_eq!(first.explanation.usage.ai.provider, "native");
+        assert!(first.explanation.usage.estimated_cost.is_none());
+        assert!(!first.explanation.usage.ai.remote);
+        assert!(first.explanation.answer.structured);
+        assert!(!first.explanation.answer.points.is_empty());
+        assert!(first.explanation.notice.contains("not a trained"));
+        let cached = explain(&paths, &config, &dna(), &request, &cancel).unwrap();
+        assert!(cached.cached);
+        assert_eq!(cached.explanation, first.explanation);
     }
 
     #[test]

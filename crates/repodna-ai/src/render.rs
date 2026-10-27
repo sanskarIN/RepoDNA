@@ -91,7 +91,12 @@ fn revision(e: &Explanation, format: fn(&str) -> String) -> String {
 pub fn markdown(e: &Explanation) -> String {
     let a = &e.answer;
     let mut out = format!("# {}\n\n", escape(&e.title));
-    out.push_str(&format!("> **AI-generated.** {}\n\n", escape(&e.notice)));
+    let source_label = if e.usage.ai.provider == "native" {
+        "Locally assembled evidence digest"
+    } else {
+        "AI-generated"
+    };
+    out.push_str(&format!("> **{source_label}.** {}\n\n", escape(&e.notice)));
     if let Some(subject) = &e.subject {
         out.push_str(&format!("**Subject:** {}\n\n", code(subject)));
     }
@@ -161,7 +166,12 @@ pub fn markdown(e: &Explanation) -> String {
 /// Renders the explanation as plain text for a terminal.
 pub fn text(e: &Explanation) -> String {
     let a = &e.answer;
-    let mut out = format!("{} (AI-generated)\n", e.title);
+    let source_label = if e.usage.ai.provider == "native" {
+        "local evidence digest"
+    } else {
+        "AI-generated"
+    };
+    let mut out = format!("{} ({source_label})\n", e.title);
     out.push_str(&format!(
         "{} · {} · {} / {} ({}) · confidence {}\n\n",
         e.repository,

@@ -152,8 +152,10 @@ right in your browser and works offline, all built on the same analysis.
 baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
 (`uses: sanskarIN/RepoDNA@v1.4.2`) does all of this in one step.
 
-**Optional AI explanations.** Explanations in prose, built only from the analysis evidence,
-through a local program or an API you configure. Off by default.
+**Optional AI explanations.** Built-in offline evidence digests need no API key or
+external runtime; richer language-model explanations remain available through optional
+local or remote providers. The native baseline is extractive, not yet a trained model.
+Off by default. See [AI explanations](docs/ai.md).
 
 **Plugins.** Teach RepoDNA a new language with a data file, or add findings with an analyzer
 written in any language.

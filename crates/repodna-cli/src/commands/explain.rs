@@ -90,7 +90,13 @@ pub fn run(ctx: &Ctx, cmd: &ExplainCmd) -> Result<(), AppError> {
         return ctx.emit(cmd.output.as_ref(), &out, cmd.force);
     }
 
-    ctx.note(&ctx.err.dim("Asking the configured AI provider; its answer is checked against the evidence it was given."));
+    if config.ai.provider == repodna_core::config::AiProviderKind::Native {
+        ctx.note(&ctx.err.dim(
+            "Composing an offline evidence digest (no API key, download or external runtime).",
+        ));
+    } else {
+        ctx.note(&ctx.err.dim("Asking the configured AI provider; its answer is checked against the evidence it was given."));
+    }
     let outcome = explain(&ctx.paths, &config, &loaded.dna, &request, &ctx.cancel)?;
     if outcome.cached {
         ctx.note(
