@@ -313,6 +313,54 @@ mod tests {
     }
 
     #[test]
+    fn loads_versioned_local_weights_and_preserves_evidence_ids() {
+        use crate::ranking::{FEATURE_COUNT, MODEL_FORMAT};
+        let directory = tempfile::tempdir().unwrap();
+        let checkpoint = directory.path().join("ranker.json");
+        let mut weights = vec![0.0; FEATURE_COUNT];
+        weights[7] = 5.0; // package
+        weights[8] = -5.0; // commit
+        let model = RankerModel {
+            format: MODEL_FORMAT.into(),
+            weights,
+            training_examples: 8,
+            training_repositories: 2,
+        };
+        std::fs::write(&checkpoint, serde_json::to_vec(&model).unwrap()).unwrap();
+        let native = NativeProvider::from_checkpoint(checkpoint.to_str()).unwrap();
+        assert!(!native.remote());
+        assert!(native.model().contains("+ranker-"));
+        let items = vec![
+            EvidenceItem {
+                id: "E1".into(),
+                kind: EvidenceKind::Commit,
+                reference: "history".into(),
+                detail: "Recorded a commit.".into(),
+            },
+            EvidenceItem {
+                id: "E2".into(),
+                kind: EvidenceKind::Package,
+                reference: "Cargo.lock".into(),
+                detail: "A locked package dependency.".into(),
+            },
+        ];
+        let text = native.complete(&CompletionRequest {
+            system: "",
+            user: &prompt(&items),
+            max_output_tokens: 2_000,
+            cancel: None,
+        }).unwrap().text;
+        let result: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(result["points"][0]["evidence"][0], "E2");
+        assert_eq!(result["points"][1]["evidence"][0], "E1");
+        assert!(NativeProvider::from_checkpoint(Some("nonexistent.ranker.json")).is_err());
+        std::fs::write(&checkpoint, b"invalid JSON").unwrap();
+        assert!(NativeProvider::from_checkpoint(checkpoint.to_str()).is_err());
+        std::fs::write(&checkpoint, vec![b'x'; 65 * 1024]).unwrap();
+        assert!(NativeProvider::from_checkpoint(checkpoint.to_str()).is_err());
+    }
+
+    #[test]
     fn cancellation_precedes_parsing() {
         let cancel = CancellationToken::new();
         cancel.cancel();
