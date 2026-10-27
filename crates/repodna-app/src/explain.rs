@@ -45,7 +45,11 @@ fn options<'a>(config: &Config, checkout: Option<&'a Path>) -> ExplainOptions<'a
         max_context_tokens: config.ai.max_context_tokens,
         max_output_tokens: max_output_tokens(&config.ai),
         excerpt_root: checkout.filter(|_| config.ai.include_source_excerpts),
-        prices: Prices::from_config(&config.ai),
+        prices: if config.ai.provider == repodna_core::config::AiProviderKind::Native {
+            Prices::default()
+        } else {
+            Prices::from_config(&config.ai)
+        },
     }
 }
 
@@ -162,6 +166,8 @@ mod tests {
         let paths = AppPaths::in_directory(home.path());
         let mut config = Config::default();
         config.ai.provider = AiProviderKind::Native;
+        config.ai.input_cost_per_million = Some(99.0);
+        config.ai.output_cost_per_million = Some(99.0);
         let request = ExplainRequest {
             task: AiTask::Repository,
             allow_remote: false,
@@ -172,6 +178,7 @@ mod tests {
         let first = explain(&paths, &config, &dna(), &request, &cancel).unwrap();
         assert!(!first.cached);
         assert_eq!(first.explanation.usage.ai.provider, "native");
+        assert!(first.explanation.usage.estimated_cost.is_none());
         assert!(!first.explanation.usage.ai.remote);
         assert!(first.explanation.answer.structured);
         assert!(!first.explanation.answer.points.is_empty());
