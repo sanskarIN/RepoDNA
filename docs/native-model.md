@@ -111,3 +111,53 @@ by its content hash in explanation provenance and cache keys. Changes to
 weights invalidate cached explanations. Source excerpts remain excluded
 from the native digest even when the ranker is active. The checkpoint does
 not turn RepoDNA into a generative language model.
+
+## Prepare human-reviewed evidence labels (offline)
+
+To train on real repositories, first produce an analysis artifact **locally**.
+This workflow generates review templates from RepoDNA's existing evidence
+selection; it never fetches code or assigns relevance automatically.
+
+```sh
+repodna analyze . --format json > repodna.json
+cargo run --locked -p repodna-ai --bin repodna-ranker-labels -- \
+  prepare repodna.json my-repo-id dependencies dependencies-unreviewed.json
+```
+
+Open `dependencies-unreviewed.json` and review **every** evidence item against
+the question/task. Each `"relevant": null` must be explicitly changed to
+`true` or `false`. An empty or missing label is never treated as negative.
+The template contains no source excerpts, but analysis facts, paths and
+descriptions can still be sensitive: inspect the file before distributing it.
+Use only repositories and labels for which you hold appropriate rights.
+
+Then save the edited file as `dependencies-reviewed.json` and finalize:
+
+```sh
+cargo run --locked -p repodna-ai --bin repodna-ranker-labels -- \
+  finalize dependencies-reviewed.json dependencies-labeled.json
+```
+
+You may provide multiple reviewed input batches to `finalize` before the
+output path. Duplicate evidence IDs within the same repository/question are
+rejected. Files are written with exclusive creation and will **never
+overwrite** existing output. Separate labeled examples into train and holdout
+files by *repository ID*, not randomly by question, and ensure both positive
+and negative labels occur in the training set. The trainer rejects repositories
+that appear in both sets.
+
+Generate templates for other tasks using `repository`, `architecture`,
+`dependencies`, `history`, `onboarding`, `module`, `hotspot`,
+or `question`; the last three take a `SUBJECT` argument after the output
+path. Example:
+
+```sh
+cargo run --locked -p repodna-ai --bin repodna-ranker-labels -- \
+  prepare repodna.json my-repo-id question questions-unreviewed.json \
+  "Where are the database dependencies?"
+```
+
+A reviewer must not label guessed functionality as factual evidence. More
+examples are not a substitute for independently checked annotations, privacy
+review, or a repository-disjoint evaluation set.
+

@@ -8,6 +8,15 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- Add a local annotation workflow for the RepoDNA evidence ranker: produce
+  human-reviewable templates from real analysis artifacts, require explicit
+  relevance labels, exclude source excerpts, reject duplicate evidence IDs
+  when combining batches, and avoid overwriting existing annotation files.
+  Include offline end-to-end CLI regression tests.
+
+
+### Added
+
 - Add held-out retrieval metrics for the native evidence ranker: per-repository-and-query
   MRR, precision@k, recall@k and NDCG@k, with explicit counts for questions lacking
   relevant labeled evidence. Include retrieval results in local trainer output.
