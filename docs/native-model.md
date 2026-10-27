@@ -58,3 +58,52 @@ repodna explain --dry-run
 ```
 
 Trained neural checkpoints and generative text inference are **not included yet**.
+
+## Experimental trainable ranker (developer tooling)
+
+The experimental CPU-only linear relevance model can now be trained **locally** from
+human-labeled examples, without pre-trained weights, an AI API or a GPU. It ranks
+RepoDNA evidence; **it cannot generate language**, understand runtime behavior, or
+prove whether a cited observation is true. It is opt-in within the native explanation provider: without a checkpoint, the
+original safe evidence-selection order remains unchanged. A checkpoint only
+reorders already selected evidence and cannot generate new text or facts.
+
+Prepare two JSON arrays of LabeledEvidence, one for training and one for evaluation.
+Every record needs repository, query, evidence (id, kind, reference, detail), and
+a boolean relevant label. Repository IDs **must not overlap** between splits.
+Train only on data you have permission to use, and never include secrets.
+
+```sh
+cargo run --locked -p repodna-ai --bin train-repodna-ranker -- \
+  examples/native-ai/train.demo.json \
+  examples/native-ai/holdout.demo.json \
+  ranker-local.json
+```
+
+The command writes a versioned JSON checkpoint and prints holdout classification
+metrics. Existing output files are not overwritten. The example datasets are
+**synthetic pipeline smoke tests only**, not evidence of model quality.
+Real validation must use many unrelated, clearly licensed repositories, reviewed
+labels, human-measured citation correctness and representative tasks. Do not
+publish accuracy claims from these synthetic samples.
+
+The library API exposes deterministic feature extraction, logistic weight fitting,
+checkpoint validation, relevance scoring, stable evidence ordering and
+repository-disjoint evaluation. The model stays separate from code execution.
+
+## Opt-in ranker inference in RepoDNA
+
+After training and inspecting the checkpoint, add its **local path** to the user
+configuration. No repository-supplied configuration may activate this option.
+
+```toml
+[ai]
+provider = "native"
+model = "/path/to/ranker-local.json"
+```
+
+The checkpoint is bounded to 64 KiB, validated before use and identified
+by its content hash in explanation provenance and cache keys. Changes to
+weights invalidate cached explanations. Source excerpts remain excluded
+from the native digest even when the ranker is active. The checkpoint does
+not turn RepoDNA into a generative language model.

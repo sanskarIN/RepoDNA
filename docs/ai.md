@@ -59,7 +59,10 @@ Then run `repodna explain --about repository` or `repodna explain --about archit
 No model files, subprocesses, downloads, API keys, or remote access are needed.
 The current native mode creates concise cited observations from existing evidence.
 It does not interpret code behavior or answer arbitrary questions like a trained LLM.
-Source excerpts are not reproduced.
+Source excerpts are not reproduced. For an optional locally trained evidence
+ranker, set `ai.model` to a validated local JSON checkpoint as documented
+in [Native model development](native-model.md). This only reorders the
+selected evidence, and it never generates additional claims.
 
 ### A local program (`command`)
 

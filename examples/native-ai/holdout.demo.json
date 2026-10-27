@@ -1,0 +1,46 @@
+[
+  {
+    "repository": "synthetic-gamma",
+    "query": "What build commands exist?",
+    "evidence": {
+      "id": "E1",
+      "kind": "command",
+      "reference": "package.json",
+      "detail": "Detected npm build command"
+    },
+    "relevant": true
+  },
+  {
+    "repository": "synthetic-gamma",
+    "query": "What build commands exist?",
+    "evidence": {
+      "id": "E2",
+      "kind": "metric",
+      "reference": "src",
+      "detail": "Language percentages and file sizes"
+    },
+    "relevant": false
+  },
+  {
+    "repository": "synthetic-gamma",
+    "query": "What dependencies are installed?",
+    "evidence": {
+      "id": "E3",
+      "kind": "package",
+      "reference": "package-lock.json",
+      "detail": "Locked dependency versions recorded"
+    },
+    "relevant": true
+  },
+  {
+    "repository": "synthetic-gamma",
+    "query": "What dependencies are installed?",
+    "evidence": {
+      "id": "E4",
+      "kind": "commit",
+      "reference": "history",
+      "detail": "Change activity and contributors"
+    },
+    "relevant": false
+  }
+]

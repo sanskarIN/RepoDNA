@@ -1,0 +1,68 @@
+[
+  {
+    "repository": "synthetic-alpha",
+    "query": "Which dependencies are locked?",
+    "evidence": {
+      "id": "E1",
+      "kind": "package",
+      "reference": "Cargo.lock",
+      "detail": "Resolved package versions found in Cargo.lock"
+    },
+    "relevant": true
+  },
+  {
+    "repository": "synthetic-alpha",
+    "query": "Which dependencies are locked?",
+    "evidence": {
+      "id": "E2",
+      "kind": "commit",
+      "reference": "history",
+      "detail": "Recorded contributor activity"
+    },
+    "relevant": false
+  },
+  {
+    "repository": "synthetic-alpha",
+    "query": "How is the project built?",
+    "evidence": {
+      "id": "E3",
+      "kind": "command",
+      "reference": "Cargo.toml",
+      "detail": "Detected cargo build command"
+    },
+    "relevant": true
+  },
+  {
+    "repository": "synthetic-alpha",
+    "query": "How is the project built?",
+    "evidence": {
+      "id": "E4",
+      "kind": "metric",
+      "reference": "src",
+      "detail": "Measured code lines"
+    },
+    "relevant": false
+  },
+  {
+    "repository": "synthetic-beta",
+    "query": "Where are security findings?",
+    "evidence": {
+      "id": "E5",
+      "kind": "finding",
+      "reference": "config",
+      "detail": "Security finding: insecure setting"
+    },
+    "relevant": true
+  },
+  {
+    "repository": "synthetic-beta",
+    "query": "Where are security findings?",
+    "evidence": {
+      "id": "E6",
+      "kind": "module",
+      "reference": "docs",
+      "detail": "Documentation module inventory"
+    },
+    "relevant": false
+  }
+]

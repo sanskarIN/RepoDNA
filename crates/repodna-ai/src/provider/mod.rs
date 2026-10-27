@@ -122,7 +122,9 @@ pub fn build_provider_with_env(
 ) -> Result<Box<dyn AiProvider>, AiError> {
     match config.provider {
         AiProviderKind::None => Err(AiError::Disabled),
-        AiProviderKind::Native => Ok(Box::new(NativeProvider)),
+        AiProviderKind::Native => Ok(Box::new(NativeProvider::from_checkpoint(non_empty(
+            config.model.as_deref(),
+        ))?)),
         AiProviderKind::Command => {
             let (program, args) = config.command.split_first().ok_or_else(|| {
                 AiError::Configuration("ai.command must name the program to run".to_owned())

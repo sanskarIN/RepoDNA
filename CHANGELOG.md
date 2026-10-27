@@ -8,6 +8,18 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- Add a CPU-only, locally trainable evidence-relevance ranker and offline CLI for
+  fitting a small versioned JSON checkpoint from licensed, labeled examples.
+  Enforce repository-disjoint holdouts, bound dataset and checkpoint sizes,
+  validate numeric weights, and report explicitly labeled ranking metrics.
+- Allow opt-in native explanation evidence reordering with a user-configured
+  local checkpoint; cache provenance includes the weights hash. Without a
+  checkpoint, the existing extractive evidence ordering is unchanged.
+- Add synthetic training/holdout fixtures and regression tests for malformed
+  checkpoints, citation stability, and spoofed evidence delimiters.
+
+### Added
+
 - Introduce an opt-in built-in `ai.provider = "native"` evidence digest for
   `repodna explain`: offline, keyless, no external model runtime, and explicitly
   labeled as extractive rather than trained generative AI.
