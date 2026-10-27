@@ -40,7 +40,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     validate_repository_split(&training, &holdout).map_err(io::Error::other)?;
     let model = RankerModel::train(&training, 60).map_err(io::Error::other)?;
     let evaluation = model.evaluate(&holdout);
-    let retrieval = model.evaluate_retrieval(&holdout, 5).map_err(io::Error::other)?;
+    let retrieval = model
+        .evaluate_retrieval(&holdout, 5)
+        .map_err(io::Error::other)?;
     let payload = serde_json::to_vec_pretty(&model)?;
     // Never silently destroy an existing or unrelated checkpoint.
     let mut output = OpenOptions::new()

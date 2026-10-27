@@ -62,7 +62,9 @@ impl RankerModel {
                 || item.evidence.id.trim().is_empty()
                 || item.evidence.detail.trim().is_empty()
             {
-                return Err("holdout examples require repository, query, evidence ID and detail".to_owned());
+                return Err(
+                    "holdout examples require repository, query, evidence ID and detail".to_owned(),
+                );
             }
             let identity = (
                 item.repository.as_str(),
@@ -169,11 +171,41 @@ mod tests {
     #[test]
     fn scores_correct_order_and_excludes_unanswerable_queries() {
         let holdout = vec![
-            labeled("repo-one", "Which package?", "E1", EvidenceKind::Commit, false),
-            labeled("repo-one", "Which package?", "E2", EvidenceKind::Package, true),
-            labeled("repo-two", "Where is a package?", "E3", EvidenceKind::Package, true),
-            labeled("repo-two", "Where is a package?", "E4", EvidenceKind::Commit, false),
-            labeled("repo-three", "Unknown feature", "E5", EvidenceKind::Commit, false),
+            labeled(
+                "repo-one",
+                "Which package?",
+                "E1",
+                EvidenceKind::Commit,
+                false,
+            ),
+            labeled(
+                "repo-one",
+                "Which package?",
+                "E2",
+                EvidenceKind::Package,
+                true,
+            ),
+            labeled(
+                "repo-two",
+                "Where is a package?",
+                "E3",
+                EvidenceKind::Package,
+                true,
+            ),
+            labeled(
+                "repo-two",
+                "Where is a package?",
+                "E4",
+                EvidenceKind::Commit,
+                false,
+            ),
+            labeled(
+                "repo-three",
+                "Unknown feature",
+                "E5",
+                EvidenceKind::Commit,
+                false,
+            ),
         ];
         let result = model().evaluate_retrieval(&holdout, 1).unwrap();
         assert_eq!(result.total_queries, 3);
