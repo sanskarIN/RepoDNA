@@ -8,6 +8,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- Add held-out retrieval metrics for the native evidence ranker: per-repository-and-query
+  MRR, precision@k, recall@k and NDCG@k, with explicit counts for questions lacking
+  relevant labeled evidence. Include retrieval results in local trainer output.
+
+### Added
+
 - Add a CPU-only, locally trainable evidence-relevance ranker and offline CLI for
   fitting a small versioned JSON checkpoint from licensed, labeled examples.
   Enforce repository-disjoint holdouts, bound dataset and checkpoint sizes,
