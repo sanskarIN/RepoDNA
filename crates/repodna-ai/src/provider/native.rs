@@ -46,15 +46,18 @@ impl NativeProvider {
         };
         let path = Path::new(path);
         let size = std::fs::metadata(path)
-            .map_err(|e| AiError::Configuration(format!("cannot read local ranker checkpoint: {e}")))?
+            .map_err(|e| {
+                AiError::Configuration(format!("cannot read local ranker checkpoint: {e}"))
+            })?
             .len();
         if size > 64 * 1024 {
             return Err(AiError::Configuration(
                 "local ranker checkpoint exceeds 64 KiB".to_owned(),
             ));
         }
-        let bytes = std::fs::read(path)
-            .map_err(|e| AiError::Configuration(format!("cannot read local ranker checkpoint: {e}")))?;
+        let bytes = std::fs::read(path).map_err(|e| {
+            AiError::Configuration(format!("cannot read local ranker checkpoint: {e}"))
+        })?;
         if bytes.len() > 64 * 1024 {
             return Err(AiError::Configuration(
                 "local ranker checkpoint exceeds 64 KiB".to_owned(),
@@ -362,12 +365,15 @@ mod tests {
                 detail: "A locked package dependency.".into(),
             },
         ];
-        let text = native.complete(&CompletionRequest {
-            system: "",
-            user: &prompt(&items),
-            max_output_tokens: 2_000,
-            cancel: None,
-        }).unwrap().text;
+        let text = native
+            .complete(&CompletionRequest {
+                system: "",
+                user: &prompt(&items),
+                max_output_tokens: 2_000,
+                cancel: None,
+            })
+            .unwrap()
+            .text;
         let result: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert_eq!(result["points"][0]["evidence"][0], "E2");
         assert_eq!(result["points"][1]["evidence"][0], "E1");
