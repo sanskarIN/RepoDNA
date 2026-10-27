@@ -94,6 +94,11 @@
           "type": "string"
         },
         {
+          "const": "native",
+          "description": "Built-in offline extractive digest (not a trained language model).",
+          "type": "string"
+        },
+        {
           "const": "command",
           "description": "A local command that reads a prompt on standard input (e.g. `ollama run <model>`).",
           "type": "string"
