@@ -42,9 +42,36 @@ export const RECENT_MAX_BYTES = 64 * 1024 * 1024;
 const OPEN_KEY = "repodna-open";
 const REMEMBER_KEY = "repodna-remember-recent";
 
-/** Newest first, at most `RECENT_LIMIT`. */
+/**
+ * Stored metadata is external input, even when it comes from IndexedDB. Corrupted or
+ * legacy records must not break sorting or prevent valid analyses from opening.
+ */
+export function validRecentEntry(value: unknown): value is RecentEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.id === "string" &&
+    item.id.length > 0 &&
+    typeof item.name === "string" &&
+    item.name.length > 0 &&
+    typeof item.repository === "string" &&
+    typeof item.generatedAt === "string" &&
+    Number.isFinite(Date.parse(item.generatedAt)) &&
+    typeof item.openedAt === "string" &&
+    Number.isFinite(Date.parse(item.openedAt)) &&
+    typeof item.size === "number" &&
+    Number.isSafeInteger(item.size) &&
+    item.size >= 0 &&
+    item.size <= RECENT_MAX_BYTES
+  );
+}
+
+/** Newest first, at most `RECENT_LIMIT`; silently ignore damaged records. */
 export function newest(entries: readonly RecentEntry[]): RecentEntry[] {
-  return [...entries].sort((a, b) => b.openedAt.localeCompare(a.openedAt)).slice(0, RECENT_LIMIT);
+  return entries
+    .filter(validRecentEntry)
+    .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
+    .slice(0, RECENT_LIMIT);
 }
 
 /** Keeps entries and texts in memory: for tests, and browsers without IndexedDB. */
