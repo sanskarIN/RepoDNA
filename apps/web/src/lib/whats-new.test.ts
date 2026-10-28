@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import actualChangelog from "../../../../CHANGELOG.md?raw";
+import workspacePackage from "../../../../package.json";
 import { markWhatsNewSeen, needsWhatsNew, releaseNotes } from "./whats-new";
 
 const changelog = `# Changelog
@@ -39,6 +41,16 @@ describe("What's New release content", () => {
     expect(releaseNotes(changelog, "2.0.0").highlights).toEqual([]);
     expect(releaseNotes(changelog, "1.4.3", 1).highlights).toHaveLength(1);
     expect(releaseNotes(changelog, "1.4.3", 0).highlights).toEqual([]);
+  });
+});
+
+describe("Bundled release changelog", () => {
+  it("contains dated offline highlights matching the packaged version", () => {
+    const notes = releaseNotes(actualChangelog, workspacePackage.version);
+    expect(notes.version).toBe(workspacePackage.version);
+    expect(notes.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(notes.highlights.length).toBeGreaterThanOrEqual(3);
+    expect(notes.highlights.length).toBeLessThanOrEqual(6);
   });
 });
 
