@@ -79,12 +79,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.tree == 'workspace'
       # Unlike the informational advisory jobs in CI, a release must never publish
       # artifacts while known Rust vulnerabilities or license/source violations remain.
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           manifest-path: ${{ matrix.tree == 'desktop' && 'apps/desktop/src-tauri/Cargo.toml' || 'Cargo.toml' }}
           command: check advisories bans licenses sources
+
+      - name: Verify optional AI HTTPS root trust on release candidate
+        if: matrix.tree == 'workspace'
+        # Exercises the ureq/rustls certificate chain at runtime, not merely
+        # lockfile advisories. The ignored test is offline by default and
+        # makes only a public GET without credentials or repository data.
+        run: cargo test --locked -p repodna-ai --test https_trust -- --ignored
 
   web:
     name: Web interface

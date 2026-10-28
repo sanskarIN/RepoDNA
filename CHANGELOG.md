@@ -6,6 +6,14 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Security
+
+- Add an explicit release-gate HTTPS certificate-trust smoke test using the
+  optional AI provider's `ureq`/rustls dependency graph. Ordinary offline
+  test runs skip this network-only check; the release workflow runs it
+  without credentials or repository data.
+
+
 ### Fixed
 
 - Strengthen npm release publication preflight: reject empty staging trees,
