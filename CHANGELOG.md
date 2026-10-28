@@ -6,6 +6,20 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.4.4] - 2026-10-28
+
+RepoDNA v1.4.4 strengthens local-first evidence ranking, repository reviews,
+API reliability, and cross-platform release integrity.
+
+### Highlights
+
+- Native, offline evidence explanations support optional locally trained ranking and retrieval-quality baseline comparisons.
+- Findings confidence filters and consistent CSV, JSON, and Markdown exports enable complete local review.
+- Browser import path safeguards and corrupted-cache recovery prevent unsafe or damaged analysis inputs.
+- Expanded local API response validation rejects malformed repository, scan, and project-card data.
+- npm release publication rejects duplicate or foreign package names, empty stages, and invalid tags.
+- Release-only HTTPS certificate-trust testing strengthens optional AI network security.
+
 ### Security
 
 - Add an explicit release-gate HTTPS certificate-trust smoke test using the
@@ -99,7 +113,6 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 - Cover JSON findings export fidelity, nested evidence, empty results, and the web
   interface's enabled/disabled export controls.
-
 
 ## [1.4.3] - 2026-10-23
 

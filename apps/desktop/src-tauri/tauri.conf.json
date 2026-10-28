@@ -1,13 +1,19 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "RepoDNA",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "identifier": "io.github.sanskarin.repodna",
   "build": {
     "frontendDist": "../../web/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": { "script": "npm run dev -w @repodna/web", "cwd": "../.." },
-    "beforeBuildCommand": { "script": "npm run build -w @repodna/web", "cwd": "../.." }
+    "beforeDevCommand": {
+      "script": "npm run dev -w @repodna/web",
+      "cwd": "../.."
+    },
+    "beforeBuildCommand": {
+      "script": "npm run build -w @repodna/web",
+      "cwd": "../.."
+    }
   },
   "app": {
     "windows": [
@@ -29,7 +35,14 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "rpm", "app", "dmg", "msi", "nsis"],
+    "targets": [
+      "deb",
+      "rpm",
+      "app",
+      "dmg",
+      "msi",
+      "nsis"
+    ],
     "category": "DeveloperTool",
     "shortDescription": "Repository intelligence and code archaeology",
     "longDescription": "RepoDNA analyzes a repository's structure, architecture, history, dependencies, and health on your machine, and explains every conclusion with the evidence behind it.",
