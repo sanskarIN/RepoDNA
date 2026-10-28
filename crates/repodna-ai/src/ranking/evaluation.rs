@@ -32,6 +32,54 @@ pub struct RetrievalEvaluation {
     pub ndcg_at_k: f64,
 }
 
+/// Evaluate the original input order of selected evidence without trained weights.
+/// This is a necessary baseline, not a quality target by itself.
+pub fn evaluate_original_order(
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<RetrievalEvaluation, String> {
+    evaluate_retrieval_inner(None, holdout, k)
+}
+
+/// Signed change in retrieval metrics relative to an original-order baseline.
+/// A positive number indicates improvement, not guaranteed factual correctness.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RetrievalDelta {
+    /// Mean reciprocal rank improvement.
+    pub mean_reciprocal_rank: f64,
+    /// Precision at k improvement.
+    pub precision_at_k: f64,
+    /// Recall at k improvement.
+    pub recall_at_k: f64,
+    /// Normalized discounted cumulative gain at k improvement.
+    pub ndcg_at_k: f64,
+}
+
+impl RetrievalEvaluation {
+    /// Compare measurements from the same holdout and cutoff.
+    ///
+    /// Callers must evaluate both orderings on the same labeled examples.
+    /// This consistency check detects mismatched cutoffs and group counts.
+    pub fn delta_from(self, baseline: Self) -> Result<RetrievalDelta, String> {
+        if self.k != baseline.k
+            || self.total_queries != baseline.total_queries
+            || self.evaluated_queries != baseline.evaluated_queries
+            || self.unanswerable_queries != baseline.unanswerable_queries
+        {
+            return Err(
+                "retrieval comparisons require matching cutoffs and question groups".into(),
+            );
+        }
+        Ok(RetrievalDelta {
+            mean_reciprocal_rank: self.mean_reciprocal_rank - baseline.mean_reciprocal_rank,
+            precision_at_k: self.precision_at_k - baseline.precision_at_k,
+            recall_at_k: self.recall_at_k - baseline.recall_at_k,
+            ndcg_at_k: self.ndcg_at_k - baseline.ndcg_at_k,
+        })
+    }
+}
+
 impl RankerModel {
     /// Evaluate ranking effectiveness on held-out, manually labeled evidence.
     ///
@@ -48,86 +96,97 @@ impl RankerModel {
         k: usize,
     ) -> Result<RetrievalEvaluation, String> {
         self.validate()?;
-        if !(1..=100).contains(&k) {
-            return Err("retrieval cutoff k must be between 1 and 100".to_owned());
-        }
-        if holdout.is_empty() {
-            return Err("retrieval evaluation needs labeled holdout examples".to_owned());
-        }
-        let mut groups: BTreeMap<(&str, &str), Vec<&LabeledEvidence>> = BTreeMap::new();
-        let mut ids = HashSet::new();
-        for item in holdout {
-            if item.repository.trim().is_empty()
-                || item.query.trim().is_empty()
-                || item.evidence.id.trim().is_empty()
-                || item.evidence.detail.trim().is_empty()
-            {
-                return Err(
-                    "holdout examples require repository, query, evidence ID and detail".to_owned(),
-                );
-            }
-            let identity = (
-                item.repository.as_str(),
-                item.query.as_str(),
-                item.evidence.id.as_str(),
-            );
-            if !ids.insert(identity) {
-                return Err("duplicate evidence ID within repository/question group".to_owned());
-            }
-            groups
-                .entry((&item.repository, &item.query))
-                .or_default()
-                .push(item);
-        }
-        let total_queries = groups.len();
-        let mut evaluated_queries = 0_usize;
-        let mut unanswerable_queries = 0_usize;
-        let mut mrr = 0.0;
-        let mut precision = 0.0;
-        let mut recall = 0.0;
-        let mut ndcg = 0.0;
-        for ((_, query), mut group) in groups {
-            let total_relevant = group.iter().filter(|item| item.relevant).count();
-            if total_relevant == 0 {
-                unanswerable_queries += 1;
-                continue;
-            }
-            evaluated_queries += 1;
-            // Stable sort preserves input order when scores tie.
-            group.sort_by(|left, right| {
-                self.relevance(query, &right.evidence)
-                    .total_cmp(&self.relevance(query, &left.evidence))
-            });
-            if let Some(position) = group.iter().position(|item| item.relevant) {
-                mrr += 1.0 / (position + 1) as f64;
-            }
-            let mut found = 0_usize;
-            let mut dcg = 0.0;
-            for (position, item) in group.iter().take(k).enumerate() {
-                if item.relevant {
-                    found += 1;
-                    dcg += 1.0 / ((position + 2) as f64).log2();
-                }
-            }
-            let ideal_dcg: f64 = (0..total_relevant.min(k))
-                .map(|position| 1.0 / ((position + 2) as f64).log2())
-                .sum();
-            precision += found as f64 / k as f64;
-            recall += found as f64 / total_relevant as f64;
-            ndcg += dcg / ideal_dcg;
-        }
-        let divisor = evaluated_queries.max(1) as f64;
-        Ok(RetrievalEvaluation {
-            k,
-            total_queries,
-            evaluated_queries,
-            unanswerable_queries,
-            mean_reciprocal_rank: mrr / divisor,
-            precision_at_k: precision / divisor,
-            recall_at_k: recall / divisor,
-            ndcg_at_k: ndcg / divisor,
-        })
+        evaluate_retrieval_inner(Some(self), holdout, k)
     }
+}
+
+fn evaluate_retrieval_inner(
+    model: Option<&RankerModel>,
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<RetrievalEvaluation, String> {
+    if !(1..=100).contains(&k) {
+        return Err("retrieval cutoff k must be between 1 and 100".to_owned());
+    }
+    if holdout.is_empty() {
+        return Err("retrieval evaluation needs labeled holdout examples".to_owned());
+    }
+    let mut groups: BTreeMap<(&str, &str), Vec<&LabeledEvidence>> = BTreeMap::new();
+    let mut ids = HashSet::new();
+    for item in holdout {
+        if item.repository.trim().is_empty()
+            || item.query.trim().is_empty()
+            || item.evidence.id.trim().is_empty()
+            || item.evidence.detail.trim().is_empty()
+        {
+            return Err(
+                "holdout examples require repository, query, evidence ID and detail".to_owned(),
+            );
+        }
+        let identity = (
+            item.repository.as_str(),
+            item.query.as_str(),
+            item.evidence.id.as_str(),
+        );
+        if !ids.insert(identity) {
+            return Err("duplicate evidence ID within repository/question group".to_owned());
+        }
+        groups
+            .entry((&item.repository, &item.query))
+            .or_default()
+            .push(item);
+    }
+    let total_queries = groups.len();
+    let mut evaluated_queries = 0_usize;
+    let mut unanswerable_queries = 0_usize;
+    let mut mrr = 0.0;
+    let mut precision = 0.0;
+    let mut recall = 0.0;
+    let mut ndcg = 0.0;
+    for ((_, query), mut group) in groups {
+        let total_relevant = group.iter().filter(|item| item.relevant).count();
+        if total_relevant == 0 {
+            unanswerable_queries += 1;
+            continue;
+        }
+        evaluated_queries += 1;
+        // Stable sort preserves input order when scores tie.
+        if let Some(model) = model {
+            group.sort_by(|left, right| {
+                model
+                    .relevance(query, &right.evidence)
+                    .total_cmp(&model.relevance(query, &left.evidence))
+            });
+        }
+        if let Some(position) = group.iter().position(|item| item.relevant) {
+            mrr += 1.0 / (position + 1) as f64;
+        }
+        let mut found = 0_usize;
+        let mut dcg = 0.0;
+        for (position, item) in group.iter().take(k).enumerate() {
+            if item.relevant {
+                found += 1;
+                dcg += 1.0 / ((position + 2) as f64).log2();
+            }
+        }
+        let ideal_dcg: f64 = (0..total_relevant.min(k))
+            .map(|position| 1.0 / ((position + 2) as f64).log2())
+            .sum();
+        precision += found as f64 / k as f64;
+        recall += found as f64 / total_relevant as f64;
+        ndcg += dcg / ideal_dcg;
+    }
+    let divisor = evaluated_queries.max(1) as f64;
+    Ok(RetrievalEvaluation {
+        k,
+        total_queries,
+        evaluated_queries,
+        unanswerable_queries,
+        mean_reciprocal_rank: mrr / divisor,
+        precision_at_k: precision / divisor,
+        recall_at_k: recall / divisor,
+        ndcg_at_k: ndcg / divisor,
+    })
 }
 
 #[cfg(test)]
@@ -240,6 +299,41 @@ mod tests {
         assert!(model().evaluate_retrieval(&samples, 101).is_err());
         assert!(model().evaluate_retrieval(&[], 1).is_err());
         assert!(model().evaluate_retrieval(&samples, 2).is_err());
+    }
+
+    #[test]
+    fn original_order_baseline_exposes_ranking_improvement() {
+        let sample = [
+            labeled("repo", "Dependency?", "E1", EvidenceKind::Commit, false),
+            labeled("repo", "Dependency?", "E2", EvidenceKind::Package, true),
+        ];
+        let baseline = evaluate_original_order(&sample, 1).unwrap();
+        let learned = model().evaluate_retrieval(&sample, 1).unwrap();
+        assert_eq!(baseline.mean_reciprocal_rank, 0.5);
+        assert_eq!(baseline.recall_at_k, 0.0);
+        assert_eq!(learned.mean_reciprocal_rank, 1.0);
+        assert_eq!(learned.recall_at_k, 1.0);
+    }
+
+    #[test]
+    fn signed_metric_deltas_report_improvement_and_reject_mismatched_groups() {
+        let sample = [
+            labeled("repo", "Dependency?", "E1", EvidenceKind::Commit, false),
+            labeled("repo", "Dependency?", "E2", EvidenceKind::Package, true),
+        ];
+        let original = evaluate_original_order(&sample, 1).unwrap();
+        let trained = model().evaluate_retrieval(&sample, 1).unwrap();
+        let delta = trained.delta_from(original).unwrap();
+        assert_eq!(delta.mean_reciprocal_rank, 0.5);
+        assert_eq!(delta.precision_at_k, 1.0);
+        assert_eq!(delta.recall_at_k, 1.0);
+        assert_eq!(delta.ndcg_at_k, 1.0);
+        assert_eq!(original.delta_from(trained).unwrap().ndcg_at_k, -1.0);
+
+        let other_cutoff = evaluate_original_order(&sample, 2).unwrap();
+        assert!(trained.delta_from(other_cutoff).is_err());
+        let other_groups = evaluate_original_order(&sample[..1], 1).unwrap();
+        assert!(trained.delta_from(other_groups).is_err());
     }
 
     #[test]
