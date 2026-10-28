@@ -1,0 +1,140 @@
+name: One-time RepoDNA v1.4.4 stable release gate
+
+# This workflow exists only on the explicitly selected release operator branch.
+# It is deliberately not a recurring trigger from main or a release tag.
+on:
+  push:
+    branches:
+      - release/v144-stable-publish
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: repodna-v144-stable-publish-once
+  cancel-in-progress: false
+
+jobs:
+  qualify-and-publish:
+    name: Qualify 1.4.4 and publish the stable release
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: 467c907c1e17667a2a4e6d620a894271484f4105
+      RELEASE_TAG: v1.4.4
+    steps:
+      - name: Verify main and required checks before changing release refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          if [ "$GITHUB_REF_NAME" != "release/v144-stable-publish" ]; then
+            echo "::error::This release operator only runs from its dedicated branch."
+            exit 1
+          fi
+          head="$(gh api "repos/$repo/branches/main" --jq '.commit.sha')"
+          if [ "$head" != "$TARGET_SHA" ]; then
+            echo "::error::main has advanced from reviewed $TARGET_SHA to $head."
+            exit 1
+          fi
+          if gh api "repos/$repo/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::The release tag already exists. Refusing to change it."
+            exit 1
+          fi
+          gh api "repos/$repo/commits/$TARGET_SHA/check-runs?per_page=100" > "$RUNNER_TEMP/checks.json"
+          jq -e '(.check_runs | length >= 20) and all(.check_runs[]; .status == "completed" and .conclusion == "success")' "$RUNNER_TEMP/checks.json"
+          gh api "repos/$repo/actions/runs?head_sha=$TARGET_SHA&per_page=50" > "$RUNNER_TEMP/runs.json"
+          jq -e 'any(.workflow_runs[]; .name == "CI" and .conclusion == "success") and any(.workflow_runs[]; .name == "CodeQL Advanced" and .conclusion == "success")' "$RUNNER_TEMP/runs.json"
+          echo "Reviewed main commit and all required checks passed."
+
+      - name: Dispatch the unpublished full release trial
+        id: trial
+        shell: bash
+        run: |
+          set -euo pipefail
+          started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag=
+          trial_id=""
+          for attempt in $(seq 1 60); do
+            runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=100")"
+            trial_id="$(jq -r --arg sha "$TARGET_SHA" --arg start "$started" '[.workflow_runs[] | select(.head_sha == $sha and .created_at >= $start)] | sort_by(.id) | last | .id // empty' <<< "$runs")"
+            if [ -n "$trial_id" ]; then
+              break
+            fi
+            sleep 5
+          done
+          if [ -z "$trial_id" ]; then
+            echo "::error::No exact-commit release trial run was found."
+            exit 1
+          fi
+          echo "run_id=$trial_id" >> "$GITHUB_OUTPUT"
+          echo "Release trial: https://github.com/$GITHUB_REPOSITORY/actions/runs/$trial_id"
+
+      - name: Require all unpublished release trial jobs and artifacts
+        shell: bash
+        env:
+          TRIAL_ID: ${{ steps.trial.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          gh run watch "$TRIAL_ID" --repo "$GITHUB_REPOSITORY" --exit-status
+          state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TRIAL_ID" --jq .conclusion)"
+          [ "$state" = success ] || { echo "::error::Release trial did not succeed: $state"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TRIAL_ID/jobs?per_page=100" > "$RUNNER_TEMP/trial-jobs.json"
+          for job in 'Check the version' 'Release dependency checks (workspace)' 'Release dependency checks (desktop)' 'Check final Windows release assets'; do
+            jq -e --arg name "$job" 'any(.jobs[]; .name == $name and .conclusion == "success")' "$RUNNER_TEMP/trial-jobs.json"
+          done
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TRIAL_ID/artifacts?per_page=100" > "$RUNNER_TEMP/trial-artifacts.json"
+          for item in web-dist cli-wasm32-wasip1 cli-x86_64-pc-windows-msvc cli-aarch64-pc-windows-msvc desktop-Windows desktop-Windows-arm64 desktop-Linux desktop-macOS winget-manifests; do
+            jq -e --arg item "$item" 'any(.artifacts[]; .name == $item and .expired == false and .size_in_bytes > 0)' "$RUNNER_TEMP/trial-artifacts.json"
+          done
+          echo "Full unpublished release trial, HTTPS trust, Windows inventory and all required artifacts passed."
+
+      - name: Tag the verified main commit and dispatch the stable publication
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          actual="$(gh api "repos/$repo/branches/main" --jq .commit.sha)"
+          [ "$actual" = "$TARGET_SHA" ] || { echo "::error::main changed after the trial."; exit 1; }
+          if gh api "repos/$repo/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Tag unexpectedly exists; refusing to overwrite."
+            exit 1
+          fi
+          started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          tag_sha="$(gh api -X POST "repos/$repo/git/tags" -f tag="$RELEASE_TAG" -f message="RepoDNA v1.4.4 stable release" -f object="$TARGET_SHA" -f type=commit --jq .sha)"
+          gh api -X POST "repos/$repo/git/refs" -f ref="refs/tags/$RELEASE_TAG" -f sha="$tag_sha"
+          # Workflow events caused by the Actions GITHUB_TOKEN do not trigger
+          # ordinary push workflows, so explicitly dispatch the release by tag.
+          gh workflow run release.yml --repo "$repo" --ref main -f tag="$RELEASE_TAG"
+          publish_id=""
+          for attempt in $(seq 1 60); do
+            runs="$(gh api "repos/$repo/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=100")"
+            publish_id="$(jq -r --arg sha "$TARGET_SHA" --arg start "$started" '[.workflow_runs[] | select(.head_sha == $sha and .created_at >= $start)] | sort_by(.id) | last | .id // empty' <<< "$runs")"
+            if [ -n "$publish_id" ]; then
+              break
+            fi
+            sleep 5
+          done
+          if [ -z "$publish_id" ]; then
+            echo "::error::Tag exists but the publication workflow could not be located; rerun Release manually with tag v1.4.4."
+            exit 1
+          fi
+          echo "run_id=$publish_id" >> "$GITHUB_OUTPUT"
+          echo "Publication run: https://github.com/$repo/actions/runs/$publish_id"
+
+      - name: Verify the final stable release and downloadable checksums
+        shell: bash
+        env:
+          PUBLISH_ID: ${{ steps.publish.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          gh run watch "$PUBLISH_ID" --repo "$GITHUB_REPOSITORY" --exit-status
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > "$RUNNER_TEMP/release.json"
+          jq -e '(.draft == false) and (.prerelease == false) and (.published_at != null) and (.assets | length >= 15)' "$RUNNER_TEMP/release.json"
+          for filename in SHA256SUMS.txt RepoDNA_1.4.4_x64-setup.exe RepoDNA_1.4.4_x64_en-US.msi repodna-1.4.4-x86_64-pc-windows-msvc.zip; do
+            jq -e --arg item "$filename" 'any(.assets[]; .name == $item and .size > 0)' "$RUNNER_TEMP/release.json"
+          done
+          echo "Stable v1.4.4 published with installers, CLI archives, and checksum manifest."
