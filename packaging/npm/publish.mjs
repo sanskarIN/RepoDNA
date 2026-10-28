@@ -91,7 +91,22 @@ export function publishOrder(dir) {
       const { name, version } = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
       return { dir: path, name, version };
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const names = new Set();
+  for (const pkg of packages) {
+    if (
+      typeof pkg.name !== "string" ||
+      !pkg.name.startsWith(`${SCOPE}/`) ||
+      pkg.name.length <= SCOPE.length + 1 ||
+      names.has(pkg.name)
+    ) {
+      throw new Error(`Invalid or duplicate staged npm package identity: ${String(pkg.name)}`);
+    }
+    if (typeof pkg.version !== "string" || !/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$/.test(pkg.version)) {
+      throw new Error(`Invalid staged npm version for ${pkg.name}`);
+    }
+    names.add(pkg.name);
+  }
   const platforms = new Set(PLATFORMS.map(platformPackage));
   return [
     ...packages.filter((pkg) => platforms.has(pkg.name)),
@@ -170,12 +185,39 @@ export function publish({
   npm = process.env.REPODNA_NPM || "npm",
   log = (line) => process.stdout.write(`${line}\n`),
 }) {
+  // Validate the caller-supplied publish flags before touching the registry or
+  // staging directory. Incomplete --tag arguments must never publish as latest.
+  const explicitTags = [];
+  for (let i = 0; i < extra.length; i += 1) {
+    const arg = extra[i];
+    if (arg === "--tag") {
+      const value = extra[++i];
+      if (typeof value !== "string" || !value.trim() || value.startsWith("-")) {
+        throw new Error("An explicit npm --tag requires a nonempty tag name.");
+      }
+      explicitTags.push(value);
+    } else if (arg.startsWith("--tag=")) {
+      const value = arg.slice("--tag=".length);
+      if (!value.trim() || value.startsWith("-")) {
+        throw new Error("An explicit npm --tag requires a nonempty tag name.");
+      }
+      explicitTags.push(value);
+    }
+  }
+  if (explicitTags.length > 1) {
+    throw new Error("Supply only one explicit npm --tag value.");
+  }
+  const hasExplicitTag = explicitTags.length === 1;
+
   const home = mkdtempSync(join(tmpdir(), "repodna-publish-"));
   try {
     const userconfig = join(home, ".npmrc");
     writeFileSync(userconfig, npmrc(registry, Boolean(process.env.NODE_AUTH_TOKEN)));
     const config = ["--userconfig", userconfig, "--registry", normalize(registry)];
     const packages = publishOrder(dir);
+    if (packages.length === 0) {
+      throw new Error("No staged npm packages were found; refusing an empty release.");
+    }
     const versions = new Set(packages.map((pkg) => pkg.version));
     if (versions.size > 1) {
       throw new Error("All staged npm packages must have the same release version.");
@@ -187,7 +229,7 @@ export function publish({
         continue;
       }
       let tag = [];
-      if (!extra.includes("--tag")) {
+      if (!hasExplicitTag) {
         if (pkg.version.includes("-")) {
           // A prerelease such as 1.3.0-rc.1 must not become what `npm install` picks,
           tag = ["--tag", "next"];

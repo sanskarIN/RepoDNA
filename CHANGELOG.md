@@ -6,6 +6,13 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Strengthen npm release publication preflight: reject empty staging trees,
+  unrelated or duplicate package names, invalid versions and missing/duplicate
+  dist-tag arguments. Respect both `--tag beta` and `--tag=beta` overrides
+  without adding conflicting default tags. Include regression tests.
+
 ### Added
 
 - Evaluate the optional native evidence ranker against unchanged original

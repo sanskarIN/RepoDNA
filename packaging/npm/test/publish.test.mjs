@@ -254,3 +254,77 @@ test("compares stable and prerelease semver precedence correctly", () => {
   assert.equal(isOlder("1.2.0-alpha", "1.2.0-beta"), true);
   assert.equal(isOlder("1.2.0-rc.1", "1.2.0-rc.1"), false);
 });
+
+test("rejects staged packages from unrelated scopes before publishing", () => {
+  const unknown = join(staged, "external-package");
+  mkdirSync(unknown, { recursive: true });
+  writeFileSync(
+    join(unknown, "package.json"),
+    JSON.stringify({ name: "@external/unexpected", version: "9.8.7" }),
+  );
+  try {
+    assert.throws(() => publishOrder(staged), /Invalid or duplicate staged npm package identity/);
+    assert.deepEqual(readCalls(), []);
+  } finally {
+    rmSync(unknown, { recursive: true, force: true });
+  }
+});
+
+test("rejects duplicate staged package identities and malformed versions", () => {
+  const unknown = join(staged, "duplicated-package");
+  mkdirSync(unknown, { recursive: true });
+  try {
+    writeFileSync(
+      join(unknown, "package.json"),
+      JSON.stringify({ name: "@sanskarin/repodna", version: "9.8.7" }),
+    );
+    assert.throws(() => publishOrder(staged), /Invalid or duplicate staged npm package identity/);
+    writeFileSync(
+      join(unknown, "package.json"),
+      JSON.stringify({ name: "@sanskarin/extra", version: "invalid" }),
+    );
+    assert.throws(() => publishOrder(staged), /Invalid staged npm version/);
+    assert.deepEqual(readCalls(), []);
+  } finally {
+    rmSync(unknown, { recursive: true, force: true });
+  }
+});
+
+test("refuses an empty package staging directory", () => {
+  const empty = join(dir, "no-staged-packages");
+  mkdirSync(empty, { recursive: true });
+  assert.throws(
+    () => publish({ registry: "https://registry.npmjs.org", dir: empty, npm }),
+    /No staged npm packages were found/,
+  );
+  assert.deepEqual(readCalls(), []);
+});
+
+test("accepts --tag=value without supplying a conflicting default tag", () => {
+  const prerelease = join(dir, "equals-style-tag");
+  mkdirSync(join(prerelease, "schema"), { recursive: true });
+  writeFileSync(
+    join(prerelease, "schema", "package.json"),
+    JSON.stringify({ name: "@sanskarin/repodna-schema", version: "9.9.0-rc.1" }),
+  );
+  publish({ registry: "https://registry.npmjs.org", dir: prerelease, extra: ["--tag=beta"], npm });
+  const args = readCalls().find((call) => call.args[0] === "publish").args;
+  assert.ok(args.includes("--tag=beta"));
+  assert.equal(args.includes("next"), false);
+});
+
+test("rejects missing or duplicate explicit dist-tags before any registry call", () => {
+  for (const extra of [
+    ["--tag"],
+    ["--tag", "--access", "public"],
+    ["--tag="],
+    ["--tag=  "],
+    ["--tag", "beta", "--tag=next"],
+  ]) {
+    assert.throws(
+      () => publish({ registry: "https://registry.npmjs.org", dir: staged, npm, extra }),
+      /explicit npm --tag|only one explicit npm --tag/,
+    );
+  }
+  assert.deepEqual(readCalls(), []);
+});
