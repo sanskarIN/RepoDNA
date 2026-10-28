@@ -102,7 +102,10 @@ export function publishOrder(dir) {
     ) {
       throw new Error(`Invalid or duplicate staged npm package identity: ${String(pkg.name)}`);
     }
-    if (typeof pkg.version !== "string" || !/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$/.test(pkg.version)) {
+    if (
+      typeof pkg.version !== "string" ||
+      !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(pkg.version)
+    ) {
       throw new Error(`Invalid staged npm version for ${pkg.name}`);
     }
     names.add(pkg.name);
