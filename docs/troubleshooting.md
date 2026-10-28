@@ -100,6 +100,35 @@ puts the interface back about a minute after each push; to keep the README from 
 at all, set **Settings > Pages > Source** to **GitHub Actions**, then run the Web version
 workflow once from the Actions tab. See [the web version](web.md#the-web-version).
 
+**A browser folder selection is not accepted.** Select one repository root, not
+files from multiple unrelated folders. Browser imports reject unsafe or
+duplicate relative paths. If the folder contains generated or vendored material
+that is not needed, choose a smaller project folder or analyze the working
+tree with the CLI instead. See the [browser workflow](workflows.md#explore-a-local-repository-in-a-browser).
+
+**Browser analysis is missing commit history or contributors.** The static
+web version analyzes files locally with WebAssembly, but it cannot read the
+repository's Git database. Use `repodna analyze`, `repodna serve` or the
+desktop app to include history. See [the full-history workflow](workflows.md#investigate-a-repository-with-full-git-history).
+
+**A recent analysis is missing after reopening the page.** Recent entries are
+kept in browser storage, separately from stored CLI analyses. Private-browsing
+sessions, disabled storage, cleared site data and browser eviction can remove
+them. Open the original `.repodna` or `repodna.json` file again. Review the
+recent-analysis preference in **Settings** before assuming the source analysis
+was lost.
+
+**The web version does not work offline.** Visit it successfully while
+connected before trying it offline; the browser needs to cache the interface
+and its WebAssembly files. Browser storage eviction or clearing site data may
+require another online load. A locally installed binary or desktop app avoids
+depending on browser offline caching.
+
+**The What's New dialog no longer appears.** It is shown once per installed
+version after first launch or update. Reopen **App > What's New** from the
+sidebar to review the bundled notes. This does not need an internet
+connection.
+
 ## Desktop app
 
 **It does not start on Linux.** Install WebKitGTK 4.1 (`libwebkit2gtk-4.1-0` on Debian and
@@ -107,6 +136,25 @@ Ubuntu, `webkit2gtk4.1` on Fedora).
 
 **macOS or Windows refuses to open it.** The app is not code-signed; see
 [unsigned binaries](installation.md#unsigned-binaries).
+
+## Findings and exports
+
+**An exported file has fewer findings than the analysis.** Findings exports
+use the *current* search, severity, category and suppression filters.
+Clear the filters or enable **Show suppressed** where applicable before
+exporting. The CSV, JSON and Markdown exports include all matching results,
+not only the first 25 displayed on the page.
+
+**A findings JSON export cannot be opened as a RepoDNA analysis.** The
+Findings page exports an array of matched finding records; it is **not** the
+full RepositoryDNA artifact. Use **Reports & export** to save the full
+analysis, or run `repodna analyze . --format json > repodna.json`.
+
+**The exported review contains private information.** Reports and finding
+evidence may include file paths, commit metadata, and contextual details.
+Choose the `public` sharing preset where appropriate, then review the
+actual output before distributing it. See [the sharing workflow](workflows.md#share-a-review-without-sharing-source-code)
+and [privacy](privacy.md).
 
 ## AI explanations
 

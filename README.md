@@ -150,7 +150,7 @@ right in your browser and works offline, all built on the same analysis.
 
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
-(`uses: sanskarIN/RepoDNA@v1.4.2`) does all of this in one step.
+(`uses: sanskarIN/RepoDNA@v1.4.3`) does all of this in one step.
 
 **Optional AI explanations.** Built-in offline evidence digests need no API key or
 external runtime; richer language-model explanations remain available through optional
@@ -215,8 +215,8 @@ statically linked), macOS (Apple silicon and Intel), or Windows (x86_64 and ARM6
 a single `repodna` program with the web interface built in. For example, on Linux:
 
 ```sh
-tar -xzf repodna-1.4.2-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.4.2-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.4.3-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.4.3-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 repodna --version
 ```
 
@@ -251,7 +251,7 @@ WebAssembly for Node.js and browsers on any system (`@sanskarin/repodna-wasm`:
 artifact (`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on npm too.
 See [the npm packages](docs/installation.md#npm-packages).
 
-**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.4.0` analyzes the repository in a workflow,
+**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.4.3` analyzes the repository in a workflow,
 annotates findings, and keeps the report. See [the GitHub Action](docs/github-action.md).
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
@@ -311,7 +311,8 @@ cargo test --workspace && npm test                  # the tests
 ```
 
 The [getting started guide](docs/getting-started.md) walks through all of it in five
-minutes.
+minutes. For complete browser, CLI, CI baseline, and privacy-aware sharing scenarios,
+see [practical workflows](docs/workflows.md).
 
 ## Command-line examples
 

@@ -23,6 +23,10 @@ reports no history). Nothing else: the binaries have no runtime dependencies.
 
 ## Prebuilt binaries
 
+The command examples below use the published **v1.4.3** assets. For another
+release, substitute its version number and verify the exact asset filename on
+the [GitHub releases page](https://github.com/sanskarIN/RepoDNA/releases).
+
 Download the archive for your platform from the
 [releases page](https://github.com/sanskarIN/RepoDNA/releases):
 
@@ -40,10 +44,10 @@ The Linux binaries are statically linked and run on any distribution.
 ### Linux and macOS
 
 ```sh
-tar -xzf repodna-1.4.1-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.4.1-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.4.3-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.4.3-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 # or, without sudo:
-mkdir -p ~/.local/bin && install -m 0755 repodna-1.4.1-x86_64-unknown-linux-musl/repodna ~/.local/bin/
+mkdir -p ~/.local/bin && install -m 0755 repodna-1.4.3-x86_64-unknown-linux-musl/repodna ~/.local/bin/
 ```
 
 ### Windows
@@ -72,7 +76,8 @@ release alone is not sufficient. See [WinGet setup, verification and publication
 
 ### Verify the download
 
-Each release has a `SHA256SUMS.txt`:
+Each release has a `SHA256SUMS.txt`. Save the checksum file beside the
+archive you downloaded, and verify **that archive** before installing it:
 
 ```sh
 sha256sum --check --ignore-missing SHA256SUMS.txt           # Linux
@@ -80,8 +85,13 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt       # macOS
 ```
 
 ```powershell
-Get-FileHash .\repodna-1.4.1-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # compare with SHA256SUMS.txt
+Get-FileHash .\repodna-1.4.3-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # compare with SHA256SUMS.txt
 ```
+
+Confirm the calculated hash matches the entry for the exact ZIP filename in
+`SHA256SUMS.txt`. On Linux or macOS, make sure the check reports the selected
+archive as **OK**; `--ignore-missing` skips other assets you did not download.
+Do not install an archive whose checksum does not match.
 
 ### Unsigned binaries
 
@@ -102,6 +112,24 @@ Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows (`.msi`, `.ex
 attached to each release, and from 1.3.1 on for Windows on Arm (`_arm64_en-US.msi`,
 `_arm64-setup.exe`). See [the desktop app](desktop.md).
 
+For the published v1.4.3 release, choose the installer matching your system:
+
+| Operating system | Published installer asset |
+|---|---|
+| Windows x64, setup | `RepoDNA_1.4.3_x64-setup.exe` |
+| Windows x64, MSI | `RepoDNA_1.4.3_x64_en-US.msi` |
+| Windows ARM64, setup | `RepoDNA_1.4.3_arm64-setup.exe` |
+| Windows ARM64, MSI | `RepoDNA_1.4.3_arm64_en-US.msi` |
+| macOS (Intel or Apple silicon) | `RepoDNA_1.4.3_universal.dmg` |
+| Debian/Ubuntu, x64 | `RepoDNA_1.4.3_amd64.deb` |
+| RPM-based Linux, x64 | `RepoDNA-1.4.3-1.x86_64.rpm` |
+
+Windows ARM64 installers are for Arm-based computers, not standard Intel or
+AMD x64 systems. Linux ARM64 and macOS-specific **CLI** archives are also
+available in [prebuilt binaries](#prebuilt-binaries); do not assume every
+CLI architecture has a matching desktop installer. Verify the assets available
+for the version you choose on the release page.
+
 ## Container image
 
 Each release is also published as a container image with the command line and Git, for CI
@@ -115,7 +143,7 @@ docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" \
 ```
 
 The current directory is mounted as `/work`, and `--user` makes the files RepoDNA writes
-yours. Tags follow the releases: `1.4.1`, `1.4`, `1`, and `latest`. Stored analyses live in
+yours. Tags follow the releases: `1.4.3`, `1.4`, `1`, and `latest`. Stored analyses live in
 `/tmp/repodna` inside the container and disappear with it; mount a volume there
 (`-v repodna-data:/tmp/repodna`) to keep them. `repodna serve` in a container listens on the
 container's own loopback address, so use an installed binary, the desktop app, or the
@@ -222,7 +250,7 @@ interface of `repodna serve`, which then shows a basic page that lists stored an
 their reports. You can also install directly from Git this way:
 
 ```sh
-cargo install --git https://github.com/sanskarIN/RepoDNA --tag v1.4.1 --locked repodna-cli
+cargo install --git https://github.com/sanskarIN/RepoDNA --tag v1.4.3 --locked repodna-cli
 ```
 
 To build the desktop app, see [apps/desktop/README.md](../apps/desktop/README.md). For

@@ -13,6 +13,7 @@ repository.
 ## Start here
 
 - [Getting started](getting-started.md): analyze your first repository in five minutes
+- [Practical workflows](workflows.md): browser exploration, CLI history, CI baselines, and safe sharing
 - [Installation](installation.md): binaries, the desktop app, npm, WebAssembly, and building
   from source
 - [WinGet on Windows](winget.md): desktop and CLI installation, upgrades, and publishing

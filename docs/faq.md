@@ -58,6 +58,19 @@ History needs Git and the root of a working tree; see
 
 ## Usage
 
+**Can I analyze a folder without downloading the desktop app?**
+Yes. Use the [static web version](web.md#the-web-version) to select a local
+project folder or archive in your browser. Source files are analyzed there,
+but Git history is not available. See the
+[browser workflow](workflows.md#explore-a-local-repository-in-a-browser).
+
+**What is the difference between a Findings export and a complete analysis?**
+The Findings page downloads the current *filtered findings* as CSV, JSON or
+Markdown, including matching results beyond the first displayed page.
+The JSON is an array of findings, **not** a RepositoryDNA artifact.
+Use **Reports & export** or `repodna analyze . --format json` for a
+complete artifact. See [sharing a review](workflows.md#share-a-review-without-sharing-source-code).
+
 **Can I analyze a repository I do not trust?**
 Yes, that is a design goal: analysis is read-only, Git runs with hardened settings, archives
 are extracted safely, and nothing from the repository is executed unless you enable command

@@ -127,6 +127,8 @@ See the [example workflow](../examples/ci/repodna.yml).
 
 ## Next steps
 
+- Follow a [practical workflow](workflows.md) for browser-only use, full Git history,
+  a new-findings CI gate, or privacy-aware review exports.
 - [Configure](configuration.md) profiles, thresholds, and ignore patterns (`repodna init`
   writes a commented `repodna.toml`).
 - Learn what each part of the analysis does, starting with
