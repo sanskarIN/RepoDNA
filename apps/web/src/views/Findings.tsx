@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   SEVERITIES,
   categoryLabel,
+  confidenceLabel,
   findingCounts,
   isSuppressed,
   severityLabel,
+  type Confidence,
   type FindingCategory,
   type Severity,
 } from "@repodna/schema";
@@ -20,6 +22,7 @@ import { useDataset } from "../state";
 
 /** Findings shown at first, and added each time more are asked for. */
 export const FINDINGS_PAGE = 25;
+const CONFIDENCES: readonly Confidence[] = ["high", "medium", "low", "unavailable"];
 
 export function Findings() {
   const { dna } = useDataset();
@@ -33,6 +36,10 @@ export function Findings() {
   const [category, setCategory] = useState<"all" | FindingCategory>(
     () => (route.params.get("category") as FindingCategory | null) ?? "all",
   );
+  const [confidence, setConfidence] = useState<"all" | Confidence>(() => {
+    const value = route.params.get("confidence");
+    return CONFIDENCES.includes(value as Confidence) ? (value as Confidence) : "all";
+  });
   const [showSuppressed, setShowSuppressed] = useState(false);
   const [shown, setShown] = useState(FINDINGS_PAGE);
   const counts = findingCounts(dna);
@@ -41,12 +48,25 @@ export function Findings() {
     [dna.findings],
   );
   const filtered = useMemo(
-    () => filterFindings(dna.findings, { query, severity, category, showSuppressed }),
-    [dna.findings, query, severity, category, showSuppressed],
+    () => filterFindings(dna.findings, { query, severity, category, confidence, showSuppressed }),
+    [dna.findings, query, severity, category, confidence, showSuppressed],
   );
   const suppressed = dna.findings.filter(isSuppressed).length;
   // Changing a filter starts again from the first page.
-  useEffect(() => setShown(FINDINGS_PAGE), [query, severity, category, showSuppressed]);
+  useEffect(() => setShown(FINDINGS_PAGE), [query, severity, category, confidence, showSuppressed]);
+  const filtersActive =
+    query !== "" ||
+    severity !== "all" ||
+    category !== "all" ||
+    confidence !== "all" ||
+    showSuppressed;
+  const resetFilters = () => {
+    setQuery("");
+    setSeverity("all");
+    setCategory("all");
+    setConfidence("all");
+    setShowSuppressed(false);
+  };
 
   return (
     <>
@@ -98,6 +118,16 @@ export function Findings() {
           ]}
           onChange={setCategory}
         />
+        <Select
+          id="finding-confidence"
+          label="Confidence"
+          value={confidence}
+          options={[
+            ["all", "All confidence levels"] as const,
+            ...CONFIDENCES.map((c) => [c, confidenceLabel(c)] as const),
+          ]}
+          onChange={setConfidence}
+        />
         {suppressed > 0 ? (
           <label>
             <input
@@ -108,6 +138,9 @@ export function Findings() {
             Show {suppressed} suppressed
           </label>
         ) : null}
+        <button type="button" className="ghost" disabled={!filtersActive} onClick={resetFilters}>
+          Reset filters
+        </button>
         <button
           type="button"
           className="ghost"

@@ -2,6 +2,7 @@ import {
   describeEvidence,
   isSuppressed,
   severityRank,
+  type Confidence,
   type Finding,
   type FindingCategory,
   type Severity,
@@ -12,6 +13,7 @@ export interface FindingFilters {
   query: string;
   severity: "all" | Severity;
   category: "all" | FindingCategory;
+  confidence: "all" | Confidence;
   showSuppressed: boolean;
 }
 
@@ -40,6 +42,7 @@ export function filterFindings(findings: readonly Finding[], filters: FindingFil
         (filters.showSuppressed || !isSuppressed(finding)) &&
         (filters.severity === "all" || finding.severity === filters.severity) &&
         (filters.category === "all" || finding.category === filters.category) &&
+        (filters.confidence === "all" || finding.confidence === filters.confidence) &&
         (terms.length === 0 || terms.every((term) => searchable(finding).includes(term))),
     )
     .sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
