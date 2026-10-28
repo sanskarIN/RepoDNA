@@ -71,7 +71,7 @@ A new tab starts on the start page.
 | Code quality | Complexity, long functions, deep nesting, duplication, similar files, markers, and dead-code candidates |
 | Tests, build & docs | Test files and frameworks, build systems, detected commands, CI, environment requirements, and documentation checks |
 | Security signals | Possible secrets, risky patterns, and permissions |
-| Findings | Every finding with its evidence, method, and limitations, 25 at a time, filtered by severity and category and searchable by title, rule, path, and evidence |
+| Findings | Every finding with its evidence, method, and limitations, 25 at a time, filtered by severity, category and confidence, with a one-click filter reset and search by title, rule, path, and evidence |
 | Reports & export | The HTML report, the Markdown report, and the JSON artifact with a theme and privacy preset, and the DNA card in light or dark, as SVG or PNG; the desktop app also saves the full report folder. In the web version, they are made in the browser |
 | Compare | This analysis next to another one: a stored analysis, a file you choose or drop on its drop zone, or the demo |
 | Settings | Theme, recent analyses, privacy notes, keyboard shortcuts, and version information |
@@ -141,7 +141,8 @@ The server is meant for one person on one machine:
   from other sites.
 
 The interface's own files contain no data and are served without the token; everything
-about your repositories comes from the API.
+about your repositories comes from the API. The client checks repository, scan job,
+and SVG-card response shapes to handle malformed proxy responses safely.
 
 ## The local API
 

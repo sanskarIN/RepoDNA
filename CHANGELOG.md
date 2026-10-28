@@ -8,6 +8,18 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Added
 
+- Filter findings by confidence (high, medium, low, or unavailable) and reset
+  all active filters with one click; filtered CSV, JSON, and Markdown exports
+  share the same complete matching selection.
+
+### Fixed
+
+- Validate local API repository and scan-job responses, including nested items,
+  counts and progress data; reject non-SVG responses to project card requests,
+  with regression tests for malformed and valid responses.
+
+### Added
+
 - Add a local annotation workflow for the RepoDNA evidence ranker: produce
   human-reviewable templates from real analysis artifacts, require explicit
   relevance labels, exclude source excerpts, reject duplicate evidence IDs
