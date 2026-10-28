@@ -14,8 +14,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ### Fixed
 
-- Validate successful local API repository and scan-job responses and reject
-  non-SVG responses to project card requests, with regression tests.
+- Validate local API repository and scan-job responses, including nested items,
+  counts and progress data; reject non-SVG responses to project card requests,
+  with regression tests for malformed and valid responses.
 
 ### Added
 

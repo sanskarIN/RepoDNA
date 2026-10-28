@@ -104,14 +104,75 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-/** Protect the UI from a malformed job envelope returned by a local proxy or server. */
-function isJobState(value: unknown, allowed: readonly JobState["status"][]): value is JobState {
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isNullableString(value: unknown): value is string | null | undefined {
+  return value === null || value === undefined || typeof value === "string";
+}
+
+/** Validate list items as well as the enclosing JSON array. */
+function isRepositorySummary(value: unknown): value is RepositorySummary {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
     value.id.length > 0 &&
+    typeof value.name === "string" &&
+    typeof value.location === "string" &&
+    typeof value.kind === "string" &&
+    isCount(value.scans) &&
+    typeof value.firstScannedAt === "string" &&
+    typeof value.lastScannedAt === "string"
+  );
+}
+
+function isScanSummary(value: unknown): value is ScanSummary {
+  if (!isRecord(value) || !isRecord(value.findings)) return false;
+  return (
+    typeof value.id === "string" &&
+    value.id.length > 0 &&
+    typeof value.generatedAt === "string" &&
+    typeof value.profile === "string" &&
+    isNullableString(value.revision) &&
+    typeof value.dnaHash === "string" &&
+    typeof value.toolVersion === "string" &&
+    isCount(value.files) &&
+    isCount(value.codeLines) &&
+    isCount(value.commits) &&
+    isCount(value.contributors) &&
+    ["critical", "warning", "attention", "info", "suppressed"].every((key) =>
+      isCount((value.findings as Record<string, unknown>)[key]),
+    )
+  );
+}
+
+/** Reject malformed nested progress data before it reaches the UI. */
+function isJobState(value: unknown, allowed: readonly JobState["status"][]): value is JobState {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    value.id.length > 0 &&
+    typeof value.input === "string" &&
     typeof value.status === "string" &&
-    allowed.includes(value.status as JobState["status"])
+    allowed.includes(value.status as JobState["status"]) &&
+    isNullableString(value.stage) &&
+    Array.isArray(value.stages) &&
+    value.stages.every(
+      (stage: unknown) =>
+        Array.isArray(stage) &&
+        stage.length === 2 &&
+        stage.every((part: unknown) => typeof part === "string"),
+    ) &&
+    isCount(value.filesDone) &&
+    isCount(value.filesTotal) &&
+    isNullableString(value.repositoryId) &&
+    isNullableString(value.scanId) &&
+    isNullableString(value.error) &&
+    Array.isArray(value.warnings) &&
+    value.warnings.every((warning: unknown) => typeof warning === "string") &&
+    typeof value.startedAt === "string" &&
+    isNullableString(value.finishedAt)
   );
 }
 
@@ -213,7 +274,7 @@ export class ServerBackend implements Backend {
 
   async repositories(): Promise<RepositorySummary[]> {
     const value = await this.request<unknown>("repositories");
-    if (!Array.isArray(value)) {
+    if (!Array.isArray(value) || !value.every(isRepositorySummary)) {
       throw new BackendError("The server returned an invalid repository list.", 200);
     }
     return value as RepositorySummary[];
@@ -221,7 +282,12 @@ export class ServerBackend implements Backend {
 
   async repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
     const value = await this.request<unknown>(`repositories/${encodeURIComponent(id)}`);
-    if (!isRecord(value) || !isRecord(value.repository) || !Array.isArray(value.scans)) {
+    if (
+      !isRecord(value) ||
+      !isRepositorySummary(value.repository) ||
+      !Array.isArray(value.scans) ||
+      !value.scans.every(isScanSummary)
+    ) {
       throw new BackendError("The server returned invalid repository details.", 200);
     }
     return value as { repository: RepositorySummary; scans: ScanSummary[] };

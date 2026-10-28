@@ -3,6 +3,46 @@ import { ServerBackend, takeToken } from "./backend";
 
 const originalUrl = window.location.href;
 
+const validRepository = {
+  id: "repo-1",
+  name: "Project",
+  location: "/projects/example",
+  kind: "local",
+  scans: 1,
+  firstScannedAt: "2026-10-28T00:00:00Z",
+  lastScannedAt: "2026-10-28T00:00:00Z",
+};
+
+const validScan = {
+  id: "scan-1",
+  generatedAt: "2026-10-28T00:00:00Z",
+  profile: "quick",
+  revision: null,
+  dnaHash: "hash",
+  toolVersion: "1.4.3",
+  files: 1,
+  codeLines: 2,
+  commits: 0,
+  contributors: 0,
+  findings: { critical: 0, warning: 0, attention: 0, info: 0, suppressed: 0 },
+};
+
+const validJob = {
+  id: "job-1",
+  input: "/projects/example",
+  status: "running",
+  stage: null,
+  stages: [],
+  filesDone: 0,
+  filesTotal: 1,
+  repositoryId: null,
+  scanId: null,
+  error: null,
+  warnings: [],
+  startedAt: "2026-10-28T00:00:00Z",
+  finishedAt: null,
+};
+
 afterEach(() => {
   vi.restoreAllMocks();
   window.sessionStorage.removeItem("repodna-token");
@@ -67,6 +107,45 @@ describe("local server API responses", () => {
     await expect(new ServerBackend(null).repositories()).resolves.toEqual([]);
   });
 
+  it("rejects malformed list entries, even inside a valid array", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([{ ...validRepository, scans: -1 }]), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).repositories()).rejects.toThrow(
+      "The server returned an invalid repository list.",
+    );
+  });
+
+  it("accepts complete repository metadata", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([validRepository]), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).repositories()).resolves.toEqual([validRepository]);
+  });
+
+  it("accepts complete repository details and scan summaries", async () => {
+    const value = { repository: validRepository, scans: [validScan] };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(value), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).repository("repo-1")).resolves.toEqual(value);
+  });
+
+  it("rejects a scan with malformed nested finding counts", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          repository: validRepository,
+          scans: [{ ...validScan, findings: { ...validScan.findings, critical: "two" } }],
+        }),
+        { status: 200 },
+      ),
+    );
+    await expect(new ServerBackend(null).repository("repo-1")).rejects.toThrow(
+      "The server returned invalid repository details.",
+    );
+  });
+
   it("rejects repository details without an array of scans", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ repository: { id: "repo" }, scans: null }), { status: 200 }),
@@ -94,8 +173,26 @@ describe("local server API responses", () => {
     );
   });
 
+  it("rejects incomplete nested progress data in scan jobs", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ...validJob, warnings: [null] }), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).job("job-1")).rejects.toThrow(
+      "The server returned an invalid scan job.",
+    );
+  });
+
+  it("rejects unsafe or imprecise scan progress counts", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ...validJob, filesDone: -10 }), { status: 200 }),
+    );
+    await expect(new ServerBackend(null).job("job-1")).rejects.toThrow(
+      "The server returned an invalid scan job.",
+    );
+  });
+
   it("accepts a valid running scan job response", async () => {
-    const job = { id: "job-1", status: "running" };
+    const job = validJob;
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify(job), { status: 200 }),
     );
