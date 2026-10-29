@@ -148,7 +148,11 @@ rejected. Files are written with exclusive creation and will **never
 overwrite** existing output. Separate labeled examples into train and holdout
 files by *repository ID*, not randomly by question, and ensure both positive
 and negative labels occur in the training set. The trainer rejects repositories
-that appear in both sets.
+that appear in both sets. Training and holdout datasets also reject duplicate
+evidence IDs within the same repository/question, missing evidence IDs, and
+source-excerpt evidence. The same evidence ID may still appear under a different
+question or in a different repository. These checks prevent accidental double
+weighting and contradictory labels, but cannot verify labeling accuracy.
 
 Generate templates for other tasks using `repository`, `architecture`,
 `dependencies`, `history`, `onboarding`, `module`, `hotspot`,
