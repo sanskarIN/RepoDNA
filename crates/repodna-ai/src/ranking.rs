@@ -120,6 +120,12 @@ fn sigmoid(v: f64) -> f64 {
     1.0 / (1.0 + (-v.clamp(-32.0, 32.0)).exp())
 }
 
+/// Normalize user-supplied repository identifiers before applying leakage checks.
+/// Whitespace and simple casing differences must not create fake holdout repos.
+fn normalized_repository_id(id: &str) -> String {
+    id.trim().to_lowercase()
+}
+
 /// Refuse repeated or missing evidence IDs within one repository/question.
 /// Duplicates can bias training, and conflicting labels should never be silently accepted.
 fn validate_evidence_ids(samples: &[LabeledEvidence]) -> Result<(), String> {
@@ -132,7 +138,7 @@ fn validate_evidence_ids(samples: &[LabeledEvidence]) -> Result<(), String> {
             return Err("ranker datasets must not contain source excerpts".into());
         }
         if !seen.insert((
-            sample.repository.as_str(),
+            normalized_repository_id(&sample.repository),
             sample.query.as_str(),
             sample.evidence.id.as_str(),
         )) {
@@ -150,7 +156,10 @@ pub fn validate_repository_split(
     if train.is_empty() || test.is_empty() {
         return Err("training and holdout must both be nonempty".into());
     }
-    let repo_ids: HashSet<&str> = train.iter().map(|s| s.repository.as_str()).collect();
+    let repo_ids: HashSet<String> = train
+        .iter()
+        .map(|sample| normalized_repository_id(&sample.repository))
+        .collect();
     if train.iter().chain(test.iter()).any(|s| {
         s.repository.trim().is_empty()
             || s.query.trim().is_empty()
@@ -160,7 +169,7 @@ pub fn validate_repository_split(
     }
     if test
         .iter()
-        .any(|s| repo_ids.contains(s.repository.as_str()))
+        .any(|sample| repo_ids.contains(&normalized_repository_id(&sample.repository)))
     {
         return Err("repository leakage: training and test repository IDs overlap".into());
     }
@@ -214,7 +223,7 @@ impl RankerModel {
         validate_evidence_ids(samples)?;
         let training_repositories = samples
             .iter()
-            .map(|s| s.repository.as_str())
+            .map(|sample| normalized_repository_id(&sample.repository))
             .collect::<HashSet<_>>()
             .len();
         let mut weights = vec![0.0_f64; FEATURE_COUNT];
@@ -458,6 +467,57 @@ mod tests {
         excerpt_holdout[0].evidence.kind = EvidenceKind::Excerpt;
         assert!(validate_repository_split(&training, &excerpt_holdout).is_err());
         validate_repository_split(&training, &valid_holdout).unwrap();
+    }
+
+    #[test]
+    fn rejects_repository_aliases_across_train_and_holdout() {
+        let training = training();
+        let mut aliased_holdout = sample(
+            " R1 ",
+            "another query",
+            EvidenceKind::Fact,
+            "Different evidence about the same repository",
+            true,
+        );
+        assert!(
+            validate_repository_split(&training, &[aliased_holdout.clone()])
+                .unwrap_err()
+                .contains("repository leakage")
+        );
+        aliased_holdout.repository = "r1".into();
+        assert!(validate_repository_split(&training, &[aliased_holdout]).is_err());
+
+        let mut independent_holdout = sample(
+            " r3 ",
+            "another query",
+            EvidenceKind::Fact,
+            "Independent repository evidence",
+            true,
+        );
+        validate_repository_split(&training, &[independent_holdout.clone()]).unwrap();
+        independent_holdout.repository = "R3".into();
+        validate_repository_split(&training, &[independent_holdout]).unwrap();
+    }
+
+    #[test]
+    fn canonical_repository_ids_prevent_duplicate_labels_and_count_aliases_once() {
+        let training = training();
+        let mut conflicting = training.clone();
+        let mut alias = training[0].clone();
+        alias.repository = " R1 ".into();
+        alias.relevant = !alias.relevant;
+        conflicting.push(alias);
+        assert!(
+            RankerModel::train(&conflicting, 1)
+                .unwrap_err()
+                .contains("duplicate evidence ID")
+        );
+
+        let mut aliased = training;
+        aliased[0].repository = " R1 ".into();
+        aliased[1].repository = "R1".into();
+        let model = RankerModel::train(&aliased, 1).unwrap();
+        assert_eq!(model.training_repositories, 2);
     }
 
     #[test]
