@@ -402,12 +402,12 @@ mod tests {
             reference: "directory".into(),
             detail: "very long recorded item ".repeat(40),
         };
-        let limit =
-            estimate_tokens(&digest(std::slice::from_ref(&short), 2_000, "repository", None).unwrap()) + 10;
-        assert!(
-            estimate_tokens(&digest(std::slice::from_ref(&oversized), 2_000, "repository", None).unwrap())
-                > limit
-        );
+        let short_output =
+            digest(std::slice::from_ref(&short), 2_000, "repository", None).unwrap();
+        let oversized_output =
+            digest(std::slice::from_ref(&oversized), 2_000, "repository", None).unwrap();
+        let limit = estimate_tokens(&short_output) + 10;
+        assert!(estimate_tokens(&oversized_output) > limit);
 
         // None of the first twelve candidates fits; a useful thirteenth does.
         let mut items = (0..12)
