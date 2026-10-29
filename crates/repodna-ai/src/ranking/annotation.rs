@@ -66,7 +66,7 @@ pub fn finish_annotations(
     if annotations.is_empty() {
         return Err("annotation batch must be nonempty".to_owned());
     }
-    annotations
+    let labeled = annotations
         .into_iter()
         .enumerate()
         .map(|(index, sample)| {
@@ -99,7 +99,9 @@ pub fn finish_annotations(
                 relevant,
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>, String>>()?;
+    super::validate_evidence_ids(&labeled)?;
+    Ok(labeled)
 }
 
 #[cfg(test)]
@@ -144,6 +146,20 @@ mod tests {
         let finished = finish_annotations(template).unwrap();
         assert_eq!(finished.len(), 1);
         assert!(!finished[0].relevant);
+    }
+
+    #[test]
+    fn direct_annotation_finalization_rejects_conflicting_duplicate_ids() {
+        let mut examples = annotation_template("repo-a", "question", &context()).unwrap();
+        examples[0].relevant = Some(true);
+        let mut repeated = examples[0].clone();
+        repeated.relevant = Some(false);
+        examples.push(repeated);
+        assert!(
+            finish_annotations(examples)
+                .unwrap_err()
+                .contains("duplicate evidence ID")
+        );
     }
 
     #[test]
