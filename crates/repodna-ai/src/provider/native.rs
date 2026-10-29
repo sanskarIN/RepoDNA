@@ -402,8 +402,7 @@ mod tests {
             reference: "directory".into(),
             detail: "very long recorded item ".repeat(40),
         };
-        let short_output =
-            digest(std::slice::from_ref(&short), 2_000, "repository", None).unwrap();
+        let short_output = digest(std::slice::from_ref(&short), 2_000, "repository", None).unwrap();
         let oversized_output =
             digest(std::slice::from_ref(&oversized), 2_000, "repository", None).unwrap();
         let limit = estimate_tokens(&short_output) + 10;
