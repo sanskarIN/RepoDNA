@@ -72,6 +72,10 @@ Prepare two JSON arrays of LabeledEvidence, one for training and one for evaluat
 Every record needs repository, query, evidence (id, kind, reference, detail), and
 a boolean relevant label. Repository IDs **must not overlap** between splits.
 Train only on data you have permission to use, and never include secrets.
+Training sorts labeled examples by repository, exact question, and evidence ID
+before deterministic SGD, so changing the JSON array's row order does not
+change the resulting checkpoint weights. This does not make labels, rankings,
+or checkpoint outputs independent of the actual training data.
 
 ```sh
 cargo run --locked -p repodna-ai --bin train-repodna-ranker -- \
