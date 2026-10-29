@@ -8,7 +8,9 @@ mod evaluation;
 
 pub use annotation::{AnnotationExample, annotation_template, finish_annotations};
 
-pub use evaluation::{RetrievalDelta, RetrievalEvaluation, evaluate_original_order};
+pub use evaluation::{
+    AnswerabilityEvaluation, RetrievalDelta, RetrievalEvaluation, evaluate_original_order,
+};
 
 use crate::context::{EvidenceItem, EvidenceKind};
 use serde::{Deserialize, Serialize};

@@ -91,6 +91,16 @@ Ranking metrics group examples by repository and exact question; groups without 
 known relevant evidence are counted separately and excluded from ranking averages.
 Precision@5 divides by five even when a group has fewer than five candidates.
 These numbers do not establish that cited statements are correct.
+
+The trainer also reports `answerability`, `answerableDetectionRate`, and
+`unanswerableAbstentionRate`. These are **diagnostics** of a hypothetical
+score-threshold rule (`0.5`): a question is predicted answerable when at
+least one candidate evidence item scores at or above the threshold. The report
+counts true/false positives and negatives at the **repository/question** level,
+including unanswerable questions omitted from retrieval averages. A threshold
+score is not a calibrated probability of factual correctness, and RepoDNA
+does **not** use these diagnostics to suppress answers at runtime. Always test
+on independently labeled, repository-disjoint evaluation data.
 Real validation must use many unrelated, clearly licensed repositories, reviewed
 labels, human-measured citation correctness and representative tasks. Do not
 publish accuracy claims from these synthetic samples.
