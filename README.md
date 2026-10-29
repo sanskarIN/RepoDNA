@@ -150,7 +150,7 @@ right in your browser and works offline, all built on the same analysis.
 
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
-(`uses: sanskarIN/RepoDNA@v1.4.3`) does all of this in one step.
+(`uses: sanskarIN/RepoDNA@v1.4.4`) does all of this in one step.
 
 **Optional AI explanations.** Built-in offline evidence digests need no API key or
 external runtime; richer language-model explanations remain available through optional
@@ -251,7 +251,7 @@ WebAssembly for Node.js and browsers on any system (`@sanskarin/repodna-wasm`:
 artifact (`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on npm too.
 See [the npm packages](docs/installation.md#npm-packages).
 
-**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.4.3` analyzes the repository in a workflow,
+**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.4.4` analyzes the repository in a workflow,
 annotates findings, and keeps the report. See [the GitHub Action](docs/github-action.md).
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)

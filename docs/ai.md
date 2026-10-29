@@ -64,6 +64,10 @@ ranker, set `ai.model` to a validated local JSON checkpoint as documented
 in [Native model development](native-model.md). This only reorders the
 selected evidence, and it never generates additional claims.
 
+The native digest includes at most twelve cited observations. If an observation
+would exceed `ai.max_output_tokens`, it skips that observation and tries later,
+shorter evidence instead. It never adds unsupported facts to fill space.
+
 ### A local program (`command`)
 
 Any program that reads a prompt on standard input and writes the answer to standard

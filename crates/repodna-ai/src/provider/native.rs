@@ -143,8 +143,12 @@ fn digest(
         .into_iter()
         .map(|index| &items[index])
         .filter(|item| item.kind != EvidenceKind::Excerpt)
-        .take(12)
     {
+        // Limit included observations, not candidates inspected: if a long
+        // observation cannot fit, a shorter later one may still fit.
+        if points.len() == 12 {
+            break;
+        }
         let reference = single_line(&item.reference, 120);
         let detail = single_line(&item.detail, 300);
         if detail.is_empty() {
@@ -163,7 +167,7 @@ fn digest(
         let next = serialize(&points)?;
         if estimate_tokens(&next) > limit {
             points.pop();
-            break;
+            continue;
         }
         output = next;
     }
@@ -382,6 +386,43 @@ mod tests {
         assert!(NativeProvider::from_checkpoint(checkpoint.to_str()).is_err());
         std::fs::write(&checkpoint, vec![b'x'; 65 * 1024]).unwrap();
         assert!(NativeProvider::from_checkpoint(checkpoint.to_str()).is_err());
+    }
+
+    #[test]
+    fn backfills_small_observations_when_earlier_evidence_exceeds_budget() {
+        let short = EvidenceItem {
+            id: "E13".into(),
+            kind: EvidenceKind::Metric,
+            reference: "size".into(),
+            detail: "Two modules were measured.".into(),
+        };
+        let oversized = EvidenceItem {
+            id: "E1".into(),
+            kind: EvidenceKind::Metric,
+            reference: "directory".into(),
+            detail: "very long recorded item ".repeat(40),
+        };
+        let short_output = digest(std::slice::from_ref(&short), 2_000, "repository", None).unwrap();
+        let oversized_output =
+            digest(std::slice::from_ref(&oversized), 2_000, "repository", None).unwrap();
+        let limit = estimate_tokens(&short_output) + 10;
+        assert!(estimate_tokens(&oversized_output) > limit);
+
+        // None of the first twelve candidates fits; a useful thirteenth does.
+        let mut items = (0..12)
+            .map(|index| EvidenceItem {
+                id: format!("E{}", index + 1),
+                ..oversized.clone()
+            })
+            .collect::<Vec<_>>();
+        items.push(short);
+
+        let output = digest(&items, limit, "repository", None).unwrap();
+        assert!(estimate_tokens(&output) <= limit);
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        let points = parsed["points"].as_array().unwrap();
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0]["evidence"][0], "E13");
     }
 
     #[test]
