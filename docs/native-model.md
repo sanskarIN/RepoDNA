@@ -71,6 +71,11 @@ reorders already selected evidence and cannot generate new text or facts.
 Prepare two JSON arrays of LabeledEvidence, one for training and one for evaluation.
 Every record needs repository, query, evidence (id, kind, reference, detail), and
 a boolean relevant label. Repository IDs **must not overlap** between splits.
+For leakage prevention, repository IDs are compared after trimming surrounding
+whitespace and lowercasing; `repo-a`, ` Repo-A `, and `REPO-A` are treated
+as the same repository. Use a stable, unique ID for each source repository.
+The same normalization applies to duplicate-label detection and the training
+repository count; it does not rewrite the input dataset.
 Train only on data you have permission to use, and never include secrets.
 
 ```sh
