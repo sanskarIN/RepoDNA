@@ -403,9 +403,9 @@ mod tests {
             detail: "very long recorded item ".repeat(40),
         };
         let limit =
-            estimate_tokens(&digest(&[short.clone()], 2_000, "repository", None).unwrap()) + 10;
+            estimate_tokens(&digest(std::slice::from_ref(&short), 2_000, "repository", None).unwrap()) + 10;
         assert!(
-            estimate_tokens(&digest(&[oversized.clone()], 2_000, "repository", None).unwrap())
+            estimate_tokens(&digest(std::slice::from_ref(&oversized), 2_000, "repository", None).unwrap())
                 > limit
         );
 
