@@ -120,6 +120,28 @@ fn sigmoid(v: f64) -> f64 {
     1.0 / (1.0 + (-v.clamp(-32.0, 32.0)).exp())
 }
 
+/// Refuse repeated or missing evidence IDs within one repository/question.
+/// Duplicates can bias training, and conflicting labels should never be silently accepted.
+fn validate_evidence_ids(samples: &[LabeledEvidence]) -> Result<(), String> {
+    let mut seen = HashSet::with_capacity(samples.len());
+    for sample in samples {
+        if sample.evidence.id.trim().is_empty() {
+            return Err("ranker dataset evidence IDs must not be empty".into());
+        }
+        if sample.evidence.kind == EvidenceKind::Excerpt {
+            return Err("ranker datasets must not contain source excerpts".into());
+        }
+        if !seen.insert((
+            sample.repository.as_str(),
+            sample.query.as_str(),
+            sample.evidence.id.as_str(),
+        )) {
+            return Err("duplicate evidence ID within repository/question group".into());
+        }
+    }
+    Ok(())
+}
+
 /// Reject samples from the same repository in training and holdout datasets.
 pub fn validate_repository_split(
     train: &[LabeledEvidence],
@@ -142,6 +164,8 @@ pub fn validate_repository_split(
     {
         return Err("repository leakage: training and test repository IDs overlap".into());
     }
+    validate_evidence_ids(train)?;
+    validate_evidence_ids(test)?;
     Ok(())
 }
 
@@ -187,6 +211,7 @@ impl RankerModel {
         }) {
             return Err("invalid or oversized training example".into());
         }
+        validate_evidence_ids(samples)?;
         let training_repositories = samples
             .iter()
             .map(|s| s.repository.as_str())
@@ -284,7 +309,7 @@ mod tests {
             repository: repo.into(),
             query: query.into(),
             evidence: EvidenceItem {
-                id: "E1".into(),
+                id: format!("E{}", kind_index(kind)),
                 kind,
                 reference: "src/main.rs".into(),
                 detail: detail.into(),
@@ -373,6 +398,68 @@ mod tests {
         assert!(RankerModel::train(&data, 0).is_err());
         assert!(RankerModel::train(&data[..1], 10).is_err());
     }
+    #[test]
+    fn rejects_duplicate_training_or_holdout_labels() {
+        let training = training();
+        let mut duplicate_train = training.clone();
+        let mut repeated = training[0].clone();
+        repeated.relevant = false;
+        duplicate_train.push(repeated);
+        assert!(
+            RankerModel::train(&duplicate_train, 10)
+                .unwrap_err()
+                .contains("duplicate evidence ID")
+        );
+
+        let holdout = sample(
+            "r3",
+            "build commands",
+            EvidenceKind::Command,
+            "Build command from manifest",
+            true,
+        );
+        let duplicate_holdout = vec![holdout.clone(), holdout.clone()];
+        assert!(
+            validate_repository_split(&training, &duplicate_holdout)
+                .unwrap_err()
+                .contains("duplicate evidence ID")
+        );
+
+        // Evidence IDs may be reused for other questions or repositories.
+        let different_question = sample(
+            "r3",
+            "other question",
+            EvidenceKind::Command,
+            "Different selected fact",
+            false,
+        );
+        validate_repository_split(&training, &[holdout, different_question]).unwrap();
+    }
+
+    #[test]
+    fn rejects_missing_ids_and_source_excerpts_in_ranker_datasets() {
+        let training = training();
+        let mut missing_id = training.clone();
+        missing_id[0].evidence.id.clear();
+        assert!(RankerModel::train(&missing_id, 10).is_err());
+
+        let mut excerpt = training.clone();
+        excerpt[0].evidence.kind = EvidenceKind::Excerpt;
+        assert!(RankerModel::train(&excerpt, 10).is_err());
+
+        let valid_holdout = vec![sample(
+            "r3",
+            "build commands",
+            EvidenceKind::Command,
+            "Build commands",
+            true,
+        )];
+        let mut excerpt_holdout = valid_holdout.clone();
+        excerpt_holdout[0].evidence.kind = EvidenceKind::Excerpt;
+        assert!(validate_repository_split(&training, &excerpt_holdout).is_err());
+        validate_repository_split(&training, &valid_holdout).unwrap();
+    }
+
     #[test]
     fn handles_non_english_text_without_nan() {
         let sample = sample(
