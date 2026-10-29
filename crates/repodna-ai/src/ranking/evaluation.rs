@@ -232,7 +232,8 @@ fn evaluate_retrieval_inner(
         return Err("retrieval cutoff k must be between 1 and 100".to_owned());
     }
     let groups = group_holdout(holdout)?;
-    let total_queries = groups.len();    let mut evaluated_queries = 0_usize;
+    let total_queries = groups.len();
+    let mut evaluated_queries = 0_usize;
     let mut unanswerable_queries = 0_usize;
     let mut mrr = 0.0;
     let mut precision = 0.0;
