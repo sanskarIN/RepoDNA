@@ -32,6 +32,44 @@ pub struct RetrievalEvaluation {
     pub ndcg_at_k: f64,
 }
 
+/// Query-level threshold behavior on labeled, repository-disjoint holdout data.
+///
+/// A score exceeding the threshold means the ranker predicts at least one
+/// useful evidence item. This is a *hypothetical* abstention gate, not an
+/// automatic runtime behavior or a calibrated truthfulness probability.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnswerabilityEvaluation {
+    /// Fixed threshold applied to individual evidence relevance scores.
+    pub threshold: f64,
+    /// Total distinct repository/question groups.
+    pub total_queries: usize,
+    /// Groups with at least one human-labeled relevant item.
+    pub answerable_queries: usize,
+    /// Groups with no human-labeled relevant items.
+    pub unanswerable_queries: usize,
+    /// Answerable groups containing at least one predicted relevant item.
+    pub true_positive_queries: usize,
+    /// Answerable groups whose evidence all falls below the threshold.
+    pub false_negative_queries: usize,
+    /// Unanswerable groups with an evidence score above the threshold.
+    pub false_positive_queries: usize,
+    /// Unanswerable groups where every evidence score is below the threshold.
+    pub true_negative_queries: usize,
+}
+
+impl AnswerabilityEvaluation {
+    /// Fraction of answerable questions identified; zero for an empty denominator.
+    pub fn answerable_detection_rate(self) -> f64 {
+        self.true_positive_queries as f64 / self.answerable_queries.max(1) as f64
+    }
+
+    /// Fraction of unanswerable questions rejected; zero for an empty denominator.
+    pub fn unanswerable_abstention_rate(self) -> f64 {
+        self.true_negative_queries as f64 / self.unanswerable_queries.max(1) as f64
+    }
+}
+
 /// Evaluate the original input order of selected evidence without trained weights.
 /// This is a necessary baseline, not a quality target by itself.
 pub fn evaluate_original_order(
@@ -98,16 +136,62 @@ impl RankerModel {
         self.validate()?;
         evaluate_retrieval_inner(Some(self), holdout, k)
     }
+
+    /// Evaluate a hypothetical score-threshold abstention rule on held-out labels.
+    ///
+    /// An unanswerable query is one with no *labeled* relevant candidate. This
+    /// cannot establish factual truth or whether the candidate pool is complete.
+    pub fn evaluate_answerability(
+        &self,
+        holdout: &[LabeledEvidence],
+        threshold: f64,
+    ) -> Result<AnswerabilityEvaluation, String> {
+        self.validate()?;
+        if !threshold.is_finite() || !(0.0..=1.0).contains(&threshold) {
+            return Err("answerability threshold must be finite and between 0 and 1".into());
+        }
+        let groups = group_holdout(holdout)?;
+        let mut result = AnswerabilityEvaluation {
+            threshold,
+            total_queries: groups.len(),
+            answerable_queries: 0,
+            unanswerable_queries: 0,
+            true_positive_queries: 0,
+            false_negative_queries: 0,
+            false_positive_queries: 0,
+            true_negative_queries: 0,
+        };
+        for ((_, query), candidates) in groups {
+            let labeled_answerable = candidates.iter().any(|item| item.relevant);
+            let predicted_answerable = candidates
+                .iter()
+                .any(|item| self.relevance(query, &item.evidence) >= threshold);
+            match (labeled_answerable, predicted_answerable) {
+                (true, true) => {
+                    result.answerable_queries += 1;
+                    result.true_positive_queries += 1;
+                }
+                (true, false) => {
+                    result.answerable_queries += 1;
+                    result.false_negative_queries += 1;
+                }
+                (false, true) => {
+                    result.unanswerable_queries += 1;
+                    result.false_positive_queries += 1;
+                }
+                (false, false) => {
+                    result.unanswerable_queries += 1;
+                    result.true_negative_queries += 1;
+                }
+            }
+        }
+        Ok(result)
+    }
 }
 
-fn evaluate_retrieval_inner(
-    model: Option<&RankerModel>,
+fn group_holdout(
     holdout: &[LabeledEvidence],
-    k: usize,
-) -> Result<RetrievalEvaluation, String> {
-    if !(1..=100).contains(&k) {
-        return Err("retrieval cutoff k must be between 1 and 100".to_owned());
-    }
+) -> Result<BTreeMap<(&str, &str), Vec<&LabeledEvidence>>, String> {
     if holdout.is_empty() {
         return Err("retrieval evaluation needs labeled holdout examples".to_owned());
     }
@@ -136,8 +220,19 @@ fn evaluate_retrieval_inner(
             .or_default()
             .push(item);
     }
-    let total_queries = groups.len();
-    let mut evaluated_queries = 0_usize;
+    Ok(groups)
+}
+
+fn evaluate_retrieval_inner(
+    model: Option<&RankerModel>,
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<RetrievalEvaluation, String> {
+    if !(1..=100).contains(&k) {
+        return Err("retrieval cutoff k must be between 1 and 100".to_owned());
+    }
+    let groups = group_holdout(holdout)?;
+    let total_queries = groups.len();    let mut evaluated_queries = 0_usize;
     let mut unanswerable_queries = 0_usize;
     let mut mrr = 0.0;
     let mut precision = 0.0;
@@ -334,6 +429,46 @@ mod tests {
         assert!(trained.delta_from(other_cutoff).is_err());
         let other_groups = evaluate_original_order(&sample[..1], 1).unwrap();
         assert!(trained.delta_from(other_groups).is_err());
+    }
+
+    #[test]
+    fn reports_false_positives_and_missed_answerable_queries() {
+        let samples = [
+            labeled("r1", "query 1", "E1", EvidenceKind::Package, true),
+            labeled("r2", "query 2", "E1", EvidenceKind::Commit, true),
+            labeled("r3", "query 3", "E1", EvidenceKind::Commit, false),
+            labeled("r4", "query 4", "E1", EvidenceKind::Package, false),
+        ];
+        let evaluation = model().evaluate_answerability(&samples, 0.5).unwrap();
+        assert_eq!(evaluation.total_queries, 4);
+        assert_eq!(evaluation.answerable_queries, 2);
+        assert_eq!(evaluation.unanswerable_queries, 2);
+        assert_eq!(evaluation.true_positive_queries, 1);
+        assert_eq!(evaluation.false_negative_queries, 1);
+        assert_eq!(evaluation.false_positive_queries, 1);
+        assert_eq!(evaluation.true_negative_queries, 1);
+        assert_eq!(evaluation.answerable_detection_rate(), 0.5);
+        assert_eq!(evaluation.unanswerable_abstention_rate(), 0.5);
+        let value = serde_json::to_value(evaluation).unwrap();
+        assert_eq!(value["falsePositiveQueries"], 1);
+        assert_eq!(value["threshold"], 0.5);
+    }
+
+    #[test]
+    fn answerability_rejects_bad_thresholds_and_invalid_holdout() {
+        let samples = [labeled("r1", "question", "E1", EvidenceKind::Fact, true)];
+        assert!(model().evaluate_answerability(&samples, -0.1).is_err());
+        assert!(model().evaluate_answerability(&samples, 1.01).is_err());
+        assert!(model().evaluate_answerability(&samples, f64::NAN).is_err());
+        assert!(model().evaluate_answerability(&samples, f64::INFINITY).is_err());
+        assert!(model().evaluate_answerability(&[], 0.5).is_err());
+        assert!(
+            model()
+                .evaluate_answerability(&[samples[0].clone(), samples[0].clone()], 0.5)
+                .is_err()
+        );
+        assert!(model().evaluate_answerability(&samples, 0.0).is_ok());
+        assert!(model().evaluate_answerability(&samples, 1.0).is_ok());
     }
 
     #[test]
