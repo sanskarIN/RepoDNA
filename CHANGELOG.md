@@ -6,6 +6,17 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep scanning the native offline evidence digest for shorter observations when a
+  preceding fact cannot fit the output token budget. Limit the number of included
+  observations to twelve rather than truncating the candidate search, with a
+  regression test that recovers the thirteenth candidate after twelve oversized ones.
+
+### Documentation
+
+- Update the README and GitHub Action usage examples to the published v1.4.4 tag.
+
 ## [1.4.4] - 2026-10-28
 
 RepoDNA v1.4.4 strengthens local-first evidence ranking, repository reviews,
