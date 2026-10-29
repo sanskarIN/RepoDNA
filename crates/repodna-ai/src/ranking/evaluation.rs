@@ -461,7 +461,11 @@ mod tests {
         assert!(model().evaluate_answerability(&samples, -0.1).is_err());
         assert!(model().evaluate_answerability(&samples, 1.01).is_err());
         assert!(model().evaluate_answerability(&samples, f64::NAN).is_err());
-        assert!(model().evaluate_answerability(&samples, f64::INFINITY).is_err());
+        assert!(
+            model()
+                .evaluate_answerability(&samples, f64::INFINITY)
+                .is_err()
+        );
         assert!(model().evaluate_answerability(&[], 0.5).is_err());
         assert!(
             model()
