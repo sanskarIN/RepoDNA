@@ -198,12 +198,13 @@ fn frozen_evaluation_accepts_reordered_training_labels_and_marks_legacy_unverifi
 
     let mut old: serde_json::Value =
         serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
-    old.as_object_mut().unwrap().remove("training_dataset_sha256");
+    old.as_object_mut()
+        .unwrap()
+        .remove("training_dataset_sha256");
     let legacy = dir.path().join("legacy.json");
     fs::write(&legacy, serde_json::to_vec(&old).unwrap()).unwrap();
     let legacy_output = evaluate(&legacy, &reversed, &fixture("holdout.demo.json"));
     assert!(legacy_output.status.success());
-    let legacy_report: serde_json::Value =
-        serde_json::from_slice(&legacy_output.stdout).unwrap();
+    let legacy_report: serde_json::Value = serde_json::from_slice(&legacy_output.stdout).unwrap();
     assert_eq!(legacy_report["trainingFingerprintVerified"], false);
 }
