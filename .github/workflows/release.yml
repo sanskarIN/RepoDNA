@@ -5,10 +5,12 @@ name: Release
 # ghcr.io, and the npm packages on GitHub Packages and npmjs.com. Running it by hand with an existing tag rebuilds that tag's code and
 # updates the release's files. Running it by hand without a tag is a trial: it builds every
 # file from the selected branch and keeps them as downloads of the run, without publishing
-# anything.
+# anything. Commits to release/v* branches also run the same unpublished trial;
+# only an actual version-tag push can publish.
 on:
   push:
     tags: ["v*"]
+    branches: ["release/v*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -40,11 +42,17 @@ jobs:
         run: node packaging/release/check-version.mjs
       - id: version
         env:
-          # Empty for a trial started by hand without a tag.
-          TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+          # A branch push must not turn its branch name into a release tag.
+          # Only a tag push or a deliberate workflow_dispatch tag can publish.
+          TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || inputs.tag }}
         run: |
           set -euo pipefail
           workspace=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "repodna-cli") | .version')
+          # Defense in depth: never publish on release-candidate branch pushes.
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF_TYPE" != tag ] && [ -n "$TAG" ]; then
+            echo "Refusing to publish from a branch push." >&2
+            exit 1
+          fi
           if [ -n "$TAG" ]; then
             version="${TAG#v}"
             if [ "$version" != "$workspace" ]; then
