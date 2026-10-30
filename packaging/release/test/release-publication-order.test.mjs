@@ -42,3 +42,27 @@ test("release asset inventory is checked in both dry runs and published releases
     /\n    if:/,
   );
 });
+
+test("unpublished branch trials create verified checksums without publishing", () => {
+  assert.match(release, /branches: \["release\/v\*"\]/);
+  assert.match(
+    release,
+    /github\.event_name == 'push' && github\.ref_type == 'tag' && github\.ref_name/,
+  );
+
+  const start = release.indexOf("\n  trial-assets:\n");
+  const end = release.indexOf("\n  publish:\n");
+  assert.ok(start >= 0 && end > start, "trial assets must precede publication");
+  const trial = release.slice(start, end);
+  assert.match(trial, /if: needs\.prepare\.outputs\.publish == 'false'/);
+  assert.match(trial, /sha256sum --check SHA256SUMS\.txt/);
+  assert.match(trial, /name: trial-sha256sums/);
+  for (const name of ["prepare", "security", "web", "cli", "desktop", "winget", "release-assets"]) {
+    assert.ok(needsOf("trial-assets").includes(name), "trial needs " + name);
+  }
+
+  const publishStart = release.indexOf("\n  publish:\n");
+  const catalogStart = release.indexOf("\n  catalog:\n");
+  const publish = release.slice(publishStart, catalogStart);
+  assert.match(publish, /if: needs\.prepare\.outputs\.publish == 'true'/);
+});
