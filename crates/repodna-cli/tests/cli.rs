@@ -354,7 +354,11 @@ fn ci_exports_sarif_from_real_repository_and_filters_existing_baseline() {
     assert_eq!(full["version"], "2.1.0");
     assert_eq!(full["runs"][0]["tool"]["driver"]["name"], "RepoDNA");
     assert!(full["runs"][0]["results"].as_array().is_some());
-    assert!(full["runs"][0]["tool"]["driver"]["rules"].as_array().is_some());
+    assert!(
+        full["runs"][0]["tool"]["driver"]["rules"]
+            .as_array()
+            .is_some()
+    );
 
     let scoped = env.run(&[
         "ci",
@@ -369,7 +373,13 @@ fn ci_exports_sarif_from_real_repository_and_filters_existing_baseline() {
     assert_eq!(code(&scoped), 0, "{}", stderr(&scoped));
     let filtered: serde_json::Value = serde_json::from_str(&stdout(&scoped)).unwrap();
     assert_eq!(filtered["runs"][0]["results"].as_array().unwrap().len(), 0);
-    assert_eq!(filtered["runs"][0]["tool"]["driver"]["rules"].as_array().unwrap().len(), 0);
+    assert_eq!(
+        filtered["runs"][0]["tool"]["driver"]["rules"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
 }
 
 #[test]
