@@ -102,7 +102,8 @@ fn frozen_evaluation_rejects_corrupt_or_unrelated_checkpoints() {
     let checkpoint = dir.path().join("ranker.json");
     assert!(train(&checkpoint).status.success());
 
-    let mut model: serde_json::Value = serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    let mut model: serde_json::Value =
+        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
     model["weights"] = serde_json::json!([0.0]);
     let invalid = dir.path().join("invalid.json");
     fs::write(&invalid, serde_json::to_vec(&model).unwrap()).unwrap();
