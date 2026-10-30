@@ -51,6 +51,8 @@ mod tests {
             weights: vec![0.0; FEATURE_COUNT],
             training_examples: 2,
             training_repositories: 2,
+
+            training_dataset_sha256: None,
         }
     }
 
