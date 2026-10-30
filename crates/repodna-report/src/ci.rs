@@ -36,26 +36,37 @@ pub struct CiOutcome {
 /// Paths changed relative to the baseline, sorted for reproducible CI output.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CiFileChanges {
+    /// Paths present only in the current snapshot.
     pub added: Vec<String>,
+    /// Paths present only in the baseline snapshot.
     pub removed: Vec<String>,
+    /// Paths whose recorded content hashes changed.
     pub modified: Vec<String>,
 }
 
 /// Compact evidence references for a newly introduced or resolved finding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CiFindingChange {
+    /// Stable finding identifier, suitable for matching across runs.
     pub id: String,
+    /// Analyzer rule that produced this finding.
     pub rule: String,
+    /// Finding urgency according to RepoDNA's severity criteria.
     pub severity: Severity,
+    /// Short human-readable description; may contain repository-controlled text.
     pub title: String,
+    /// Repository-relative paths associated with the finding.
     pub paths: Vec<String>,
 }
 
 /// Structured CI impact, available only when --baseline is provided.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CiChanges {
+    /// Sorted file-path additions, removals, and modifications.
     pub files: CiFileChanges,
+    /// Active finding IDs absent among active baseline findings.
     pub introduced: Vec<CiFindingChange>,
+    /// Active baseline finding IDs absent among active current findings.
     pub resolved: Vec<CiFindingChange>,
 }
 
