@@ -656,7 +656,7 @@ mod tests {
         let current = artifact(vec![duplicate.clone(), duplicate], &[]);
         let baseline = artifact(Vec::new(), &[]);
         let outcome = evaluate(&current, Some(&baseline), CiPolicy::default());
-        assert_eq!(outcome.changes.unwrap().introduced.len(), 1);
+        assert_eq!(outcome.changes.as_ref().unwrap().introduced.len(), 1);
         assert!(text(&outcome).contains("New findings"));
     }
 
