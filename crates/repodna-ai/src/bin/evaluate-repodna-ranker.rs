@@ -75,7 +75,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let score_diagnostics = model
         .evaluate_relevance_scores(&test)
         .map_err(io::Error::other)?;
-    let retrieval = model.evaluate_retrieval(&test, 5).map_err(io::Error::other)?;
+    let retrieval = model
+        .evaluate_retrieval(&test, 5)
+        .map_err(io::Error::other)?;
     let baseline = evaluate_original_order(&test, 5).map_err(io::Error::other)?;
     let delta = retrieval.delta_from(baseline).map_err(io::Error::other)?;
     let answerability_sweep = model
