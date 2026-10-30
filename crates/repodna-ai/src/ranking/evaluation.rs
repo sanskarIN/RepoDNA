@@ -4,11 +4,11 @@
 //! first. These metrics evaluate question/repository groups and explicitly skip
 //! groups without a positive label; they do not measure factual entailment.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use super::{LabeledEvidence, RankerModel};
+use super::{LabeledEvidence, RankerModel, normalized_repository_id, validate_evidence_ids};
 
 /// Aggregate retrieval metrics over repository-and-question groups.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -191,32 +191,25 @@ impl RankerModel {
 
 fn group_holdout(
     holdout: &[LabeledEvidence],
-) -> Result<BTreeMap<(&str, &str), Vec<&LabeledEvidence>>, String> {
+) -> Result<BTreeMap<(String, &str), Vec<&LabeledEvidence>>, String> {
     if holdout.is_empty() {
         return Err("retrieval evaluation needs labeled holdout examples".to_owned());
     }
-    let mut groups: BTreeMap<(&str, &str), Vec<&LabeledEvidence>> = BTreeMap::new();
-    let mut ids = HashSet::new();
+    // Use the same identity rules as training and split validation. Otherwise
+    // differently cased or padded aliases can inflate the query denominator.
+    validate_evidence_ids(holdout)?;
+    let mut groups: BTreeMap<(String, &str), Vec<&LabeledEvidence>> = BTreeMap::new();
     for item in holdout {
         if item.repository.trim().is_empty()
             || item.query.trim().is_empty()
-            || item.evidence.id.trim().is_empty()
             || item.evidence.detail.trim().is_empty()
         {
             return Err(
                 "holdout examples require repository, query, evidence ID and detail".to_owned(),
             );
         }
-        let identity = (
-            item.repository.as_str(),
-            item.query.as_str(),
-            item.evidence.id.as_str(),
-        );
-        if !ids.insert(identity) {
-            return Err("duplicate evidence ID within repository/question group".to_owned());
-        }
         groups
-            .entry((&item.repository, &item.query))
+            .entry((normalized_repository_id(&item.repository), item.query.as_str()))
             .or_default()
             .push(item);
     }
@@ -321,6 +314,75 @@ mod tests {
             training_examples: 10,
             training_repositories: 3,
         }
+    }
+
+    #[test]
+    fn repository_aliases_share_one_evaluation_group() {
+        let samples = [
+            labeled(
+                " Repo-A ",
+                "Which package?",
+                "E1",
+                EvidenceKind::Commit,
+                false,
+            ),
+            labeled(
+                "repo-a",
+                "Which package?",
+                "E2",
+                EvidenceKind::Package,
+                true,
+            ),
+        ];
+
+        let baseline = evaluate_original_order(&samples, 1).unwrap();
+        assert_eq!(baseline.total_queries, 1);
+        assert_eq!(baseline.evaluated_queries, 1);
+        assert_eq!(baseline.mean_reciprocal_rank, 0.5);
+
+        let learned = model().evaluate_retrieval(&samples, 1).unwrap();
+        assert_eq!(learned.total_queries, 1);
+        assert_eq!(learned.mean_reciprocal_rank, 1.0);
+
+        let answerability = model().evaluate_answerability(&samples, 0.5).unwrap();
+        assert_eq!(answerability.total_queries, 1);
+        assert_eq!(answerability.answerable_queries, 1);
+        assert_eq!(answerability.unanswerable_queries, 0);
+
+        // Repository aliases must not permit repeated evidence IDs.
+        let repeated = [
+            labeled("Repo-A", "question", "E1", EvidenceKind::Commit, false),
+            labeled(" repo-a ", "question", "E1", EvidenceKind::Package, true),
+        ];
+        assert!(evaluate_original_order(&repeated, 1).is_err());
+        assert!(model().evaluate_retrieval(&repeated, 1).is_err());
+        assert!(model().evaluate_answerability(&repeated, 0.5).is_err());
+
+        // Distinct questions remain distinct even within the same repository.
+        let other_question = [
+            labeled(" Repo-A ", "question A", "E1", EvidenceKind::Fact, true),
+            labeled("repo-a", "question B", "E1", EvidenceKind::Fact, true),
+        ];
+        assert_eq!(
+            evaluate_original_order(&other_question, 1)
+                .unwrap()
+                .total_queries,
+            2
+        );
+    }
+
+    #[test]
+    fn direct_evaluation_rejects_source_excerpts() {
+        let examples = [labeled(
+            "repo",
+            "question",
+            "E1",
+            EvidenceKind::Excerpt,
+            true,
+        )];
+        assert!(evaluate_original_order(&examples, 1).is_err());
+        assert!(model().evaluate_retrieval(&examples, 1).is_err());
+        assert!(model().evaluate_answerability(&examples, 0.5).is_err());
     }
 
     #[test]
