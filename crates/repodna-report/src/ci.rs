@@ -769,7 +769,7 @@ mod tests {
         assert!(report.contains("consumer → core"));
         assert!(report.contains("… and 2 more"));
         assert!(!report.contains("src/file-11.rs"));
-        assert!(!report.contains("<img"));
+        assert!(!report.contains("name|<img"));
         assert!(report.contains(r"name\|\<img src=x\>"));
         assert!(!report.contains("\n## suspicious"));
         assert!(report.contains("not proven causation"));
