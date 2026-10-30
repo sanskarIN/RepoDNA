@@ -6,7 +6,7 @@
 #   - uses: actions/checkout@v7
 #     with:
 #       fetch-depth: 0   # the whole history, for the history analyses
-#   - uses: sanskarIN/RepoDNA@v1.4.4
+#   - uses: sanskarIN/RepoDNA@v1.4.5
 #     with:
 #       fail-on: warning
 
