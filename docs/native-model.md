@@ -82,7 +82,10 @@ repository count; it does not rewrite the input dataset.
 Train only on data you have permission to use, and never include secrets.
 Training sorts labeled examples by repository, exact question, and evidence ID
 before deterministic SGD, so changing the JSON array's row order does not
-change the resulting checkpoint weights. This does not make labels, rankings,
+change the resulting checkpoint weights. New checkpoints also store a SHA-256
+fingerprint of the complete typed training records, sorted independently of
+input row order and JSON whitespace. It includes relevance labels and evidence
+metadata without embedding the raw records in the checkpoint. This does not make labels, rankings,
 or checkpoint outputs independent of the actual training data.
 
 ```sh
@@ -231,17 +234,27 @@ includes classification, relevance-score diagnostics, retrieval metrics, origina
 evidence-order baseline and signed deltas, plus hypothetical answerability
 thresholds. It never writes a new checkpoint or modifies the existing one.
 
-Keep the **original training dataset** available for this check. The checkpoint
-currently stores training counts, not a cryptographic dataset fingerprint. Matching
-counts and repository-disjoint input therefore **cannot prove** the checkpoint was
-trained on precisely those records. Preserve dataset hashes and the training command
-in your own experiment log; do not choose a threshold or tune parameters using this
-final test result. A separate validation split is required for those decisions.
+Keep the **original training dataset** available for this check. New checkpoints
+store `training_dataset_sha256` as a lowercase 64-character SHA-256 digest of
+canonical typed records. The evaluator rejects mismatches even when repository
+and sample counts still match; reordered JSON records and whitespace changes
+do not change the digest. The report includes `trainingFingerprintVerified`.
+Legacy checkpoints without this field still load, but evaluation explicitly
+reports `false` because only basic training counts can be checked.
+
+The digest binds the checkpoint's declared provenance metadata to the provided
+labels. **It is not a digital signature and cannot prove honest training, model
+weights, label quality, or dataset licensing.** Keep a separate experiment log
+with training settings and trusted dataset hashes. Do not choose a threshold or
+tune parameters using this final test result. A separate validation split is
+required for those decisions.
 
 The evaluator accepts at most 64 KiB of checkpoint JSON and 8 MiB per label file,
 with a maximum of 100,000 examples in each input. Invalid checkpoints, duplicate
 evidence IDs, source excerpts and overlapping repository identifiers are rejected.
-The JSON output contains aggregate numbers rather than source paths or raw labels,
-but the local input datasets may contain sensitive repository metadata. The results
+The JSON output contains aggregate numbers, a verification flag and (from the
+trainer) a dataset digest rather than raw paths or labels. A digest can reveal
+whether two runs used identical labeled data, so review it before publishing.
+The local input datasets may contain sensitive repository metadata. The results
 measure labeled evidence relevance, **not** factual accuracy of natural-language
 explanations.
