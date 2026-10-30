@@ -39,8 +39,7 @@ fn trainer_emits_valid_checkpoint_and_complete_diagnostics() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let model: RankerModel =
-        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    let model: RankerModel = serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
     model.validate().unwrap();
     assert_eq!(model.training_examples, 6);
     assert_eq!(model.training_repositories, 2);
@@ -65,7 +64,9 @@ fn trainer_emits_valid_checkpoint_and_complete_diagnostics() {
         4
     );
     for metric in ["brierScore", "logLoss", "expectedCalibrationError"] {
-        let value = diagnostics[metric].as_f64().expect("numeric score diagnostic");
+        let value = diagnostics[metric]
+            .as_f64()
+            .expect("numeric score diagnostic");
         assert!(value.is_finite() && value >= 0.0);
     }
 
@@ -109,15 +110,12 @@ fn trainer_rejects_repository_alias_leakage_before_writing() {
     let holdout = dir.path().join("leaked-holdout.json");
     let checkpoint = dir.path().join("should-not-exist.json");
     let mut samples: serde_json::Value =
-        serde_json::from_slice(&fs::read(fixture("holdout.demo.json")).unwrap())
-            .unwrap();
+        serde_json::from_slice(&fs::read(fixture("holdout.demo.json")).unwrap()).unwrap();
     samples[0]["repository"] = " SYNTHETIC-ALPHA ".into();
     fs::write(&holdout, serde_json::to_vec(&samples).unwrap()).unwrap();
 
     let output = train(&fixture("train.demo.json"), &holdout, &checkpoint);
     assert!(!output.status.success());
-    assert!(
-        String::from_utf8_lossy(&output.stderr).contains("repository leakage")
-    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("repository leakage"));
     assert!(!checkpoint.exists());
 }
