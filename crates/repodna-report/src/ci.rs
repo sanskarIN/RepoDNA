@@ -504,9 +504,36 @@ fn escape_property(text: &str) -> String {
 /// GitHub Actions workflow commands that annotate findings of at least `minimum` severity
 /// on the files they concern.
 pub fn github_annotations(dna: &RepositoryDna, minimum: Severity) -> Vec<String> {
+    github_annotations_for_changes(dna, minimum, None)
+}
+
+/// GitHub annotations optionally limited to introduced findings from a baseline comparison.
+///
+/// `None` preserves the full annotation set; `Some(&[])` deliberately emits no
+/// annotations. The limit applies after filtering so unchanged findings cannot
+/// consume the annotation budget. Suppressed findings remain excluded.
+pub fn github_annotations_for_changes(
+    dna: &RepositoryDna,
+    minimum: Severity,
+    introduced: Option<&[CiFindingChange]>,
+) -> Vec<String> {
+    let allowed = introduced.map(|changes| {
+        changes
+            .iter()
+            .map(|finding| finding.id.as_str())
+            .collect::<HashSet<_>>()
+    });
+    let mut seen = HashSet::new();
     dna.findings
         .iter()
-        .filter(|f| !f.is_suppressed() && f.severity >= minimum)
+        .filter(|finding| {
+            !finding.is_suppressed()
+                && finding.severity >= minimum
+                && allowed
+                    .as_ref()
+                    .is_none_or(|ids| ids.contains(finding.id.as_str()))
+                && seen.insert(finding.id.as_str())
+        })
         .take(50)
         .map(|finding| {
             let command = match finding.severity {
@@ -672,6 +699,68 @@ mod tests {
             outcome.failing,
             vec![(Severity::Warning, "Cycle new".to_owned())]
         );
+    }
+
+    #[test]
+    fn new_only_annotations_skip_known_findings_and_preserve_reactivated_findings() {
+        let mut previously_suppressed = finding("reactivated", Severity::Warning);
+        previously_suppressed.suppressed = Some(repodna_core::finding::Suppression {
+            reason: "Reviewed in baseline".to_owned(),
+            source: "repodna.toml".to_owned(),
+        });
+        let baseline = artifact(
+            vec![
+                finding("known", Severity::Warning),
+                previously_suppressed,
+            ],
+            &[],
+        );
+        let current = artifact(
+            vec![
+                finding("known", Severity::Warning),
+                finding("reactivated", Severity::Warning),
+                finding("new", Severity::Critical),
+                finding("low", Severity::Attention),
+            ],
+            &[],
+        );
+        let impact = evaluate(
+            &current,
+            Some(&baseline),
+            CiPolicy {
+                fail_on: Some(Severity::Warning),
+                new_only: true,
+            },
+        );
+        let introduced = &impact.changes.as_ref().unwrap().introduced;
+        let messages =
+            github_annotations_for_changes(&current, Severity::Warning, Some(introduced));
+        assert_eq!(messages.len(), 2);
+        assert!(messages.iter().any(|text| text.contains("Cycle reactivated")));
+        assert!(messages.iter().any(|text| text.contains("Cycle new")));
+        assert!(!messages.iter().any(|text| text.contains("Cycle known")));
+        assert!(!messages.iter().any(|text| text.contains("Cycle low")));
+        assert_eq!(github_annotations_for_changes(&current, Severity::Warning, Some(&[])).len(), 0);
+        assert_eq!(github_annotations(&current, Severity::Warning).len(), 3);
+    }
+
+    #[test]
+    fn newly_introduced_findings_get_the_entire_annotation_budget() {
+        let existing: Vec<_> = (0..60)
+            .map(|number| finding(&format!("known-{number}"), Severity::Warning))
+            .collect();
+        let baseline = artifact(existing.clone(), &[]);
+        let mut current_findings = existing;
+        current_findings.extend(
+            (0..55).map(|number| finding(&format!("new-{number}"), Severity::Warning)),
+        );
+        let current = artifact(current_findings, &[]);
+        let impact = evaluate(&current, Some(&baseline), CiPolicy::default());
+        let introduced = &impact.changes.as_ref().unwrap().introduced;
+        let annotations =
+            github_annotations_for_changes(&current, Severity::Warning, Some(introduced));
+        assert_eq!(annotations.len(), 50);
+        assert!(annotations.iter().all(|text| text.contains("Cycle new-")));
     }
 
     #[test]
