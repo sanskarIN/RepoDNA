@@ -6,8 +6,8 @@
 
 use serde::Serialize;
 
-use super::{LabeledEvidence, RankerModel};
 use super::evaluation::validate_holdout;
+use super::{LabeledEvidence, RankerModel};
 
 /// Fixed, interpretable score bands across [0, 1].
 pub const SCORE_BIN_COUNT: usize = 10;
@@ -73,11 +73,9 @@ impl RankerModel {
             brier_sum += error * error;
             // Clamp only for the logarithm; do not change reported model scores.
             let bounded = score.clamp(1e-12, 1.0 - 1e-12);
-            log_loss_sum -=
-                target * bounded.ln() + (1.0 - target) * (1.0 - bounded).ln();
+            log_loss_sum -= target * bounded.ln() + (1.0 - target) * (1.0 - bounded).ln();
 
-            let index = ((score * SCORE_BIN_COUNT as f64) as usize)
-                .min(SCORE_BIN_COUNT - 1);
+            let index = ((score * SCORE_BIN_COUNT as f64) as usize).min(SCORE_BIN_COUNT - 1);
             counts[index] += 1;
             score_sums[index] += score;
             if example.relevant {
@@ -184,10 +182,15 @@ mod tests {
         assert!(measured.brier_score < constant.brier_score);
         assert!(measured.log_loss < constant.log_loss);
         assert!(measured.expected_calibration_error.is_finite());
-        assert_eq!(measured.bins.iter().map(|bin| bin.samples).sum::<usize>(), 2);
-        assert!(measured.bins.iter().all(|bin| {
-            bin.mean_score.is_finite() && bin.observed_relevance_rate.is_finite()
-        }));
+        assert_eq!(
+            measured.bins.iter().map(|bin| bin.samples).sum::<usize>(),
+            2
+        );
+        assert!(
+            measured.bins.iter().all(|bin| {
+                bin.mean_score.is_finite() && bin.observed_relevance_rate.is_finite()
+            })
+        );
     }
 
     #[test]
