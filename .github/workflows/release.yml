@@ -412,6 +412,73 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: node packaging/release/check-windows-inventory.mjs release-assets "$VERSION"
 
+  trial-assets:
+    name: Verify complete unpublished release inventory and checksums
+    needs: [prepare, security, web, cli, desktop, winget, release-assets]
+    if: needs.prepare.outputs.publish == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: winget-manifests
+          path: dist
+      - name: Verify complete release assets and checksums without publishing
+        working-directory: dist
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          expected=(
+            "repodna-$VERSION-x86_64-unknown-linux-musl.tar.gz"
+            "repodna-$VERSION-aarch64-unknown-linux-musl.tar.gz"
+            "repodna-$VERSION-x86_64-apple-darwin.tar.gz"
+            "repodna-$VERSION-aarch64-apple-darwin.tar.gz"
+            "repodna-$VERSION-x86_64-pc-windows-msvc.zip"
+            "repodna-$VERSION-aarch64-pc-windows-msvc.zip"
+            "repodna-$VERSION-wasm32-wasip1.zip"
+            "RepoDNA_${VERSION}_amd64.deb"
+            "RepoDNA-${VERSION}-1.x86_64.rpm"
+            "RepoDNA_${VERSION}_universal.dmg"
+            "RepoDNA_${VERSION}_x64_en-US.msi"
+            "RepoDNA_${VERSION}_arm64_en-US.msi"
+            "RepoDNA_${VERSION}_x64-setup.exe"
+            "RepoDNA_${VERSION}_arm64-setup.exe"
+            "repodna-$VERSION-winget-manifests.zip"
+          )
+          for asset in "${expected[@]}"; do
+            test -f "$asset" && test -s "$asset" || {
+              echo "::error::Missing or empty release asset: $asset"
+              exit 1
+            }
+          done
+          actual_count=$(find . -maxdepth 1 -type f | wc -l)
+          test "$actual_count" -eq "${#expected[@]}" || {
+            echo "::error::Expected ${#expected[@]} assets; found $actual_count"
+            exit 1
+          }
+          sha256sum "${expected[@]}" > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          test "$(wc -l < SHA256SUMS.txt)" -eq "${#expected[@]}"
+          echo "Verified ${#expected[@]} release assets and their SHA-256 checksums without publishing."
+      - uses: actions/upload-artifact@v7
+        with:
+          name: trial-sha256sums
+          path: dist/SHA256SUMS.txt
+          if-no-files-found: error
+
   container:
     name: Container image
     needs: [prepare, security, cli, desktop, winget, release-assets]
