@@ -141,6 +141,19 @@ With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
 - `changes.findings.introduced` and `resolved`: stable-ID, deduplicated
   records with `id`, `rule`, lower-case `severity`, `title`, and `paths`,
   ordered by descending severity and then finding ID.
+- `changes.architecture.touchedModules`: modules owning files that differ between
+  the two snapshots (using the most specific module directory boundary).
+- `changes.architecture.directDependents`: modules directly depending on those
+  touched modules in either analyzed snapshot; **not** transitive impact.
+- `changes.architecture.moduleEdges.added` and `removed`: deterministic
+  `from` / `to` dependency relationships observed in one module graph but
+  not the other (changes to edge weight alone are not reported).
+
+The `changes.architecture` section is omitted when architecture data is
+unavailable in either snapshot. Module paths in removed files are resolved
+using the baseline; new files use the current analysis. A changed module is
+not evidence that its dependents require changes, or that the entire
+dependency graph was discovered.
 
 An active finding that was suppressed in the baseline counts as introduced if
 it becomes active, including for `--new-only --fail-on`. Without a baseline
