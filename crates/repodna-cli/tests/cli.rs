@@ -280,6 +280,63 @@ fn ci_fails_only_when_asked() {
 }
 
 #[test]
+fn ci_github_new_only_does_not_annotate_unchanged_findings() {
+    let env = Env::new();
+    let repo = env.work("widget");
+    sample_repo(&repo, false);
+    let repo_arg = path(&repo);
+
+    // Use a real baseline artifact produced by the CLI, not a mocked finding.
+    let analyzed = env.run(&["analyze", &repo_arg, "--format", "json", "-q"]);
+    assert_eq!(code(&analyzed), 0, "{}", stderr(&analyzed));
+    let baseline = env.work("baseline.json");
+    std::fs::write(&baseline, &analyzed.stdout).unwrap();
+    let baseline_arg = path(&baseline);
+
+    let all = env.run(&[
+        "ci",
+        &repo_arg,
+        "--format",
+        "github",
+        "--baseline",
+        &baseline_arg,
+        "--fail-on",
+        "attention",
+        "-q",
+    ]);
+    assert_eq!(code(&all), 5, "{}", stderr(&all));
+    assert!(
+        stdout(&all)
+            .lines()
+            .any(|line| line.starts_with("::notice ") || line.starts_with("::warning ")),
+        "expected at least one existing finding annotation: {}",
+        stdout(&all)
+    );
+
+    let new_only = env.run(&[
+        "ci",
+        &repo_arg,
+        "--format",
+        "github",
+        "--baseline",
+        &baseline_arg,
+        "--new-only",
+        "--fail-on",
+        "attention",
+        "-q",
+    ]);
+    assert_eq!(code(&new_only), 0, "{}", stderr(&new_only));
+    assert!(
+        !stdout(&new_only)
+            .lines()
+            .any(|line| line.starts_with("::notice ") || line.starts_with("::warning ")),
+        "unchanged findings must not become PR annotations: {}",
+        stdout(&new_only)
+    );
+    assert!(stdout(&new_only).contains("New findings"));
+}
+
+#[test]
 fn errors_explain_what_to_do() {
     let env = Env::new();
     let missing = env.run(&["analyze", &path(&env.work("missing"))]);

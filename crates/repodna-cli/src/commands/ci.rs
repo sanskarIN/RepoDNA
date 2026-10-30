@@ -7,7 +7,9 @@ use std::io::Write;
 use repodna_app::AppError;
 use repodna_core::io::read_artifact;
 use repodna_core::severity::Severity;
-use repodna_report::ci::{CiPolicy, evaluate, github_annotations, json, markdown, text};
+use repodna_report::ci::{
+    CiPolicy, evaluate, github_annotations_for_changes, json, markdown, text,
+};
 
 use super::{Ctx, print, to_json};
 use crate::cli::{CiCmd, CiFormat, FailOn};
@@ -41,7 +43,16 @@ pub fn run(ctx: &Ctx, cmd: &CiCmd) -> Result<(), AppError> {
         CiFormat::Json => print(&to_json(&json(&outcome))?)?,
         CiFormat::Github => {
             let minimum = policy.fail_on.unwrap_or(Severity::Warning);
-            let mut out = github_annotations(&loaded.dna, minimum).join("\n");
+            let introduced = if cmd.new_only {
+                outcome
+                    .changes
+                    .as_ref()
+                    .map(|changes| changes.introduced.as_slice())
+            } else {
+                None
+            };
+            let mut out =
+                github_annotations_for_changes(&loaded.dna, minimum, introduced).join("\n");
             if !out.is_empty() {
                 out.push('\n');
             }

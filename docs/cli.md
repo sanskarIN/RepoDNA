@@ -130,7 +130,11 @@ repodna ci --baseline main.json --format json > pr-impact.json
 | `--format text\|markdown\|json\|github` | `github` prints GitHub Actions annotations plus a text summary. |
 | `--summary-file FILE` | Also write the Markdown summary to this file. |
 
-Suppressed findings never fail the job. See [examples/ci](../examples/ci) for a complete
+Suppressed findings never fail the job. With `--baseline --new-only --format github`,
+only introduced active findings are emitted as GitHub annotations. Unchanged
+findings do not consume the 50-annotation limit, and severity filtering still
+applies. Without `--new-only`, annotations include all active findings at or
+above the chosen severity. See [examples/ci](../examples/ci) for a complete
 workflow.
 
 With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
