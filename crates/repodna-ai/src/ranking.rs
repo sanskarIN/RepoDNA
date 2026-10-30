@@ -5,6 +5,7 @@
 
 mod annotation;
 mod evaluation;
+mod fingerprint;
 mod scores;
 mod thresholds;
 
@@ -14,6 +15,7 @@ pub use evaluation::{
     AnswerabilityEvaluation, RetrievalDelta, RetrievalEvaluation, evaluate_original_order,
 };
 pub use scores::{RelevanceScoreBin, RelevanceScoreEvaluation, SCORE_BIN_COUNT};
+pub use fingerprint::training_data_fingerprint;
 
 use crate::context::{EvidenceItem, EvidenceKind};
 use serde::{Deserialize, Serialize};
@@ -52,6 +54,9 @@ pub struct RankerModel {
     pub training_examples: usize,
     /// Count of distinct repositories in training.
     pub training_repositories: usize,
+    /// Optional SHA-256 of canonical human-reviewed training records; absent in legacy checkpoints.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub training_dataset_sha256: Option<String>,
 }
 
 /// Labeled holdout evaluation, not a measure of factual truth.
@@ -195,6 +200,12 @@ impl RankerModel {
         if self.training_examples == 0 || self.training_repositories == 0 {
             return Err("ranker has no training provenance".into());
         }
+        if self.training_dataset_sha256.as_ref().is_some_and(|fingerprint| {
+            fingerprint.len() != 64
+                || !fingerprint.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        }) {
+            return Err("training dataset fingerprint must be a lowercase SHA-256 hex digest".into());
+        }
         if self
             .weights
             .iter()
@@ -257,6 +268,7 @@ impl RankerModel {
             weights,
             training_examples: samples.len(),
             training_repositories,
+            training_dataset_sha256: Some(training_data_fingerprint(samples)?),
         };
         result.validate()?;
         Ok(result)
