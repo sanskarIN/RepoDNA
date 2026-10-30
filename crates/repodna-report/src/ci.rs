@@ -414,7 +414,31 @@ pub fn text(outcome: &CiOutcome) -> String {
     out
 }
 
-/// Markdown summary, for example for `$GITHUB_STEP_SUMMARY`.
+// Each list has a hard limit: CI summaries must remain reviewable even when
+// analyzing large repositories. Escape repository-controlled text in all cases.
+fn markdown_entries(out: &mut String, title: &str, entries: impl ExactSizeIterator<Item = String>) {
+    const LIMIT: usize = 10;
+    const MAX_CHARS: usize = 180;
+    let total = entries.len();
+    if total == 0 {
+        return;
+    }
+    out.push_str(&format!("\n**{title} ({total})**\n\n"));
+    for value in entries.take(LIMIT) {
+        let excerpt: String = value.chars().take(MAX_CHARS).collect();
+        out.push_str("- ");
+        out.push_str(&crate::text::escape_markdown(&excerpt));
+        if value.chars().count() > MAX_CHARS {
+            out.push('…');
+        }
+        out.push('\n');
+    }
+    if total > LIMIT {
+        out.push_str(&format!("- … and {} more\n", total - LIMIT));
+    }
+}
+
+/// Markdown summary, for example for $GITHUB_STEP_SUMMARY.
 pub fn markdown(outcome: &CiOutcome) -> String {
     let mut out = String::from("### RepoDNA analysis\n\n| Signal | Value |\n| --- | --- |\n");
     for (label, value) in &outcome.values {
@@ -423,6 +447,95 @@ pub fn markdown(outcome: &CiOutcome) -> String {
             crate::text::escape_markdown(label),
             crate::text::escape_markdown(value)
         ));
+    }
+    if let Some(changes) = &outcome.changes {
+        out.push_str("\n#### Baseline impact\n\n");
+        out.push_str(&format!(
+            "- Files: {} added, {} removed, {} modified\n",
+            changes.files.added.len(),
+            changes.files.removed.len(),
+            changes.files.modified.len()
+        ));
+        out.push_str(&format!(
+            "- Findings: {} introduced, {} resolved\n",
+            changes.introduced.len(),
+            changes.resolved.len()
+        ));
+        if let Some(architecture) = &changes.architecture {
+            out.push_str(&format!(
+                "- Modules: {} touched, {} immediate dependents\n",
+                architecture.touched_modules.len(),
+                architecture.direct_dependents.len()
+            ));
+        } else {
+            out.push_str("- Module impact: not analyzed in both snapshots\n");
+        }
+        markdown_entries(&mut out, "Added files", changes.files.added.iter().cloned());
+        markdown_entries(
+            &mut out,
+            "Removed files",
+            changes.files.removed.iter().cloned(),
+        );
+        markdown_entries(
+            &mut out,
+            "Modified files",
+            changes.files.modified.iter().cloned(),
+        );
+        markdown_entries(
+            &mut out,
+            "Introduced findings",
+            changes.introduced.iter().map(|f| {
+                format!(
+                    "{} [{}; {}] ({})",
+                    f.title,
+                    f.severity.label(),
+                    f.rule,
+                    f.id
+                )
+            }),
+        );
+        markdown_entries(
+            &mut out,
+            "Resolved findings",
+            changes.resolved.iter().map(|f| {
+                format!(
+                    "{} [{}; {}] ({})",
+                    f.title,
+                    f.severity.label(),
+                    f.rule,
+                    f.id
+                )
+            }),
+        );
+        if let Some(architecture) = &changes.architecture {
+            markdown_entries(
+                &mut out,
+                "Touched modules",
+                architecture.touched_modules.iter().cloned(),
+            );
+            markdown_entries(
+                &mut out,
+                "Immediate dependents",
+                architecture.direct_dependents.iter().cloned(),
+            );
+            markdown_entries(
+                &mut out,
+                "Added module edges",
+                architecture
+                    .added_edges
+                    .iter()
+                    .map(|edge| format!("{} → {}", edge.from, edge.to)),
+            );
+            markdown_entries(
+                &mut out,
+                "Removed module edges",
+                architecture
+                    .removed_edges
+                    .iter()
+                    .map(|edge| format!("{} → {}", edge.from, edge.to)),
+            );
+        }
+        out.push_str("\n_Impact reflects observed snapshots, not proven causation. Paths and finding titles may contain sensitive repository content._\n");
     }
     if outcome.failed {
         out.push_str(&format!(
@@ -619,6 +732,64 @@ mod tests {
             })
             .collect();
         dna
+    }
+
+    #[test]
+    fn markdown_baseline_impact_is_bounded_and_escapes_repository_text() {
+        let outcome = CiOutcome {
+            values: vec![("Repository".to_owned(), "widget".to_owned())],
+            failing: Vec::new(),
+            failed: false,
+            changes: Some(CiChanges {
+                files: CiFileChanges {
+                    added: (0..12).map(|i| format!("src/file-{i:02}.rs")).collect(),
+                    removed: vec!["deleted.rs".to_owned()],
+                    modified: vec!["src/changed.rs".to_owned()],
+                },
+                introduced: vec![CiFindingChange {
+                    id: "unstable-id".to_owned(),
+                    rule: "quality.long-function".to_owned(),
+                    severity: Severity::Warning,
+                    title: "name|<img src=x>\n## suspicious".to_owned(),
+                    paths: vec!["src/file-00.rs".to_owned()],
+                }],
+                resolved: Vec::new(),
+                architecture: Some(CiArchitectureImpact {
+                    touched_modules: vec!["core".to_owned()],
+                    direct_dependents: vec!["consumer".to_owned()],
+                    added_edges: vec![CiModuleEdge {
+                        from: "consumer".to_owned(),
+                        to: "core".to_owned(),
+                    }],
+                    removed_edges: Vec::new(),
+                }),
+            }),
+        };
+        let report = markdown(&outcome);
+        assert!(report.contains("#### Baseline impact"));
+        assert!(report.contains("12 added, 1 removed, 1 modified"));
+        assert!(report.contains("Introduced findings (1)"));
+        assert!(report.contains("Immediate dependents (1)"));
+        assert!(report.contains("consumer → core"));
+        assert!(report.contains("… and 2 more"));
+        assert!(!report.contains("src/file-11.rs"));
+        assert!(!report.contains("name|<img"));
+        assert!(report.contains(r"name\|\<img src=x\>"));
+        assert!(!report.contains("\n## suspicious"));
+        assert!(report.contains("not proven causation"));
+    }
+
+    #[test]
+    fn markdown_without_baseline_keeps_original_summary() {
+        let outcome = evaluate(
+            &artifact(vec![finding("existing", Severity::Info)], &[]),
+            None,
+            CiPolicy::default(),
+        );
+        let report = markdown(&outcome);
+        assert!(report.contains("### RepoDNA analysis"));
+        assert!(!report.contains("#### Baseline impact"));
+        assert!(!report.contains("Touched modules"));
     }
 
     #[test]

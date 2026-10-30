@@ -176,6 +176,18 @@ using the baseline; new files use the current analysis. A changed module is
 not evidence that its dependents require changes, or that the entire
 dependency graph was discovered.
 
+For human-readable pull-request reviews, use
+`repodna ci --baseline main.json --format markdown` or supply
+`--summary-file "$GITHUB_STEP_SUMMARY"` with any CI format. The Markdown
+summary now contains a **Baseline impact** section showing file changes,
+introduced/resolved findings, touched modules, immediate dependents, and module
+edge changes when architecture was analyzed. Each detail list includes at most
+10 entries plus an omitted-count indicator; repository-controlled text is
+escaped, and individual entries are clipped to 180 characters. The ordinary
+summary remains unchanged when no baseline is provided. This output may still
+contain private paths and finding titles: do not post it publicly without
+reviewing its contents.
+
 An active finding that was suppressed in the baseline counts as introduced if
 it becomes active, including for `--new-only --fail-on`. Without a baseline
 the `changes` field is omitted. These outputs are deterministic snapshots,
