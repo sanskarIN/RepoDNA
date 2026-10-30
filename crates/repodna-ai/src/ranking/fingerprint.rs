@@ -32,7 +32,15 @@ pub fn training_data_fingerprint(samples: &[LabeledEvidence]) -> Result<String, 
         digest.update((row.len() as u64).to_le_bytes());
         digest.update(row);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    // digest::Output implements byte iteration but not LowerHex in sha2 0.11.
+    // Encode explicitly without adding another dependency.
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(64);
+    for byte in digest.finalize() {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    Ok(output)
 }
 
 #[cfg(test)]
