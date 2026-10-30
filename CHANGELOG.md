@@ -6,6 +6,30 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-10-30
+
+RepoDNA v1.4.5 focuses on reproducible, privacy-conscious native evidence
+ranking diagnostics, regression coverage, and local-first reliability.
+
+### Highlights
+
+- Strengthen offline ranker training with deterministic ordering, canonical
+  repository split validation, and rejection of unsafe evidence labels.
+- Add labeled holdout score diagnostics (Brier score, log loss, and calibration
+  bands), baseline retrieval comparisons, and answerability threshold sweeps.
+- Keep native AI extractive and opt-in without third-party model APIs, automatic
+  weight downloads, or unsupported generative claims.
+- Test the complete ranker training CLI, checkpoint generation, output fields,
+  overwrite protection, and repository leakage rejection across platforms.
+- Preserve the existing offline browser, desktop, CLI, and GitHub Action
+  workflows with release-candidate quality and security checks.
+
+### Tests
+
+- Add executable-level regression tests for native ranker training and the
+  versioned checkpoint/report boundary, including deterministic exports and
+  refusal to overwrite output files (#146).
+
 ### Added
 
 - Measure native evidence-ranker relevance-score error on independently labeled

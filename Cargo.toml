@@ -6,7 +6,7 @@ members = ["crates/*", "xtask"]
 exclude = ["apps/desktop/src-tauri"]
 
 [workspace.package]
-version = "1.4.4"
+version = "1.4.5"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Sanskar"]
@@ -16,23 +16,23 @@ publish = false
 
 [workspace.dependencies]
 # Internal crates
-repodna-core = { path = "crates/repodna-core", version = "1.4.4" }
-repodna-parser = { path = "crates/repodna-parser", version = "1.4.4" }
-repodna-discovery = { path = "crates/repodna-discovery", version = "1.4.4" }
-repodna-git = { path = "crates/repodna-git", version = "1.4.4" }
-repodna-dependencies = { path = "crates/repodna-dependencies", version = "1.4.4" }
-repodna-architecture = { path = "crates/repodna-architecture", version = "1.4.4" }
-repodna-quality = { path = "crates/repodna-quality", version = "1.4.4" }
-repodna-security = { path = "crates/repodna-security", version = "1.4.4" }
-repodna-project = { path = "crates/repodna-project", version = "1.4.4" }
-repodna-evolution = { path = "crates/repodna-evolution", version = "1.4.4" }
-repodna-engine = { path = "crates/repodna-engine", version = "1.4.4" }
-repodna-store = { path = "crates/repodna-store", version = "1.4.4" }
-repodna-report = { path = "crates/repodna-report", version = "1.4.4" }
-repodna-ai = { path = "crates/repodna-ai", version = "1.4.4" }
-repodna-plugin = { path = "crates/repodna-plugin", version = "1.4.4" }
-repodna-app = { path = "crates/repodna-app", version = "1.4.4" }
-repodna-server = { path = "crates/repodna-server", version = "1.4.4" }
+repodna-core = { path = "crates/repodna-core", version = "1.4.5" }
+repodna-parser = { path = "crates/repodna-parser", version = "1.4.5" }
+repodna-discovery = { path = "crates/repodna-discovery", version = "1.4.5" }
+repodna-git = { path = "crates/repodna-git", version = "1.4.5" }
+repodna-dependencies = { path = "crates/repodna-dependencies", version = "1.4.5" }
+repodna-architecture = { path = "crates/repodna-architecture", version = "1.4.5" }
+repodna-quality = { path = "crates/repodna-quality", version = "1.4.5" }
+repodna-security = { path = "crates/repodna-security", version = "1.4.5" }
+repodna-project = { path = "crates/repodna-project", version = "1.4.5" }
+repodna-evolution = { path = "crates/repodna-evolution", version = "1.4.5" }
+repodna-engine = { path = "crates/repodna-engine", version = "1.4.5" }
+repodna-store = { path = "crates/repodna-store", version = "1.4.5" }
+repodna-report = { path = "crates/repodna-report", version = "1.4.5" }
+repodna-ai = { path = "crates/repodna-ai", version = "1.4.5" }
+repodna-plugin = { path = "crates/repodna-plugin", version = "1.4.5" }
+repodna-app = { path = "crates/repodna-app", version = "1.4.5" }
+repodna-server = { path = "crates/repodna-server", version = "1.4.5" }
 repodna-testkit = { path = "crates/repodna-testkit" }
 
 # Serialization and configuration

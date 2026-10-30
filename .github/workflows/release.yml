@@ -5,10 +5,12 @@ name: Release
 # ghcr.io, and the npm packages on GitHub Packages and npmjs.com. Running it by hand with an existing tag rebuilds that tag's code and
 # updates the release's files. Running it by hand without a tag is a trial: it builds every
 # file from the selected branch and keeps them as downloads of the run, without publishing
-# anything.
+# anything. Commits to release/v* branches also run the same unpublished trial;
+# only an actual version-tag push can publish.
 on:
   push:
     tags: ["v*"]
+    branches: ["release/v*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -40,11 +42,17 @@ jobs:
         run: node packaging/release/check-version.mjs
       - id: version
         env:
-          # Empty for a trial started by hand without a tag.
-          TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+          # A branch push must not turn its branch name into a release tag.
+          # Only a tag push or a deliberate workflow_dispatch tag can publish.
+          TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || inputs.tag }}
         run: |
           set -euo pipefail
           workspace=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "repodna-cli") | .version')
+          # Defense in depth: never publish on release-candidate branch pushes.
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF_TYPE" != tag ] && [ -n "$TAG" ]; then
+            echo "Refusing to publish from a branch push." >&2
+            exit 1
+          fi
           if [ -n "$TAG" ]; then
             version="${TAG#v}"
             if [ "$version" != "$workspace" ]; then
@@ -607,6 +615,73 @@ jobs:
           # Trusted publishing needs npm 11.5.1 or later.
           npm install --global npm@11.21.0
           node packaging/npm/publish.mjs --registry https://registry.npmjs.org npm-packages -- --access public --provenance
+
+  trial-assets:
+    name: Verify complete unpublished release inventory and checksums
+    needs: [prepare, security, web, cli, desktop, winget, release-assets]
+    if: needs.prepare.outputs.publish == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: winget-manifests
+          path: dist
+      - name: Verify complete release assets and checksums without publishing
+        working-directory: dist
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          expected=(
+            "repodna-$VERSION-x86_64-unknown-linux-musl.tar.gz"
+            "repodna-$VERSION-aarch64-unknown-linux-musl.tar.gz"
+            "repodna-$VERSION-x86_64-apple-darwin.tar.gz"
+            "repodna-$VERSION-aarch64-apple-darwin.tar.gz"
+            "repodna-$VERSION-x86_64-pc-windows-msvc.zip"
+            "repodna-$VERSION-aarch64-pc-windows-msvc.zip"
+            "repodna-$VERSION-wasm32-wasip1.zip"
+            "RepoDNA_${VERSION}_amd64.deb"
+            "RepoDNA-${VERSION}-1.x86_64.rpm"
+            "RepoDNA_${VERSION}_universal.dmg"
+            "RepoDNA_${VERSION}_x64_en-US.msi"
+            "RepoDNA_${VERSION}_arm64_en-US.msi"
+            "RepoDNA_${VERSION}_x64-setup.exe"
+            "RepoDNA_${VERSION}_arm64-setup.exe"
+            "repodna-$VERSION-winget-manifests.zip"
+          )
+          for asset in "${expected[@]}"; do
+            test -f "$asset" && test -s "$asset" || {
+              echo "::error::Missing or empty release asset: $asset"
+              exit 1
+            }
+          done
+          actual_count=$(find . -maxdepth 1 -type f | wc -l)
+          test "$actual_count" -eq "${#expected[@]}" || {
+            echo "::error::Expected ${#expected[@]} assets; found $actual_count"
+            exit 1
+          }
+          sha256sum "${expected[@]}" > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          test "$(wc -l < SHA256SUMS.txt)" -eq "${#expected[@]}"
+          echo "Verified ${#expected[@]} release assets and their SHA-256 checksums without publishing."
+      - uses: actions/upload-artifact@v7
+        with:
+          name: trial-sha256sums
+          path: dist/SHA256SUMS.txt
+          if-no-files-found: error
 
   publish:
     name: Publish the release

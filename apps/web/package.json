@@ -1,6 +1,6 @@
 {
   "name": "@repodna/web",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "private": true,
   "description": "The RepoDNA web interface: explore analyses from a file, the local server, or the desktop app.",
   "license": "Apache-2.0",
@@ -13,9 +13,9 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json"
   },
   "dependencies": {
-    "@repodna/schema": "1.4.4",
-    "@repodna/visualization": "1.4.4",
-    "@repodna/wasm": "1.4.4",
+    "@repodna/schema": "1.4.5",
+    "@repodna/visualization": "1.4.5",
+    "@repodna/wasm": "1.4.5",
     "@tauri-apps/api": "2.12.4",
     "react": "19.3.1",
     "react-dom": "19.3.1"
