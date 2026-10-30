@@ -25,7 +25,7 @@ jobs:
       CODEQL_RUN: "41023039531"
       TRIAL_RUN: "41021163607"
       TAG: v1.4.5
-      GH_TOKEN: \${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
         with:
