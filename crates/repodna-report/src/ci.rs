@@ -146,7 +146,9 @@ fn file_changes(baseline: &RepositoryDna, current: &RepositoryDna) -> CiFileChan
         .iter()
         .filter(|(path, hash)| {
             before.get(*path).is_some_and(|old| {
-                matches!((*old, **hash), (Some(before), Some(after)) if before != after)
+                old.as_ref()
+                    .zip(hash.as_ref())
+                    .is_some_and(|(before, after)| before != after)
             })
         })
         .map(|(path, _)| (*path).to_owned())
