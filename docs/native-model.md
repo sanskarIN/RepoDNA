@@ -77,6 +77,10 @@ as the same repository. Use a stable, unique ID for each source repository.
 The same normalization applies to duplicate-label detection and the training
 repository count; it does not rewrite the input dataset.
 Train only on data you have permission to use, and never include secrets.
+Training sorts labeled examples by repository, exact question, and evidence ID
+before deterministic SGD, so changing the JSON array's row order does not
+change the resulting checkpoint weights. This does not make labels, rankings,
+or checkpoint outputs independent of the actual training data.
 
 ```sh
 cargo run --locked -p repodna-ai --bin train-repodna-ranker -- \

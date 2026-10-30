@@ -228,9 +228,18 @@ impl RankerModel {
             .map(|sample| normalized_repository_id(&sample.repository))
             .collect::<HashSet<_>>()
             .len();
+        // SGD is sensitive to record order. Sort a borrowed view of the
+        // validated labels so JSON row ordering cannot change exported weights.
+        let mut ordered: Vec<&LabeledEvidence> = samples.iter().collect();
+        ordered.sort_unstable_by(|left, right| {
+            left.repository
+                .cmp(&right.repository)
+                .then(left.query.cmp(&right.query))
+                .then(left.evidence.id.cmp(&right.evidence.id))
+        });
         let mut weights = vec![0.0_f64; FEATURE_COUNT];
         for _ in 0..epochs {
-            for sample in samples {
+            for sample in &ordered {
                 let x = features(&sample.query, &sample.evidence);
                 let logit = weights.iter().zip(x).map(|(w, x)| w * x).sum::<f64>();
                 let target = if sample.relevant { 1.0 } else { 0.0 };
@@ -390,6 +399,18 @@ mod tests {
         let decoded: RankerModel = serde_json::from_str(&serialized).unwrap();
         assert_eq!(decoded, m);
     }
+    #[test]
+    fn training_is_invariant_to_json_row_order() {
+        let originals = training();
+        let mut reordered = originals.clone();
+        reordered.reverse();
+        reordered.rotate_left(2);
+        let first = RankerModel::train(&originals, 60).unwrap();
+        let second = RankerModel::train(&reordered, 60).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(originals, training());
+    }
+
     #[test]
     fn prevents_leakage_and_invalid_checkpoints() {
         let data = training();
