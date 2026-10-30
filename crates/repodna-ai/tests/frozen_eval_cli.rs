@@ -65,7 +65,10 @@ fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
         "answerableDetectionRate",
         "unanswerableAbstentionRate",
     ] {
-        assert_eq!(training_report[key], evaluation_report[key], "mismatch: {key}");
+        assert_eq!(
+            training_report[key], evaluation_report[key],
+            "mismatch: {key}"
+        );
     }
     assert_eq!(evaluation_report["trainingRepositories"], 2);
     assert_eq!(evaluation_report["trainingExamples"], 6);
