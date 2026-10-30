@@ -5,6 +5,7 @@
 
 mod annotation;
 mod evaluation;
+mod scores;
 mod thresholds;
 
 pub use annotation::{AnnotationExample, annotation_template, finish_annotations};
@@ -12,6 +13,7 @@ pub use annotation::{AnnotationExample, annotation_template, finish_annotations}
 pub use evaluation::{
     AnswerabilityEvaluation, RetrievalDelta, RetrievalEvaluation, evaluate_original_order,
 };
+pub use scores::{RelevanceScoreBin, RelevanceScoreEvaluation, SCORE_BIN_COUNT};
 
 use crate::context::{EvidenceItem, EvidenceKind};
 use serde::{Deserialize, Serialize};
