@@ -886,7 +886,10 @@ mod tests {
             architecture["moduleEdges"]["removed"],
             serde_json::json!([{"from": "src2", "to": "removed"}])
         );
-        assert_eq!(report["summary"]["Changed files"], "3 (1 added, 1 removed, 1 modified)");
+        assert_eq!(
+            report["summary"]["Changed files"],
+            "3 (1 added, 1 removed, 1 modified)"
+        );
     }
 
     #[test]
