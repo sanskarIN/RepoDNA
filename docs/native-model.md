@@ -109,7 +109,14 @@ These numbers do not establish that cited statements are correct.
 The trainer also reports `answerability`, `answerableDetectionRate`, and
 `unanswerableAbstentionRate`. These are **diagnostics** of a hypothetical
 score-threshold rule (`0.5`): a question is predicted answerable when at
-least one candidate evidence item scores at or above the threshold. The report
+least one candidate evidence item scores at or above the threshold.
+The `answerabilitySweep` array compares thresholds `0.25`, `0.5`, and
+`0.75`, reporting query-level false positives and missed answerable queries
+at each operating point. The Rust library can evaluate a caller-supplied
+strictly increasing list of up to 32 finite thresholds between zero and one.
+Use the sweep to understand sensitivity, **not** to choose a deployable
+threshold from the final test set. Any operating-point selection needs a
+separate, repository-disjoint validation set and an untouched test set. The report
 counts true/false positives and negatives at the **repository/question** level,
 including unanswerable questions omitted from retrieval averages. A threshold
 score is not a calibrated probability of factual correctness, and RepoDNA
