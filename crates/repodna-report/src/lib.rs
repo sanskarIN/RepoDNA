@@ -24,6 +24,7 @@ pub mod palette;
 pub mod png;
 pub mod privacy;
 pub mod report;
+pub mod sarif;
 pub mod sections;
 pub mod text;
 
