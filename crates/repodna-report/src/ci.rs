@@ -731,6 +731,64 @@ mod tests {
     }
 
     #[test]
+    fn markdown_baseline_impact_is_bounded_and_escapes_repository_text() {
+        let outcome = CiOutcome {
+            values: vec![("Repository".to_owned(), "widget".to_owned())],
+            failing: Vec::new(),
+            failed: false,
+            changes: Some(CiChanges {
+                files: CiFileChanges {
+                    added: (0..12).map(|i| format!("src/file-{i:02}.rs")).collect(),
+                    removed: vec!["deleted.rs".to_owned()],
+                    modified: vec!["src/changed.rs".to_owned()],
+                },
+                introduced: vec![CiFindingChange {
+                    id: "unstable-id".to_owned(),
+                    rule: "quality.long-function".to_owned(),
+                    severity: Severity::Warning,
+                    title: "name|<img src=x>\n## suspicious".to_owned(),
+                    paths: vec!["src/file-00.rs".to_owned()],
+                }],
+                resolved: Vec::new(),
+                architecture: Some(CiArchitectureImpact {
+                    touched_modules: vec!["core".to_owned()],
+                    direct_dependents: vec!["consumer".to_owned()],
+                    added_edges: vec![CiModuleEdge {
+                        from: "consumer".to_owned(),
+                        to: "core".to_owned(),
+                    }],
+                    removed_edges: Vec::new(),
+                }),
+            }),
+        };
+        let report = markdown(&outcome);
+        assert!(report.contains("#### Baseline impact"));
+        assert!(report.contains("12 added, 1 removed, 1 modified"));
+        assert!(report.contains("Introduced findings (1)"));
+        assert!(report.contains("Immediate dependents (1)"));
+        assert!(report.contains("consumer → core"));
+        assert!(report.contains("… and 2 more"));
+        assert!(!report.contains("src/file-11.rs"));
+        assert!(!report.contains("<img"));
+        assert!(report.contains(r"name\|\<img src=x\>"));
+        assert!(!report.contains("\n## suspicious"));
+        assert!(report.contains("not proven causation"));
+    }
+
+    #[test]
+    fn markdown_without_baseline_keeps_original_summary() {
+        let outcome = evaluate(
+            &artifact(vec![finding("existing", Severity::Info)], &[]),
+            None,
+            CiPolicy::default(),
+        );
+        let report = markdown(&outcome);
+        assert!(report.contains("### RepoDNA analysis"));
+        assert!(!report.contains("#### Baseline impact"));
+        assert!(!report.contains("Touched modules"));
+    }
+
+    #[test]
     fn summarizes_and_applies_the_policy() {
         let dna = artifact(
             vec![
