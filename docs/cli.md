@@ -137,7 +137,9 @@ With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
 `failed`, and `failing` fields and adds a structured `changes` object:
 
 - `changes.files.added`, `removed`, and `modified`: alphabetically ordered,
-  repository-relative paths (not merely counts).
+  repository-relative paths (not merely counts). A file is reported as
+  modified only when both snapshots contain content hashes and those hashes
+  differ; missing hashes are unknown, not evidence of modification.
 - `changes.findings.introduced` and `resolved`: stable-ID, deduplicated
   records with `id`, `rule`, lower-case `severity`, `title`, and `paths`,
   ordered by descending severity and then finding ID.
