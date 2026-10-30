@@ -213,3 +213,35 @@ A reviewer must not label guessed functionality as factual evidence. More
 examples are not a substitute for independently checked annotations, privacy
 review, or a repository-disjoint evaluation set.
 
+## Evaluate a frozen checkpoint on an untouched test split
+
+After choosing training settings using separate **validation repositories**, evaluate
+the saved checkpoint on an untouched, repository-disjoint final test set without
+retraining or changing its weights:
+
+```sh
+cargo run --locked -p repodna-ai --bin evaluate-repodna-ranker -- \
+  ranker-local.json train-reviewed.json test-reviewed.json
+```
+
+The command reads the saved checkpoint, original training labels, and test labels
+**locally**, checks basic checkpoint provenance counts, validates that no canonical
+repository ID occurs in both sets, and prints aggregate JSON diagnostics. This
+includes classification, relevance-score diagnostics, retrieval metrics, original
+evidence-order baseline and signed deltas, plus hypothetical answerability
+thresholds. It never writes a new checkpoint or modifies the existing one.
+
+Keep the **original training dataset** available for this check. The checkpoint
+currently stores training counts, not a cryptographic dataset fingerprint. Matching
+counts and repository-disjoint input therefore **cannot prove** the checkpoint was
+trained on precisely those records. Preserve dataset hashes and the training command
+in your own experiment log; do not choose a threshold or tune parameters using this
+final test result. A separate validation split is required for those decisions.
+
+The evaluator accepts at most 64 KiB of checkpoint JSON and 8 MiB per label file,
+with a maximum of 100,000 examples in each input. Invalid checkpoints, duplicate
+evidence IDs, source excerpts and overlapping repository identifiers are rejected.
+The JSON output contains aggregate numbers rather than source paths or raw labels,
+but the local input datasets may contain sensitive repository metadata. The results
+measure labeled evidence relevance, **not** factual accuracy of natural-language
+explanations.
