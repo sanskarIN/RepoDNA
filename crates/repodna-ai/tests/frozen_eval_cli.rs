@@ -207,4 +207,3 @@ fn frozen_evaluation_accepts_reordered_training_labels_and_marks_legacy_unverifi
         serde_json::from_slice(&legacy_output.stdout).unwrap();
     assert_eq!(legacy_report["trainingFingerprintVerified"], false);
 }
-
