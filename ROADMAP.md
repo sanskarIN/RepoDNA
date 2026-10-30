@@ -15,16 +15,26 @@ the browser, and an official GitHub Action runs RepoDNA in workflows.
 - Measure and improve performance on large repositories and long histories, and publish the
   results with the [benchmarks](benchmarks/README.md).
 
-## Immediate maintenance gates (after v1.4.3)
+## Immediate maintenance gates (v1.4.5 candidate)
 
-Before proposing another stable release, validate and integrate the independently reviewed
-browser-import, cache, and local-API hardening changes already under review.
-The two lockfiles now contain the patched `rustls-webpki 0.103.16` and
-`webpki-roots 1.0.10` versions. Verify workspace and desktop advisory checks
-and complete the runtime follow-up for issue #59 before closing it. Verify native
-desktop installer and portable CLI artifacts on Windows as part of release
-trials; an overall green workflow is not proof that skipped or tolerated
-individual checks were clean.
+The published stable release is **v1.4.4**. Prepare a focused v1.4.5 maintenance
+candidate covering the integrated native AI ranking and evaluation correctness
+fixes, score diagnostics, and documentation updates. Keep the extractive native
+provider opt-in and do not claim a generative model, calibrated factual
+confidence, or independently measured relevance improvements from synthetic tests.
+
+Follow [the v1.4.5 qualification checklist](packaging/release/v1.4.5-checklist.md).
+In particular, verify final-commit CI and CodeQL; both Rust workspace and
+desktop dependency advisories; release-only HTTPS trust; offline/privacy
+regressions; correct installer and portable-CLI artifacts on Windows and other
+supported platforms; and an unpublished GitHub Release workflow trial.
+Synchronize all manifests and lockfiles only once the release candidate is
+frozen, then require maintainer approval before tagging.
+
+A potential **v1.5.0** requires a separately reviewed, meaningful user-facing
+milestone with performance benchmarks, compatibility review, and independent
+evaluation; it is not merely a version bump or a claim that a native generative
+model has shipped.
 
 ## Candidate feature milestones
 
