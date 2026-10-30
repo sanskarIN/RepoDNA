@@ -416,11 +416,7 @@ pub fn text(outcome: &CiOutcome) -> String {
 
 // Each list has a hard limit: CI summaries must remain reviewable even when
 // analyzing large repositories. Escape repository-controlled text in all cases.
-fn markdown_entries(
-    out: &mut String,
-    title: &str,
-    entries: impl ExactSizeIterator<Item = String>,
-) {
+fn markdown_entries(out: &mut String, title: &str, entries: impl ExactSizeIterator<Item = String>) {
     const LIMIT: usize = 10;
     const MAX_CHARS: usize = 180;
     let total = entries.len();
@@ -474,11 +470,7 @@ pub fn markdown(outcome: &CiOutcome) -> String {
         } else {
             out.push_str("- Module impact: not analyzed in both snapshots\n");
         }
-        markdown_entries(
-            &mut out,
-            "Added files",
-            changes.files.added.iter().cloned(),
-        );
+        markdown_entries(&mut out, "Added files", changes.files.added.iter().cloned());
         markdown_entries(
             &mut out,
             "Removed files",
@@ -493,14 +485,26 @@ pub fn markdown(outcome: &CiOutcome) -> String {
             &mut out,
             "Introduced findings",
             changes.introduced.iter().map(|f| {
-                format!("{} [{}; {}] ({})", f.title, f.severity.label(), f.rule, f.id)
+                format!(
+                    "{} [{}; {}] ({})",
+                    f.title,
+                    f.severity.label(),
+                    f.rule,
+                    f.id
+                )
             }),
         );
         markdown_entries(
             &mut out,
             "Resolved findings",
             changes.resolved.iter().map(|f| {
-                format!("{} [{}; {}] ({})", f.title, f.severity.label(), f.rule, f.id)
+                format!(
+                    "{} [{}; {}] ({})",
+                    f.title,
+                    f.severity.label(),
+                    f.rule,
+                    f.id
+                )
             }),
         );
         if let Some(architecture) = &changes.architecture {
