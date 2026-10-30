@@ -337,6 +337,42 @@ fn ci_github_new_only_does_not_annotate_unchanged_findings() {
 }
 
 #[test]
+fn ci_markdown_baseline_impact_appears_in_job_summary() {
+    let env = Env::new();
+    let repo = env.work("widget");
+    sample_repo(&repo, false);
+    let repo_arg = path(&repo);
+    let analyzed = env.run(&["analyze", &repo_arg, "--format", "json", "-q"]);
+    assert_eq!(code(&analyzed), 0, "{}", stderr(&analyzed));
+    let baseline = env.work("baseline.json");
+    std::fs::write(&baseline, &analyzed.stdout).unwrap();
+    let baseline_arg = path(&baseline);
+    let summary = env.work("summary.md");
+    let summary_arg = path(&summary);
+
+    let result = env.run(&[
+        "ci",
+        &repo_arg,
+        "--baseline",
+        &baseline_arg,
+        "--format",
+        "markdown",
+        "--summary-file",
+        &summary_arg,
+        "-q",
+    ]);
+    assert_eq!(code(&result), 0, "{}", stderr(&result));
+    assert!(stdout(&result).contains("#### Baseline impact"));
+    assert!(stdout(&result).contains("0 added, 0 removed, 0 modified"));
+    let job_summary = std::fs::read_to_string(&summary).unwrap();
+    assert!(job_summary.contains("#### Baseline impact"));
+
+    let without_baseline = env.run(&["ci", &repo_arg, "--format", "markdown", "-q"]);
+    assert_eq!(code(&without_baseline), 0, "{}", stderr(&without_baseline));
+    assert!(!stdout(&without_baseline).contains("#### Baseline impact"));
+}
+
+#[test]
 fn errors_explain_what_to_do() {
     let env = Env::new();
     let missing = env.run(&["analyze", &path(&env.work("missing"))]);
