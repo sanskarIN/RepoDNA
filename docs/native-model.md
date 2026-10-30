@@ -96,7 +96,12 @@ trained-minus-baseline differences for all four metrics (positive is better).
 A positive delta measures label ranking on this holdout, **not** semantic
 correctness or a guarantee of improvement on unseen repositories. Existing output files are not overwritten. The example datasets are
 **synthetic pipeline smoke tests only**, not evidence of model quality.
-Ranking metrics group examples by repository and exact question; groups without any
+Ranking metrics group examples by canonical repository ID (trimmed and
+lowercased) and exact question; aliases of the same repository are one question
+group, not separate opportunities to inflate the denominators. This applies to
+the original-order baseline, learned retrieval metrics, and hypothetical
+answerability diagnostics. Direct evaluation also rejects duplicate evidence
+IDs across repository aliases and source excerpts. Groups without any
 known relevant evidence are counted separately and excluded from ranking averages.
 Precision@5 divides by five even when a group has fewer than five candidates.
 These numbers do not establish that cited statements are correct.
