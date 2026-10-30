@@ -92,11 +92,7 @@ pub fn sarif(dna: &RepositoryDna, introduced: Option<&[CiFindingChange]>) -> ser
                     .is_none_or(|ids| ids.contains(f.id.as_str()))
         })
         .collect();
-    findings.sort_by(|a, b| {
-        b.severity
-            .cmp(&a.severity)
-            .then_with(|| a.id.cmp(&b.id))
-    });
+    findings.sort_by(|a, b| b.severity.cmp(&a.severity).then_with(|| a.id.cmp(&b.id)));
     let mut seen = HashSet::new();
     let mut rules = BTreeMap::new();
     let mut results = Vec::new();
@@ -168,25 +164,38 @@ mod tests {
 
     #[test]
     fn ordered_results_and_no_invented_locations() {
-        let critical = finding("critical", Severity::Critical)
-            .evidence(Evidence::line("src/main.rs", 17));
+        let critical =
+            finding("critical", Severity::Critical).evidence(Evidence::line("src/main.rs", 17));
         let info = finding("info", Severity::Info).path("src/file name.rs");
         let unlocated = finding("unlocated", Severity::Warning);
         let dna = artifact(vec![info, unlocated, critical.clone(), critical]);
         let output = sarif(&dna, None);
         assert_eq!(output["version"], "2.1.0");
         assert_eq!(output["runs"][0]["tool"]["driver"]["name"], "RepoDNA");
-        assert_eq!(output["runs"][0]["tool"]["driver"]["rules"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            output["runs"][0]["tool"]["driver"]["rules"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
         let results = output["runs"][0]["results"].as_array().unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0]["level"], "error");
-        assert_eq!(results[0]["locations"][0]["physicalLocation"]["region"]["startLine"], 17);
+        assert_eq!(
+            results[0]["locations"][0]["physicalLocation"]["region"]["startLine"],
+            17
+        );
         assert_eq!(results[1]["level"], "note");
         assert_eq!(
             results[1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
             "src/file%20name.rs"
         );
-        assert!(results[1]["locations"][0]["physicalLocation"].get("region").is_none());
+        assert!(
+            results[1]["locations"][0]["physicalLocation"]
+                .get("region")
+                .is_none()
+        );
         assert_eq!(output, sarif(&dna, None));
     }
 
@@ -206,7 +215,13 @@ mod tests {
             finding("windows", Severity::Warning).path("C:\\secret.txt"),
             finding("url", Severity::Warning).path("https://example.com/secret"),
         ]);
-        assert_eq!(sarif(&dna, None)["runs"][0]["results"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            sarif(&dna, None)["runs"][0]["results"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
         let delta = vec![CiFindingChange {
             id: active.id.clone(),
             rule: active.rule.clone(),
@@ -214,8 +229,20 @@ mod tests {
             title: active.title.clone(),
             paths: active.paths.clone(),
         }];
-        assert_eq!(sarif(&dna, Some(&delta))["runs"][0]["results"].as_array().unwrap().len(), 1);
-        assert_eq!(sarif(&dna, Some(&[]))["runs"][0]["results"].as_array().unwrap().len(), 0);
+        assert_eq!(
+            sarif(&dna, Some(&delta))["runs"][0]["results"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            sarif(&dna, Some(&[]))["runs"][0]["results"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
     }
 
     #[test]
