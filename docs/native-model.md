@@ -106,6 +106,16 @@ known relevant evidence are counted separately and excluded from ranking average
 Precision@5 divides by five even when a group has fewer than five candidates.
 These numbers do not establish that cited statements are correct.
 
+The trainer includes `relevanceScoreDiagnostics` with held-out
+Brier score (mean squared error against binary relevance labels), binary
+log loss, and sample-weighted expected calibration error across ten fixed
+relevance-score bands. Nonempty bands report sample count, average score,
+and observed positive-label frequency. All metrics are **offline diagnostics**
+of relevance labels; they do not measure factual truth, semantic confidence,
+or claim correctness. Small or imbalanced holdout datasets produce unstable
+estimates. Use a separate validation split for model selection, and keep the
+final repository-disjoint test split untouched until evaluation.
+
 The trainer also reports `answerability`, `answerableDetectionRate`, and
 `unanswerableAbstentionRate`. These are **diagnostics** of a hypothetical
 score-threshold rule (`0.5`): a question is predicted answerable when at

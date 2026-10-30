@@ -219,6 +219,11 @@ fn group_holdout(
     Ok(groups)
 }
 
+/// Shared validation for direct holdout evaluation without exposing grouping.
+pub(super) fn validate_holdout(holdout: &[LabeledEvidence]) -> Result<(), String> {
+    group_holdout(holdout).map(|_| ())
+}
+
 fn evaluate_retrieval_inner(
     model: Option<&RankerModel>,
     holdout: &[LabeledEvidence],

@@ -42,6 +42,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     validate_repository_split(&training, &holdout).map_err(io::Error::other)?;
     let model = RankerModel::train(&training, 60).map_err(io::Error::other)?;
     let evaluation = model.evaluate(&holdout);
+    let score_diagnostics = model
+        .evaluate_relevance_scores(&holdout)
+        .map_err(io::Error::other)?;
     let retrieval = model
         .evaluate_retrieval(&holdout, 5)
         .map_err(io::Error::other)?;
@@ -66,6 +69,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "trainingRepositories": model.training_repositories,
         "holdout": evaluation,
         "holdoutAccuracy": evaluation.accuracy(),
+        "relevanceScoreDiagnostics": score_diagnostics,
         "retrieval": retrieval,
         "originalOrderBaseline": baseline,
         "retrievalDelta": delta,
