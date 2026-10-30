@@ -24,9 +24,6 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 - Make local ranker training deterministic across shuffled dataset rows;
   reject duplicate and missing evidence identities and exclude source excerpts
   from training datasets (#137, #141).
-
-### Fixed
-
 - Keep scanning the native offline evidence digest for shorter observations when a
   preceding fact cannot fit the output token budget. Limit the number of included
   observations to twelve rather than truncating the candidate search, with a
