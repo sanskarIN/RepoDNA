@@ -47,9 +47,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(io::Error::other)?;
     let baseline = evaluate_original_order(&holdout, 5).map_err(io::Error::other)?;
     let delta = retrieval.delta_from(baseline).map_err(io::Error::other)?;
-    let answerability = model
-        .evaluate_answerability(&holdout, 0.5)
+    let answerability_sweep = model
+        .evaluate_answerability_sweep(&holdout, &[0.25, 0.5, 0.75])
         .map_err(io::Error::other)?;
+    let answerability = answerability_sweep[1];
     let payload = serde_json::to_vec_pretty(&model)?;
     // Never silently destroy an existing or unrelated checkpoint.
     let mut output = OpenOptions::new()
@@ -69,6 +70,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "originalOrderBaseline": baseline,
         "retrievalDelta": delta,
         "answerability": answerability,
+        "answerabilitySweep": answerability_sweep,
         "answerableDetectionRate": answerability.answerable_detection_rate(),
         "unanswerableAbstentionRate": answerability.unanswerable_abstention_rate(),
         "note": "Synthetic fixtures demonstrate the pipeline, not real-world quality; retrieval scores only evaluate labels, not factual correctness"
