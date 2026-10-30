@@ -1,0 +1,105 @@
+name: Publish RepoDNA v1.4.5 (one-time)
+
+# Temporary branch-specific publication workflow with exact-commit guards.
+on:
+  push:
+    branches: ["publish/v1.4.5-once"]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: publish-repodna-v1.4.5
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'sanskarIN/RepoDNA' && github.ref == 'refs/heads/publish/v1.4.5-once'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MAIN_SHA: 5ff565596349d492005d9b585c5630cf4252e840
+      CANDIDATE_SHA: f2cf17b8049054f5dccb76b3f9b7602ef6adaf14
+      CI_RUN: "41023039528"
+      CODEQL_RUN: "41023039531"
+      TRIAL_RUN: "41021163607"
+      TAG: v1.4.5
+      GH_TOKEN: \${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 5ff565596349d492005d9b585c5630cf4252e840
+          persist-credentials: true
+      - name: Enforce exact commit, version, trial and merged main checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/publish/v1.4.5-once"
+          test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+          main_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          test "$main_head" = "$MAIN_SHA" || {
+            echo "::error::main changed after qualification; refusing to tag"
+            exit 1
+          }
+          node packaging/release/check-version.mjs
+          node packaging/release/check-support-links.mjs
+          test "$(node -p 'require("./package.json").version')" = "1.4.5"
+          grep -q '^## \[1.4.5\] - ' CHANGELOG.md
+
+          trial=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TRIAL_RUN")
+          jq -e --arg sha "$CANDIDATE_SHA" \
+            '.head_sha == $sha and .status == "completed" and .conclusion == "success"' \
+            <<< "$trial" > /dev/null
+          jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TRIAL_RUN/jobs?per_page=100")
+          jq -e '.jobs | any(.name == "Verify complete unpublished release inventory and checksums" and .conclusion == "success")' \
+            <<< "$jobs" > /dev/null
+          artifacts=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TRIAL_RUN/artifacts?per_page=100")
+          jq -e '.artifacts | any(.name == "trial-sha256sums" and .expired == false and .size_in_bytes > 0)' \
+            <<< "$artifacts" > /dev/null
+
+          for attempt in $(seq 1 60); do
+            ci=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN")
+            codeql=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CODEQL_RUN")
+            ci_head=$(jq -r .head_sha <<< "$ci")
+            codeql_head=$(jq -r .head_sha <<< "$codeql")
+            test "$ci_head" = "$MAIN_SHA" && test "$codeql_head" = "$MAIN_SHA" || {
+              echo "::error::main checks are for a different commit"
+              exit 1
+            }
+            ci_result=$(jq -r '.conclusion // "pending"' <<< "$ci")
+            codeql_result=$(jq -r '.conclusion // "pending"' <<< "$codeql")
+            if [[ "$ci_result" == success && "$codeql_result" == success ]]; then
+              break
+            fi
+            if [[ "$ci_result" != pending && "$ci_result" != success ]] || \
+               [[ "$codeql_result" != pending && "$codeql_result" != success ]]; then
+              echo "::error::main CI ($ci_result) or CodeQL ($codeql_result) failed"
+              exit 1
+            fi
+            if [[ "$attempt" == 60 ]]; then
+              echo "::error::Timed out waiting for the merged main checks"
+              exit 1
+            fi
+            sleep 20
+          done
+
+          if [[ -n "$(git ls-remote --tags origin "refs/tags/$TAG")" ]]; then
+            echo "::error::Release tag already exists; refusing duplicate publication"
+            exit 1
+          fi
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$MAIN_SHA"
+          echo "Verified v1.4.5 trial, checksums, CI, CodeQL, support links and unchanged main."
+
+      - name: Create the v1.4.5 tag and dispatch the published release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Sanskar"
+          git config user.email "sanskarin@outlook.in"
+          git tag -a "$TAG" -m "RepoDNA v1.4.5" "$MAIN_SHA"
+          git push origin "refs/tags/$TAG"
+          # A GITHUB_TOKEN tag push does not trigger a separate push workflow.
+          # Explicit workflow_dispatch is the supported exception.
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main --field "tag=$TAG"
+          echo "Dispatched full GitHub Release workflow for $TAG."
