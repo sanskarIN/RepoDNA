@@ -15,26 +15,20 @@ the browser, and an official GitHub Action runs RepoDNA in workflows.
 - Measure and improve performance on large repositories and long histories, and publish the
   results with the [benchmarks](benchmarks/README.md).
 
-## Immediate maintenance gates (v1.4.5 candidate)
+## After v1.4.5 — v1.5.0 development
 
-The published stable release is **v1.4.4**. Prepare a focused v1.4.5 maintenance
-candidate covering the integrated native AI ranking and evaluation correctness
-fixes, score diagnostics, and documentation updates. Keep the extractive native
-provider opt-in and do not claim a generative model, calibrated factual
-confidence, or independently measured relevance improvements from synthetic tests.
+RepoDNA v1.4.5 is the current published stable release. The next milestone is
+**v1.5.0 development**, not an immediate version change or a release promise.
+Work should be reviewed in separately tested PRs with compatibility, privacy,
+offline behavior, and performance checks.
 
-Follow [the v1.4.5 qualification checklist](packaging/release/v1.4.5-checklist.md).
-In particular, verify final-commit CI and CodeQL; both Rust workspace and
-desktop dependency advisories; release-only HTTPS trust; offline/privacy
-regressions; correct installer and portable-CLI artifacts on Windows and other
-supported platforms; and an unpublished GitHub Release workflow trial.
-Synchronize all manifests and lockfiles only once the release candidate is
-frozen, then require maintainer approval before tagging.
-
-A potential **v1.5.0** requires a separately reviewed, meaningful user-facing
-milestone with performance benchmarks, compatibility review, and independent
-evaluation; it is not merely a version bump or a claim that a native generative
-model has shipped.
+The first incremental CI impact improvement is a typed machine-readable
+baseline delta: introduced and resolved finding details, stable IDs and
+repository-relative changed paths, while retaining existing summary fields.
+It is only one part of a future review-ready pull-request impact experience.
+Follow-on work should cover affected modules and dependency edges, evidence
+links, an optional share-safe output, and real-world validation before claiming
+a complete impact analysis or releasing v1.5.0.
 
 ## Candidate feature milestones
 
