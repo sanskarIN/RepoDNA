@@ -414,7 +414,35 @@ pub fn text(outcome: &CiOutcome) -> String {
     out
 }
 
-/// Markdown summary, for example for `$GITHUB_STEP_SUMMARY`.
+// Each list has a hard limit: CI summaries must remain reviewable even when
+// analyzing large repositories. Escape repository-controlled text in all cases.
+fn markdown_entries(
+    out: &mut String,
+    title: &str,
+    entries: impl ExactSizeIterator<Item = String>,
+) {
+    const LIMIT: usize = 10;
+    const MAX_CHARS: usize = 180;
+    let total = entries.len();
+    if total == 0 {
+        return;
+    }
+    out.push_str(&format!("\n**{title} ({total})**\n\n"));
+    for value in entries.take(LIMIT) {
+        let excerpt: String = value.chars().take(MAX_CHARS).collect();
+        out.push_str("- ");
+        out.push_str(&crate::text::escape_markdown(&excerpt));
+        if value.chars().count() > MAX_CHARS {
+            out.push('…');
+        }
+        out.push('\n');
+    }
+    if total > LIMIT {
+        out.push_str(&format!("- … and {} more\n", total - LIMIT));
+    }
+}
+
+/// Markdown summary, for example for $GITHUB_STEP_SUMMARY.
 pub fn markdown(outcome: &CiOutcome) -> String {
     let mut out = String::from("### RepoDNA analysis\n\n| Signal | Value |\n| --- | --- |\n");
     for (label, value) in &outcome.values {
@@ -423,6 +451,87 @@ pub fn markdown(outcome: &CiOutcome) -> String {
             crate::text::escape_markdown(label),
             crate::text::escape_markdown(value)
         ));
+    }
+    if let Some(changes) = &outcome.changes {
+        out.push_str("\n#### Baseline impact\n\n");
+        out.push_str(&format!(
+            "- Files: {} added, {} removed, {} modified\n",
+            changes.files.added.len(),
+            changes.files.removed.len(),
+            changes.files.modified.len()
+        ));
+        out.push_str(&format!(
+            "- Findings: {} introduced, {} resolved\n",
+            changes.introduced.len(),
+            changes.resolved.len()
+        ));
+        if let Some(architecture) = &changes.architecture {
+            out.push_str(&format!(
+                "- Modules: {} touched, {} immediate dependents\n",
+                architecture.touched_modules.len(),
+                architecture.direct_dependents.len()
+            ));
+        } else {
+            out.push_str("- Module impact: not analyzed in both snapshots\n");
+        }
+        markdown_entries(
+            &mut out,
+            "Added files",
+            changes.files.added.iter().cloned(),
+        );
+        markdown_entries(
+            &mut out,
+            "Removed files",
+            changes.files.removed.iter().cloned(),
+        );
+        markdown_entries(
+            &mut out,
+            "Modified files",
+            changes.files.modified.iter().cloned(),
+        );
+        markdown_entries(
+            &mut out,
+            "Introduced findings",
+            changes.introduced.iter().map(|f| {
+                format!("{} [{}; {}] ({})", f.title, f.severity.label(), f.rule, f.id)
+            }),
+        );
+        markdown_entries(
+            &mut out,
+            "Resolved findings",
+            changes.resolved.iter().map(|f| {
+                format!("{} [{}; {}] ({})", f.title, f.severity.label(), f.rule, f.id)
+            }),
+        );
+        if let Some(architecture) = &changes.architecture {
+            markdown_entries(
+                &mut out,
+                "Touched modules",
+                architecture.touched_modules.iter().cloned(),
+            );
+            markdown_entries(
+                &mut out,
+                "Immediate dependents",
+                architecture.direct_dependents.iter().cloned(),
+            );
+            markdown_entries(
+                &mut out,
+                "Added module edges",
+                architecture
+                    .added_edges
+                    .iter()
+                    .map(|edge| format!("{} → {}", edge.from, edge.to)),
+            );
+            markdown_entries(
+                &mut out,
+                "Removed module edges",
+                architecture
+                    .removed_edges
+                    .iter()
+                    .map(|edge| format!("{} → {}", edge.from, edge.to)),
+            );
+        }
+        out.push_str("\n_Impact reflects observed snapshots, not proven causation. Paths and finding titles may contain sensitive repository content._\n");
     }
     if outcome.failed {
         out.push_str(&format!(
