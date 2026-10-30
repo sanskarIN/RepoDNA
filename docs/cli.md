@@ -119,6 +119,7 @@ repodna ci --fail-on warning
 repodna ci --format github --fail-on critical
 repodna ci --format markdown --summary-file "$GITHUB_STEP_SUMMARY"
 repodna ci --baseline main.json --new-only --fail-on warning
+repodna ci --baseline main.json --format json > pr-impact.json
 ```
 
 | Option | Meaning |
@@ -131,6 +132,21 @@ repodna ci --baseline main.json --new-only --fail-on warning
 
 Suppressed findings never fail the job. See [examples/ci](../examples/ci) for a complete
 workflow.
+
+With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
+`failed`, and `failing` fields and adds a structured `changes` object:
+
+- `changes.files.added`, `removed`, and `modified`: alphabetically ordered,
+  repository-relative paths (not merely counts).
+- `changes.findings.introduced` and `resolved`: stable-ID, deduplicated
+  records with `id`, `rule`, lower-case `severity`, `title`, and `paths`,
+  ordered by descending severity and then finding ID.
+
+An active finding that was suppressed in the baseline counts as introduced if
+it becomes active, including for `--new-only --fail-on`. Without a baseline
+the `changes` field is omitted. These outputs are deterministic snapshots,
+not proof that a change caused a finding. Paths and titles may be sensitive;
+review the JSON before posting it to a public PR or attaching it to a report.
 
 ## Explore in the terminal
 
