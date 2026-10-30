@@ -294,25 +294,42 @@ fn ci_github_new_only_does_not_annotate_unchanged_findings() {
     let baseline_arg = path(&baseline);
 
     let all = env.run(&[
-        "ci", &repo_arg, "--format", "github", "--baseline", &baseline_arg,
-        "--fail-on", "attention", "-q",
+        "ci",
+        &repo_arg,
+        "--format",
+        "github",
+        "--baseline",
+        &baseline_arg,
+        "--fail-on",
+        "attention",
+        "-q",
     ]);
     assert_eq!(code(&all), 5, "{}", stderr(&all));
     assert!(
-        stdout(&all).lines().any(|line| line.starts_with("::notice ")
-            || line.starts_with("::warning ")),
+        stdout(&all)
+            .lines()
+            .any(|line| line.starts_with("::notice ") || line.starts_with("::warning ")),
         "expected at least one existing finding annotation: {}",
         stdout(&all)
     );
 
     let new_only = env.run(&[
-        "ci", &repo_arg, "--format", "github", "--baseline", &baseline_arg,
-        "--new-only", "--fail-on", "attention", "-q",
+        "ci",
+        &repo_arg,
+        "--format",
+        "github",
+        "--baseline",
+        &baseline_arg,
+        "--new-only",
+        "--fail-on",
+        "attention",
+        "-q",
     ]);
     assert_eq!(code(&new_only), 0, "{}", stderr(&new_only));
     assert!(
-        !stdout(&new_only).lines().any(|line| line.starts_with("::notice ")
-            || line.starts_with("::warning ")),
+        !stdout(&new_only)
+            .lines()
+            .any(|line| line.starts_with("::notice ") || line.starts_with("::warning ")),
         "unchanged findings must not become PR annotations: {}",
         stdout(&new_only)
     );
