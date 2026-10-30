@@ -709,10 +709,7 @@ mod tests {
             source: "repodna.toml".to_owned(),
         });
         let baseline = artifact(
-            vec![
-                finding("known", Severity::Warning),
-                previously_suppressed,
-            ],
+            vec![finding("known", Severity::Warning), previously_suppressed],
             &[],
         );
         let current = artifact(
@@ -736,11 +733,18 @@ mod tests {
         let messages =
             github_annotations_for_changes(&current, Severity::Warning, Some(introduced));
         assert_eq!(messages.len(), 2);
-        assert!(messages.iter().any(|text| text.contains("Cycle reactivated")));
+        assert!(
+            messages
+                .iter()
+                .any(|text| text.contains("Cycle reactivated"))
+        );
         assert!(messages.iter().any(|text| text.contains("Cycle new")));
         assert!(!messages.iter().any(|text| text.contains("Cycle known")));
         assert!(!messages.iter().any(|text| text.contains("Cycle low")));
-        assert_eq!(github_annotations_for_changes(&current, Severity::Warning, Some(&[])).len(), 0);
+        assert_eq!(
+            github_annotations_for_changes(&current, Severity::Warning, Some(&[])).len(),
+            0
+        );
         assert_eq!(github_annotations(&current, Severity::Warning).len(), 3);
     }
 
@@ -751,9 +755,8 @@ mod tests {
             .collect();
         let baseline = artifact(existing.clone(), &[]);
         let mut current_findings = existing;
-        current_findings.extend(
-            (0..55).map(|number| finding(&format!("new-{number}"), Severity::Warning)),
-        );
+        current_findings
+            .extend((0..55).map(|number| finding(&format!("new-{number}"), Severity::Warning)));
         let current = artifact(current_findings, &[]);
         let impact = evaluate(&current, Some(&baseline), CiPolicy::default());
         let introduced = &impact.changes.as_ref().unwrap().introduced;
