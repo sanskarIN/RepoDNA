@@ -41,9 +41,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (Some(checkpoint), Some(training), Some(test), None) =
         (args.next(), args.next(), args.next(), args.next())
     else {
-        return Err(
-            "usage: evaluate-repodna-ranker MODEL.json TRAIN.json TEST.json".into(),
-        );
+        return Err("usage: evaluate-repodna-ranker MODEL.json TRAIN.json TEST.json".into());
     };
 
     let checkpoint = bounded_read(Path::new(&checkpoint), MAX_CHECKPOINT_BYTES)?;
