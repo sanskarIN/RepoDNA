@@ -321,6 +321,8 @@ mod tests {
             weights,
             training_examples: 10,
             training_repositories: 3,
+
+            training_dataset_sha256: None,
         }
     }
 
