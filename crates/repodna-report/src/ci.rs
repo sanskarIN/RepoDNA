@@ -144,7 +144,11 @@ fn file_changes(baseline: &RepositoryDna, current: &RepositoryDna) -> CiFileChan
         .collect();
     let modified = after
         .iter()
-        .filter(|(path, hash)| before.get(*path).is_some_and(|old| old != *hash))
+        .filter(|(path, hash)| {
+            before.get(*path).is_some_and(|old| {
+                matches!((*old, **hash), (Some(before), Some(after)) if before != after)
+            })
+        })
         .map(|(path, _)| (*path).to_owned())
         .collect();
     CiFileChanges {
@@ -630,6 +634,55 @@ mod tests {
         assert!(
             summary.contains("Files changed in the last 90 days of history"),
             "{summary}"
+        );
+    }
+
+    #[test]
+    fn unknown_file_hashes_never_create_false_modified_signals() {
+        let mut baseline = artifact(
+            Vec::new(),
+            &[
+                ("src/changed.rs", "old"),
+                ("src/known_to_unknown.rs", "old"),
+                ("src/unknown_to_known.rs", "missing"),
+                ("src/both_unknown.rs", "missing"),
+            ],
+        );
+        let mut current = artifact(
+            Vec::new(),
+            &[
+                ("src/changed.rs", "new"),
+                ("src/known_to_unknown.rs", "missing"),
+                ("src/unknown_to_known.rs", "new"),
+                ("src/both_unknown.rs", "missing"),
+            ],
+        );
+        for path in ["src/unknown_to_known.rs", "src/both_unknown.rs"] {
+            baseline
+                .structure
+                .files
+                .iter_mut()
+                .find(|file| file.path == path)
+                .unwrap()
+                .hash = None;
+        }
+        for path in ["src/known_to_unknown.rs", "src/both_unknown.rs"] {
+            current
+                .structure
+                .files
+                .iter_mut()
+                .find(|file| file.path == path)
+                .unwrap()
+                .hash = None;
+        }
+        let outcome = evaluate(&current, Some(&baseline), CiPolicy::default());
+        assert_eq!(
+            json(&outcome)["changes"]["files"]["modified"],
+            serde_json::json!(["src/changed.rs"])
+        );
+        assert_eq!(
+            json(&outcome)["summary"]["Changed files"],
+            "1 (0 added, 0 removed, 1 modified)"
         );
     }
 
