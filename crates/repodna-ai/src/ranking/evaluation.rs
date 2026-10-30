@@ -373,13 +373,7 @@ mod tests {
 
     #[test]
     fn direct_evaluation_rejects_source_excerpts() {
-        let examples = [labeled(
-            "repo",
-            "question",
-            "E1",
-            EvidenceKind::Excerpt,
-            true,
-        )];
+        let examples = [labeled("repo", "question", "E1", EvidenceKind::Excerpt, true)];
         assert!(evaluate_original_order(&examples, 1).is_err());
         assert!(model().evaluate_retrieval(&examples, 1).is_err());
         assert!(model().evaluate_answerability(&examples, 0.5).is_err());
