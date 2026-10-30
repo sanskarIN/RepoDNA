@@ -119,7 +119,8 @@ fn frozen_evaluation_rejects_corrupt_or_unrelated_checkpoints() {
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("number of ranker weights"));
 
-    let mut model: serde_json::Value = serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    let mut model: serde_json::Value =
+        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
     model["training_examples"] = 7.into();
     let mismatched = dir.path().join("mismatched.json");
     fs::write(&mismatched, serde_json::to_vec(&model).unwrap()).unwrap();
