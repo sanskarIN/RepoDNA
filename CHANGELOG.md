@@ -6,6 +6,25 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+### Added
+
+- Measure native evidence-ranker relevance-score error on independently labeled
+  holdout data with Brier score, binary log loss, and calibration bands. These
+  diagnostics evaluate **label relevance**, not citation truth or language-model
+  accuracy (#144).
+- Compare hypothetical answerability thresholds and count incorrectly accepted
+  and missed answerable questions without enabling automatic abstention at
+  runtime (#139, #143).
+
+### Fixed
+
+- Reject train/holdout repository aliases despite casing or surrounding
+  whitespace, and apply canonical repository identities to direct retrieval
+  and answerability evaluation (#140, #142).
+- Make local ranker training deterministic across shuffled dataset rows;
+  reject duplicate and missing evidence identities and exclude source excerpts
+  from training datasets (#137, #141).
+
 ### Fixed
 
 - Keep scanning the native offline evidence digest for shorter observations when a
