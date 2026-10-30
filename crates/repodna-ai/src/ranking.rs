@@ -5,6 +5,7 @@
 
 mod annotation;
 mod evaluation;
+mod thresholds;
 
 pub use annotation::{AnnotationExample, annotation_template, finish_annotations};
 
