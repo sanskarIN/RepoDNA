@@ -548,6 +548,7 @@ mod tests {
     use repodna_core::evidence::Evidence;
     use repodna_core::finding::{Finding, FindingCategory};
     use repodna_core::model::SectionStatus;
+    use repodna_core::model::architecture::{ModuleEdge, ModuleKind, ModuleRecord};
     use repodna_core::model::identity::RepositoryIdentity;
     use repodna_core::model::metadata::AnalysisMetadata;
     use repodna_core::model::structure::{FileCategory, FileRecord};
@@ -795,5 +796,127 @@ mod tests {
         let outcome = evaluate(&current, Some(&baseline), CiPolicy::default());
         assert_eq!(outcome.changes.as_ref().unwrap().introduced.len(), 1);
         assert!(text(&outcome).contains("New findings"));
+    }
+
+    fn module(id: &str, path: &str) -> ModuleRecord {
+        ModuleRecord {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            path: path.to_owned(),
+            kind: ModuleKind::Directory,
+            language: None,
+            files: 1,
+            code_lines: 1,
+            fan_in: 0,
+            fan_out: 0,
+            instability: 0.0,
+            centrality: 0.0,
+            layer: None,
+            inferred: true,
+            confidence: Confidence::High,
+            importance: Vec::new(),
+            external_dependencies: Vec::new(),
+            evidence: Vec::new(),
+        }
+    }
+
+    fn module_edge(from: &str, to: &str) -> ModuleEdge {
+        ModuleEdge {
+            from: from.to_owned(),
+            to: to.to_owned(),
+            weight: 1,
+            confidence: Confidence::High,
+            samples: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn baseline_impact_links_changed_paths_to_closest_modules_and_adjacent_edges() {
+        let mut baseline = artifact(
+            Vec::new(),
+            &[
+                ("src/core/a.rs", "a"),
+                ("removed/old.rs", "old"),
+                ("src2/keep.rs", "same"),
+            ],
+        );
+        let mut current = artifact(
+            Vec::new(),
+            &[
+                ("src/core/a.rs", "b"),
+                ("src/core/new.rs", "new"),
+                ("src2/keep.rs", "same"),
+            ],
+        );
+        let modules = vec![
+            module("src", "src"),
+            module("src/core", "src/core"),
+            module("src2", "src2"),
+            module("removed", "removed"),
+            module("consumer", "consumer"),
+        ];
+        baseline.architecture.status = SectionStatus::Analyzed;
+        baseline.architecture.modules.clone_from(&modules);
+        baseline.architecture.module_edges = vec![
+            module_edge("consumer", "src/core"),
+            module_edge("src2", "removed"),
+        ];
+        current.architecture.status = SectionStatus::Analyzed;
+        current.architecture.modules = modules;
+        current.architecture.module_edges = vec![
+            module_edge("consumer", "src/core"),
+            module_edge("src2", "src/core"),
+        ];
+        let outcome = evaluate(&current, Some(&baseline), CiPolicy::default());
+        let report = json(&outcome);
+        let architecture = &report["changes"]["architecture"];
+        assert_eq!(
+            architecture["touchedModules"],
+            serde_json::json!(["removed", "src/core"])
+        );
+        assert_eq!(
+            architecture["directDependents"],
+            serde_json::json!(["consumer", "src2"])
+        );
+        assert_eq!(
+            architecture["moduleEdges"]["added"],
+            serde_json::json!([{"from": "src2", "to": "src/core"}])
+        );
+        assert_eq!(
+            architecture["moduleEdges"]["removed"],
+            serde_json::json!([{"from": "src2", "to": "removed"}])
+        );
+        assert_eq!(report["summary"]["Changed files"], "3 (1 added, 1 removed, 1 modified)");
+    }
+
+    #[test]
+    fn architecture_impact_is_omitted_when_either_snapshot_is_not_analyzed() {
+        let mut baseline = artifact(Vec::new(), &[("src/a.rs", "1")]);
+        let mut current = artifact(Vec::new(), &[("src/a.rs", "2")]);
+        current.architecture.status = SectionStatus::Analyzed;
+        current.architecture.modules = vec![module("src", "src")];
+        let missing_baseline = json(&evaluate(&current, Some(&baseline), CiPolicy::default()));
+        assert!(missing_baseline["changes"].get("architecture").is_none());
+        baseline.architecture.status = SectionStatus::Analyzed;
+        let fully_analyzed = json(&evaluate(&current, Some(&baseline), CiPolicy::default()));
+        assert_eq!(
+            fully_analyzed["changes"]["architecture"]["touchedModules"],
+            serde_json::json!(["src"])
+        );
+    }
+
+    #[test]
+    fn module_ownership_uses_directory_boundary_and_deepest_match() {
+        let mut current = artifact(Vec::new(), &[]);
+        current.architecture.modules = vec![
+            module("src", "src"),
+            module("src2", "src2"),
+            module("deep", "src/deep"),
+            module("root", ""),
+        ];
+        assert_eq!(module_for_path(&current, "src2/lib.rs"), Some("src2"));
+        assert_eq!(module_for_path(&current, "src/deep/lib.rs"), Some("deep"));
+        assert_eq!(module_for_path(&current, "src/other.rs"), Some("src"));
+        assert_eq!(module_for_path(&current, "notes.md"), Some("root"));
     }
 }
