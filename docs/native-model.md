@@ -1,6 +1,7 @@
 # RepoDNA Native Model — Development Plan
 
-Status: **offline extractive prototype**, not a trained language model.
+Status: **offline extractive native provider with an optional, locally trained
+evidence-relevance ranker**; not a generative language model.
 
 ## Goal
 
@@ -9,7 +10,9 @@ and mandatory network access while retaining measurable, cited evidence.
 
 ## Current prototype (`provider = "native"`)
 
-- Pure Rust, in-process evidence digest; no runtime, GPU, downloads, or model weights.
+- Pure Rust, in-process evidence digest; no external model runtime, GPU, or
+  automatic downloads. The default digest does not need model weights; users can
+  explicitly opt into a validated, locally stored ranker checkpoint.
 - Reuses bounded context selection, citation validation, cancellation and caching.
 - Converts up to twelve selected facts into cited statements without inference.
 - Does not execute repository commands or reproduce source excerpts.
