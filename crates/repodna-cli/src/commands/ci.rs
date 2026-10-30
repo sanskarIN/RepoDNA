@@ -10,6 +10,7 @@ use repodna_core::severity::Severity;
 use repodna_report::ci::{
     CiPolicy, evaluate, github_annotations_for_changes, json, markdown, text,
 };
+use repodna_report::sarif::sarif;
 
 use super::{Ctx, print, to_json};
 use crate::cli::{CiCmd, CiFormat, FailOn};
@@ -41,6 +42,17 @@ pub fn run(ctx: &Ctx, cmd: &CiCmd) -> Result<(), AppError> {
         CiFormat::Text => print(&text(&outcome))?,
         CiFormat::Markdown => print(&markdown(&outcome))?,
         CiFormat::Json => print(&to_json(&json(&outcome))?)?,
+        CiFormat::Sarif => {
+            let introduced = if cmd.new_only {
+                outcome
+                    .changes
+                    .as_ref()
+                    .map(|changes| changes.introduced.as_slice())
+            } else {
+                None
+            };
+            print(&to_json(&sarif(&loaded.dna, introduced))?)?;
+        }
         CiFormat::Github => {
             let minimum = policy.fail_on.unwrap_or(Severity::Warning);
             let introduced = if cmd.new_only {

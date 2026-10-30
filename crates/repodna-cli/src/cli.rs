@@ -637,6 +637,8 @@ pub enum FailOn {
 /// CI output formats.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum CiFormat {
+    /// Offline SARIF 2.1.0 for code-scanning integrations.
+    Sarif,
     /// Plain text.
     Text,
     /// Markdown, for job summaries.

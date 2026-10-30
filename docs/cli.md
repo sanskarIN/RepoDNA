@@ -120,6 +120,7 @@ repodna ci --format github --fail-on critical
 repodna ci --format markdown --summary-file "$GITHUB_STEP_SUMMARY"
 repodna ci --baseline main.json --new-only --fail-on warning
 repodna ci --baseline main.json --format json > pr-impact.json
+repodna ci --baseline main.json --new-only --format sarif > pr-code-scanning.sarif
 ```
 
 | Option | Meaning |
@@ -127,7 +128,7 @@ repodna ci --baseline main.json --format json > pr-impact.json
 | `--fail-on never\|info\|attention\|warning\|critical` | Exit with code 5 when findings at or above this severity exist (default `never`). |
 | `--baseline FILE` | Compare with a baseline artifact, for example one from the base branch. |
 | `--new-only` | With `--baseline`, fail only on findings the baseline does not have. |
-| `--format text\|markdown\|json\|github` | `github` prints GitHub Actions annotations plus a text summary. |
+| `--format text\|markdown\|json\|github\|sarif` | `github` prints GitHub Actions annotations plus a text summary; `sarif` writes SARIF 2.1.0 JSON. |
 | `--summary-file FILE` | Also write the Markdown summary to this file. |
 
 Suppressed findings never fail the job. With `--baseline --new-only --format github`,
@@ -136,6 +137,20 @@ findings do not consume the 50-annotation limit, and severity filtering still
 applies. Without `--new-only`, annotations include all active findings at or
 above the chosen severity. See [examples/ci](../examples/ci) for a complete
 workflow.
+
+**SARIF export:** `--format sarif` emits an offline SARIF 2.1.0 document
+for explicit import into code-scanning tools. It exports active findings that
+have a valid repository-relative file location; repository-wide findings
+without a safe source file are omitted rather than assigned invented locations.
+A file-evidence line is included only when known. Severity maps to SARIF
+`error` (critical), `warning` (warning), and `note` (attention/info).
+Suppressions remain excluded, and `--baseline --new-only` restricts
+results to introduced active findings. The existing `--fail-on` exit policy
+still applies independently of the export format. All output stays local
+unless the user explicitly uploads it. SARIF titles and paths can contain
+sensitive repository context; inspect before upload. This exporter does not
+automatically upload reports or claim code-scanning compatibility beyond its
+documented SARIF subset.
 
 With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
 `failed`, and `failing` fields and adds a structured `changes` object:

@@ -337,6 +337,52 @@ fn ci_github_new_only_does_not_annotate_unchanged_findings() {
 }
 
 #[test]
+fn ci_exports_sarif_from_real_repository_and_filters_existing_baseline() {
+    let env = Env::new();
+    let repo = env.work("widget");
+    sample_repo(&repo, false);
+    let repo_arg = path(&repo);
+    let analyzed = env.run(&["analyze", &repo_arg, "--format", "json", "-q"]);
+    assert_eq!(code(&analyzed), 0, "{}", stderr(&analyzed));
+    let baseline = env.work("baseline.json");
+    std::fs::write(&baseline, &analyzed.stdout).unwrap();
+    let baseline_arg = path(&baseline);
+
+    let all = env.run(&["ci", &repo_arg, "--format", "sarif", "-q"]);
+    assert_eq!(code(&all), 0, "{}", stderr(&all));
+    let full: serde_json::Value = serde_json::from_str(&stdout(&all)).unwrap();
+    assert_eq!(full["version"], "2.1.0");
+    assert_eq!(full["runs"][0]["tool"]["driver"]["name"], "RepoDNA");
+    assert!(full["runs"][0]["results"].as_array().is_some());
+    assert!(
+        full["runs"][0]["tool"]["driver"]["rules"]
+            .as_array()
+            .is_some()
+    );
+
+    let scoped = env.run(&[
+        "ci",
+        &repo_arg,
+        "--baseline",
+        &baseline_arg,
+        "--new-only",
+        "--format",
+        "sarif",
+        "-q",
+    ]);
+    assert_eq!(code(&scoped), 0, "{}", stderr(&scoped));
+    let filtered: serde_json::Value = serde_json::from_str(&stdout(&scoped)).unwrap();
+    assert_eq!(filtered["runs"][0]["results"].as_array().unwrap().len(), 0);
+    assert_eq!(
+        filtered["runs"][0]["tool"]["driver"]["rules"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+}
+
+#[test]
 fn ci_markdown_baseline_impact_appears_in_job_summary() {
     let env = Env::new();
     let repo = env.work("widget");
