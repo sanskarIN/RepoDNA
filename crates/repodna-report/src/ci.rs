@@ -5,6 +5,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 
+use repodna_core::finding::Finding;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::severity::Severity;
 
@@ -28,6 +29,51 @@ pub struct CiOutcome {
     pub failing: Vec<(Severity, String)>,
     /// `true` when the policy failed.
     pub failed: bool,
+    /// Typed, stable impact details when a baseline artifact was supplied.
+    pub changes: Option<CiChanges>,
+}
+
+/// Paths changed relative to the baseline, sorted for reproducible CI output.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CiFileChanges {
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
+    pub modified: Vec<String>,
+}
+
+/// Compact evidence references for a newly introduced or resolved finding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CiFindingChange {
+    pub id: String,
+    pub rule: String,
+    pub severity: Severity,
+    pub title: String,
+    pub paths: Vec<String>,
+}
+
+/// Structured CI impact, available only when --baseline is provided.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CiChanges {
+    pub files: CiFileChanges,
+    pub introduced: Vec<CiFindingChange>,
+    pub resolved: Vec<CiFindingChange>,
+}
+
+fn changed_findings<'a>(findings: impl IntoIterator<Item = &'a Finding>) -> Vec<CiFindingChange> {
+    let mut seen = HashSet::new();
+    let mut changes: Vec<_> = findings
+        .into_iter()
+        .filter(|finding| seen.insert(finding.id.as_str()))
+        .map(|finding| CiFindingChange {
+            id: finding.id.clone(),
+            rule: finding.rule.clone(),
+            severity: finding.severity,
+            title: finding.title.clone(),
+            paths: finding.paths.clone(),
+        })
+        .collect();
+    changes.sort_by(|a, b| b.severity.cmp(&a.severity).then_with(|| a.id.cmp(&b.id)));
+    changes
 }
 
 const COMPLEXITY_RULES: [&str; 4] = [
@@ -37,8 +83,8 @@ const COMPLEXITY_RULES: [&str; 4] = [
     "quality.large-file",
 ];
 
-/// Changed files between two snapshots: `(added, removed, modified)`.
-fn file_changes(baseline: &RepositoryDna, current: &RepositoryDna) -> (usize, usize, usize) {
+/// Changed paths between two snapshots. A missing hash is not evidence of a modification.
+fn file_changes(baseline: &RepositoryDna, current: &RepositoryDna) -> CiFileChanges {
     let before: BTreeMap<&str, Option<&String>> = baseline
         .structure
         .files
@@ -51,13 +97,26 @@ fn file_changes(baseline: &RepositoryDna, current: &RepositoryDna) -> (usize, us
         .iter()
         .map(|f| (f.path.as_str(), f.hash.as_ref()))
         .collect();
-    let added = after.keys().filter(|p| !before.contains_key(*p)).count();
-    let removed = before.keys().filter(|p| !after.contains_key(*p)).count();
+    let added = after
+        .keys()
+        .filter(|p| !before.contains_key(*p))
+        .map(|path| (*path).to_owned())
+        .collect();
+    let removed = before
+        .keys()
+        .filter(|p| !after.contains_key(*p))
+        .map(|path| (*path).to_owned())
+        .collect();
     let modified = after
         .iter()
         .filter(|(path, hash)| before.get(*path).is_some_and(|old| old != *hash))
-        .count();
-    (added, removed, modified)
+        .map(|(path, _)| (*path).to_owned())
+        .collect();
+    CiFileChanges {
+        added,
+        removed,
+        modified,
+    }
 }
 
 /// Evaluates an artifact, optionally against a baseline artifact (for example the base
@@ -68,12 +127,25 @@ pub fn evaluate(
     policy: CiPolicy,
 ) -> CiOutcome {
     let active: Vec<_> = dna.findings.iter().filter(|f| !f.is_suppressed()).collect();
+    // Suppressed baseline findings are not active; reactivating one is an
+    // introduced finding and must be eligible for --new-only policy checks.
     let known: HashSet<&str> = baseline
-        .map(|b| b.findings.iter().map(|f| f.id.as_str()).collect())
+        .map(|b| {
+            b.findings
+                .iter()
+                .filter(|f| !f.is_suppressed())
+                .map(|f| f.id.as_str())
+                .collect()
+        })
         .unwrap_or_default();
+    let mut seen_new = HashSet::new();
     let new: Vec<_> = active
         .iter()
-        .filter(|f| baseline.is_some() && !known.contains(f.id.as_str()))
+        .filter(|f| {
+            baseline.is_some()
+                && !known.contains(f.id.as_str())
+                && seen_new.insert(f.id.as_str())
+        })
         .copied()
         .collect();
     let count = |severity: Severity| active.iter().filter(|f| f.severity == severity).count();
@@ -81,30 +153,43 @@ pub fn evaluate(
     if let Some(revision) = &dna.analysis_metadata.revision {
         values.push(("Revision".to_owned(), revision.chars().take(12).collect()));
     }
-    match baseline {
-        Some(baseline) => {
-            let (added, removed, modified) = file_changes(baseline, dna);
+
+    let changes = if let Some(baseline) = baseline {
+        let files = file_changes(baseline, dna);
+        values.push((
+            "Changed files".to_owned(),
+            format!(
+                "{} ({} added, {} removed, {} modified)",
+                files.added.len() + files.removed.len() + files.modified.len(),
+                files.added.len(),
+                files.removed.len(),
+                files.modified.len()
+            ),
+        ));
+        let current: HashSet<&str> = active.iter().map(|f| f.id.as_str()).collect();
+        let resolved = baseline
+            .findings
+            .iter()
+            .filter(|f| !f.is_suppressed() && !current.contains(f.id.as_str()));
+        Some(CiChanges {
+            files,
+            introduced: changed_findings(new.iter().copied()),
+            resolved: changed_findings(resolved),
+        })
+    } else {
+        if let Some(recent) = &dna.insights.recent_changes {
             values.push((
-                "Changed files".to_owned(),
+                // The window ends at the latest commit, not today.
                 format!(
-                    "{} ({added} added, {removed} removed, {modified} modified)",
-                    added + removed + modified
+                    "Files changed in the last {} days of history",
+                    recent.window_days
                 ),
+                thousands(recent.files_changed),
             ));
         }
-        None => {
-            if let Some(recent) = &dna.insights.recent_changes {
-                values.push((
-                    // The window ends at the latest commit, not today.
-                    format!(
-                        "Files changed in the last {} days of history",
-                        recent.window_days
-                    ),
-                    thousands(recent.files_changed),
-                ));
-            }
-        }
-    }
+        None
+    };
+
     values.push((
         "Complexity signals".to_owned(),
         active
@@ -152,16 +237,17 @@ pub fn evaluate(
             count(Severity::Info)
         ),
     ));
-    if let Some(baseline) = baseline {
-        let current: HashSet<&str> = active.iter().map(|f| f.id.as_str()).collect();
-        let resolved = baseline
-            .findings
-            .iter()
-            .filter(|f| !f.is_suppressed() && !current.contains(f.id.as_str()))
-            .count();
-        values.push(("New findings".to_owned(), new.len().to_string()));
-        values.push(("Resolved findings".to_owned(), resolved.to_string()));
+    if let Some(changes) = &changes {
+        values.push((
+            "New findings".to_owned(),
+            changes.introduced.len().to_string(),
+        ));
+        values.push((
+            "Resolved findings".to_owned(),
+            changes.resolved.len().to_string(),
+        ));
     }
+
     let considered = if policy.new_only && baseline.is_some() {
         new
     } else {
@@ -180,6 +266,7 @@ pub fn evaluate(
         values,
         failed: !failing.is_empty(),
         failing,
+        changes,
     }
 }
 
@@ -242,14 +329,37 @@ pub fn json(outcome: &CiOutcome) -> serde_json::Value {
         .iter()
         .map(|(label, value)| (label.clone(), serde_json::Value::String(value.clone())))
         .collect();
-    serde_json::json!({
+    let mut result = serde_json::json!({
         "summary": values,
         "failed": outcome.failed,
         "failing": outcome.failing.iter().map(|(severity, title)| serde_json::json!({
             "severity": severity.label(),
             "title": title,
         })).collect::<Vec<_>>(),
-    })
+    });
+    if let Some(changes) = &outcome.changes {
+        let finding_json = |f: &CiFindingChange| {
+            serde_json::json!({
+                "id": f.id,
+                "rule": f.rule,
+                "severity": f.severity,
+                "title": f.title,
+                "paths": f.paths,
+            })
+        };
+        result["changes"] = serde_json::json!({
+            "files": {
+                "added": changes.files.added,
+                "removed": changes.files.removed,
+                "modified": changes.files.modified,
+            },
+            "findings": {
+                "introduced": changes.introduced.iter().map(finding_json).collect::<Vec<_>>(),
+                "resolved": changes.resolved.iter().map(finding_json).collect::<Vec<_>>(),
+            }
+        });
+    }
+    result
 }
 
 fn escape_data(text: &str) -> String {
@@ -448,4 +558,106 @@ mod tests {
         assert!(line.contains("a, b%0Acycle 100%25"));
         assert!(!line.contains('\n'));
     }
+
+    #[test]
+    fn machine_readable_baseline_impact_is_stable_and_identifiable() {
+        let baseline = artifact(
+            vec![
+                finding("old", Severity::Attention).path("src/old.rs"),
+                finding("same", Severity::Info),
+            ],
+            &[("z.rs", "1"), ("gone.rs", "2"), ("same.rs", "1")],
+        );
+        let current = artifact(
+            vec![
+                finding("same", Severity::Info),
+                finding("new-low", Severity::Attention).path("src/new.rs"),
+                finding("new-high", Severity::Critical).path("src/important.rs"),
+            ],
+            &[("new.rs", "1"), ("a.rs", "1"), ("z.rs", "2"), ("same.rs", "1")],
+        );
+        let outcome = evaluate(
+            &current,
+            Some(&baseline),
+            CiPolicy {
+                fail_on: Some(Severity::Warning),
+                new_only: true,
+            },
+        );
+        let report = json(&outcome);
+        assert_eq!(
+            report["changes"]["files"]["added"],
+            serde_json::json!(["a.rs", "new.rs"])
+        );
+        assert_eq!(
+            report["changes"]["files"]["removed"],
+            serde_json::json!(["gone.rs"])
+        );
+        assert_eq!(
+            report["changes"]["files"]["modified"],
+            serde_json::json!(["z.rs"])
+        );
+        assert_eq!(report["summary"]["New findings"], "2");
+        assert_eq!(report["summary"]["Resolved findings"], "1");
+        assert_eq!(report["changes"]["findings"]["introduced"][0]["severity"], "critical");
+        assert_eq!(
+            report["changes"]["findings"]["introduced"][0]["paths"][0],
+            "src/important.rs"
+        );
+        assert_eq!(
+            report["changes"]["findings"]["introduced"][1]["id"],
+            finding("new-low", Severity::Attention).id
+        );
+        assert_eq!(
+            report["changes"]["findings"]["resolved"][0]["id"],
+            finding("old", Severity::Attention).id
+        );
+        assert!(outcome.failed);
+        assert_eq!(outcome.failing.len(), 1);
+    }
+
+    #[test]
+    fn suppressed_baseline_finding_is_introduced_when_reactivated() {
+        let mut suppressed = finding("reactivated", Severity::Warning);
+        suppressed.suppressed = Some(repodna_core::finding::Suppression {
+            reason: "Previously reviewed".to_owned(),
+            source: "repodna.toml".to_owned(),
+        });
+        let baseline = artifact(vec![suppressed], &[]);
+        let current = artifact(vec![finding("reactivated", Severity::Warning)], &[]);
+        let outcome = evaluate(
+            &current,
+            Some(&baseline),
+            CiPolicy {
+                fail_on: Some(Severity::Warning),
+                new_only: true,
+            },
+        );
+        assert_eq!(outcome.changes.as_ref().unwrap().introduced.len(), 1);
+        assert!(outcome.changes.as_ref().unwrap().resolved.is_empty());
+        assert!(outcome.failed);
+    }
+
+    #[test]
+    fn no_baseline_keeps_existing_json_contract_without_changes() {
+        let outcome = evaluate(
+            &artifact(vec![finding("single", Severity::Info)], &[]),
+            None,
+            CiPolicy::default(),
+        );
+        assert!(outcome.changes.is_none());
+        assert!(json(&outcome).get("changes").is_none());
+        assert!(json(&outcome).get("summary").is_some());
+    }
+
+    #[test]
+    fn repeated_imported_finding_ids_do_not_duplicate_delta_counts() {
+        let duplicate = finding("repeat", Severity::Warning);
+        let current = artifact(vec![duplicate.clone(), duplicate], &[]);
+        let baseline = artifact(Vec::new(), &[]);
+        let outcome = evaluate(&current, Some(&baseline), CiPolicy::default());
+        assert_eq!(outcome.changes.unwrap().introduced.len(), 1);
+        assert!(text(&outcome).contains("New findings"));
+    }
+
 }
