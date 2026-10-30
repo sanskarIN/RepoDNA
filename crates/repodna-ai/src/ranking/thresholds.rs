@@ -70,7 +70,10 @@ mod tests {
 
     #[test]
     fn sweep_reports_false_answers_and_missed_answers() {
-        let holdout = [sample("repo-positive", true), sample("repo-negative", false)];
+        let holdout = [
+            sample("repo-positive", true),
+            sample("repo-negative", false),
+        ];
         // Zero weights give each candidate a relevance score of exactly 0.5.
         let points = model()
             .evaluate_answerability_sweep(&holdout, &[0.25, 0.5, 0.75])
