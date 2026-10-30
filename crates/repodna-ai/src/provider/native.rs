@@ -350,7 +350,6 @@ mod tests {
             weights,
             training_examples: 8,
             training_repositories: 2,
-
             training_dataset_sha256: None,
         };
         std::fs::write(&checkpoint, serde_json::to_vec(&model).unwrap()).unwrap();
