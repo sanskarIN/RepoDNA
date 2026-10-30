@@ -142,9 +142,7 @@ pub fn evaluate(
     let new: Vec<_> = active
         .iter()
         .filter(|f| {
-            baseline.is_some()
-                && !known.contains(f.id.as_str())
-                && seen_new.insert(f.id.as_str())
+            baseline.is_some() && !known.contains(f.id.as_str()) && seen_new.insert(f.id.as_str())
         })
         .copied()
         .collect();
@@ -574,7 +572,12 @@ mod tests {
                 finding("new-low", Severity::Attention).path("src/new.rs"),
                 finding("new-high", Severity::Critical).path("src/important.rs"),
             ],
-            &[("new.rs", "1"), ("a.rs", "1"), ("z.rs", "2"), ("same.rs", "1")],
+            &[
+                ("new.rs", "1"),
+                ("a.rs", "1"),
+                ("z.rs", "2"),
+                ("same.rs", "1"),
+            ],
         );
         let outcome = evaluate(
             &current,
@@ -599,7 +602,10 @@ mod tests {
         );
         assert_eq!(report["summary"]["New findings"], "2");
         assert_eq!(report["summary"]["Resolved findings"], "1");
-        assert_eq!(report["changes"]["findings"]["introduced"][0]["severity"], "critical");
+        assert_eq!(
+            report["changes"]["findings"]["introduced"][0]["severity"],
+            "critical"
+        );
         assert_eq!(
             report["changes"]["findings"]["introduced"][0]["paths"][0],
             "src/important.rs"
@@ -659,5 +665,4 @@ mod tests {
         assert_eq!(outcome.changes.as_ref().unwrap().introduced.len(), 1);
         assert!(text(&outcome).contains("New findings"));
     }
-
 }
