@@ -12,9 +12,9 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
-    LabeledEvidence, MAX_EXAMPLES, RankerModel, RepositoryProvenance, checkpoint_fingerprint,
-    family_manifest_fingerprint, training_data_fingerprint, validate_repository_families,
-    validate_repository_split, MODEL_FORMAT, PAIRWISE_MODEL_FORMAT,
+    LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, PAIRWISE_MODEL_FORMAT, RankerModel,
+    RepositoryProvenance, checkpoint_fingerprint, family_manifest_fingerprint,
+    training_data_fingerprint, validate_repository_families, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -71,7 +71,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         args.next(),
         args.next(),
         args.next(),
-    ) else {
+    )
+    else {
         return Err(
             "usage: verify-repodna-benchmark REPORT.json MODEL.json TRAIN.json VALIDATION.json TEST.json [FAMILIES.json]"
                 .into(),
@@ -94,7 +95,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let test_sha256 = training_data_fingerprint(&test).map_err(io::Error::other)?;
     let model_sha256 = checkpoint_fingerprint(&model).map_err(io::Error::other)?;
 
-    require_string(&report, "provenanceSchema", "repodna-benchmark-provenance/1")?;
+    require_string(
+        &report,
+        "provenanceSchema",
+        "repodna-benchmark-provenance/1",
+    )?;
     require_string(&report, "selectionMetric", "validationNdcgAt5")?;
     require_string(&report, "trainingDatasetSha256", &training_sha256)?;
     require_string(&report, "validationDatasetSha256", &validation_sha256)?;
@@ -138,9 +143,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let candidate_objective = item["objective"]
             .as_str()
             .ok_or("invalid candidate objective")?;
-        let candidate_epochs = item["epochs"]
-            .as_u64()
-            .ok_or("invalid candidate epochs")?;
+        let candidate_epochs = item["epochs"].as_u64().ok_or("invalid candidate epochs")?;
         if !(0.0..=1.0).contains(&score) {
             return Err("candidate validation score is out of range".into());
         }
@@ -150,7 +153,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     if winner != Some((objective, epochs)) {
-        return Err("selected objective and epochs differ from the reported validation winner".into());
+        return Err(
+            "selected objective and epochs differ from the reported validation winner".into(),
+        );
     }
 
     let manifest_hash = if let Some(path) = family_path {

@@ -49,9 +49,7 @@ pub fn checkpoint_fingerprint(model: &RankerModel) -> Result<String, String> {
 /// canonicalized. License expressions are preserved as trimmed strings, since
 /// their case and content may have distinct semantics. Invalid or duplicated
 /// repository entries fail closed.
-pub fn family_manifest_fingerprint(
-    manifest: &[RepositoryProvenance],
-) -> Result<String, String> {
+pub fn family_manifest_fingerprint(manifest: &[RepositoryProvenance]) -> Result<String, String> {
     if manifest.is_empty() || manifest.len() > MAX_FAMILY_MANIFEST_ENTRIES {
         return Err("invalid family manifest entry count for fingerprint".into());
     }
@@ -115,15 +113,24 @@ mod tests {
 
         let mut changed = original.clone();
         changed[0].family = "different-family".into();
-        assert_ne!(hash, family_manifest_fingerprint(&changed).expect("changed family"));
+        assert_ne!(
+            hash,
+            family_manifest_fingerprint(&changed).expect("changed family")
+        );
 
         let mut changed = original.clone();
         changed[0].revision = "b".repeat(40);
-        assert_ne!(hash, family_manifest_fingerprint(&changed).expect("changed revision"));
+        assert_ne!(
+            hash,
+            family_manifest_fingerprint(&changed).expect("changed revision")
+        );
 
         let mut changed = original.clone();
         changed[0].license = "Apache-2.0".into();
-        assert_ne!(hash, family_manifest_fingerprint(&changed).expect("changed license"));
+        assert_ne!(
+            hash,
+            family_manifest_fingerprint(&changed).expect("changed license")
+        );
 
         let duplicate = [family("repo-a", "x"), family(" REPO-A ", "y")];
         assert!(family_manifest_fingerprint(&duplicate).is_err());

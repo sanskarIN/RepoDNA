@@ -33,12 +33,7 @@ fn prepare(dir: &Path, manifest: Option<&Path>) -> (PathBuf, PathBuf) {
     (report, model)
 }
 
-fn verify(
-    report: &Path,
-    model: &Path,
-    validation: &Path,
-    manifest: Option<&Path>,
-) -> Output {
+fn verify(report: &Path, model: &Path, validation: &Path, manifest: Option<&Path>) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_verify-repodna-benchmark"));
     command
         .arg(report)
@@ -49,12 +44,13 @@ fn verify(
     if let Some(path) = manifest {
         command.arg(path);
     }
-    command.output().expect("execute benchmark identity verification")
+    command
+        .output()
+        .expect("execute benchmark identity verification")
 }
 
 fn records(name: &str) -> Vec<serde_json::Value> {
-    serde_json::from_slice(&fs::read(fixture(name)).expect("read fixture"))
-        .expect("parse fixture")
+    serde_json::from_slice(&fs::read(fixture(name)).expect("read fixture")).expect("parse fixture")
 }
 
 #[test]
@@ -74,7 +70,10 @@ fn verifies_saved_model_and_all_label_splits_without_manifest() {
     assert_eq!(result["familyManifestChecked"], false);
     assert!(result["familyManifestSha256"].is_null());
     assert_eq!(
-        result["checkpointSha256"].as_str().expect("checkpoint digest").len(),
+        result["checkpointSha256"]
+            .as_str()
+            .expect("checkpoint digest")
+            .len(),
         64
     );
 
@@ -88,7 +87,12 @@ fn verifies_reordered_family_records_but_rejects_changed_provenance() {
     let dir = tempfile::tempdir().expect("temporary directory");
     let family = fixture("families.demo.json");
     let (report, model) = prepare(dir.path(), Some(&family));
-    let first = verify(&report, &model, &fixture("holdout.demo.json"), Some(&family));
+    let first = verify(
+        &report,
+        &model,
+        &fixture("holdout.demo.json"),
+        Some(&family),
+    );
     assert!(first.status.success());
 
     let mut entries = records("families.demo.json");
@@ -99,9 +103,17 @@ fn verifies_reordered_family_records_but_rejects_changed_provenance() {
         .to_uppercase()
         .into();
     let permuted = dir.path().join("reordered-families.json");
-    fs::write(&permuted, serde_json::to_vec(&entries).expect("serializable"))
-        .expect("write manifest");
-    let reordered = verify(&report, &model, &fixture("holdout.demo.json"), Some(&permuted));
+    fs::write(
+        &permuted,
+        serde_json::to_vec(&entries).expect("serializable"),
+    )
+    .expect("write manifest");
+    let reordered = verify(
+        &report,
+        &model,
+        &fixture("holdout.demo.json"),
+        Some(&permuted),
+    );
     assert!(
         reordered.status.success(),
         "{}",
@@ -110,9 +122,17 @@ fn verifies_reordered_family_records_but_rejects_changed_provenance() {
 
     entries[0]["revision"] = "b".repeat(40).into();
     let changed = dir.path().join("modified-families.json");
-    fs::write(&changed, serde_json::to_vec(&entries).expect("serializable"))
-        .expect("write changed manifest");
-    let rejected = verify(&report, &model, &fixture("holdout.demo.json"), Some(&changed));
+    fs::write(
+        &changed,
+        serde_json::to_vec(&entries).expect("serializable"),
+    )
+    .expect("write changed manifest");
+    let rejected = verify(
+        &report,
+        &model,
+        &fixture("holdout.demo.json"),
+        Some(&changed),
+    );
     assert!(!rejected.status.success());
     assert!(rejected.stdout.is_empty());
     assert!(String::from_utf8_lossy(&rejected.stderr).contains("familyManifestSha256"));
@@ -131,27 +151,27 @@ fn detects_tampered_validation_labels_and_checkpoint_weights() {
     let original = validation[0]["relevant"].as_bool().expect("label bool");
     validation[0]["relevant"] = (!original).into();
     let altered = dir.path().join("altered-validation.json");
-    fs::write(&altered, serde_json::to_vec(&validation).expect("serializable"))
-        .expect("write altered labels");
+    fs::write(
+        &altered,
+        serde_json::to_vec(&validation).expect("serializable"),
+    )
+    .expect("write altered labels");
     let invalid = verify(&report, &model, &altered, None);
     assert!(!invalid.status.success());
     assert!(invalid.stdout.is_empty());
     assert!(String::from_utf8_lossy(&invalid.stderr).contains("validationDatasetSha256"));
 
     let mut checkpoint: serde_json::Value =
-        serde_json::from_slice(&fs::read(&model).expect("read model"))
-            .expect("parse model");
+        serde_json::from_slice(&fs::read(&model).expect("read model")).expect("parse model");
     let old = checkpoint["weights"][0].as_f64().expect("finite weight");
     checkpoint["weights"][0] = (old + 0.01).into();
     let tampered = dir.path().join("modified-model.json");
-    fs::write(&tampered, serde_json::to_vec(&checkpoint).expect("serializable"))
-        .expect("write changed model");
-    let invalid = verify(
-        &report,
+    fs::write(
         &tampered,
-        &fixture("holdout.demo.json"),
-        None,
-    );
+        serde_json::to_vec(&checkpoint).expect("serializable"),
+    )
+    .expect("write changed model");
+    let invalid = verify(&report, &tampered, &fixture("holdout.demo.json"), None);
     assert!(!invalid.status.success());
     assert!(invalid.stdout.is_empty());
     assert!(String::from_utf8_lossy(&invalid.stderr).contains("checkpointSha256"));
@@ -162,20 +182,17 @@ fn rejects_modified_report_objective_and_missing_schema() {
     let dir = tempfile::tempdir().expect("temporary directory");
     let (report, model) = prepare(dir.path(), None);
     let mut payload: serde_json::Value =
-        serde_json::from_slice(&fs::read(&report).expect("read report"))
-            .expect("parse report");
+        serde_json::from_slice(&fs::read(&report).expect("read report")).expect("parse report");
     payload["selectedObjective"] = "invalid".into();
     let changed = dir.path().join("changed-report.json");
-    fs::write(&changed, serde_json::to_vec(&payload).expect("serialize"))
-        .expect("write report");
+    fs::write(&changed, serde_json::to_vec(&payload).expect("serialize")).expect("write report");
     let invalid = verify(&changed, &model, &fixture("holdout.demo.json"), None);
     assert!(!invalid.status.success());
     assert!(invalid.stdout.is_empty());
 
     payload["selectedObjective"] = "pointwise".into();
     payload["provenanceSchema"] = "unknown/0".into();
-    fs::write(&changed, serde_json::to_vec(&payload).expect("serialize"))
-        .expect("write report");
+    fs::write(&changed, serde_json::to_vec(&payload).expect("serialize")).expect("write report");
     let invalid = verify(&changed, &model, &fixture("holdout.demo.json"), None);
     assert!(!invalid.status.success());
     assert!(invalid.stdout.is_empty());
