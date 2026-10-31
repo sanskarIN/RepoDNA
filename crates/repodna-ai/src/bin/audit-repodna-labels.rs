@@ -10,8 +10,8 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
-    LabeledEvidence, MAX_EXAMPLES, RepositoryProvenance, training_data_fingerprint,
-    validate_repository_families, validate_repository_split,
+    LabeledEvidence, MAX_EXAMPLES, RepositoryProvenance, family_manifest_fingerprint,
+    training_data_fingerprint, validate_repository_families, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -129,7 +129,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     validate_repository_split(&train, &validation).map_err(io::Error::other)?;
     validate_repository_split(&train, &test).map_err(io::Error::other)?;
     validate_repository_split(&validation, &test).map_err(io::Error::other)?;
-    let family_audit = if let Some(path) = family_path {
+    let (family_audit, family_sha256) = if let Some(path) = family_path {
         if fs::metadata(&path)?.len() > MAX_MANIFEST_BYTES {
             return Err("family manifest exceeds 2 MiB".into());
         }
@@ -138,12 +138,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             return Err("family manifest grew beyond 2 MiB".into());
         }
         let entries: Vec<RepositoryProvenance> = serde_json::from_slice(&bytes)?;
-        Some(
-            validate_repository_families(&train, &validation, &test, &entries)
-                .map_err(io::Error::other)?,
-        )
+        let checked = validate_repository_families(&train, &validation, &test, &entries)
+            .map_err(io::Error::other)?;
+        let digest = family_manifest_fingerprint(&entries).map_err(io::Error::other)?;
+        (Some(checked), Some(digest))
     } else {
-        None
+        (None, None)
     };
 
     let train_summary = summary(&train)?;
@@ -220,6 +220,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let report = serde_json::json!({
         "structuralChecksPassed": true,
         "familyManifestChecked": family_audit.is_some(),
+        "familyManifestSha256": family_sha256,
         "familySplit": family_audit,
         "training": train_summary,
         "validation": validation_summary,
