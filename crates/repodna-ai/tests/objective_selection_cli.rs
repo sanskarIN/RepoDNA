@@ -150,7 +150,10 @@ fn reshuffling_training_rows_preserves_selected_checkpoint() {
     assert_eq!(first["selectedObjective"], second["selectedObjective"]);
     assert_eq!(first["selectedEpochs"], second["selectedEpochs"]);
     assert_eq!(first["candidates"], second["candidates"]);
-    assert_eq!(fs::read(original_out).unwrap(), fs::read(shuffled_out).unwrap());
+    assert_eq!(
+        fs::read(original_out).unwrap(),
+        fs::read(shuffled_out).unwrap()
+    );
 }
 
 #[test]
