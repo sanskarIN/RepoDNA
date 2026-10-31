@@ -78,17 +78,15 @@ impl RankerModel {
                 if positives.is_empty() || negatives.is_empty() {
                     continue;
                 }
-                // Iterate positives cyclically and rotate through negatives
-                // after each positive cycle. At most 2 * examples pairs per
-                // epoch across all groups, capped further per question.
-                let pair_count = positives
-                    .len()
-                    .max(negatives.len())
-                    .saturating_mul(2)
-                    .min(MAX_PAIRS_PER_GROUP);
+                // Visit every positive and negative at least once when
+                // the group fits the cap. A second cycle rotates negatives,
+                // preventing equal-size groups from comparing only matching
+                // array positions. At most twice the sample count per epoch.
+                let cycle_length = positives.len().max(negatives.len());
+                let pair_count = cycle_length.saturating_mul(2).min(MAX_PAIRS_PER_GROUP);
                 for i in 0..pair_count {
                     let positive = positives[i % positives.len()];
-                    let negative = negatives[(i / positives.len()) % negatives.len()];
+                    let negative = negatives[(i + i / cycle_length) % negatives.len()];
                     let p = features(query, &positive.evidence);
                     let n = features(query, &negative.evidence);
                     let mut diff = [0.0_f64; FEATURE_COUNT];
