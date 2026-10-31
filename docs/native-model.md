@@ -258,3 +258,31 @@ whether two runs used identical labeled data, so review it before publishing.
 The local input datasets may contain sensitive repository metadata. The results
 measure labeled evidence relevance, **not** factual accuracy of natural-language
 explanations.
+
+## Reproduce a saved checkpoint from training labels
+
+After training, you can verify whether a saved ranker agrees with a fresh,
+deterministic fit from the **supplied** labeled training file. This operates
+entirely offline and never modifies the checkpoint:
+
+```sh
+cargo run --locked -p repodna-ai --bin reproduce-repodna-ranker -- \
+  ranker-local.json train-reviewed.json
+```
+
+The default **60 epochs** matches the current `train-repodna-ranker` CLI.
+If a checkpoint was created using the library API with another epoch count,
+pass it as a third argument (between 1 and 200). The command validates
+checkpoint weights and training examples, checks the stored training counts,
+fits the same CPU-only linear ranker again, and compares the learned weights
+within a documented small floating-point tolerance. It exits with an error
+and prints no JSON on a mismatch. It prints only aggregate metadata on success.
+
+This is a **reproducibility check, not cryptographic dataset provenance**.
+Different datasets can sometimes produce identical input features and weights;
+a modified model could also be retrained or substituted deliberately.
+The command cannot establish that the labels were originally used, are
+correct, are properly licensed, or generalize to other repositories. Keep the
+original training data and its independently recorded digest in your model
+release records. Run frozen evaluation on a separate, untouched test split
+to measure performance, not just reproducibility.
