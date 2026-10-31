@@ -73,7 +73,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Strict improvement; epochs are ascending so ties select fewer epochs.
         if chosen
             .as_ref()
-            .is_none_or(|( _, _, previous)| ndcg > *previous)
+            .is_none_or(|(_, _, previous)| ndcg > *previous)
         {
             chosen = Some((epochs, model, ndcg));
         }
