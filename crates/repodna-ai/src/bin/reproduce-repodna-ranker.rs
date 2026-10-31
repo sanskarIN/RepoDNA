@@ -1,7 +1,8 @@
 //! Reproduce native ranker weights from a labeled training set, entirely offline.
 //!
 //! Usage: `reproduce-repodna-ranker MODEL.json TRAIN.json [EPOCHS]`
-//! The default 60 epochs matches train-repodna-ranker's current settings.
+//! The default 60 epochs matches the native ranker training CLIs.
+//! The checkpoint format selects pointwise or pairwise deterministic fitting.
 //! Matching weights are a reproducibility check, NOT proof of dataset identity:
 //! different label files may yield identical feature vectors and weights.
 
@@ -9,7 +10,9 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
-use repodna_ai::ranking::{LabeledEvidence, MAX_EXAMPLES, RankerModel};
+use repodna_ai::ranking::{
+    LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, PAIRWISE_MODEL_FORMAT, RankerModel,
+};
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_CHECKPOINT_BYTES: u64 = 64 * 1024;
@@ -60,7 +63,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Match the same deterministic learning algorithm used by the trainer.
     // It validates repository IDs, evidence IDs, source excerpt exclusion,
     // label balance and input bounds before fitting weights.
-    let reproduced = RankerModel::train(&training, epochs).map_err(io::Error::other)?;
+    let reproduced = match model.format.as_str() {
+        MODEL_FORMAT => RankerModel::train(&training, epochs),
+        PAIRWISE_MODEL_FORMAT => RankerModel::train_pairwise(&training, epochs),
+        _ => return Err("unsupported ranker checkpoint format".into()),
+    }
+    .map_err(io::Error::other)?;
     if model.format != reproduced.format
         || model.training_examples != reproduced.training_examples
         || model.training_repositories != reproduced.training_repositories
