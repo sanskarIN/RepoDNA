@@ -38,17 +38,17 @@ fn compare(manifest: Option<&Path>, output: &Path) -> Output {
 
 fn write_manifest(dir: &Path, entries: &[serde_json::Value]) -> PathBuf {
     let path = dir.join("families.json");
-    fs::write(&path, serde_json::to_vec(entries).unwrap()).unwrap();
+    fs::write(&path, serde_json::to_vec(entries).expect("valid test fixture and output")).expect("valid test fixture and output");
     path
 }
 
 fn manifest() -> Vec<serde_json::Value> {
-    serde_json::from_slice(&fs::read(fixture("families.demo.json")).unwrap()).unwrap()
+    serde_json::from_slice(&fs::read(fixture("families.demo.json")).expect("valid test fixture and output")).expect("valid test fixture and output")
 }
 
 #[test]
 fn valid_family_manifest_is_checked_before_training_and_audit() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().expect("valid test fixture and output");
     let family_path = fixture("families.demo.json");
     let audited = audit(Some(&family_path));
     assert!(
@@ -56,7 +56,7 @@ fn valid_family_manifest_is_checked_before_training_and_audit() {
         "{}",
         String::from_utf8_lossy(&audited.stderr)
     );
-    let summary: serde_json::Value = serde_json::from_slice(&audited.stdout).unwrap();
+    let summary: serde_json::Value = serde_json::from_slice(&audited.stdout).expect("valid test fixture and output");
     assert_eq!(summary["structuralChecksPassed"], true);
     assert_eq!(summary["familyManifestChecked"], true);
     assert_eq!(summary["familySplit"]["manifestRepositories"], 5);
@@ -71,25 +71,25 @@ fn valid_family_manifest_is_checked_before_training_and_audit() {
         "{}",
         String::from_utf8_lossy(&trained.stderr)
     );
-    let report: serde_json::Value = serde_json::from_slice(&trained.stdout).unwrap();
+    let report: serde_json::Value = serde_json::from_slice(&trained.stdout).expect("valid test fixture and output");
     assert_eq!(report["familyManifestChecked"], true);
     assert_eq!(report["familySplit"], summary["familySplit"]);
     assert!(saved.exists());
 
     let clean = audit(None);
     assert!(clean.status.success());
-    let clean_report: serde_json::Value = serde_json::from_slice(&clean.stdout).unwrap();
+    let clean_report: serde_json::Value = serde_json::from_slice(&clean.stdout).expect("valid test fixture and output");
     assert_eq!(clean_report["familyManifestChecked"], false);
     assert!(clean_report["familySplit"].is_null());
 
-    let text = String::from_utf8(audited.stdout).unwrap();
+    let text = String::from_utf8(audited.stdout).expect("valid test fixture and output");
     assert!(!text.contains("synthetic-alpha"));
     assert!(!text.contains("synthetic-family-1"));
 }
 
 #[test]
 fn different_repository_ids_in_one_family_are_rejected_in_both_clis() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().expect("valid test fixture and output");
     let mut entries = manifest();
     entries[2]["family"] = " SYNTHETIC-FAMILY-1 ".into();
     let path = write_manifest(dir.path(), &entries);
@@ -112,7 +112,7 @@ fn different_repository_ids_in_one_family_are_rejected_in_both_clis() {
 
 #[test]
 fn missing_or_aliased_repository_entries_fail_closed() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().expect("valid test fixture and output");
     let mut entries = manifest();
     entries.pop();
     let path = write_manifest(dir.path(), &entries);
@@ -142,7 +142,7 @@ fn missing_or_aliased_repository_entries_fail_closed() {
 
 #[test]
 fn malformed_metadata_and_excessive_size_are_refused() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().expect("valid test fixture and output");
     let mut entries = manifest();
     entries[0]["revision"] = "main".into();
     let path = write_manifest(dir.path(), &entries);
@@ -156,12 +156,12 @@ fn malformed_metadata_and_excessive_size_are_refused() {
     assert!(!audit(Some(&path)).status.success());
 
     let too_large = dir.path().join("oversized.json");
-    fs::write(&too_large, vec![b' '; 2 * 1024 * 1024 + 1]).unwrap();
+    fs::write(&too_large, vec![b' '; 2 * 1024 * 1024 + 1]).expect("valid test fixture and output");
     let result = audit(Some(&too_large));
     assert!(!result.status.success());
     assert!(String::from_utf8_lossy(&result.stderr).contains("2 MiB"));
 
     let malformed = dir.path().join("wrong.json");
-    fs::write(&malformed, b"{}").unwrap();
+    fs::write(&malformed, b"{}").expect("valid test fixture and output");
     assert!(!audit(Some(&malformed)).status.success());
 }
