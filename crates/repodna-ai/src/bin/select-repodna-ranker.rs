@@ -97,6 +97,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let test_scores = model
         .evaluate_relevance_scores(&test)
         .map_err(io::Error::other)?;
+    let test_pair_ordering = model
+        .evaluate_pair_ordering(&test)
+        .map_err(io::Error::other)?;
+    let validation_pair_ordering = model
+        .evaluate_pair_ordering(&validation)
+        .map_err(io::Error::other)?;
     let validation_baseline =
         evaluate_original_order(&validation, EVALUATION_K).map_err(io::Error::other)?;
 
@@ -123,6 +129,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "testOriginalOrderBaseline": test_baseline,
         "testRetrievalDelta": test_delta,
         "testRelevanceScoreDiagnostics": test_scores,
+        "validationPairOrdering": validation_pair_ordering,
+        "testPairOrdering": test_pair_ordering,
         "note": "Synthetic fixtures are only pipeline tests. Epochs are selected from repository-disjoint validation labels; final test labels are evaluated after selection and must not be used to retune the model. Ranking relevance is not factual correctness."
     });
     let mut stdout = io::stdout().lock();
