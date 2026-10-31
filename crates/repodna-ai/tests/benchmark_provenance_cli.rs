@@ -49,6 +49,28 @@ fn verify(report: &Path, model: &Path, validation: &Path, manifest: Option<&Path
         .expect("execute benchmark identity verification")
 }
 
+fn verify_replay(
+    report: &Path,
+    model: &Path,
+    validation: &Path,
+    manifest: Option<&Path>,
+) -> Output {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_verify-repodna-benchmark"));
+    command
+        .arg(report)
+        .arg(model)
+        .arg(fixture("train.demo.json"))
+        .arg(validation)
+        .arg(fixture("test.demo.json"));
+    if let Some(path) = manifest {
+        command.arg(path);
+    }
+    command
+        .arg("--replay")
+        .output()
+        .expect("execute full benchmark replay")
+}
+
 fn records(name: &str) -> Vec<serde_json::Value> {
     serde_json::from_slice(&fs::read(fixture(name)).expect("read fixture")).expect("parse fixture")
 }
@@ -196,4 +218,109 @@ fn rejects_modified_report_objective_and_missing_schema() {
     let invalid = verify(&changed, &model, &fixture("holdout.demo.json"), None);
     assert!(!invalid.status.success());
     assert!(invalid.stdout.is_empty());
+}
+
+#[test]
+fn full_replay_verifies_all_ten_candidates_and_final_test_without_manifest() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let (report, model) = prepare(dir.path(), None);
+    let replayed = verify_replay(&report, &model, &fixture("holdout.demo.json"), None);
+    assert!(
+        replayed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&replayed.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&replayed.stdout).expect("valid replay JSON");
+    assert_eq!(value["replayVerified"], true);
+    assert_eq!(value["verified"], true);
+    assert!(!String::from_utf8_lossy(&replayed.stdout).contains("synthetic-alpha"));
+}
+
+#[test]
+fn full_replay_verifies_family_gated_training() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let family = fixture("families.demo.json");
+    let (report, model) = prepare(dir.path(), Some(&family));
+    let replayed = verify_replay(&report, &model, &fixture("holdout.demo.json"), Some(&family));
+    assert!(
+        replayed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&replayed.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&replayed.stdout).expect("valid replay JSON");
+    assert_eq!(value["replayVerified"], true);
+    assert_eq!(value["familyManifestChecked"], true);
+}
+
+#[test]
+fn full_replay_rejects_tampered_validation_pair_agreement_while_identity_passes() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let (report, model) = prepare(dir.path(), None);
+    let mut payload: serde_json::Value =
+        serde_json::from_slice(&fs::read(&report).expect("read report")).expect("parse report");
+    let original = payload["candidates"][0]["validationPairAgreement"]
+        .as_f64()
+        .expect("pair agreement");
+    payload["candidates"][0]["validationPairAgreement"] =
+        (if original > 0.5 { 0.25 } else { 0.75 }).into();
+    let edited = dir.path().join("tampered-candidates.json");
+    fs::write(&edited, serde_json::to_vec(&payload).expect("JSON report"))
+        .expect("write tampered report");
+    let identity_only = verify(&edited, &model, &fixture("holdout.demo.json"), None);
+    assert!(identity_only.status.success());
+    let replay = verify_replay(&edited, &model, &fixture("holdout.demo.json"), None);
+    assert!(!replay.status.success());
+    assert!(replay.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&replay.stderr).contains("candidates"));
+}
+
+#[test]
+fn full_replay_rejects_modified_final_test_metrics() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let (report, model) = prepare(dir.path(), None);
+    let mut payload: serde_json::Value =
+        serde_json::from_slice(&fs::read(&report).expect("read report")).expect("parse report");
+    let original = payload["finalTestRetrieval"]["ndcgAtK"]
+        .as_f64()
+        .expect("final NDCG");
+    payload["finalTestRetrieval"]["ndcgAtK"] =
+        (if original > 0.5 { 0.25 } else { 0.75 }).into();
+    let edited = dir.path().join("tampered-final-test.json");
+    fs::write(&edited, serde_json::to_vec(&payload).expect("JSON report"))
+        .expect("write tampered report");
+    assert!(verify(&edited, &model, &fixture("holdout.demo.json"), None).status.success());
+    let replay = verify_replay(&edited, &model, &fixture("holdout.demo.json"), None);
+    assert!(!replay.status.success());
+    assert!(replay.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&replay.stderr).contains("finalTestRetrieval"));
+}
+
+#[test]
+fn replay_mode_rejects_misordered_candidates_and_argument_misuse() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let (report, model) = prepare(dir.path(), None);
+    let mut payload: serde_json::Value =
+        serde_json::from_slice(&fs::read(&report).expect("read report")).expect("parse report");
+    payload["candidates"].as_array_mut().expect("candidate array").swap(1, 2);
+    let edited = dir.path().join("reordered-candidates.json");
+    fs::write(&edited, serde_json::to_vec(&payload).expect("JSON report"))
+        .expect("write tampered report");
+    let replay = verify_replay(&edited, &model, &fixture("holdout.demo.json"), None);
+    assert!(!replay.status.success());
+    assert!(replay.stdout.is_empty());
+
+    let misplaced = Command::new(env!("CARGO_BIN_EXE_verify-repodna-benchmark"))
+        .arg(&report)
+        .arg(&model)
+        .arg(fixture("train.demo.json"))
+        .arg(fixture("holdout.demo.json"))
+        .arg(fixture("test.demo.json"))
+        .arg("--replay")
+        .arg("--replay")
+        .output()
+        .expect("launch malformed replay");
+    assert!(!misplaced.status.success());
+    assert!(misplaced.stdout.is_empty());
 }
