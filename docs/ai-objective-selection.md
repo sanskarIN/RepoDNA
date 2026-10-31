@@ -84,3 +84,12 @@ repository IDs differ. See [family provenance validation](ai-family-splits.md)
 for the JSON format and limitations. Without a manifest, only distinct
 repository IDs are enforced; `familyManifestChecked: false` must not be
 interpreted as clone-family independence.
+
+## Saved benchmark identity and verification
+
+The model-comparison JSON report includes cryptographic fingerprints for the
+checkpoint, all three label splits, and the curated family manifest (if
+supplied). Save the report and use the offline
+[`verify-repodna-benchmark` command](ai-benchmark-provenance.md) to
+confirm that those artifacts still match. This is an identity check, not
+independent verification of reviewer claims or model performance.
