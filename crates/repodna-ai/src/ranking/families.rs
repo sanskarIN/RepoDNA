@@ -155,7 +155,7 @@ mod tests {
             entry("source-c", "family-c"),
         ];
         let result =
-            validate_repository_families(&training, &validation, &test, &manifest).unwrap();
+            validate_repository_families(&training, &validation, &test, &manifest).expect("valid test fixture and output");
         assert_eq!(result.manifest_repositories, 4);
         assert_eq!(result.training_families, 1);
         assert_eq!(result.validation_families, 1);
@@ -173,7 +173,7 @@ mod tests {
             entry("different-c", "independent"),
         ];
         let error =
-            validate_repository_families(&training, &validation, &test, &manifest).unwrap_err();
+            validate_repository_families(&training, &validation, &test, &manifest).expect_err("expected validation failure");
         assert!(error.contains("family leakage"));
     }
 
@@ -185,7 +185,7 @@ mod tests {
         let manifest = [entry("first", "a"), entry("second", "b")];
         assert!(
             validate_repository_families(&training, &validation, &test, &manifest)
-                .unwrap_err()
+                .expect_err("expected validation failure")
                 .contains("missing")
         );
 
@@ -197,7 +197,7 @@ mod tests {
         ];
         assert!(
             validate_repository_families(&training, &validation, &test, &extra)
-                .unwrap_err()
+                .expect_err("expected validation failure")
                 .contains("absent")
         );
 
@@ -209,7 +209,7 @@ mod tests {
         ];
         assert!(
             validate_repository_families(&training, &validation, &test, &aliases)
-                .unwrap_err()
+                .expect_err("expected validation failure")
                 .contains("duplicate")
         );
     }
