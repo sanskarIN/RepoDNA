@@ -92,13 +92,13 @@ pub fn validate_repository_families(
                 .get(&repo)
                 .ok_or("family manifest is missing a labeled repository")?;
             used_repositories.insert(repo);
-            if let Some(previous) = family_owner.insert(family, split) {
-                if previous != split {
-                    return Err(
-                        "repository family leakage across training, validation and final test"
-                            .into(),
-                    );
-                }
+            if family_owner
+                .insert(family, split)
+                .is_some_and(|previous| previous != split)
+            {
+                return Err(
+                    "repository family leakage across training, validation and final test".into(),
+                );
             }
             family_counts[split].insert(family);
         }
