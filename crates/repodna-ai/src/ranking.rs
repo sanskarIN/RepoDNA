@@ -9,6 +9,7 @@ mod families;
 mod fingerprint;
 mod pair_ordering;
 mod pairwise;
+mod provenance;
 mod scores;
 mod thresholds;
 
@@ -24,6 +25,7 @@ pub use families::{
 pub use fingerprint::training_data_fingerprint;
 pub use pair_ordering::PairOrderingEvaluation;
 pub use pairwise::PAIRWISE_MODEL_FORMAT;
+pub use provenance::{checkpoint_fingerprint, family_manifest_fingerprint};
 pub use scores::{RelevanceScoreBin, RelevanceScoreEvaluation, SCORE_BIN_COUNT};
 
 use crate::context::{EvidenceItem, EvidenceKind};
