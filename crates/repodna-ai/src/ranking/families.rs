@@ -154,9 +154,8 @@ mod tests {
             entry("source-b", "family-b"),
             entry("source-c", "family-c"),
         ];
-        let result =
-            validate_repository_families(&training, &validation, &test, &manifest)
-                .expect("valid test fixture and output");
+        let result = validate_repository_families(&training, &validation, &test, &manifest)
+            .expect("valid test fixture and output");
         assert_eq!(result.manifest_repositories, 4);
         assert_eq!(result.training_families, 1);
         assert_eq!(result.validation_families, 1);
@@ -173,9 +172,8 @@ mod tests {
             entry("different-b", " SAME-SOURCE-FAMILY "),
             entry("different-c", "independent"),
         ];
-        let error =
-            validate_repository_families(&training, &validation, &test, &manifest)
-                .expect_err("expected validation failure");
+        let error = validate_repository_families(&training, &validation, &test, &manifest)
+            .expect_err("expected validation failure");
         assert!(error.contains("family leakage"));
     }
 
