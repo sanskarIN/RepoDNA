@@ -41,8 +41,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let training = load(Path::new(&training))?;
     let holdout = load(Path::new(&holdout))?;
     validate_repository_split(&training, &holdout).map_err(io::Error::other)?;
-    let model = RankerModel::train_pairwise(&training, DEFAULT_EPOCHS)
-        .map_err(io::Error::other)?;
+    let model = RankerModel::train_pairwise(&training, DEFAULT_EPOCHS).map_err(io::Error::other)?;
     let retrieval = model
         .evaluate_retrieval(&holdout, 5)
         .map_err(io::Error::other)?;
@@ -53,8 +52,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let delta = retrieval.delta_from(baseline).map_err(io::Error::other)?;
     // Use identical labels and epoch count for an honest objective comparison.
     // Neither model selection nor hyperparameters may use the final test set.
-    let pointwise = RankerModel::train(&training, DEFAULT_EPOCHS)
-        .map_err(io::Error::other)?;
+    let pointwise = RankerModel::train(&training, DEFAULT_EPOCHS).map_err(io::Error::other)?;
     let pointwise_retrieval = pointwise
         .evaluate_retrieval(&holdout, 5)
         .map_err(io::Error::other)?;
