@@ -58,7 +58,9 @@ impl RankerModel {
     ) -> Result<RelevanceScoreEvaluation, String> {
         self.validate()?;
         if self.format != super::MODEL_FORMAT {
-            return Err("pairwise ranker scores are not calibrated for relevance diagnostics".into());
+            return Err(
+                "pairwise ranker scores are not calibrated for relevance diagnostics".into(),
+            );
         }
         validate_holdout(holdout)?;
 
