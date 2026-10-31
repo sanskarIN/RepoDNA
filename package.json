@@ -28,7 +28,7 @@
     "format:check": "prettier --check \"apps/web/src/**/*.{ts,tsx,css}\" \"packages/*/src/**/*.ts\" \"packages/*/test/**/*.ts\""
   },
   "devDependencies": {
-    "marked": "18.1.1",
+    "marked": "18.1.2",
     "prettier": "3.9.10",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
