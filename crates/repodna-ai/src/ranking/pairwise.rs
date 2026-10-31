@@ -187,6 +187,11 @@ mod tests {
         );
         assert!(model.weights.iter().all(|weight| weight.is_finite()));
         model.validate().unwrap();
+        // Pairwise scores are relative ordering signals, never calibrated
+        // probabilities or absolute answerability confidence.
+        assert!(model.evaluate_relevance_scores(&data).is_err());
+        assert!(model.evaluate_answerability(&data, 0.5).is_err());
+        assert!(model.evaluate_answerability_sweep(&data, &[0.4, 0.6]).is_err());
         let package = &data[0].evidence;
         let commit = &data[1].evidence;
         assert!(
