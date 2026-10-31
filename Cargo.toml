@@ -62,7 +62,7 @@ flate2 = "1.1.10"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 
 # Rendering (SVG to PNG with bundled fonts; no system fonts are loaded)
-resvg = { version = "0.48.1", default-features = false, features = ["text"] }
+resvg = { version = "0.49.0", default-features = false, features = ["text"] }
 skrifa = { version = "0.48.0", default-features = false, features = ["std"] }
 
 # Parallelism
