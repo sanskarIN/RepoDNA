@@ -37,11 +37,17 @@ The selector fits 10 candidate models: pointwise and pairwise at 10, 30,
 60, 100, and 150 epochs. It chooses the maximum **validation NDCG@5**,
 preferring pointwise and then fewer epochs for exact ties. The CLI saves
 the winning checkpoint with its format and training-data fingerprint,
-and prints aggregate validation scores.
+and prints aggregate validation scores and per-query-group pair-ordering
+agreement (correct/tied/incorrect relative order) for each candidate.
+The extra pair-ordering statistics are **diagnostic only** and do not
+change the configured selection criterion.
 
 Only after selection is finalized does the tool measure the selected
-checkpoint on the untouched final test, reporting retrieval metrics
-and deltas from original evidence order. The final test is **not**
+checkpoint on the untouched final test, reporting retrieval metrics,
+within-question pair-ordering agreement, and deltas from original evidence
+order. Pair ordering is a micro-averaged metric: questions with many
+positive-negative pairs contribute more weight; report pair counts and
+evaluated question counts alongside it. The final test is **not**
 used for objective, epoch, or threshold selection. To avoid selection
 bias, do not use these results to retune and retest on the same
 final-test repositories.
