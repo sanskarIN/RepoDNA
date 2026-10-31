@@ -208,3 +208,77 @@ fn frozen_evaluation_accepts_reordered_training_labels_and_marks_legacy_unverifi
     let legacy_report: serde_json::Value = serde_json::from_slice(&legacy_output.stdout).unwrap();
     assert_eq!(legacy_report["trainingFingerprintVerified"], false);
 }
+
+#[test]
+fn frozen_pairwise_evaluation_reports_ranking_without_false_probability_metrics() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("pairwise.json");
+    let trained = Command::new(env!("CARGO_BIN_EXE_train-repodna-pairwise"))
+        .arg(fixture("train.demo.json"))
+        .arg(fixture("holdout.demo.json"))
+        .arg(&checkpoint)
+        .output()
+        .expect("launch pairwise trainer");
+    assert!(
+        trained.status.success(),
+        "trainer stderr: {}",
+        String::from_utf8_lossy(&trained.stderr)
+    );
+    let before = fs::read(&checkpoint).unwrap();
+    let evaluated = evaluate(
+        &checkpoint,
+        &fixture("train.demo.json"),
+        &fixture("holdout.demo.json"),
+    );
+    assert!(
+        evaluated.status.success(),
+        "evaluator stderr: {}",
+        String::from_utf8_lossy(&evaluated.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&evaluated.stdout).unwrap();
+    assert_eq!(report["modelFormat"], "repodna-evidence-pairwise/1");
+    assert_eq!(report["scoreSemantics"], "relative-ranking-only");
+    assert_eq!(report["trainingFingerprintVerified"], true);
+    assert_eq!(report["retrieval"]["evaluatedQueries"], 2);
+    assert_eq!(report["pairOrdering"]["totalPairs"], 2);
+    assert!(report["retrievalDelta"]["ndcgAtK"].is_number());
+    // It is mathematically incorrect to treat a pairwise score as an
+    // absolute relevance probability or claim-confidence threshold.
+    for absent in [
+        "holdout",
+        "holdoutAccuracy",
+        "relevanceScoreDiagnostics",
+        "answerability",
+        "answerabilitySweep",
+        "answerableDetectionRate",
+        "unanswerableAbstentionRate",
+    ] {
+        assert!(report.get(absent).is_none(), "unexpected field: {absent}");
+    }
+    assert_eq!(before, fs::read(&checkpoint).unwrap());
+    let output = String::from_utf8(evaluated.stdout).unwrap();
+    assert!(!output.contains("synthetic-alpha"));
+    assert!(!output.contains("\"relevant\":"));
+}
+
+#[test]
+fn frozen_pairwise_evaluation_checks_original_training_fingerprint() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("pairwise.json");
+    let trained = Command::new(env!("CARGO_BIN_EXE_train-repodna-pairwise"))
+        .arg(fixture("train.demo.json"))
+        .arg(fixture("holdout.demo.json"))
+        .arg(&checkpoint)
+        .output()
+        .unwrap();
+    assert!(trained.status.success());
+    let mut records: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    records[0]["relevant"] = false.into();
+    let modified = dir.path().join("different-training.json");
+    fs::write(&modified, serde_json::to_vec(&records).unwrap()).unwrap();
+    let result = evaluate(&checkpoint, &modified, &fixture("holdout.demo.json"));
+    assert!(!result.status.success());
+    assert!(result.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("fingerprint mismatch"));
+}
