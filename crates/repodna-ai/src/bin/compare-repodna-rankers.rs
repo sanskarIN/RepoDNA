@@ -9,8 +9,7 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
-    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order,
-    validate_repository_split,
+    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -68,7 +67,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 _ => unreachable!("static objective list"),
             }
             .map_err(io::Error::other)?;
-            let score = model.evaluate_retrieval(&validation, K).map_err(io::Error::other)?;
+            let score = model
+                .evaluate_retrieval(&validation, K)
+                .map_err(io::Error::other)?;
             if score.evaluated_queries == 0 {
                 return Err("validation has no answerable questions".into());
             }
@@ -90,12 +91,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Final test metrics are calculated strictly AFTER choosing objective and
     // epochs. Never use these values to select the next model revision.
-    let test_retrieval = model.evaluate_retrieval(&test, K).map_err(io::Error::other)?;
+    let test_retrieval = model
+        .evaluate_retrieval(&test, K)
+        .map_err(io::Error::other)?;
     if test_retrieval.evaluated_queries == 0 {
         return Err("final test has no answerable questions".into());
     }
     let baseline = evaluate_original_order(&test, K).map_err(io::Error::other)?;
-    let delta = test_retrieval.delta_from(baseline).map_err(io::Error::other)?;
+    let delta = test_retrieval
+        .delta_from(baseline)
+        .map_err(io::Error::other)?;
 
     // Export only after validation and final evaluation have succeeded.
     // create_new refuses an accidental overwrite of a prior experiment.
