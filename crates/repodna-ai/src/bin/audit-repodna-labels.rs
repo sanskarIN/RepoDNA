@@ -10,10 +10,12 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
-    LabeledEvidence, MAX_EXAMPLES, training_data_fingerprint, validate_repository_split,
+    LabeledEvidence, MAX_EXAMPLES, RepositoryProvenance, training_data_fingerprint,
+    validate_repository_families, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
 
 fn load(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {
     if fs::metadata(path)?.len() > MAX_DATASET_BYTES {
@@ -106,10 +108,17 @@ fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
-    let (Some(train), Some(validation), Some(test), None) =
-        (args.next(), args.next(), args.next(), args.next())
-    else {
-        return Err("usage: audit-repodna-labels TRAIN.json VALIDATION.json TEST.json".into());
+    let (Some(train), Some(validation), Some(test), family_path, None) = (
+        args.next(),
+        args.next(),
+        args.next(),
+        args.next(),
+        args.next(),
+    ) else {
+        return Err(
+            "usage: audit-repodna-labels TRAIN.json VALIDATION.json TEST.json [FAMILIES.json]"
+                .into(),
+        );
     };
     let train = load(Path::new(&train))?;
     let validation = load(Path::new(&validation))?;
@@ -120,6 +129,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     validate_repository_split(&train, &validation).map_err(io::Error::other)?;
     validate_repository_split(&train, &test).map_err(io::Error::other)?;
     validate_repository_split(&validation, &test).map_err(io::Error::other)?;
+    let family_audit = if let Some(path) = family_path {
+        if fs::metadata(&path)?.len() > MAX_MANIFEST_BYTES {
+            return Err("family manifest exceeds 2 MiB".into());
+        }
+        let bytes = fs::read(&path)?;
+        if bytes.len() as u64 > MAX_MANIFEST_BYTES {
+            return Err("family manifest grew beyond 2 MiB".into());
+        }
+        let entries: Vec<RepositoryProvenance> = serde_json::from_slice(&bytes)?;
+        Some(
+            validate_repository_families(&train, &validation, &test, &entries)
+                .map_err(io::Error::other)?,
+        )
+    } else {
+        None
+    };
 
     let train_summary = summary(&train)?;
     let validation_summary = summary(&validation)?;
@@ -194,6 +219,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // details, original questions, repository IDs or individual labels.
     let report = serde_json::json!({
         "structuralChecksPassed": true,
+        "familyManifestChecked": family_audit.is_some(),
+        "familySplit": family_audit,
         "training": train_summary,
         "validation": validation_summary,
         "finalTest": test_summary,

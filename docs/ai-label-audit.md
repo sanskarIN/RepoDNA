@@ -63,3 +63,13 @@ Run the audit before using `compare-repodna-rankers`; examine warnings
 and any suspicious repeated content before drawing conclusions from
 validation or test metrics. All operations stay local, with a maximum
 of 8 MiB and 100,000 labels per JSON file.
+
+## Optional fork-family disjointness gate
+
+For reviewed benchmarks, provide a manually curated repository-family
+manifest as an **additional final argument** (`FAMILIES.json`). This
+rejects cross-split forks and copied-repository families even when the
+repository IDs differ. See [family provenance validation](ai-family-splits.md)
+for the JSON format and limitations. Without a manifest, only distinct
+repository IDs are enforced; `familyManifestChecked: false` must not be
+interpreted as clone-family independence.
