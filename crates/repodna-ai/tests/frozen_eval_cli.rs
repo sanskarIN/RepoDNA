@@ -72,6 +72,7 @@ fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
     }
     assert_eq!(evaluation_report["trainingRepositories"], 2);
     assert_eq!(evaluation_report["trainingExamples"], 6);
+    assert_eq!(evaluation_report["trainingFingerprintVerified"], true);
     assert_eq!(before, fs::read(&checkpoint).unwrap());
 
     // No source paths, labels, or repository identifiers are included in the
@@ -160,4 +161,50 @@ fn frozen_evaluation_rejects_repeated_holdout_labels_and_oversized_model() {
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("65536-byte limit"));
+}
+
+#[test]
+fn frozen_evaluation_rejects_modified_training_labels_with_unchanged_counts() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("ranker.json");
+    assert!(train(&checkpoint).status.success());
+    let mut records: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    records[0]["relevant"] = false.into();
+    let changed = dir.path().join("changed-labels.json");
+    fs::write(&changed, serde_json::to_vec(&records).unwrap()).unwrap();
+
+    let output = evaluate(&checkpoint, &changed, &fixture("holdout.demo.json"));
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("fingerprint mismatch"));
+}
+
+#[test]
+fn frozen_evaluation_accepts_reordered_training_labels_and_marks_legacy_unverified() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("ranker.json");
+    assert!(train(&checkpoint).status.success());
+    let mut records: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    records.reverse();
+    let reversed = dir.path().join("reversed.json");
+    fs::write(&reversed, serde_json::to_vec_pretty(&records).unwrap()).unwrap();
+
+    let checked = evaluate(&checkpoint, &reversed, &fixture("holdout.demo.json"));
+    assert!(checked.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&checked.stdout).unwrap();
+    assert_eq!(report["trainingFingerprintVerified"], true);
+
+    let mut old: serde_json::Value =
+        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    old.as_object_mut()
+        .unwrap()
+        .remove("training_dataset_sha256");
+    let legacy = dir.path().join("legacy.json");
+    fs::write(&legacy, serde_json::to_vec(&old).unwrap()).unwrap();
+    let legacy_output = evaluate(&legacy, &reversed, &fixture("holdout.demo.json"));
+    assert!(legacy_output.status.success());
+    let legacy_report: serde_json::Value = serde_json::from_slice(&legacy_output.stdout).unwrap();
+    assert_eq!(legacy_report["trainingFingerprintVerified"], false);
 }

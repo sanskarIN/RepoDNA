@@ -43,11 +43,16 @@ fn trainer_emits_valid_checkpoint_and_complete_diagnostics() {
     model.validate().unwrap();
     assert_eq!(model.training_examples, 6);
     assert_eq!(model.training_repositories, 2);
+    assert_eq!(model.training_dataset_sha256.as_ref().unwrap().len(), 64);
 
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(report["modelFormat"], model.format);
     assert_eq!(report["trainingExamples"], 6);
     assert_eq!(report["trainingRepositories"], 2);
+    assert_eq!(
+        report["trainingDatasetSha256"],
+        model.training_dataset_sha256.as_ref().unwrap().as_str()
+    );
     assert_eq!(report["holdout"]["samples"], 4);
     assert_eq!(report["retrieval"]["k"], 5);
     assert_eq!(report["originalOrderBaseline"]["k"], 5);
