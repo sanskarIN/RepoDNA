@@ -287,6 +287,32 @@ original training data and its independently recorded digest in your model
 release records. Run frozen evaluation on a separate, untouched test split
 to measure performance, not just reproducibility.
 
+## Frozen evaluation of either checkpoint objective
+
+The offline `evaluate-repodna-ranker` command accepts saved pointwise
+(`repodna-evidence-ranker/1`) and pairwise
+(`repodna-evidence-pairwise/1`) checkpoints:
+
+```sh
+cargo run --locked -p repodna-ai --bin evaluate-repodna-ranker -- \
+  native-pairwise.json train-reviewed.json untouched-test-reviewed.json
+```
+
+The evaluator validates that the supplied training labels match the saved
+checkpoint fingerprint where present, rejects canonical repository overlap,
+and reports NDCG@5, retrieval deltas, and exact within-question ordering
+agreement against independently reviewed test labels. It does not change
+weights or make any network request.
+
+For **pointwise** checkpoints, the existing relevance classification,
+score-calibration diagnostics, and hypothetical answerability thresholds
+remain available. For **pairwise** checkpoints, those statistics are
+intentionally **omitted**, because pairwise training optimizes relative
+ordering, not absolute relevance probabilities. The `scoreSemantics` field
+makes this distinction explicit. An omitted probability statistic is not a
+missing measurement; it is a deliberate safeguard against misleading
+confidence estimates. Neither format proves claim accuracy.
+
 ## Experimental pairwise evidence ranking
 
 RepoDNA also offers an alternative **locally trained ranking objective** that

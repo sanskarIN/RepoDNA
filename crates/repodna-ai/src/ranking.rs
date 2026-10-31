@@ -286,7 +286,7 @@ impl RankerModel {
         Ok(result)
     }
 
-    /// Ranking probability, not a calibrated semantic confidence score.
+    /// Sigmoid-transformed ranking score; pairwise values are not calibrated probabilities.
     pub fn relevance(&self, query: &str, item: &EvidenceItem) -> f64 {
         self.weights
             .iter()
