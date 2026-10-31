@@ -242,7 +242,12 @@ fn full_replay_verifies_family_gated_training() {
     let dir = tempfile::tempdir().expect("temporary directory");
     let family = fixture("families.demo.json");
     let (report, model) = prepare(dir.path(), Some(&family));
-    let replayed = verify_replay(&report, &model, &fixture("holdout.demo.json"), Some(&family));
+    let replayed = verify_replay(
+        &report,
+        &model,
+        &fixture("holdout.demo.json"),
+        Some(&family),
+    );
     assert!(
         replayed.status.success(),
         "{}",
@@ -285,12 +290,15 @@ fn full_replay_rejects_modified_final_test_metrics() {
     let original = payload["finalTestRetrieval"]["ndcgAtK"]
         .as_f64()
         .expect("final NDCG");
-    payload["finalTestRetrieval"]["ndcgAtK"] =
-        (if original > 0.5 { 0.25 } else { 0.75 }).into();
+    payload["finalTestRetrieval"]["ndcgAtK"] = (if original > 0.5 { 0.25 } else { 0.75 }).into();
     let edited = dir.path().join("tampered-final-test.json");
     fs::write(&edited, serde_json::to_vec(&payload).expect("JSON report"))
         .expect("write tampered report");
-    assert!(verify(&edited, &model, &fixture("holdout.demo.json"), None).status.success());
+    assert!(
+        verify(&edited, &model, &fixture("holdout.demo.json"), None)
+            .status
+            .success()
+    );
     let replay = verify_replay(&edited, &model, &fixture("holdout.demo.json"), None);
     assert!(!replay.status.success());
     assert!(replay.stdout.is_empty());
@@ -303,7 +311,10 @@ fn replay_mode_rejects_misordered_candidates_and_argument_misuse() {
     let (report, model) = prepare(dir.path(), None);
     let mut payload: serde_json::Value =
         serde_json::from_slice(&fs::read(&report).expect("read report")).expect("parse report");
-    payload["candidates"].as_array_mut().expect("candidate array").swap(1, 2);
+    payload["candidates"]
+        .as_array_mut()
+        .expect("candidate array")
+        .swap(1, 2);
     let edited = dir.path().join("reordered-candidates.json");
     fs::write(&edited, serde_json::to_vec(&payload).expect("JSON report"))
         .expect("write tampered report");

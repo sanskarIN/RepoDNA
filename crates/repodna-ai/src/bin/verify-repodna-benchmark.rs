@@ -54,7 +54,6 @@ fn require_string(
     Ok(())
 }
 
-
 /// Compare a replayed metric object with the saved report. Integer counts and
 /// object structures must match exactly; floating-point metrics tolerate
 /// tiny platform-dependent rounding but never arbitrary score changes.
@@ -129,7 +128,9 @@ fn replay_metrics(
                 _ => unreachable!("static objective list"),
             }
             .map_err(io::Error::other)?;
-            let retrieval = model.evaluate_retrieval(validation, 5).map_err(io::Error::other)?;
+            let retrieval = model
+                .evaluate_retrieval(validation, 5)
+                .map_err(io::Error::other)?;
             let ordering = model
                 .evaluate_pair_ordering(validation)
                 .map_err(io::Error::other)?;
@@ -172,19 +173,26 @@ fn replay_metrics(
     {
         return Err("replayed model weights or training metadata differ".into());
     }
-    let final_retrieval = selected.evaluate_retrieval(test, 5).map_err(io::Error::other)?;
+    let final_retrieval = selected
+        .evaluate_retrieval(test, 5)
+        .map_err(io::Error::other)?;
     if final_retrieval.evaluated_queries == 0 {
         return Err("replay final test contains no answerable questions".into());
     }
-    let original = repodna_ai::ranking::evaluate_original_order(test, 5)
+    let original =
+        repodna_ai::ranking::evaluate_original_order(test, 5).map_err(io::Error::other)?;
+    let delta = final_retrieval
+        .delta_from(original)
         .map_err(io::Error::other)?;
-    let delta = final_retrieval.delta_from(original).map_err(io::Error::other)?;
     let ordering = selected
         .evaluate_pair_ordering(test)
         .map_err(io::Error::other)?;
     for (name, expected) in [
         ("finalTestRetrieval", serde_json::to_value(final_retrieval)?),
-        ("finalTestOriginalOrderBaseline", serde_json::to_value(original)?),
+        (
+            "finalTestOriginalOrderBaseline",
+            serde_json::to_value(original)?,
+        ),
         ("finalTestRetrievalDelta", serde_json::to_value(delta)?),
         ("finalTestPairOrdering", serde_json::to_value(ordering)?),
     ] {
