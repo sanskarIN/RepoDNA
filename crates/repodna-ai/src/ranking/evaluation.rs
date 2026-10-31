@@ -147,6 +147,9 @@ impl RankerModel {
         threshold: f64,
     ) -> Result<AnswerabilityEvaluation, String> {
         self.validate()?;
+        if self.format != super::MODEL_FORMAT {
+            return Err("pairwise ranker scores cannot be used as answerability thresholds".into());
+        }
         if !threshold.is_finite() || !(0.0..=1.0).contains(&threshold) {
             return Err("answerability threshold must be finite and between 0 and 1".into());
         }
