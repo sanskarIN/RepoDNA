@@ -1,8 +1,9 @@
 //! Evaluate a frozen native ranker checkpoint without fitting new weights.
 //!
 //! Usage: evaluate-repodna-ranker MODEL.json TRAIN.json TEST.json
-//! The original training labels allow repository-disjointness checks. They do
-//! not prove that the supplied checkpoint was trained on those exact labels.
+//! The original training labels allow repository-disjointness checks and,
+//! for modern checkpoints, content fingerprint verification. Hashes do not
+//! authenticate the model or prove that weights were honestly trained.
 
 use std::collections::HashSet;
 use std::fs;
@@ -10,7 +11,8 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
-    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, validate_repository_split,
+    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, training_data_fingerprint,
+    validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -52,9 +54,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let test = load_samples(Path::new(&test))?;
     validate_repository_split(&training, &test).map_err(io::Error::other)?;
 
-    // Compare the checkpoint's basic provenance with the provided training
-    // split. This catches accidental mismatches, but is not a cryptographic
-    // binding between the checkpoint and the original training data.
+    // Compare basic provenance, then verify the full typed label contents
+    // for checkpoints that recorded a SHA-256 fingerprint.
     let training_repositories = training
         .iter()
         .map(|sample| sample.repository.trim().to_lowercase())
@@ -70,6 +71,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("training labels must include positive and negative examples".into());
     }
+    let fingerprint_verified = if let Some(expected) = &model.training_dataset_sha256 {
+        let actual = training_data_fingerprint(&training).map_err(io::Error::other)?;
+        if &actual != expected {
+            return Err("checkpoint training dataset fingerprint mismatch".into());
+        }
+        true
+    } else {
+        false // Legacy checkpoints predate training dataset fingerprints.
+    };
 
     let classification = model.evaluate(&test);
     let score_diagnostics = model
@@ -91,6 +101,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "modelFormat": model.format,
         "trainingExamples": model.training_examples,
         "trainingRepositories": model.training_repositories,
+        "trainingFingerprintVerified": fingerprint_verified,
         "holdout": classification,
         "holdoutAccuracy": classification.accuracy(),
         "relevanceScoreDiagnostics": score_diagnostics,
@@ -101,7 +112,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "answerabilitySweep": answerability_sweep,
         "answerableDetectionRate": answerability.answerable_detection_rate(),
         "unanswerableAbstentionRate": answerability.unanswerable_abstention_rate(),
-        "note": "Frozen checkpoint evaluation only: training counts and repository splits are checked, but checkpoint provenance cannot be cryptographically verified. Relevance labels do not establish factual correctness; reserve an untouched test split."
+        "note": "Checks repository splits and training counts; modern checkpoints also verify a SHA-256 hash of typed training labels. Fingerprints do not authenticate model weights or prove honest training. Legacy checkpoints lack the hash. Relevance labels do not establish factual correctness."
     });
     let mut stdout = io::stdout().lock();
     serde_json::to_writer_pretty(&mut stdout, &report)?;
