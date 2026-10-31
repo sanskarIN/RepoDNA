@@ -46,7 +46,13 @@ fn audits_independent_datasets_with_aggregates_only() {
         report["matchingEvidenceSignaturesAcrossSplits"]["trainingValidation"],
         0
     );
-    assert_eq!(report["training"]["labelFingerprintSha256"].as_str().unwrap().len(), 64);
+    assert_eq!(
+        report["training"]["labelFingerprintSha256"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
     assert!(report["warnings"].as_array().unwrap().len() >= 1);
     let text = String::from_utf8(output.stdout).unwrap();
     for secret in [
@@ -92,11 +98,13 @@ fn detects_exact_question_evidence_reuse_with_different_repository_and_id() {
         report["matchingEvidenceSignaturesAcrossSplits"]["trainingFinalTest"],
         1
     );
-    assert!(report["warnings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|item| item.as_str().unwrap().contains("across different splits")));
+    assert!(
+        report["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item.as_str().unwrap().contains("across different splits"))
+    );
 }
 
 #[test]
