@@ -5,6 +5,7 @@
 
 mod annotation;
 mod evaluation;
+mod families;
 mod fingerprint;
 mod pair_ordering;
 mod pairwise;
@@ -15,6 +16,10 @@ pub use annotation::{AnnotationExample, annotation_template, finish_annotations}
 
 pub use evaluation::{
     AnswerabilityEvaluation, RetrievalDelta, RetrievalEvaluation, evaluate_original_order,
+};
+pub use families::{
+    FamilySplitAudit, MAX_FAMILY_MANIFEST_ENTRIES, RepositoryProvenance,
+    validate_repository_families,
 };
 pub use fingerprint::training_data_fingerprint;
 pub use pair_ordering::PairOrderingEvaluation;
