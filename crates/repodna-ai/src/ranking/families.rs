@@ -71,7 +71,9 @@ pub fn validate_repository_families(
             || !matches!(entry.revision.len(), 40 | 64)
             || !entry.revision.bytes().all(|byte| byte.is_ascii_hexdigit())
         {
-            return Err("invalid family manifest repository, family, revision or license field".into());
+            return Err(
+                "invalid family manifest repository, family, revision or license field".into(),
+            );
         }
         let key = normalized_repository_id(&entry.repository);
         let value = normalized_repository_id(&entry.family);
@@ -92,7 +94,10 @@ pub fn validate_repository_families(
             used_repositories.insert(repo);
             if let Some(previous) = family_owner.insert(family, split) {
                 if previous != split {
-                    return Err("repository family leakage across training, validation and final test".into());
+                    return Err(
+                        "repository family leakage across training, validation and final test"
+                            .into(),
+                    );
                 }
             }
             family_counts[split].insert(family);
@@ -167,8 +172,8 @@ mod tests {
             entry("different-b", " SAME-SOURCE-FAMILY "),
             entry("different-c", "independent"),
         ];
-        let error = validate_repository_families(&training, &validation, &test, &manifest)
-            .unwrap_err();
+        let error =
+            validate_repository_families(&training, &validation, &test, &manifest).unwrap_err();
         assert!(error.contains("family leakage"));
     }
 
@@ -178,9 +183,11 @@ mod tests {
         let validation = [label("second")];
         let test = [label("third")];
         let manifest = [entry("first", "a"), entry("second", "b")];
-        assert!(validate_repository_families(&training, &validation, &test, &manifest)
-            .unwrap_err()
-            .contains("missing"));
+        assert!(
+            validate_repository_families(&training, &validation, &test, &manifest)
+                .unwrap_err()
+                .contains("missing")
+        );
 
         let extra = [
             entry("first", "a"),
@@ -188,9 +195,11 @@ mod tests {
             entry("third", "c"),
             entry("unused", "d"),
         ];
-        assert!(validate_repository_families(&training, &validation, &test, &extra)
-            .unwrap_err()
-            .contains("absent"));
+        assert!(
+            validate_repository_families(&training, &validation, &test, &extra)
+                .unwrap_err()
+                .contains("absent")
+        );
 
         let aliases = [
             entry("first", "a"),
@@ -198,9 +207,11 @@ mod tests {
             entry("second", "b"),
             entry("third", "c"),
         ];
-        assert!(validate_repository_families(&training, &validation, &test, &aliases)
-            .unwrap_err()
-            .contains("duplicate"));
+        assert!(
+            validate_repository_families(&training, &validation, &test, &aliases)
+                .unwrap_err()
+                .contains("duplicate")
+        );
     }
 
     #[test]
