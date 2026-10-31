@@ -187,8 +187,9 @@ fn refuses_unanswerable_validation_and_oversized_training_file() {
     );
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
-    assert!(String::from_utf8_lossy(&result.stderr)
-        .contains("validation has no answerable questions"));
+    assert!(
+        String::from_utf8_lossy(&result.stderr).contains("validation has no answerable questions")
+    );
 
     let too_large = dir.path().join("too-large.json");
     fs::write(&too_large, vec![b' '; 8 * 1024 * 1024 + 1]).unwrap();
