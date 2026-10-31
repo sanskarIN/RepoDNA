@@ -38,12 +38,19 @@ fn compare(manifest: Option<&Path>, output: &Path) -> Output {
 
 fn write_manifest(dir: &Path, entries: &[serde_json::Value]) -> PathBuf {
     let path = dir.join("families.json");
-    fs::write(&path, serde_json::to_vec(entries).expect("valid test fixture and output")).expect("valid test fixture and output");
+    fs::write(
+        &path,
+        serde_json::to_vec(entries).expect("valid test fixture and output"),
+    )
+    .expect("valid test fixture and output");
     path
 }
 
 fn manifest() -> Vec<serde_json::Value> {
-    serde_json::from_slice(&fs::read(fixture("families.demo.json")).expect("valid test fixture and output")).expect("valid test fixture and output")
+    serde_json::from_slice(
+        &fs::read(fixture("families.demo.json")).expect("valid test fixture and output"),
+    )
+    .expect("valid test fixture and output")
 }
 
 #[test]
@@ -56,7 +63,8 @@ fn valid_family_manifest_is_checked_before_training_and_audit() {
         "{}",
         String::from_utf8_lossy(&audited.stderr)
     );
-    let summary: serde_json::Value = serde_json::from_slice(&audited.stdout).expect("valid test fixture and output");
+    let summary: serde_json::Value =
+        serde_json::from_slice(&audited.stdout).expect("valid test fixture and output");
     assert_eq!(summary["structuralChecksPassed"], true);
     assert_eq!(summary["familyManifestChecked"], true);
     assert_eq!(summary["familySplit"]["manifestRepositories"], 5);
@@ -71,14 +79,16 @@ fn valid_family_manifest_is_checked_before_training_and_audit() {
         "{}",
         String::from_utf8_lossy(&trained.stderr)
     );
-    let report: serde_json::Value = serde_json::from_slice(&trained.stdout).expect("valid test fixture and output");
+    let report: serde_json::Value =
+        serde_json::from_slice(&trained.stdout).expect("valid test fixture and output");
     assert_eq!(report["familyManifestChecked"], true);
     assert_eq!(report["familySplit"], summary["familySplit"]);
     assert!(saved.exists());
 
     let clean = audit(None);
     assert!(clean.status.success());
-    let clean_report: serde_json::Value = serde_json::from_slice(&clean.stdout).expect("valid test fixture and output");
+    let clean_report: serde_json::Value =
+        serde_json::from_slice(&clean.stdout).expect("valid test fixture and output");
     assert_eq!(clean_report["familyManifestChecked"], false);
     assert!(clean_report["familySplit"].is_null());
 
