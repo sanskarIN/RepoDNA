@@ -67,3 +67,24 @@ To audit whether checkpoint weights reproduce from the saved labels,
 use `reproduce-repodna-ranker`, passing the reported `selectedEpochs`
 as its third argument. Weight reproducibility is separate from model
 accuracy, dataset provenance, and label correctness.
+
+
+## Pair-ordering diagnostics
+
+The selector additionally reports `validationPairOrdering` and
+`testPairOrdering`: exact within-question agreement between the ordering of
+human-labeled relevant and irrelevant evidence. These metrics measure how
+often a positive item scores above a negative one. Tied scores contribute
+half a correct pair; incomparable question groups are counted separately.
+
+The metric uses all pairs but avoids constructing a quadratic array of
+comparisons, making it suitable for bounded local datasets. Results are
+**micro-averaged across pairs**, so questions with many labels contribute more
+weight. Always examine `totalPairs` and `evaluatedQueries`, and compare
+against original-order baselines and NDCG rather than optimizing a single
+number. This measures ranking only, never factual truth, natural-language
+faithfulness, answerability, or the fairness of reviewer labels.
+
+The metric supports both the original pointwise ranker and later pairwise
+checkpoints. The three-way selector still chooses epochs using validation
+NDCG@5 alone; it never uses final-test pair ordering for training choices.
