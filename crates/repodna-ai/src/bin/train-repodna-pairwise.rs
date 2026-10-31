@@ -51,6 +51,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let baseline = evaluate_original_order(&holdout, 5).map_err(io::Error::other)?;
     let delta = retrieval.delta_from(baseline).map_err(io::Error::other)?;
+    // Use identical labels and epoch count for an honest objective comparison.
+    // Neither model selection nor hyperparameters may use the final test set.
+    let pointwise = RankerModel::train(&training, DEFAULT_EPOCHS)
+        .map_err(io::Error::other)?;
+    let pointwise_retrieval = pointwise
+        .evaluate_retrieval(&holdout, 5)
+        .map_err(io::Error::other)?;
+    let pairwise_vs_pointwise = retrieval
+        .delta_from(pointwise_retrieval)
+        .map_err(io::Error::other)?;
 
     let payload = serde_json::to_vec_pretty(&model)?;
     let mut output = OpenOptions::new()
@@ -70,7 +80,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "retrieval": retrieval,
         "originalOrderBaseline": baseline,
         "retrievalDelta": delta,
-        "note": "Experimental pairwise evidence ranking, not calibrated relevance confidence, factual accuracy, or language generation. Synthetic examples are plumbing tests only. Use a separate validation set to choose hyperparameters and reserve an untouched final test set."
+        "pointwiseRetrieval": pointwise_retrieval,
+        "pairwiseVsPointwiseDelta": pairwise_vs_pointwise,
+        "note": "Experimental pairwise evidence ranking. Same-epoch pointwise comparison uses the same training and holdout labels. Scores are not calibrated probabilities, factual accuracy, or language generation. Synthetic examples are plumbing tests only. Use separate validation repositories to choose models and reserve an untouched final test set."
     });
     let mut stdout = io::stdout().lock();
     serde_json::to_writer_pretty(&mut stdout, &report)?;
