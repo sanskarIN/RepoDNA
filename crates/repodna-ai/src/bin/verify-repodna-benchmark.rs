@@ -3,9 +3,10 @@
 //! Usage: verify-repodna-benchmark REPORT.json MODEL.json TRAIN.json
 //!        VALIDATION.json TEST.json [FAMILIES.json]
 //!
-//! This verifies file contents and report metadata, NOT whether the reported
-//! metrics are scientifically valid, the original training was honest, or the
-//! curator correctly identified clone/fork families.
+//! By default, checks artifact fingerprints and report metadata only.
+//! Optional --replay retrains all ten candidates, independently recomputes
+//! validation and final-test metrics, and checks the saved model weights.
+//! Neither mode verifies reviewer quality, authorship or real generalization.
 
 use std::fs;
 use std::io::{self, Write};
@@ -53,6 +54,145 @@ fn require_string(
     Ok(())
 }
 
+
+/// Compare a replayed metric object with the saved report. Integer counts and
+/// object structures must match exactly; floating-point metrics tolerate
+/// tiny platform-dependent rounding but never arbitrary score changes.
+fn matching_metric(
+    actual: &serde_json::Value,
+    expected: &serde_json::Value,
+    field: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match (actual, expected) {
+        (serde_json::Value::Object(a), serde_json::Value::Object(b)) => {
+            if a.len() != b.len() || !a.keys().all(|key| b.contains_key(key)) {
+                return Err(format!("{field}: replayed metric fields differ").into());
+            }
+            for (key, value) in b {
+                matching_metric(&a[key], value, field)?;
+            }
+        }
+        (serde_json::Value::Array(a), serde_json::Value::Array(b)) => {
+            if a.len() != b.len() {
+                return Err(format!("{field}: replayed metric array length differs").into());
+            }
+            for (saved, calculated) in a.iter().zip(b) {
+                matching_metric(saved, calculated, field)?;
+            }
+        }
+        (serde_json::Value::Number(a), serde_json::Value::Number(b)) => {
+            if a.is_i64() && b.is_i64() {
+                if a != b {
+                    return Err(format!("{field}: replayed integer count differs").into());
+                }
+            } else {
+                let reported = a.as_f64().ok_or("unreadable reported metric")?;
+                let replayed = b.as_f64().ok_or("unreadable recomputed metric")?;
+                if !reported.is_finite()
+                    || !replayed.is_finite()
+                    || (reported - replayed).abs() > 1e-10 * replayed.abs().max(1.0)
+                {
+                    return Err(format!("{field}: replayed metric value differs").into());
+                }
+            }
+        }
+        _ if actual == expected => {}
+        _ => return Err(format!("{field}: replayed metric metadata differs").into()),
+    }
+    Ok(())
+}
+
+/// Rerun the frozen training and evaluation recipe. Selection uses validation
+/// results only; final-test labels are read strictly after the winner is
+/// chosen, and never influence objective or epoch decisions.
+fn replay_metrics(
+    report: &serde_json::Value,
+    saved: &RankerModel,
+    training: &[LabeledEvidence],
+    validation: &[LabeledEvidence],
+    test: &[LabeledEvidence],
+) -> Result<(), Box<dyn std::error::Error>> {
+    const EPOCHS: [u32; 5] = [10, 30, 60, 100, 150];
+    let candidates = report["candidates"]
+        .as_array()
+        .ok_or("report is missing replayable candidates")?;
+    if candidates.len() != 2 * EPOCHS.len() {
+        return Err("replay requires ten ordered candidates".into());
+    }
+    let mut best: Option<(&str, u32, f64, RankerModel)> = None;
+    let mut at = 0;
+    for objective in ["pointwise", "pairwise"] {
+        for epochs in EPOCHS {
+            let model = match objective {
+                "pointwise" => RankerModel::train(training, epochs),
+                "pairwise" => RankerModel::train_pairwise(training, epochs),
+                _ => unreachable!("static objective list"),
+            }
+            .map_err(io::Error::other)?;
+            let retrieval = model.evaluate_retrieval(validation, 5).map_err(io::Error::other)?;
+            let ordering = model
+                .evaluate_pair_ordering(validation)
+                .map_err(io::Error::other)?;
+            if retrieval.evaluated_queries == 0 {
+                return Err("replay validation contains no answerable questions".into());
+            }
+            let expected = serde_json::json!({
+                "objective": objective,
+                "epochs": epochs,
+                "validationNdcgAt5": retrieval.ndcg_at_k,
+                "evaluatedQueries": retrieval.evaluated_queries,
+                "validationPairAgreement": ordering.agreement,
+                "validationComparablePairs": ordering.total_pairs,
+                "validationComparableQueries": ordering.evaluated_queries,
+            });
+            matching_metric(&candidates[at], &expected, "candidates")?;
+            at += 1;
+            if best
+                .as_ref()
+                .is_none_or(|(_, _, value, _)| retrieval.ndcg_at_k > *value)
+            {
+                best = Some((objective, epochs, retrieval.ndcg_at_k, model));
+            }
+        }
+    }
+    let (objective, epochs, _, selected) = best.ok_or("no replay candidate selected")?;
+    if report["selectedObjective"] != objective || report["selectedEpochs"] != epochs {
+        return Err("replayed selection differs from reported winner".into());
+    }
+    if saved.format != selected.format
+        || saved.training_examples != selected.training_examples
+        || saved.training_repositories != selected.training_repositories
+        || saved.training_dataset_sha256 != selected.training_dataset_sha256
+        || saved.weights.len() != selected.weights.len()
+        || saved
+            .weights
+            .iter()
+            .zip(&selected.weights)
+            .any(|(a, b)| (a - b).abs() > 1e-10 * b.abs().max(1.0))
+    {
+        return Err("replayed model weights or training metadata differ".into());
+    }
+    let final_retrieval = selected.evaluate_retrieval(test, 5).map_err(io::Error::other)?;
+    if final_retrieval.evaluated_queries == 0 {
+        return Err("replay final test contains no answerable questions".into());
+    }
+    let original = repodna_ai::ranking::evaluate_original_order(test, 5)
+        .map_err(io::Error::other)?;
+    let delta = final_retrieval.delta_from(original).map_err(io::Error::other)?;
+    let ordering = selected
+        .evaluate_pair_ordering(test)
+        .map_err(io::Error::other)?;
+    for (name, expected) in [
+        ("finalTestRetrieval", serde_json::to_value(final_retrieval)?),
+        ("finalTestOriginalOrderBaseline", serde_json::to_value(original)?),
+        ("finalTestRetrievalDelta", serde_json::to_value(delta)?),
+        ("finalTestPairOrdering", serde_json::to_value(ordering)?),
+    ] {
+        matching_metric(&report[name], &expected, name)?;
+    }
+    Ok(())
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
     let (
@@ -61,9 +201,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(train_path),
         Some(valid_path),
         Some(test_path),
-        family_path,
+        optional_arg,
+        optional_flag,
         None,
     ) = (
+        args.next(),
         args.next(),
         args.next(),
         args.next(),
@@ -74,9 +216,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     )
     else {
         return Err(
-            "usage: verify-repodna-benchmark REPORT.json MODEL.json TRAIN.json VALIDATION.json TEST.json [FAMILIES.json]"
+            "usage: verify-repodna-benchmark REPORT.json MODEL.json TRAIN.json VALIDATION.json TEST.json [FAMILIES.json] [--replay]"
                 .into(),
         );
+    };
+    let (family_path, replay) = match (optional_arg, optional_flag) {
+        (None, None) => (None, false),
+        (Some(value), None) if value.to_str() == Some("--replay") => (None, true),
+        (Some(value), None) => (Some(value), false),
+        (Some(value), Some(flag))
+            if value.to_str() != Some("--replay") && flag.to_str() == Some("--replay") =>
+        {
+            (Some(value), true)
+        }
+        _ => return Err("invalid optional family manifest or --replay argument".into()),
     };
     let report: serde_json::Value =
         serde_json::from_slice(&load_bytes(Path::new(&report_path), MAX_REPORT_BYTES)?)?;
@@ -181,9 +334,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    if replay {
+        replay_metrics(&report, &model, &training, &validation, &test)?;
+    }
+
     // Report only summary fingerprints and aggregate facts.
     let result = serde_json::json!({
         "verified": true,
+        "replayVerified": replay,
         "schema": "repodna-benchmark-provenance/1",
         "checkpointSha256": model_sha256,
         "trainingDatasetSha256": training_sha256,
@@ -191,7 +349,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "finalTestDatasetSha256": test_sha256,
         "familyManifestSha256": manifest_hash,
         "familyManifestChecked": manifest_hash.is_some(),
-        "note": "Verified typed input and model identities, split boundaries, and selection metadata consistency. This does not authenticate model authorship, verify family curator claims, reproduce training weights, recompute every metric, or prove benchmark accuracy."
+        "note": if replay {
+            "Offline replay recomputed all ten candidate validation metrics, selected checkpoint weights, and final-test metrics. This cannot authenticate model authorship, reviewer or clone-family claims, or scientific accuracy."
+        } else {
+            "Verified typed input and model identities, split boundaries, and selection metadata consistency. Use --replay to independently recompute native candidate training and metrics; file identity alone does not prove benchmark accuracy."
+        },
     });
     let mut stdout = io::stdout().lock();
     serde_json::to_writer_pretty(&mut stdout, &result)?;
