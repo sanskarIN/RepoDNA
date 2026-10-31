@@ -74,3 +74,13 @@ latency, memory usage, and privacy of reviewer-supplied labels.
 All datasets stay local. The tool accepts at most 8 MiB and 100,000
 labels per file. Review aggregate reports before sharing because even
 dataset fingerprints may disclose repeated use of the same labels.
+
+## Optional fork-family disjointness gate
+
+For reviewed benchmarks, provide a manually curated repository-family
+manifest as an **additional final argument** (`FAMILIES.json`). This
+rejects cross-split forks and copied-repository families even when the
+repository IDs differ. See [family provenance validation](ai-family-splits.md)
+for the JSON format and limitations. Without a manifest, only distinct
+repository IDs are enforced; `familyManifestChecked: false` must not be
+interpreted as clone-family independence.
