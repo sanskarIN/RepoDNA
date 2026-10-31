@@ -7,6 +7,7 @@ mod annotation;
 mod evaluation;
 mod fingerprint;
 mod pair_ordering;
+mod pairwise;
 mod scores;
 mod thresholds;
 
@@ -17,6 +18,7 @@ pub use evaluation::{
 };
 pub use fingerprint::training_data_fingerprint;
 pub use pair_ordering::PairOrderingEvaluation;
+pub use pairwise::PAIRWISE_MODEL_FORMAT;
 pub use scores::{RelevanceScoreBin, RelevanceScoreEvaluation, SCORE_BIN_COUNT};
 
 use crate::context::{EvidenceItem, EvidenceKind};
@@ -193,7 +195,7 @@ pub fn validate_repository_split(
 impl RankerModel {
     /// Strictly validate checkpoint metadata and numeric weights.
     pub fn validate(&self) -> Result<(), String> {
-        if self.format != MODEL_FORMAT {
+        if self.format != MODEL_FORMAT && self.format != PAIRWISE_MODEL_FORMAT {
             return Err("unsupported ranker checkpoint format".into());
         }
         if self.weights.len() != FEATURE_COUNT {

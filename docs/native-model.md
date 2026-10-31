@@ -286,3 +286,48 @@ correct, are properly licensed, or generalize to other repositories. Keep the
 original training data and its independently recorded digest in your model
 release records. Run frozen evaluation on a separate, untouched test split
 to measure performance, not just reproducibility.
+
+## Experimental pairwise evidence ranking
+
+RepoDNA also offers an alternative **locally trained ranking objective** that
+compares positive and negative evidence *for the same repository and question*.
+This is a small CPU-only learning experiment using the existing 13 inspectable
+features. It is **not** a generative AI model, and its scores are not calibrated
+relevance probabilities or factual confidence.
+
+```sh
+cargo run --locked -p repodna-ai --bin train-repodna-pairwise -- \
+  examples/native-ai/train.demo.json \
+  examples/native-ai/holdout.demo.json \
+  native-pairwise.json
+```
+
+The trainer creates a distinct `repodna-evidence-pairwise/1` checkpoint
+format and reports holdout retrieval metrics alongside the original-order
+baseline, and a same-epoch **pointwise** model fitted to the same
+training labels for comparison. It does **not** report classification accuracy or
+answerability scores, since pairwise training does not calibrate absolute
+relevance scores. APIs that report calibration diagnostics and answerability
+thresholds reject pairwise checkpoints rather than silently treating these
+ordering scores as probabilities.
+The sample files are synthetic smoke tests, not model-quality evidence.
+
+For production-oriented experimentation, split human-reviewed labels by
+repository, use independent validation repositories to choose training
+settings, and evaluate only once on an untouched final test. The separate
+`select-repodna-ranker` command currently optimizes the original *pointwise*
+training objective; it does not automatically compare pointwise and pairwise
+training.
+
+The pairwise trainer uses bounded, deterministic pairing with no cross-question
+negatives, automatic downloads or external AI runtime. It rejects datasets
+without any same-question positive/negative pair, prevents duplicate evidence
+IDs and checks repository-disjoint holdouts. Saving a checkpoint does not
+activate it: opt into local inference using `[ai] provider = "native"` and
+`model = "/path/to/native-pairwise.json"` in your user config.
+
+You can verify pairwise checkpoint weight reproducibility with the existing
+`reproduce-repodna-ranker` CLI; specify the training epoch count (60 by
+default). The checkpoint's format identifies the training objective.
+Reproducing weights is not evidence of accuracy, labeling quality or
+authentic data provenance.
