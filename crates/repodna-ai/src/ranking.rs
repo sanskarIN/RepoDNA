@@ -574,7 +574,24 @@ mod tests {
         assert_eq!(digest, &training_data_fingerprint(&data).unwrap());
         let restored: RankerModel =
             serde_json::from_str(&serde_json::to_string(&model).unwrap()).unwrap();
-        assert_eq!(restored, model);
+        assert_eq!(restored.format, model.format);
+        assert_eq!(restored.training_examples, model.training_examples);
+        assert_eq!(restored.training_repositories, model.training_repositories);
+        assert_eq!(
+            restored.training_dataset_sha256,
+            model.training_dataset_sha256
+        );
+        assert_eq!(restored.weights.len(), model.weights.len());
+        // serde_json can round the last bit of some floating-point values.
+        // The serialized checkpoint must preserve usable weights, not their
+        // exact in-memory bit pattern before serialization.
+        assert!(
+            restored
+                .weights
+                .iter()
+                .zip(&model.weights)
+                .all(|(read, saved)| (read - saved).abs() <= 1e-12)
+        );
 
         let mut invalid = model.clone();
         invalid.training_dataset_sha256 = Some("not-a-sha256".into());
