@@ -46,6 +46,9 @@ fn chooses_from_validation_and_saves_a_valid_checkpoint() {
     assert_eq!(report["testRetrieval"]["totalQueries"], 3);
     assert_eq!(report["testRetrieval"]["evaluatedQueries"], 2);
     assert_eq!(report["testRetrieval"]["unanswerableQueries"], 1);
+    assert_eq!(report["testPairOrdering"]["totalPairs"], 2);
+    assert_eq!(report["testPairOrdering"]["evaluatedQueries"], 2);
+    assert!(report["validationPairOrdering"]["agreement"].is_number());
     assert!(report["testRetrievalDelta"]["ndcgAtK"].is_number());
     let selected_epochs = report["selectedEpochs"].as_u64().unwrap();
     assert!([10, 30, 60, 100, 150].contains(&selected_epochs));
