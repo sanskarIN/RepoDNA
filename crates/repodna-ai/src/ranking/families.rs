@@ -97,7 +97,8 @@ pub fn validate_repository_families(
                 .is_some_and(|previous| previous != split)
             {
                 return Err(
-                    "repository family leakage across training, validation and final test".into(),
+                    "repository family leakage across training, validation and final test"
+                        .into(),
                 );
             }
             family_counts[split].insert(family);
