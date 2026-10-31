@@ -73,11 +73,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if score.evaluated_queries == 0 {
                 return Err("validation has no answerable questions".into());
             }
+            // Report ordering agreement as a diagnostic. It does not
+            // influence objective or epoch selection.
+            let ordering = model
+                .evaluate_pair_ordering(&validation)
+                .map_err(io::Error::other)?;
             candidates.push(serde_json::json!({
                 "objective": objective,
                 "epochs": epochs,
                 "validationNdcgAt5": score.ndcg_at_k,
                 "evaluatedQueries": score.evaluated_queries,
+                "validationPairAgreement": ordering.agreement,
+                "validationComparablePairs": ordering.total_pairs,
+                "validationComparableQueries": ordering.evaluated_queries,
             }));
             if winner
                 .as_ref()
@@ -100,6 +108,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let baseline = evaluate_original_order(&test, K).map_err(io::Error::other)?;
     let delta = test_retrieval
         .delta_from(baseline)
+        .map_err(io::Error::other)?;
+    let final_pair_ordering = model
+        .evaluate_pair_ordering(&test)
         .map_err(io::Error::other)?;
 
     // Export only after validation and final evaluation have succeeded.
@@ -125,6 +136,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "finalTestRetrieval": test_retrieval,
         "finalTestOriginalOrderBaseline": baseline,
         "finalTestRetrievalDelta": delta,
+        "finalTestPairOrdering": final_pair_ordering,
         "note": "Native evidence relevance ranking only. Evaluation metrics require independently reviewed repository-disjoint labels. Final test is not used for objective, epoch, or threshold selection. Synthetic demo data cannot establish generalization. Pairwise scores are not calibrated probabilities."
     });
     let mut stdout = io::stdout().lock();
