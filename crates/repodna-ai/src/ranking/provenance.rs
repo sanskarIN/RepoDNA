@@ -5,7 +5,6 @@
 
 use std::collections::HashSet;
 
-use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use super::{MAX_FAMILY_MANIFEST_ENTRIES, RankerModel, RepositoryProvenance};
