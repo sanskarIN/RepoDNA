@@ -8,8 +8,8 @@
 use std::collections::{BTreeMap, HashSet};
 
 use super::{
-    FEATURE_COUNT, LabeledEvidence, MAX_EXAMPLES, RankerModel, features,
-    normalized_repository_id, sigmoid, training_data_fingerprint, validate_evidence_ids,
+    FEATURE_COUNT, LabeledEvidence, MAX_EXAMPLES, RankerModel, features, normalized_repository_id,
+    sigmoid, training_data_fingerprint, validate_evidence_ids,
 };
 
 /// Versioned checkpoint for relative-order-trained ranker weights.
@@ -68,8 +68,7 @@ impl RankerModel {
         }
         if !groups.values().any(|(p, n)| !p.is_empty() && !n.is_empty()) {
             return Err(
-                "pairwise training requires a positive and negative in the same question"
-                    .into(),
+                "pairwise training requires a positive and negative in the same question".into(),
             );
         }
 
@@ -124,7 +123,13 @@ mod tests {
     use super::*;
     use crate::context::{EvidenceItem, EvidenceKind};
 
-    fn sample(repo: &str, query: &str, id: &str, kind: EvidenceKind, relevant: bool) -> LabeledEvidence {
+    fn sample(
+        repo: &str,
+        query: &str,
+        id: &str,
+        kind: EvidenceKind,
+        relevant: bool,
+    ) -> LabeledEvidence {
         LabeledEvidence {
             repository: repo.to_owned(),
             query: query.to_owned(),
@@ -140,10 +145,34 @@ mod tests {
 
     fn training() -> Vec<LabeledEvidence> {
         vec![
-            sample("repo-a", "Which dependency?", "E1", EvidenceKind::Package, true),
-            sample("repo-a", "Which dependency?", "E2", EvidenceKind::Commit, false),
-            sample("repo-b", "Which package?", "E3", EvidenceKind::Package, true),
-            sample("repo-b", "Which package?", "E4", EvidenceKind::Metric, false),
+            sample(
+                "repo-a",
+                "Which dependency?",
+                "E1",
+                EvidenceKind::Package,
+                true,
+            ),
+            sample(
+                "repo-a",
+                "Which dependency?",
+                "E2",
+                EvidenceKind::Commit,
+                false,
+            ),
+            sample(
+                "repo-b",
+                "Which package?",
+                "E3",
+                EvidenceKind::Package,
+                true,
+            ),
+            sample(
+                "repo-b",
+                "Which package?",
+                "E4",
+                EvidenceKind::Metric,
+                false,
+            ),
         ]
     }
 
@@ -178,7 +207,10 @@ mod tests {
         assert_eq!(first.weights, second.weights);
         // The fingerprint intentionally covers the exact stored labels,
         // including original spelling of repository identifiers.
-        assert_ne!(first.training_dataset_sha256, second.training_dataset_sha256);
+        assert_ne!(
+            first.training_dataset_sha256,
+            second.training_dataset_sha256
+        );
     }
 
     #[test]
