@@ -42,6 +42,19 @@ fn selects_objective_from_validation_and_exports_reproducible_checkpoint() {
     let report: serde_json::Value = serde_json::from_slice(&run.stdout).unwrap();
     assert_eq!(report["selectionMetric"], "validationNdcgAt5");
     assert_eq!(report["candidates"].as_array().unwrap().len(), 10);
+    // The selected configuration must be the first strict maximum in
+    // candidate order: pointwise is evaluated before pairwise.
+    let candidates = report["candidates"].as_array().unwrap();
+    let mut best = 0_usize;
+    for (index, candidate) in candidates.iter().enumerate() {
+        let current = candidate["validationNdcgAt5"].as_f64().unwrap();
+        let previous = candidates[best]["validationNdcgAt5"].as_f64().unwrap();
+        if current > previous {
+            best = index;
+        }
+    }
+    assert_eq!(report["selectedObjective"], candidates[best]["objective"]);
+    assert_eq!(report["selectedEpochs"], candidates[best]["epochs"]);
     assert_eq!(report["trainingExamples"], 6);
     assert_eq!(report["trainingRepositories"], 2);
     assert_eq!(report["finalTestRetrieval"]["evaluatedQueries"], 2);
