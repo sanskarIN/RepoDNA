@@ -96,6 +96,47 @@ fn selects_objective_from_validation_and_exports_reproducible_checkpoint() {
 }
 
 #[test]
+fn reshuffling_training_rows_preserves_selected_checkpoint() {
+    let dir = tempfile::tempdir().unwrap();
+    let original_out = dir.path().join("original.json");
+    let shuffled_out = dir.path().join("shuffled.json");
+    let original = compare(
+        &fixture("train.demo.json"),
+        &fixture("holdout.demo.json"),
+        &fixture("test.demo.json"),
+        &original_out,
+    );
+    assert!(
+        original.status.success(),
+        "{}",
+        String::from_utf8_lossy(&original.stderr)
+    );
+
+    let mut records: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    records.reverse();
+    let reversed_path = dir.path().join("reordered-train.json");
+    fs::write(&reversed_path, serde_json::to_vec(&records).unwrap()).unwrap();
+    let shuffled = compare(
+        &reversed_path,
+        &fixture("holdout.demo.json"),
+        &fixture("test.demo.json"),
+        &shuffled_out,
+    );
+    assert!(
+        shuffled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&shuffled.stderr)
+    );
+    let first: serde_json::Value = serde_json::from_slice(&original.stdout).unwrap();
+    let second: serde_json::Value = serde_json::from_slice(&shuffled.stdout).unwrap();
+    assert_eq!(first["selectedObjective"], second["selectedObjective"]);
+    assert_eq!(first["selectedEpochs"], second["selectedEpochs"]);
+    assert_eq!(first["candidates"], second["candidates"]);
+    assert_eq!(fs::read(original_out).unwrap(), fs::read(shuffled_out).unwrap());
+}
+
+#[test]
 fn final_test_label_changes_cannot_select_different_objective_or_epochs() {
     let dir = tempfile::tempdir().unwrap();
     let first = dir.path().join("first.json");
