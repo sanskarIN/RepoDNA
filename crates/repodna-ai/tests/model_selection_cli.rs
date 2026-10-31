@@ -107,7 +107,10 @@ fn test_labels_do_not_determine_selected_training_epochs() {
     let after: serde_json::Value = serde_json::from_slice(&changed.stdout).unwrap();
     assert_eq!(before["selectedEpochs"], after["selectedEpochs"]);
     assert_eq!(before["candidateEpochs"], after["candidateEpochs"]);
-    assert_eq!(fs::read(first_path).unwrap(), fs::read(second_path).unwrap());
+    assert_eq!(
+        fs::read(first_path).unwrap(),
+        fs::read(second_path).unwrap()
+    );
 }
 
 #[test]
@@ -169,8 +172,10 @@ fn refuses_unanswerable_validation_and_oversized_inputs() {
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
     assert!(!checkpoint.exists());
-    assert!(String::from_utf8_lossy(&result.stderr)
-        .contains("validation has no answerable labeled questions"));
+    assert!(
+        String::from_utf8_lossy(&result.stderr)
+            .contains("validation has no answerable labeled questions")
+    );
 
     let large = dir.path().join("huge.json");
     fs::write(&large, vec![b' '; 8 * 1024 * 1024 + 1]).unwrap();
