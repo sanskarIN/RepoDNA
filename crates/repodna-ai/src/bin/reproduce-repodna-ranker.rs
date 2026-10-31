@@ -1,6 +1,6 @@
 //! Reproduce native ranker weights from a labeled training set, entirely offline.
 //!
-//! Usage: reproduce-repodna-ranker MODEL.json TRAIN.json [EPOCHS]
+//! Usage: `reproduce-repodna-ranker MODEL.json TRAIN.json [EPOCHS]`
 //! The default 60 epochs matches train-repodna-ranker's current settings.
 //! Matching weights are a reproducibility check, NOT proof of dataset identity:
 //! different label files may yield identical feature vectors and weights.
