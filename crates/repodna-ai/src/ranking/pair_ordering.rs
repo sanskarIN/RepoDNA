@@ -101,9 +101,8 @@ impl RankerModel {
                 result.tied_pairs += at_most - below;
             }
         }
-        result.negative_above_positive = result.total_pairs
-            - result.positive_above_negative
-            - result.tied_pairs;
+        result.negative_above_positive =
+            result.total_pairs - result.positive_above_negative - result.tied_pairs;
         if result.total_pairs > 0 {
             result.agreement = (result.positive_above_negative as f64
                 + 0.5 * result.tied_pairs as f64)
@@ -119,7 +118,13 @@ mod tests {
     use crate::context::{EvidenceItem, EvidenceKind};
     use crate::ranking::{FEATURE_COUNT, MODEL_FORMAT};
 
-    fn judgment(repo: &str, question: &str, id: &str, kind: EvidenceKind, yes: bool) -> LabeledEvidence {
+    fn judgment(
+        repo: &str,
+        question: &str,
+        id: &str,
+        kind: EvidenceKind,
+        yes: bool,
+    ) -> LabeledEvidence {
         LabeledEvidence {
             repository: repo.to_owned(),
             query: question.to_owned(),
