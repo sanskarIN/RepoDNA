@@ -47,10 +47,40 @@ cargo run --locked -p repodna-ai --bin verify-repodna-benchmark -- \
 
 Omit `FAMILIES.json` **only** if the original report also omitted it.
 The verifier refuses missing manifests from reports that claim they were
-checked. It validates each input size, all three repository split
-boundaries, the saved checkpoint format, complete training label identity,
-each dataset fingerprint, curated family identity and split counts when
-applicable, and consistency of the reported selection metadata.
+checked. Its default **fast identity-check mode** validates each input size,
+all three repository split boundaries, the saved checkpoint format, complete
+training label identity, each dataset fingerprint, curated family identity and
+split counts when applicable, and consistency of the reported selection
+metadata.
+
+For a stronger independent check, append `--replay` as the **final
+argument**, after `FAMILIES.json` if the benchmark uses one:
+
+```sh
+cargo run --locked -p repodna-ai --bin verify-repodna-benchmark -- \
+  benchmark-report.json MODEL.json \
+  TRAIN.json VALIDATION.json TEST.json FAMILIES.json --replay
+```
+
+Replay mode locally **retrains all ten pointwise/pairwise models** at the
+original five epoch counts. It recomputes every candidate's validation
+NDCG@5, evaluated-query counts, and pair-ordering diagnostics, verifies
+the original deterministic winner and saved checkpoint weights within
+a strict floating-point tolerance, then independently recalculates the
+final-test retrieval metrics, original-order baseline, deltas and pair-order
+agreement. It never uses final-test performance to select a model.
+
+The mode rejects missing, additional or shuffled candidate fields, altered
+metric values, unsupported epoch counts or a different winner. Tiny
+platform-specific rounding differences in floating-point scores are allowed;
+integer counts, candidate order, and metadata must match exactly.
+Replay is more computationally expensive than identity-only verification.
+
+A successful `replayVerified: true` establishes that the saved evaluation
+is **numerically reproducible from these local labels and this particular
+training implementation**. It is not proof that these labels were honestly
+reviewed, the checkpoint came from a trusted author, the declared
+repository families are correct, or that the model is accurate in production.
 
 The CLI prints only aggregate fingerprints and a boolean `verified`.
 It does not print repository names, source excerpts, question text or
