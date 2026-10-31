@@ -304,8 +304,12 @@ cargo run --locked -p repodna-ai --bin train-repodna-pairwise -- \
 
 The trainer creates a distinct `repodna-evidence-pairwise/1` checkpoint
 format and reports holdout retrieval metrics alongside the original-order
-baseline. It does **not** report classification accuracy or answerability
-scores, since pairwise training does not calibrate absolute relevance scores.
+baseline, and a same-epoch **pointwise** model fitted to the same
+training labels for comparison. It does **not** report classification accuracy or
+answerability scores, since pairwise training does not calibrate absolute
+relevance scores. APIs that report calibration diagnostics and answerability
+thresholds reject pairwise checkpoints rather than silently treating these
+ordering scores as probabilities.
 The sample files are synthetic smoke tests, not model-quality evidence.
 
 For production-oriented experimentation, split human-reviewed labels by
