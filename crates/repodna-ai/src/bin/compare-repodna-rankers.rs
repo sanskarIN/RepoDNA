@@ -9,7 +9,8 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
-    LabeledEvidence, MAX_EXAMPLES, RankerModel, RepositoryProvenance, evaluate_original_order,
+    LabeledEvidence, MAX_EXAMPLES, RankerModel, RepositoryProvenance, checkpoint_fingerprint,
+    evaluate_original_order, family_manifest_fingerprint, training_data_fingerprint,
     validate_repository_families, validate_repository_split,
 };
 
@@ -59,7 +60,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     validate_repository_split(&validation, &test).map_err(io::Error::other)?;
     // An optional user-curated manifest catches related forks that have
     // different repository IDs. Never infer clone families automatically.
-    let family_audit = if let Some(path) = family_path {
+    let (family_audit, family_sha256) = if let Some(path) = family_path {
         if fs::metadata(&path)?.len() > MAX_MANIFEST_BYTES {
             return Err("family manifest exceeds 2 MiB".into());
         }
@@ -68,12 +69,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             return Err("family manifest grew beyond 2 MiB".into());
         }
         let entries: Vec<RepositoryProvenance> = serde_json::from_slice(&bytes)?;
-        Some(
-            validate_repository_families(&training, &validation, &test, &entries)
-                .map_err(io::Error::other)?,
-        )
+        let checked = validate_repository_families(&training, &validation, &test, &entries)
+            .map_err(io::Error::other)?;
+        let digest = family_manifest_fingerprint(&entries).map_err(io::Error::other)?;
+        (Some(checked), Some(digest))
     } else {
-        None
+        (None, None)
     };
 
     // Prefer the simpler pointwise objective and fewer epochs on exact ties.
@@ -134,6 +135,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .evaluate_pair_ordering(&test)
         .map_err(io::Error::other)?;
 
+    // Fingerprint all splits and the saved checkpoint to bind the benchmark
+    // report to precise typed inputs. The final set never influences selection.
+    let validation_sha256 = training_data_fingerprint(&validation).map_err(io::Error::other)?;
+    let final_test_sha256 = training_data_fingerprint(&test).map_err(io::Error::other)?;
+    let checkpoint_sha256 = checkpoint_fingerprint(&model).map_err(io::Error::other)?;
+
     // Export only after validation and final evaluation have succeeded.
     // create_new refuses an accidental overwrite of a prior experiment.
     let bytes = serde_json::to_vec_pretty(&model)?;
@@ -146,6 +153,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     out.flush()?;
 
     let report = serde_json::json!({
+        "provenanceSchema": "repodna-benchmark-provenance/1",
         "selectionMetric": "validationNdcgAt5",
         "selectedObjective": objective,
         "selectedEpochs": epochs,
@@ -153,6 +161,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "trainingExamples": model.training_examples,
         "trainingRepositories": model.training_repositories,
         "trainingDatasetSha256": model.training_dataset_sha256,
+        "validationDatasetSha256": validation_sha256,
+        "finalTestDatasetSha256": final_test_sha256,
+        "checkpointSha256": checkpoint_sha256,
+        "familyManifestSha256": family_sha256,
         "familyManifestChecked": family_audit.is_some(),
         "familySplit": family_audit,
         "candidates": candidates,
