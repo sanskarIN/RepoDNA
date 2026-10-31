@@ -9,8 +9,7 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
-    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order,
-    validate_repository_split,
+    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -34,12 +33,15 @@ fn load(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>>
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
-    let (Some(training), Some(validation), Some(test), Some(destination), None) =
-        (args.next(), args.next(), args.next(), args.next(), args.next())
-    else {
+    let (Some(training), Some(validation), Some(test), Some(destination), None) = (
+        args.next(),
+        args.next(),
+        args.next(),
+        args.next(),
+        args.next(),
+    ) else {
         return Err(
-            "usage: select-repodna-ranker TRAIN.json VALIDATION.json TEST.json OUTPUT.json"
-                .into(),
+            "usage: select-repodna-ranker TRAIN.json VALIDATION.json TEST.json OUTPUT.json".into(),
         );
     };
 
@@ -88,16 +90,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if test_retrieval.evaluated_queries == 0 {
         return Err("test has no answerable labeled questions".into());
     }
-    let test_baseline = evaluate_original_order(&test, EVALUATION_K)
-        .map_err(io::Error::other)?;
+    let test_baseline = evaluate_original_order(&test, EVALUATION_K).map_err(io::Error::other)?;
     let test_delta = test_retrieval
         .delta_from(test_baseline)
         .map_err(io::Error::other)?;
     let test_scores = model
         .evaluate_relevance_scores(&test)
         .map_err(io::Error::other)?;
-    let validation_baseline = evaluate_original_order(&validation, EVALUATION_K)
-        .map_err(io::Error::other)?;
+    let validation_baseline =
+        evaluate_original_order(&validation, EVALUATION_K).map_err(io::Error::other)?;
 
     let payload = serde_json::to_vec_pretty(&model)?;
     let mut output = OpenOptions::new()
@@ -132,7 +133,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
 fn main() {
     if let Err(error) = run() {
-        let _ = writeln!(io::stderr().lock(), "ranker model selection failed: {error}");
+        let _ = writeln!(
+            io::stderr().lock(),
+            "ranker model selection failed: {error}"
+        );
         std::process::exit(1);
     }
 }
