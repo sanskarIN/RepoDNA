@@ -152,6 +152,14 @@ command, the same question with the same evidence reuses the earlier answer inst
 sending a request. `--fresh` asks the
 provider again, and `repodna cache clear` removes cached explanations.
 
+## Offline ranker reproducibility
+
+For reproducibility audits of the optional native ranker, run
+`reproduce-repodna-ranker` with the saved checkpoint and original training
+labels. See [Native model development](native-model.md#reproduce-a-saved-checkpoint-from-training-labels).
+This checks deterministic weights, **not** whether the labels or citations are
+correct, and never calls a remote provider.
+
 ## Costs
 
 RepoDNA does not know what your provider charges. To see estimates in `--dry-run` output,
