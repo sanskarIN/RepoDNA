@@ -6,6 +6,7 @@
 mod annotation;
 mod evaluation;
 mod fingerprint;
+mod pair_ordering;
 mod scores;
 mod thresholds;
 
@@ -15,6 +16,7 @@ pub use evaluation::{
     AnswerabilityEvaluation, RetrievalDelta, RetrievalEvaluation, evaluate_original_order,
 };
 pub use fingerprint::training_data_fingerprint;
+pub use pair_ordering::PairOrderingEvaluation;
 pub use scores::{RelevanceScoreBin, RelevanceScoreEvaluation, SCORE_BIN_COUNT};
 
 use crate::context::{EvidenceItem, EvidenceKind};
