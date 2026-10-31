@@ -50,6 +50,8 @@ fn exports_valid_pairwise_checkpoint_and_offline_comparison() {
     assert_eq!(report["epochs"], 60);
     assert_eq!(report["retrieval"]["evaluatedQueries"], 2);
     assert!(report["retrievalDelta"]["ndcgAtK"].is_number());
+    assert_eq!(report["pointwiseRetrieval"]["evaluatedQueries"], 2);
+    assert!(report["pairwiseVsPointwiseDelta"]["ndcgAtK"].is_number());
     assert!(!String::from_utf8_lossy(&trained.stdout).contains("synthetic-alpha"));
 
     let duplicate = train(
