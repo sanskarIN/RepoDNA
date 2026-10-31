@@ -40,9 +40,7 @@ fn load(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>>
     Ok(samples)
 }
 
-fn evidence_signature(
-    sample: &LabeledEvidence,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn evidence_signature(sample: &LabeledEvidence) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     // Exclude repository and evidence ID intentionally: cloned repository
     // analysis could have new IDs while repeating evidence and questions.
     Ok(serde_json::to_vec(&(
@@ -53,15 +51,11 @@ fn evidence_signature(
     ))?)
 }
 
-fn signatures(
-    samples: &[LabeledEvidence],
-) -> Result<HashSet<Vec<u8>>, Box<dyn std::error::Error>> {
+fn signatures(samples: &[LabeledEvidence]) -> Result<HashSet<Vec<u8>>, Box<dyn std::error::Error>> {
     samples.iter().map(evidence_signature).collect()
 }
 
-fn summary(
-    samples: &[LabeledEvidence],
-) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let mut per_repo: BTreeMap<String, usize> = BTreeMap::new();
     let mut per_query: BTreeMap<(String, String), (usize, usize)> = BTreeMap::new();
     let mut per_kind: BTreeMap<String, usize> = BTreeMap::new();
@@ -79,7 +73,9 @@ fn summary(
             counts.1 += 1;
         }
         let kind = serde_json::to_value(sample.evidence.kind)?;
-        let kind = kind.as_str().ok_or("evidence kind did not serialize as string")?;
+        let kind = kind
+            .as_str()
+            .ok_or("evidence kind did not serialize as string")?;
         *per_kind.entry(kind.to_owned()).or_default() += 1;
     }
     let groups_with_positive = per_query.values().filter(|(yes, _)| *yes > 0).count();
