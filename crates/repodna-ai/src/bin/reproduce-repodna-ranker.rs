@@ -34,9 +34,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (Some(checkpoint), Some(training), maybe_epochs, None) =
         (args.next(), args.next(), args.next(), args.next())
     else {
-        return Err(
-            "usage: reproduce-repodna-ranker MODEL.json TRAIN.json [EPOCHS]".into(),
-        );
+        return Err("usage: reproduce-repodna-ranker MODEL.json TRAIN.json [EPOCHS]".into());
     };
     let epochs = match maybe_epochs {
         Some(value) => value
@@ -75,12 +73,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .zip(&reproduced.weights)
         .map(|(saved, expected)| (saved - expected).abs())
         .fold(0.0_f64, f64::max);
-    let matches = model.weights.iter().zip(&reproduced.weights).all(
-        |(saved, expected)| {
-            (saved - expected).abs()
-                <= RELATIVE_WEIGHT_TOLERANCE * expected.abs().max(1.0)
-        },
-    );
+    let matches = model
+        .weights
+        .iter()
+        .zip(&reproduced.weights)
+        .all(|(saved, expected)| {
+            (saved - expected).abs() <= RELATIVE_WEIGHT_TOLERANCE * expected.abs().max(1.0)
+        });
     if !matches {
         return Err("checkpoint weights differ from deterministic retraining".into());
     }
