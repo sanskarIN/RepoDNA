@@ -139,11 +139,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // report to precise typed inputs. The final set never influences selection.
     let validation_sha256 = training_data_fingerprint(&validation).map_err(io::Error::other)?;
     let final_test_sha256 = training_data_fingerprint(&test).map_err(io::Error::other)?;
-    let checkpoint_sha256 = checkpoint_fingerprint(&model).map_err(io::Error::other)?;
-
     // Export only after validation and final evaluation have succeeded.
     // create_new refuses an accidental overwrite of a prior experiment.
     let bytes = serde_json::to_vec_pretty(&model)?;
+    // Fingerprint the exact checkpoint as it will be loaded later. A
+    // serialize/parse round-trip may adjust the last floating-point bit;
+    // hashing the pre-serialization training object would be misleading.
+    let stored_model: RankerModel = serde_json::from_slice(&bytes)?;
+    let checkpoint_sha256 = checkpoint_fingerprint(&stored_model).map_err(io::Error::other)?;
     let mut out = OpenOptions::new()
         .write(true)
         .create_new(true)
