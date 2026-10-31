@@ -53,7 +53,7 @@ fn audits_independent_datasets_with_aggregates_only() {
             .len(),
         64
     );
-    assert!(report["warnings"].as_array().unwrap().len() >= 1);
+    assert!(!report["warnings"].as_array().unwrap().is_empty());
     let text = String::from_utf8(output.stdout).unwrap();
     for secret in [
         "synthetic-alpha",
