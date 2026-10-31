@@ -26,7 +26,9 @@ fn reproduce(checkpoint: &Path, training: &Path, epochs: Option<&str>) -> Output
     if let Some(epochs) = epochs {
         command.arg(epochs);
     }
-    command.output().expect("launch offline reproducibility audit")
+    command
+        .output()
+        .expect("launch offline reproducibility audit")
 }
 
 #[test]
@@ -55,7 +57,11 @@ fn saved_weights_reproduce_even_after_input_records_are_reordered() {
     records.reverse();
     let reversed = dir.path().join("reordered.json");
     fs::write(&reversed, serde_json::to_vec(&records).unwrap()).unwrap();
-    assert!(reproduce(&checkpoint, &reversed, Some("60")).status.success());
+    assert!(
+        reproduce(&checkpoint, &reversed, Some("60"))
+            .status
+            .success()
+    );
     assert_eq!(before, fs::read(&checkpoint).unwrap());
 
     // The report never exposes examples or repository identifiers.
