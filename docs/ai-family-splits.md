@@ -102,3 +102,12 @@ rights and provenance of all evaluation repositories before freezing the
 manifest. Protect the untouched final test set from training decisions.
 Never publish private repository names, raw annotations, proprietary source
 code, credentials or reviewer identities with a benchmark report.
+
+## Saved benchmark identity and verification
+
+The model-comparison JSON report includes cryptographic fingerprints for the
+checkpoint, all three label splits, and the curated family manifest (if
+supplied). Save the report and use the offline
+[`verify-repodna-benchmark` command](ai-benchmark-provenance.md) to
+confirm that those artifacts still match. This is an identity check, not
+independent verification of reviewer claims or model performance.
