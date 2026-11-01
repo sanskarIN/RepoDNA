@@ -30,6 +30,10 @@ all answerable repository/question groups. The new
    are excluded from ranking metric denominators rather than scored zero.
 
 Both pointwise and pairwise checkpoints support these ordering metrics.
+The three-way epoch selector also reports `testRepositoryBalancedRetrieval`,
+and the objective comparator reports `finalTestRepositoryBalancedRetrieval`.
+Both are calculated **only after** model selection has finished; neither
+influences training epochs, objective choice or thresholds.
 The output includes repository count, contributing repository count,
 unanswerable-only repository count, NDCG@5 and mean reciprocal rank,
 their original-order baselines and signed differences. No individual
