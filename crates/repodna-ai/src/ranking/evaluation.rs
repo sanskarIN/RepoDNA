@@ -427,6 +427,62 @@ mod tests {
     }
 
     #[test]
+    fn cached_retrieval_scores_match_legacy_stable_sort_metrics() {
+        let candidates = (0..180)
+            .map(|index| {
+                let kind = match index % 5 {
+                    0 => EvidenceKind::Commit,
+                    1 => EvidenceKind::Package,
+                    2 => EvidenceKind::Finding,
+                    3 => EvidenceKind::Metric,
+                    _ => EvidenceKind::Command,
+                };
+                LabeledEvidence {
+                    repository: "repo-stable".into(),
+                    query: "Which dependencies and build commands are recorded?".into(),
+                    evidence: EvidenceItem {
+                        id: format!("E{}", index + 1),
+                        kind,
+                        reference: "Cargo.lock and Makefile".into(),
+                        detail: match index % 3 {
+                            0 => "Recorded build commands".into(),
+                            1 => "Recorded packages and versions".into(),
+                            _ => "Measured contribution activity".into(),
+                        },
+                    },
+                    relevant: index % 7 == 0,
+                }
+            })
+            .collect::<Vec<_>>();
+        let ranker = model();
+        // This is the original comparator, deliberately retained only in
+        // the regression test as an ordering reference for frozen metrics.
+        let mut sorted = candidates.clone();
+        sorted.sort_by(|left, right| {
+            ranker
+                .relevance(&right.query, &right.evidence)
+                .total_cmp(&ranker.relevance(&left.query, &left.evidence))
+        });
+        for k in [1, 3, 5, 20, 100] {
+            assert_eq!(
+                ranker.evaluate_retrieval(&candidates, k).unwrap(),
+                evaluate_original_order(&sorted, k).unwrap()
+            );
+        }
+
+        // A tied model must preserve original input order across all
+        // candidates, including if the first relevant item is not first.
+        let mut tied = ranker;
+        tied.weights.fill(0.0);
+        for k in [1, 5, 100] {
+            assert_eq!(
+                tied.evaluate_retrieval(&candidates, k).unwrap(),
+                evaluate_original_order(&candidates, k).unwrap()
+            );
+        }
+    }
+
+    #[test]
     fn repository_balanced_metrics_do_not_overweight_large_repositories() {
         let holdout = vec![
             labeled("repo-a", "question-1", "E1", EvidenceKind::Commit, false),
