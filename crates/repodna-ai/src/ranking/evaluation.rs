@@ -349,11 +349,14 @@ fn evaluate_retrieval_inner(
             let query_terms = super::terms(query);
             let mut scored = group
                 .into_iter()
-                .map(|item| (model.relevance_with_terms(&query_terms, &item.evidence), item))
+                .map(|item| {
+                    (
+                        model.relevance_with_terms(&query_terms, &item.evidence),
+                        item,
+                    )
+                })
                 .collect::<Vec<_>>();
-            scored.sort_by(|(left_score, _), (right_score, _)| {
-                right_score.total_cmp(left_score)
-            });
+            scored.sort_by(|(left_score, _), (right_score, _)| right_score.total_cmp(left_score));
             group = scored.into_iter().map(|(_, item)| item).collect();
         }
         if let Some(position) = group.iter().position(|item| item.relevant) {
