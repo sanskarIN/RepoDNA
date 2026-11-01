@@ -135,7 +135,9 @@ threshold from the final test set. Any operating-point selection needs a
 separate, repository-disjoint validation set and an untouched test set. The sweep reuses a candidate's evidence-relevance score across all requested
 thresholds instead of rescoring it separately for every threshold. This
 changes evaluation cost, not the threshold semantics or whether the runtime
-suppresses answers; the sweep remains diagnostic only.\n\nThe report
+suppresses answers; the sweep remains diagnostic only.
+
+The report
 counts true/false positives and negatives at the **repository/question** level,
 including unanswerable questions omitted from retrieval averages. A threshold
 score is not a calibrated probability of factual correctness, and RepoDNA
