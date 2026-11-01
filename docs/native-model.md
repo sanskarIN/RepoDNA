@@ -357,3 +357,30 @@ You can verify pairwise checkpoint weight reproducibility with the existing
 default). The checkpoint's format identifies the training objective.
 Reproducing weights is not evidence of accuracy, labeling quality or
 authentic data provenance.
+
+## Measure local native ranker latency
+
+Use the offline CPU microbenchmark with a checkpoint already trained and
+validated locally. The candidate evidence is generated synthetically in
+memory; the benchmark does not open a repository, read training labels,
+download models or call any API:
+
+```sh
+cargo run --release --locked -p repodna-ai --bin benchmark-repodna-ranker -- \
+  ranker-local.json 100 200
+```
+
+The optional numbers are **candidate count** (1–1,024; default 12) and
+**measured iterations** (1–1,000; default 100). After ten warm-up runs,
+the command checks that every rank order matches the initial result and
+emits local JSON with mean, median and p95 ranking time in microseconds.
+It accepts pointwise and pairwise checkpoint formats and reads no source
+excerpt or benchmark labels. Invalid or larger-than-64-KiB checkpoints
+are rejected before any JSON output.
+
+This synthetic single-query microbenchmark is a regression/profiling aid,
+**not** proof of actual app latency, production throughput, real-world model
+quality or a speedup over an earlier release. For useful comparisons,
+record the model identity privately, identical candidate/iteration settings,
+CPU, OS, toolchain, build profile and repeated samples. Keep human-reviewed
+repository-disjoint evaluation separate from timing benchmarks.
