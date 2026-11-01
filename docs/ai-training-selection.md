@@ -97,3 +97,11 @@ They complement question-weighted MRR and NDCG@5 by giving each repository
 with answerable questions equal weight. These diagnostics do not alter the
 validation-only model selection rule and must not be used to retune against
 an already inspected final test.
+
+## Frozen final-test task diagnostics
+
+After selection has finished and the checkpoint is frozen, you can use
+[human-curated final-test task metrics](ai-frozen-task-metrics.md) to
+inspect relevance ranking across architecture, build, dependency, security,
+onboarding and history questions. These metrics must **never** influence
+training or model selection on that same held-out set.
