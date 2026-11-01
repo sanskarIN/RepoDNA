@@ -98,9 +98,9 @@ trainings, checks the validation-based winner and recomputes final-test
 metrics from the supplied local datasets. This establishes numerical
 reproducibility under the checked implementation and reported tolerances,
 **not** independent accuracy, author authenticity, dataset permissions,
-reviewer agreement, fork-family truth or explanation factuality. Training can still be biased or
-overfit if validation is repeatedly reused or the final test guides
-subsequent work.
+reviewer agreement, fork-family truth or explanation factuality.
+Training can still be biased or overfit if validation is repeatedly reused
+or the final test guides subsequent work.
 
 To test the weight-training procedure, additionally run
 `reproduce-repodna-ranker` on the saved checkpoint and training labels
