@@ -60,6 +60,11 @@ fn selects_objective_from_validation_and_exports_reproducible_checkpoint() {
     assert_eq!(report["finalTestRetrieval"]["evaluatedQueries"], 2);
     assert!(report["finalTestRetrievalDelta"]["ndcgAtK"].is_number());
     assert_eq!(report["finalTestPairOrdering"]["totalPairs"], 2);
+    assert_eq!(report["finalTestRepositoryBalancedRetrieval"]["repositories"], 1);
+    assert_eq!(
+        report["finalTestRepositoryBalancedRetrieval"]["ndcgAtK"],
+        report["finalTestRetrieval"]["ndcgAtK"]
+    );
     assert_eq!(report["finalTestPairOrdering"]["evaluatedQueries"], 2);
     assert!(report["candidates"][0]["validationPairAgreement"].is_number());
     assert!(report["candidates"][0]["validationComparablePairs"].is_number());
