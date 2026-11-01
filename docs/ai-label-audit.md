@@ -55,6 +55,15 @@ three validation or test repository IDs, extreme repository concentration,
 or exact/cosmetically repeated evidence signatures, the tool warns. These
 thresholds are research heuristics, **not statistical power guarantees**.
 
+## Independent reviewer agreement
+
+For human-reviewed benchmarks, double-review a fixed subset before finalizing
+training labels. The [offline reviewer agreement audit](ai-reviewer-agreement.md)
+compares two complete reviews of identical evidence records and reports
+aggregate observed agreement, disagreement counts and Cohen's kappa. It never
+invents missing labels, discloses evidence content or proves label accuracy.
+Adjudicate disagreements privately and record the rubric and aggregate results.
+
 ## Privacy and interpretation
 
 The audit never prints raw repository identifiers, evidence details,
