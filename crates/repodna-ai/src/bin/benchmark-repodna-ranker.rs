@@ -63,9 +63,7 @@ fn synthetic_evidence(count: usize) -> Vec<EvidenceItem> {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args = env::args_os().skip(1).collect::<Vec<_>>();
     if !(1..=3).contains(&args.len()) {
-        return Err(
-            "usage: benchmark-repodna-ranker MODEL.json [CANDIDATES] [ITERATIONS]".into(),
-        );
+        return Err("usage: benchmark-repodna-ranker MODEL.json [CANDIDATES] [ITERATIONS]".into());
     }
     let candidates = positive_count(
         args.get(1),
