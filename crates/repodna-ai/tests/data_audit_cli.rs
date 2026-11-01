@@ -118,7 +118,9 @@ fn warns_on_cosmetically_changed_copied_evidence_without_disclosing_labels() {
     // and whitespace. Exact matching will miss this cosmetic copy.
     let original = &train[0];
     let query = original["query"].as_str().expect("question");
-    let reference = original["evidence"]["reference"].as_str().expect("reference");
+    let reference = original["evidence"]["reference"]
+        .as_str()
+        .expect("reference");
     let detail = original["evidence"]["detail"].as_str().expect("detail");
     test[0]["query"] = format!("  {}  ", query.to_uppercase()).into();
     test[0]["evidence"]["kind"] = original["evidence"]["kind"].clone();
@@ -153,12 +155,18 @@ fn warns_on_cosmetically_changed_copied_evidence_without_disclosing_labels() {
         report["normalizedMatchingEvidenceSignaturesAcrossSplits"]["trainingFinalTest"],
         1
     );
-    assert!(report["warnings"].as_array().unwrap().iter().any(|warning| {
-        warning
-            .as_str()
+    assert!(
+        report["warnings"]
+            .as_array()
             .unwrap()
-            .contains("case/whitespace-normalized")
-    }));
+            .iter()
+            .any(|warning| {
+                warning
+                    .as_str()
+                    .unwrap()
+                    .contains("case/whitespace-normalized")
+            })
+    );
     let public = String::from_utf8(output.stdout).expect("UTF-8 report");
     assert!(!public.contains(query));
     assert!(!public.contains(reference));
@@ -201,17 +209,21 @@ fn warns_on_cosmetically_repeated_training_labels() {
     );
     let report: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("aggregate report");
-    assert_eq!(report["training"]["repeatedEvidenceSignaturesWithinSplit"], 0);
+    assert_eq!(
+        report["training"]["repeatedEvidenceSignaturesWithinSplit"],
+        0
+    );
     assert_eq!(
         report["training"]["normalizedRepeatedEvidenceSignaturesWithinSplit"],
         1
     );
-    assert!(report["warnings"].as_array().unwrap().iter().any(|warning| {
-        warning
-            .as_str()
+    assert!(
+        report["warnings"]
+            .as_array()
             .unwrap()
-            .contains("duplicate annotation")
-    }));
+            .iter()
+            .any(|warning| { warning.as_str().unwrap().contains("duplicate annotation") })
+    );
 }
 
 #[test]
