@@ -57,6 +57,33 @@ fn signatures(samples: &[LabeledEvidence]) -> Result<HashSet<Vec<u8>>, Box<dyn s
     samples.iter().map(evidence_signature).collect()
 }
 
+// Detect copied labels with cosmetic casing/whitespace edits, without changing
+// the original labels, their immutable fingerprints or hard split boundaries.
+// This is deliberately not semantic or fuzzy similarity detection.
+fn normalized_evidence_signature(
+    sample: &LabeledEvidence,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    fn normalize(value: &str) -> String {
+        value
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase()
+    }
+    Ok(serde_json::to_vec(&(
+        normalize(&sample.query),
+        &sample.evidence.kind,
+        normalize(&sample.evidence.reference),
+        normalize(&sample.evidence.detail),
+    ))?)
+}
+
+fn normalized_signatures(
+    samples: &[LabeledEvidence],
+) -> Result<HashSet<Vec<u8>>, Box<dyn std::error::Error>> {
+    samples.iter().map(normalized_evidence_signature).collect()
+}
+
 fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let mut per_repo: BTreeMap<String, usize> = BTreeMap::new();
     let mut per_query: BTreeMap<(String, String), (usize, usize)> = BTreeMap::new();
@@ -89,6 +116,7 @@ fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std
     let largest_repo = per_repo.values().copied().max().unwrap_or(0);
     let largest_repo_share = largest_repo as f64 / samples.len().max(1) as f64;
     let unique_evidence = signatures(samples)?.len();
+    let normalized_unique_evidence = normalized_signatures(samples)?.len();
     Ok(serde_json::json!({
         "examples": samples.len(),
         "repositories": per_repo.len(),
@@ -102,6 +130,8 @@ fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std
         "largestRepositoryExampleShare": largest_repo_share,
         "evidenceKinds": per_kind,
         "repeatedEvidenceSignaturesWithinSplit": samples.len() - unique_evidence,
+        "normalizedRepeatedEvidenceSignaturesWithinSplit": samples.len()
+            - normalized_unique_evidence,
         "labelFingerprintSha256": training_data_fingerprint(samples)?,
     }))
 }
@@ -168,6 +198,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let train_validation = train_keys.intersection(&valid_keys).count();
     let train_test = train_keys.intersection(&test_keys).count();
     let validation_test = valid_keys.intersection(&test_keys).count();
+    let normalized_train_keys = normalized_signatures(&train)?;
+    let normalized_valid_keys = normalized_signatures(&validation)?;
+    let normalized_test_keys = normalized_signatures(&test)?;
+    let normalized_train_validation = normalized_train_keys
+        .intersection(&normalized_valid_keys)
+        .count();
+    let normalized_train_test = normalized_train_keys
+        .intersection(&normalized_test_keys)
+        .count();
+    let normalized_validation_test = normalized_valid_keys
+        .intersection(&normalized_test_keys)
+        .count();
 
     // These are warnings, not proof of bad labels. Common metadata can have
     // identical text in unrelated repositories, and genuinely copied repos
@@ -202,10 +244,30 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 "{name}: exact question/evidence text repeats within the split; inspect possible double counting"
             ));
         }
+        if record["normalizedRepeatedEvidenceSignaturesWithinSplit"]
+            .as_u64()
+            .unwrap_or(0)
+            > record["repeatedEvidenceSignaturesWithinSplit"]
+                .as_u64()
+                .unwrap_or(0)
+        {
+            warnings.push(format!(
+                "{name}: case/whitespace-normalized question/evidence text repeats within the split; inspect possible duplicate annotation"
+            ));
+        }
     }
     if train_validation > 0 || train_test > 0 || validation_test > 0 {
         warnings.push(
             "identical question/evidence content occurs across different splits; investigate possible clone or annotation leakage"
+                .to_owned(),
+        );
+    }
+    if normalized_train_validation > 0
+        || normalized_train_test > 0
+        || normalized_validation_test > 0
+    {
+        warnings.push(
+            "case/whitespace-normalized question/evidence text overlaps across splits (including exact matches); investigate possible copied annotations"
                 .to_owned(),
         );
     }
@@ -229,6 +291,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             "trainingValidation": train_validation,
             "trainingFinalTest": train_test,
             "validationFinalTest": validation_test,
+        },
+        "normalizedMatchingEvidenceSignaturesAcrossSplits": {
+            "trainingValidation": normalized_train_validation,
+            "trainingFinalTest": normalized_train_test,
+            "validationFinalTest": normalized_validation_test,
         },
         "warnings": warnings,
         "note": "Structural checks cannot verify label correctness, repository independence beyond IDs and exact-content matches, annotation rights, real-world accuracy or factual explanation fidelity. Dataset fingerprints can reveal repeated dataset use."

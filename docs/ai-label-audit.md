@@ -35,15 +35,25 @@ evidence IDs. If the same question and evidence text occurs in different
 splits, the command reports *aggregate matching-signature counts* and
 warns about possible cloned-repository or annotation leakage.
 
+The audit also reports **case/whitespace-normalized signature matches**
+using the same four fields. This second pass lowercases text and collapses
+Unicode whitespace runs, catching labels copied with only cosmetic edits.
+It reports both exact and normalized aggregate counts separately for each
+split pair, plus normalized repetition within each split. Neither check
+changes training data, human labels or the full-fidelity SHA-256 label
+fingerprints; both produce warnings rather than rejecting valid input.
+
 A matching signature is **not proof of leakage**. Independent repositories
-can share familiar file and dependency metadata. Conversely, a copied
-repository with slightly changed text or questions can pass this check.
-These are warnings requiring human review, not hard failures.
+can share familiar file and dependency metadata. Conversely, these checks
+still miss synonyms, changed punctuation, reordered words, renamed paths,
+and semantically copied repository content. Normalized matches *include*
+exact matches, so do not add the two counts together. Review suspicious
+findings and confirm repository-family provenance manually.
 
 When a dataset has fewer than five training repository IDs, fewer than
 three validation or test repository IDs, extreme repository concentration,
-or exact repeated evidence signatures, the tool warns. These thresholds
-are simple research heuristics, **not statistical power guarantees**.
+or exact/cosmetically repeated evidence signatures, the tool warns. These
+thresholds are research heuristics, **not statistical power guarantees**.
 
 ## Privacy and interpretation
 
