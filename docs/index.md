@@ -19,6 +19,7 @@ repository.
 - [WinGet on Windows](winget.md): desktop and CLI installation, upgrades, and publishing
 - [The web version](web.md#the-web-version): analyze a folder in your browser, with nothing to
   install
+- [GitHub Pages deployment](github-pages.md): how to verify and troubleshoot web and docs builds
 - [FAQ](faq.md)
 
 ## Using RepoDNA
@@ -33,6 +34,23 @@ repository.
 - [AI explanations](ai.md) (optional)
 - [Plugins](plugins.md)
 - [Troubleshooting](troubleshooting.md)
+
+## Native AI model and benchmark development
+
+RepoDNA includes a built-in **offline extractive explanation** provider and an
+experimental locally trained relevance ranker. These are not a trained
+generative language model. The research guides explain how to prepare
+independently reviewed labels and evaluate ranking quality without claiming
+accuracy on synthetic fixtures.
+
+- [Current native model capabilities and limitations](native-model.md)
+- [Human relevance annotation rubric](ai-annotation-rubric.md)
+- [Double-review annotation agreement and adjudication](ai-reviewer-agreement.md)
+- [Data quality and copied-label audit](ai-label-audit.md)
+- [Clone-family-disjoint benchmark splits](ai-family-splits.md)
+- [Three-way training and epoch selection](ai-training-selection.md)
+- [Comparing pointwise and pairwise ranking](ai-objective-selection.md)
+- [Benchmark fingerprints and independent replay](ai-benchmark-provenance.md)
 
 ## How the analysis works
 
