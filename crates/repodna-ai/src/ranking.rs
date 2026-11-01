@@ -305,14 +305,22 @@ impl RankerModel {
     }
 
     /// Indices sorted by relevance; stable original order on ties.
+    ///
+    /// Score each candidate once before sorting. Re-scoring inside the
+    /// comparator recomputes token overlap O(n log n) times for a single
+    /// explanation; cached scores make comparisons cheap and deterministic.
     pub fn rank_indices(&self, query: &str, evidence: &[EvidenceItem]) -> Vec<usize> {
-        let mut indices: Vec<usize> = (0..evidence.len()).collect();
-        indices.sort_by(|&a, &b| {
-            self.relevance(query, &evidence[b])
-                .total_cmp(&self.relevance(query, &evidence[a]))
-                .then(a.cmp(&b))
+        let mut scored = evidence
+            .iter()
+            .enumerate()
+            .map(|(index, item)| (index, self.relevance(query, item)))
+            .collect::<Vec<_>>();
+        scored.sort_by(|(left_index, left_score), (right_index, right_score)| {
+            right_score
+                .total_cmp(left_score)
+                .then(left_index.cmp(right_index))
         });
-        indices
+        scored.into_iter().map(|(index, _)| index).collect()
     }
 
     /// Score labels not used during training without changing weights.
