@@ -49,11 +49,7 @@ fn records(
 ) -> Result<BTreeMap<Vec<u8>, bool>, Box<dyn std::error::Error>> {
     let mut result = BTreeMap::new();
     for review in reviews {
-        let identity = serde_json::to_vec(&(
-            &review.repository,
-            &review.query,
-            &review.evidence,
-        ))?;
+        let identity = serde_json::to_vec(&(&review.repository, &review.query, &review.evidence))?;
         let relevant = review.relevant.ok_or("unreviewed annotation")?;
         if result.insert(identity, relevant).is_some() {
             return Err("duplicate annotation record".into());
@@ -135,7 +131,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
 fn main() {
     if let Err(error) = run() {
-        let _ = writeln!(io::stderr().lock(), "review agreement audit failed: {error}");
+        let _ = writeln!(
+            io::stderr().lock(),
+            "review agreement audit failed: {error}"
+        );
         std::process::exit(1);
     }
 }
