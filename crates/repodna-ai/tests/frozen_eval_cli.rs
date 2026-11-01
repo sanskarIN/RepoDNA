@@ -305,3 +305,159 @@ fn frozen_pairwise_evaluation_checks_original_training_fingerprint() {
     assert!(result.stdout.is_empty());
     assert!(String::from_utf8_lossy(&result.stderr).contains("fingerprint mismatch"));
 }
+
+fn task_manifest() -> Vec<serde_json::Value> {
+    vec![
+        serde_json::json!({
+            "repository": "synthetic-gamma",
+            "query": "What build commands exist?",
+            "task": "build_commands"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-gamma",
+            "query": "What dependencies are installed?",
+            "task": "dependencies"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-delta",
+            "query": "Which build command is available?",
+            "task": "build_commands"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-delta",
+            "query": "Which dependency is locked?",
+            "task": "dependencies"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-epsilon",
+            "query": "Where is the deployment secret?",
+            "task": "security"
+        }),
+    ]
+}
+
+fn task_evaluate(model: &Path, training: &Path, test: &Path, manifest: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_evaluate-repodna-ranker"))
+        .arg(model)
+        .arg(training)
+        .arg(test)
+        .arg(manifest)
+        .output()
+        .expect("run frozen task evaluation")
+}
+
+#[test]
+fn reports_task_stratified_frozen_metrics_for_pointwise_and_pairwise_checkpoints() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = dir.path().join("tasks.json");
+    let mut tasks = task_manifest();
+    tasks.retain(|entry| entry["repository"] != "synthetic-gamma");
+    tasks.reverse();
+    tasks[0]["repository"] = " SYNTHETIC-EPSILON ".into();
+    fs::write(&manifest, serde_json::to_vec(&tasks).unwrap()).unwrap();
+
+    for objective in ["train-repodna-ranker", "train-repodna-pairwise"] {
+        let checkpoint = dir.path().join(format!("{objective}.json"));
+        let trained = Command::new(match objective {
+            "train-repodna-ranker" => env!("CARGO_BIN_EXE_train-repodna-ranker"),
+            _ => env!("CARGO_BIN_EXE_train-repodna-pairwise"),
+        })
+        .arg(fixture("train.demo.json"))
+        .arg(fixture("holdout.demo.json"))
+        .arg(&checkpoint)
+        .output()
+        .unwrap();
+        assert!(
+            trained.status.success(),
+            "trainer failed: {}",
+            String::from_utf8_lossy(&trained.stderr)
+        );
+        let before = fs::read(&checkpoint).unwrap();
+        let evaluated = task_evaluate(
+            &checkpoint,
+            &fixture("train.demo.json"),
+            &fixture("test.demo.json"),
+            &manifest,
+        );
+        assert!(
+            evaluated.status.success(),
+            "evaluator failed: {}",
+            String::from_utf8_lossy(&evaluated.stderr)
+        );
+        let result: serde_json::Value = serde_json::from_slice(&evaluated.stdout).unwrap();
+        let stratified = &result["taskStratifiedRetrieval"];
+        assert_eq!(stratified["schema"], "repodna-frozen-task-retrieval/1");
+        assert_eq!(stratified["manifestQuestions"], 3);
+        assert_eq!(stratified["tasks"]["build_commands"]["questions"], 1);
+        assert_eq!(
+            stratified["tasks"]["build_commands"]["answerableQuestions"],
+            1
+        );
+        assert!(stratified["tasks"]["build_commands"]["retrieval"]["ndcgAtK"].is_number());
+        assert!(stratified["tasks"]["dependencies"]["retrievalDelta"]["ndcgAtK"].is_number());
+        assert_eq!(stratified["tasks"]["security"]["questions"], 1);
+        assert_eq!(stratified["tasks"]["security"]["unanswerableQuestions"], 1);
+        assert!(stratified["tasks"]["security"]["retrieval"].is_null());
+        assert!(stratified["tasks"]["architecture"]["retrieval"].is_null());
+        assert_eq!(before, fs::read(&checkpoint).unwrap());
+
+        let stdout = String::from_utf8(evaluated.stdout).unwrap();
+        for secret in [
+            "synthetic-delta",
+            "synthetic-epsilon",
+            "Where is the deployment secret?",
+            "Cargo.lock",
+        ] {
+            assert!(!stdout.contains(secret), "private input leaked");
+        }
+        if objective == "train-repodna-pairwise" {
+            assert_eq!(result["scoreSemantics"], "relative-ranking-only");
+            assert!(result.get("answerability").is_none());
+        }
+    }
+}
+
+#[test]
+fn frozen_task_metrics_reject_incomplete_conflicting_and_unknown_manifests() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("model.json");
+    assert!(train(&checkpoint).status.success());
+    let path = dir.path().join("tasks.json");
+    let test = fixture("test.demo.json");
+    let training = fixture("train.demo.json");
+
+    let mut cases = Vec::new();
+    let mut missing = task_manifest();
+    missing.retain(|entry| entry["repository"] != "synthetic-gamma");
+    missing.pop();
+    cases.push(missing);
+
+    let mut duplicate = task_manifest();
+    duplicate.retain(|entry| entry["repository"] != "synthetic-gamma");
+    duplicate.push(serde_json::json!({
+        "repository": " SYNTHETIC-DELTA ",
+        "query": "Which dependency is locked?",
+        "task": "other"
+    }));
+    cases.push(duplicate);
+
+    let mut unknown = task_manifest();
+    unknown.retain(|entry| entry["repository"] != "synthetic-gamma");
+    unknown[0]["task"] = "guess_from_title".into();
+    cases.push(unknown);
+
+    let mut extra = task_manifest();
+    extra.push(serde_json::json!({
+        "repository": "orphan",
+        "query": "Unknown?",
+        "task": "other"
+    }));
+    cases.push(extra);
+
+    for (index, case) in cases.iter().enumerate() {
+        fs::write(&path, serde_json::to_vec(case).unwrap()).unwrap();
+        let result = task_evaluate(&checkpoint, &training, &test, &path);
+        assert!(!result.status.success(), "invalid case {index} accepted");
+        assert!(result.stdout.is_empty(), "partial JSON for case {index}");
+    }
+}
