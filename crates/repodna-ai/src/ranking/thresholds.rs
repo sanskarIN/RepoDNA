@@ -150,6 +150,51 @@ mod tests {
     }
 
     #[test]
+    fn sweep_matches_independent_threshold_evaluation_on_mixed_groups() {
+        let mut ranker = model();
+        ranker.weights[0] = -0.5;
+        ranker.weights[7] = 2.0;
+        ranker.weights[8] = -2.0;
+
+        let mut second = sample(" repo-positive ", false);
+        second.evidence.id = "E2".into();
+        second.evidence.kind = EvidenceKind::Commit;
+        let mut international = sample("repo-international", true);
+        international.query = "依存関係 dependencies".into();
+        let mut negative = sample("repo-negative", false);
+        negative.evidence.kind = EvidenceKind::Commit;
+        let holdout = vec![
+            sample("Repo-Positive", true),
+            second,
+            international,
+            negative,
+        ];
+        let thresholds = [0.0, 0.1, 0.25, 0.5, 0.75, 0.95, 1.0];
+        let expected = thresholds
+            .iter()
+            .map(|&threshold| ranker.evaluate_answerability(&holdout, threshold).unwrap())
+            .collect::<Vec<_>>();
+        let actual = ranker
+            .evaluate_answerability_sweep(&holdout, &thresholds)
+            .unwrap();
+        assert_eq!(actual, expected);
+        assert_eq!(actual[0].total_queries, 3);
+        assert_eq!(actual[0].answerable_queries, 2);
+        assert_eq!(actual[0].unanswerable_queries, 1);
+
+        let mut invalid = ranker.clone();
+        invalid.weights[0] = f64::NAN;
+        assert!(invalid
+            .evaluate_answerability_sweep(&holdout, &thresholds)
+            .is_err());
+        let mut pairwise = ranker;
+        pairwise.format = super::super::PAIRWISE_MODEL_FORMAT.into();
+        assert!(pairwise
+            .evaluate_answerability_sweep(&holdout, &thresholds)
+            .is_err());
+    }
+
+    #[test]
     fn rejects_invalid_or_duplicate_sweep_thresholds() {
         let holdout = [sample("repo-positive", true)];
         let ranker = model();
