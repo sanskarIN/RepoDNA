@@ -9,7 +9,8 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
-    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, evaluate_repository_balanced, validate_repository_split,
+    LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order,
+    evaluate_repository_balanced, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -99,9 +100,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(io::Error::other)?;
     let test_pair_ordering = model
         .evaluate_pair_ordering(&test)
-        .map_err(io::Error::other)?;    let test_repository_balanced =
-        evaluate_repository_balanced(&model, &test, EVALUATION_K)
-            .map_err(io::Error::other)?;
+        .map_err(io::Error::other)?;
+    let test_repository_balanced =
+        evaluate_repository_balanced(&model, &test, EVALUATION_K).map_err(io::Error::other)?;
 
     let validation_pair_ordering = model
         .evaluate_pair_ordering(&validation)
