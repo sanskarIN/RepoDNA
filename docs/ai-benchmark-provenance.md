@@ -89,11 +89,16 @@ dataset was used in two reports; handle them as potentially sensitive.
 
 ## What a successful verification does *not* prove
 
-Verification establishes **artifact identity and report consistency**.
-It does not independently reproduce all ten candidate trainings or the
-published NDCG scores, confirm the model author, confirm license rights
-or reviewer agreement, verify that reported fork relationships are true,
-or establish explanation factuality. Training can still be biased or
+In default **fast identity-check mode**, verification establishes artifact
+identity and report consistency. It does **not** independently reproduce
+candidate trainings or the published NDCG scores.
+
+With `--replay`, verification additionally reruns the ten candidate
+trainings, checks the validation-based winner and recomputes final-test
+metrics from the supplied local datasets. This establishes numerical
+reproducibility under the checked implementation and reported tolerances,
+**not** independent accuracy, author authenticity, dataset permissions,
+reviewer agreement, fork-family truth or explanation factuality. Training can still be biased or
 overfit if validation is repeatedly reused or the final test guides
 subsequent work.
 
