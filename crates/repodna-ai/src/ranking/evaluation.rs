@@ -285,7 +285,7 @@ pub fn evaluate_repository_balanced(
     })
 }
 
-fn group_holdout(
+pub(super) fn group_holdout(
     holdout: &[LabeledEvidence],
 ) -> Result<BTreeMap<(String, &str), Vec<&LabeledEvidence>>, String> {
     if holdout.is_empty() {
