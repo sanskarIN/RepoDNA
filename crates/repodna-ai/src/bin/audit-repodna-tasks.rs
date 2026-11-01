@@ -137,9 +137,7 @@ fn load_manifest(path: &Path) -> Result<TaskManifest, Box<dyn std::error::Error>
     Ok(tasks)
 }
 
-fn grouped_queries(
-    samples: &[LabeledEvidence],
-) -> BTreeMap<QuestionKey, (usize, usize)> {
+fn grouped_queries(samples: &[LabeledEvidence]) -> BTreeMap<QuestionKey, (usize, usize)> {
     let mut groups = BTreeMap::new();
     for sample in samples {
         let counts = groups
@@ -158,10 +156,14 @@ fn summarize(
     groups: &BTreeMap<QuestionKey, (usize, usize)>,
     tasks: &TaskManifest,
 ) -> Result<BTreeMap<&'static str, TaskCounts>, Box<dyn std::error::Error>> {
-    let mut by_kind: BTreeMap<&'static str, TaskCounts> =
-        TaskKind::all().into_iter().map(|kind| (kind.key(), TaskCounts::default())).collect();
+    let mut by_kind: BTreeMap<&'static str, TaskCounts> = TaskKind::all()
+        .into_iter()
+        .map(|kind| (kind.key(), TaskCounts::default()))
+        .collect();
     for (key, &(positive, negative)) in groups {
-        let kind = tasks.get(key).ok_or("task manifest does not cover all questions")?;
+        let kind = tasks
+            .get(key)
+            .ok_or("task manifest does not cover all questions")?;
         let counts = by_kind.get_mut(kind.key()).ok_or("unknown task category")?;
         counts.questions += 1;
         counts.labeled_evidence += positive + negative;
@@ -178,9 +180,13 @@ fn summarize(
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
-    let (Some(train), Some(validation), Some(test), Some(tasks), None) =
-        (args.next(), args.next(), args.next(), args.next(), args.next())
-    else {
+    let (Some(train), Some(validation), Some(test), Some(tasks), None) = (
+        args.next(),
+        args.next(),
+        args.next(),
+        args.next(),
+        args.next(),
+    ) else {
         return Err(
             "usage: audit-repodna-tasks TRAIN.json VALIDATION.json TEST.json TASKS.json".into(),
         );
@@ -224,8 +230,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             TaskKind::Onboarding,
             TaskKind::History,
         ] {
-            if counts.get(required.key()).is_some_and(|entry| entry.questions == 0) {
-                warnings.push(format!("{name}: no reviewer-tagged {} questions", required.key()));
+            if counts
+                .get(required.key())
+                .is_some_and(|entry| entry.questions == 0)
+            {
+                warnings.push(format!(
+                    "{name}: no reviewer-tagged {} questions",
+                    required.key()
+                ));
             }
         }
     }
