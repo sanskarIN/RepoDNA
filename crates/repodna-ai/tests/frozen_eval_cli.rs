@@ -72,7 +72,10 @@ fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
     }
     // The synthetic holdout has one repository, so query-weighted and
     // repository-balanced metrics coincide. No repository names are exposed.
-    assert_eq!(evaluation_report["repositoryBalancedRetrieval"]["repositories"], 1);
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["repositories"],
+        1
+    );
     assert_eq!(
         evaluation_report["repositoryBalancedRetrieval"]["evaluatedRepositories"],
         1
