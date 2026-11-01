@@ -281,8 +281,7 @@ pub fn evaluate_repository_balanced(
         ndcg_delta: ndcg_at_k - original_order_ndcg_at_k,
         mean_reciprocal_rank,
         original_order_mean_reciprocal_rank,
-        mean_reciprocal_rank_delta: mean_reciprocal_rank
-            - original_order_mean_reciprocal_rank,
+        mean_reciprocal_rank_delta: mean_reciprocal_rank - original_order_mean_reciprocal_rank,
     })
 }
 
