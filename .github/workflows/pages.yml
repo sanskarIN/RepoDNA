@@ -70,6 +70,10 @@ jobs:
           REPODNA_ENGINE: target/wasm32-wasip1/web-engine/repodna-wasm.wasm
       # The documentation, beside the web version. A broken link fails the build.
       - run: node packaging/docs/build.mjs --out apps/web/dist/docs --check
+      # Make the published source SHA and Actions run independently inspectable.
+      # Only these public fields enter the site; never export the full environment.
+      - name: Stamp published source provenance
+        run: node packaging/docs/stamp-deployment.mjs apps/web/dist
       - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/web/dist
