@@ -126,7 +126,8 @@ fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std
         "largestRepositoryExampleShare": largest_repo_share,
         "evidenceKinds": per_kind,
         "repeatedEvidenceSignaturesWithinSplit": samples.len() - unique_evidence,
-        "normalizedRepeatedEvidenceSignaturesWithinSplit": samples.len() - normalized_unique_evidence,
+        "normalizedRepeatedEvidenceSignaturesWithinSplit": samples.len()
+            - normalized_unique_evidence,
         "labelFingerprintSha256": training_data_fingerprint(samples)?,
     }))
 }
@@ -196,9 +197,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let normalized_train_keys = normalized_signatures(&train)?;
     let normalized_valid_keys = normalized_signatures(&validation)?;
     let normalized_test_keys = normalized_signatures(&test)?;
-    let normalized_train_validation = normalized_train_keys.intersection(&normalized_valid_keys).count();
-    let normalized_train_test = normalized_train_keys.intersection(&normalized_test_keys).count();
-    let normalized_validation_test = normalized_valid_keys.intersection(&normalized_test_keys).count();
+    let normalized_train_validation = normalized_train_keys
+        .intersection(&normalized_valid_keys)
+        .count();
+    let normalized_train_test = normalized_train_keys
+        .intersection(&normalized_test_keys)
+        .count();
+    let normalized_validation_test = normalized_valid_keys
+        .intersection(&normalized_test_keys)
+        .count();
 
     // These are warnings, not proof of bad labels. Common metadata can have
     // identical text in unrelated repositories, and genuinely copied repos
