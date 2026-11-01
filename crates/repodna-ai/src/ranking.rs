@@ -549,9 +549,16 @@ mod tests {
             for epochs in [1, 2, 7, 60, 200] {
                 let learned = RankerModel::train(samples, epochs).unwrap();
                 let original = legacy_weights(samples, epochs);
-                let actual_bits = learned.weights.iter().map(|w| w.to_bits()).collect::<Vec<_>>();
+                let actual_bits = learned
+                    .weights
+                    .iter()
+                    .map(|w| w.to_bits())
+                    .collect::<Vec<_>>();
                 let expected_bits = original.iter().map(|w| w.to_bits()).collect::<Vec<_>>();
-                assert_eq!(actual_bits, expected_bits, "checkpoint drift at epoch {epochs}");
+                assert_eq!(
+                    actual_bits, expected_bits,
+                    "checkpoint drift at epoch {epochs}"
+                );
                 assert_eq!(learned.training_examples, samples.len());
                 assert_eq!(
                     learned.training_dataset_sha256,
