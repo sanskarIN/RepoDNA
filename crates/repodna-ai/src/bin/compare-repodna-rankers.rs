@@ -137,7 +137,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let test_repository_balanced =
         evaluate_repository_balanced(&model, &test, K).map_err(io::Error::other)?;
 
-
     // Fingerprint all splits and the saved checkpoint to bind the benchmark
     // report to precise typed inputs. The final set never influences selection.
     let validation_sha256 = training_data_fingerprint(&validation).map_err(io::Error::other)?;
