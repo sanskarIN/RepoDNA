@@ -32,10 +32,58 @@ impl RankerModel {
         if thresholds.windows(2).any(|pair| pair[0] >= pair[1]) {
             return Err("answerability thresholds must be strictly increasing".into());
         }
-        thresholds
+        // The score of a candidate does not depend on the threshold. Validate
+        // and group the labels once, then score each candidate once for the
+        // entire sweep instead of repeating work up to 32 times.
+        self.validate()?;
+        if self.format != super::MODEL_FORMAT {
+            return Err("pairwise ranker scores cannot be used as answerability thresholds".into());
+        }
+        let groups = super::evaluation::group_holdout(holdout)?;
+        let total_queries = groups.len();
+        let mut results = thresholds
             .iter()
-            .map(|&threshold| self.evaluate_answerability(holdout, threshold))
-            .collect()
+            .map(|&threshold| AnswerabilityEvaluation {
+                threshold,
+                total_queries,
+                answerable_queries: 0,
+                unanswerable_queries: 0,
+                true_positive_queries: 0,
+                false_negative_queries: 0,
+                false_positive_queries: 0,
+                true_negative_queries: 0,
+            })
+            .collect::<Vec<_>>();
+
+        for ((_, query), candidates) in groups {
+            let answerable = candidates.iter().any(|item| item.relevant);
+            let query_terms = super::terms(query);
+            let max_score = candidates
+                .iter()
+                .map(|item| self.relevance_with_terms(&query_terms, &item.evidence))
+                .fold(f64::NEG_INFINITY, f64::max);
+            for result in &mut results {
+                match (answerable, max_score >= result.threshold) {
+                    (true, true) => {
+                        result.answerable_queries += 1;
+                        result.true_positive_queries += 1;
+                    }
+                    (true, false) => {
+                        result.answerable_queries += 1;
+                        result.false_negative_queries += 1;
+                    }
+                    (false, true) => {
+                        result.unanswerable_queries += 1;
+                        result.false_positive_queries += 1;
+                    }
+                    (false, false) => {
+                        result.unanswerable_queries += 1;
+                        result.true_negative_queries += 1;
+                    }
+                }
+            }
+        }
+        Ok(results)
     }
 }
 
