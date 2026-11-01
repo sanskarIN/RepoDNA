@@ -70,6 +70,24 @@ fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
             "mismatch: {key}"
         );
     }
+    // The synthetic holdout has one repository, so query-weighted and
+    // repository-balanced metrics coincide. No repository names are exposed.
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["repositories"],
+        1
+    );
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["evaluatedRepositories"],
+        1
+    );
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["ndcgAtK"],
+        evaluation_report["retrieval"]["ndcgAtK"]
+    );
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["originalOrderNdcgAtK"],
+        evaluation_report["originalOrderBaseline"]["ndcgAtK"]
+    );
     assert_eq!(evaluation_report["trainingRepositories"], 2);
     assert_eq!(evaluation_report["trainingExamples"], 6);
     assert_eq!(evaluation_report["trainingFingerprintVerified"], true);
@@ -241,6 +259,11 @@ fn frozen_pairwise_evaluation_reports_ranking_without_false_probability_metrics(
     assert_eq!(report["trainingFingerprintVerified"], true);
     assert_eq!(report["retrieval"]["evaluatedQueries"], 2);
     assert_eq!(report["pairOrdering"]["totalPairs"], 2);
+    assert_eq!(report["repositoryBalancedRetrieval"]["repositories"], 1);
+    assert_eq!(
+        report["repositoryBalancedRetrieval"]["ndcgAtK"],
+        report["retrieval"]["ndcgAtK"]
+    );
     assert!(report["retrievalDelta"]["ndcgAtK"].is_number());
     // It is mathematically incorrect to treat a pairwise score as an
     // absolute relevance probability or claim-confidence threshold.

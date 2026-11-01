@@ -88,3 +88,12 @@ faithfulness, answerability, or the fairness of reviewer labels.
 The metric supports both the original pointwise ranker and later pairwise
 checkpoints. The three-way selector still chooses epochs using validation
 NDCG@5 alone; it never uses final-test pair ordering for training choices.
+
+## Inspecting cross-repository generalization
+
+The frozen checkpoint evaluator also reports
+[repository-balanced retrieval diagnostics](ai-repository-balance.md).
+They complement question-weighted MRR and NDCG@5 by giving each repository
+with answerable questions equal weight. These diagnostics do not alter the
+validation-only model selection rule and must not be used to retune against
+an already inspected final test.

@@ -12,7 +12,7 @@ use std::path::Path;
 
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, RankerModel, evaluate_original_order,
-    training_data_fingerprint, validate_repository_split,
+    evaluate_repository_balanced, training_data_fingerprint, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -93,6 +93,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let pair_ordering = model
         .evaluate_pair_ordering(&test)
         .map_err(io::Error::other)?;
+    let repository_balanced =
+        evaluate_repository_balanced(&model, &test, 5).map_err(io::Error::other)?;
 
     // Emit only aggregate metrics. No labels, source paths or evidence text.
     let mut report = serde_json::json!({
@@ -104,6 +106,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "originalOrderBaseline": baseline,
         "retrievalDelta": delta,
         "pairOrdering": pair_ordering,
+        "repositoryBalancedRetrieval": repository_balanced,
     });
 
     if model.format == MODEL_FORMAT {
