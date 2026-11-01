@@ -127,15 +127,20 @@ fn kind_index(kind: EvidenceKind) -> usize {
     }
 }
 
-/// Fixed inspectable feature extraction; never executes repository text.
-pub fn features(query: &str, item: &EvidenceItem) -> [f64; FEATURE_COUNT] {
-    let query_terms = terms(query);
+/// Identical feature vector for a previously tokenized task query. This
+/// avoids splitting and allocating the same query tokens for every candidate.
+fn features_with_terms(query_terms: &HashSet<String>, item: &EvidenceItem) -> [f64; FEATURE_COUNT] {
     let mut features = [0.0; FEATURE_COUNT];
     features[0] = 1.0;
-    features[1] = overlap(&query_terms, &item.reference);
-    features[2] = overlap(&query_terms, &item.detail);
+    features[1] = overlap(query_terms, &item.reference);
+    features[2] = overlap(query_terms, &item.detail);
     features[kind_index(item.kind)] = 1.0;
     features
+}
+
+/// Fixed inspectable feature extraction; never executes repository text.
+pub fn features(query: &str, item: &EvidenceItem) -> [f64; FEATURE_COUNT] {
+    features_with_terms(&terms(query), item)
 }
 
 fn sigmoid(v: f64) -> f64 {
@@ -294,14 +299,19 @@ impl RankerModel {
         Ok(result)
     }
 
-    /// Sigmoid-transformed ranking score; pairwise values are not calibrated probabilities.
-    pub fn relevance(&self, query: &str, item: &EvidenceItem) -> f64 {
+    /// Reuse the exact query-token set for repeated candidate scoring.
+    fn relevance_with_terms(&self, query_terms: &HashSet<String>, item: &EvidenceItem) -> f64 {
         self.weights
             .iter()
-            .zip(features(query, item))
+            .zip(features_with_terms(query_terms, item))
             .map(|(w, x)| w * x)
             .sum::<f64>()
             .pipe_sigmoid()
+    }
+
+    /// Sigmoid-transformed ranking score; pairwise values are not calibrated probabilities.
+    pub fn relevance(&self, query: &str, item: &EvidenceItem) -> f64 {
+        self.relevance_with_terms(&terms(query), item)
     }
 
     /// Indices sorted by relevance; stable original order on ties.
@@ -310,10 +320,11 @@ impl RankerModel {
     /// comparator recomputes token overlap O(n log n) times for a single
     /// explanation; cached scores make comparisons cheap and deterministic.
     pub fn rank_indices(&self, query: &str, evidence: &[EvidenceItem]) -> Vec<usize> {
+        let query_terms = terms(query);
         let mut scored = evidence
             .iter()
             .enumerate()
-            .map(|(index, item)| (index, self.relevance(query, item)))
+            .map(|(index, item)| (index, self.relevance_with_terms(&query_terms, item)))
             .collect::<Vec<_>>();
         scored.sort_by(|(left_index, left_score), (right_index, right_score)| {
             right_score
