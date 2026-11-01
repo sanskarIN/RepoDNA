@@ -423,6 +423,70 @@ mod tests {
     }
 
     #[test]
+    fn repository_balanced_metrics_do_not_overweight_large_repositories() {
+        let holdout = vec![
+            labeled("repo-a", "question-1", "E1", EvidenceKind::Commit, false),
+            labeled("repo-a", "question-1", "E2", EvidenceKind::Package, true),
+            labeled(" repo-A ", "question-2", "E1", EvidenceKind::Commit, false),
+            labeled("repo-a", "question-2", "E2", EvidenceKind::Package, true),
+            labeled("repo-b", "question-3", "E1", EvidenceKind::Package, true),
+            labeled("repo-b", "question-3", "E2", EvidenceKind::Commit, false),
+            labeled("repo-c", "question-4", "E1", EvidenceKind::Commit, false),
+        ];
+        let balanced = evaluate_repository_balanced(&model(), &holdout, 5).unwrap();
+        assert_eq!(balanced.k, 5);
+        assert_eq!(balanced.repositories, 3);
+        assert_eq!(balanced.evaluated_repositories, 2);
+        assert_eq!(balanced.unanswerable_repositories, 1);
+        assert_eq!(balanced.mean_reciprocal_rank, 1.0);
+        assert!((balanced.original_order_mean_reciprocal_rank - 0.75).abs() < 1e-12);
+        assert!((balanced.mean_reciprocal_rank_delta - 0.25).abs() < 1e-12);
+        assert_eq!(balanced.ndcg_at_k, 1.0);
+        assert!(balanced.original_order_ndcg_at_k < 1.0);
+        assert!(balanced.ndcg_delta > 0.0);
+
+        // The existing query-weighted metric is 2/3; the new macro average
+        // is 3/4 because a repository with two questions counts only once.
+        let original = evaluate_original_order(&holdout, 5).unwrap();
+        assert!((original.mean_reciprocal_rank - 2.0 / 3.0).abs() < 1e-12);
+
+        // Input row order must not change model metrics if score ties do not
+        // occur. All positive packages score above the negative commits.
+        let mut reversed = holdout.clone();
+        reversed.reverse();
+        let repeated = evaluate_repository_balanced(&model(), &reversed, 5).unwrap();
+        assert_eq!(balanced.mean_reciprocal_rank, repeated.mean_reciprocal_rank);
+        assert_eq!(balanced.ndcg_at_k, repeated.ndcg_at_k);
+    }
+
+    #[test]
+    fn repository_balanced_reports_unanswerable_and_rejects_invalid_holdouts() {
+        let only_negative = [labeled(
+            "repo-a",
+            "question",
+            "E1",
+            EvidenceKind::Commit,
+            false,
+        )];
+        let result = evaluate_repository_balanced(&model(), &only_negative, 5).unwrap();
+        assert_eq!(result.repositories, 1);
+        assert_eq!(result.evaluated_repositories, 0);
+        assert_eq!(result.unanswerable_repositories, 1);
+        assert_eq!(result.ndcg_at_k, 0.0);
+        assert_eq!(result.mean_reciprocal_rank, 0.0);
+        assert!(evaluate_repository_balanced(&model(), &only_negative, 0).is_err());
+        assert!(evaluate_repository_balanced(&model(), &[], 5).is_err());
+        assert!(
+            evaluate_repository_balanced(
+                &model(),
+                &[only_negative[0].clone(), only_negative[0].clone()],
+                5,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn repository_aliases_share_one_evaluation_group() {
         let samples = [
             labeled(
