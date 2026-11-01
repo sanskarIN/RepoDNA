@@ -153,7 +153,9 @@ fn adjudication(
             // An override of two agreeing reviewers needs a separate documented
             // correction protocol, not a silent change to the finalized labels.
             if first_label != final_label {
-                return Err("finalized label changes a judgment on which both reviewers agreed".into());
+                return Err(
+                    "finalized label changes a judgment on which both reviewers agreed".into(),
+                );
             }
             agreed_labels_preserved += 1;
         } else {
