@@ -84,8 +84,7 @@ fn invalid_counts_and_checkpoints_fail_without_json() {
 
     let bad = dir.path().join("invalid.json");
     let saved = fs::read(&path).expect("read checkpoint");
-    let mut invalid: serde_json::Value =
-        serde_json::from_slice(&saved).expect("parse checkpoint");
+    let mut invalid: serde_json::Value = serde_json::from_slice(&saved).expect("parse checkpoint");
     invalid["weights"][0] = 100.0.into();
     let serialized = serde_json::to_vec(&invalid).expect("serialize invalid checkpoint");
     fs::write(&bad, serialized).expect("write invalid checkpoint");
