@@ -1,6 +1,6 @@
 //! Bounded offline microbenchmark for RepoDNA's native evidence ranker.
 //!
-//! Usage: benchmark-repodna-ranker MODEL.json [CANDIDATES] [ITERATIONS]
+//! Usage: `benchmark-repodna-ranker MODEL.json [CANDIDATES] [ITERATIONS]`
 //! All candidate evidence is synthetic. Neither labels nor source files are read.
 
 use std::env;
@@ -67,8 +67,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             "usage: benchmark-repodna-ranker MODEL.json [CANDIDATES] [ITERATIONS]".into(),
         );
     }
-    let candidates = positive_count(args.get(1), DEFAULT_CANDIDATES, MAX_CANDIDATES, "candidates")?;
-    let iterations = positive_count(args.get(2), DEFAULT_ITERATIONS, MAX_ITERATIONS, "iterations")?;
+    let candidates = positive_count(
+        args.get(1),
+        DEFAULT_CANDIDATES,
+        MAX_CANDIDATES,
+        "candidates",
+    )?;
+    let iterations = positive_count(
+        args.get(2),
+        DEFAULT_ITERATIONS,
+        MAX_ITERATIONS,
+        "iterations",
+    )?;
     let path = Path::new(&args[0]);
     if fs::metadata(path)?.len() > MAX_MODEL_BYTES {
         return Err("checkpoint exceeds 65536-byte limit".into());
