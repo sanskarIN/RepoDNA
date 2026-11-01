@@ -16,7 +16,8 @@ mod thresholds;
 pub use annotation::{AnnotationExample, annotation_template, finish_annotations};
 
 pub use evaluation::{
-    AnswerabilityEvaluation, RetrievalDelta, RetrievalEvaluation, evaluate_original_order,
+    AnswerabilityEvaluation, RepositoryBalancedEvaluation, RetrievalDelta, RetrievalEvaluation,
+    evaluate_original_order, evaluate_repository_balanced,
 };
 pub use families::{
     FamilySplitAudit, MAX_FAMILY_MANIFEST_ENTRIES, RepositoryProvenance,
