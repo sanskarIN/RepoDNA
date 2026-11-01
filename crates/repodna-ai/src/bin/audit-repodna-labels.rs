@@ -64,7 +64,11 @@ fn normalized_evidence_signature(
     sample: &LabeledEvidence,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     fn normalize(value: &str) -> String {
-        value.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+        value
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase()
     }
     Ok(serde_json::to_vec(&(
         normalize(&sample.query),
