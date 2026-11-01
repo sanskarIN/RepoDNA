@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -51,11 +51,7 @@ test("rejects malformed commit/run provenance and does not create a manifest", (
     ]) {
       assert.throws(() => stampDeployment(dir, invalid), /Pages provenance/);
     }
-    assert.equal(readFileSync(join(dir, "deployment.json"), "utf8"), "");
-  } catch (error) {
-    // No output file is expected. Check the absence explicitly without
-    // treating ENOENT as a successful manifest read.
-    if (error.code !== "ENOENT") throw error;
+    assert.equal(existsSync(join(dir, "deployment.json")), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
