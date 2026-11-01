@@ -72,3 +72,19 @@ cargo xtask bench --runs 5
 
 `cargo xtask fixtures --large-files N --large-commits N` changes the size of the `large`
 fixture.
+
+## Native ranker CPU microbenchmark
+
+RepoDNA also includes a small standalone, fully offline **evidence ranking**
+microbenchmark. It does not measure end-to-end repository analysis:
+
+```sh
+cargo run --release --locked -p repodna-ai --bin benchmark-repodna-ranker -- \
+  ranker-local.json 100 200
+```
+
+The candidate evidence is synthetic, the provided checkpoint is local and
+validated, and the JSON reports warm-run mean, median and p95 ranking
+latency in microseconds. Keep workload and machine details consistent
+between revisions. No performance comparison or accuracy claim is made
+without measured runs. See [native-model benchmark instructions](../docs/native-model.md#measure-local-native-ranker-latency).
