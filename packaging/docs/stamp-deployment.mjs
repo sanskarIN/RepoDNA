@@ -3,6 +3,7 @@
 // This file contains no environment dump, credentials or repository analysis.
 import { existsSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 function fail(message) {
   throw new Error(`Pages provenance: ${message}`);
@@ -43,7 +44,7 @@ export function stampDeployment(outputDirectory, env = process.env) {
   return destination;
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     if (process.argv.length !== 3) {
       fail("usage: node packaging/docs/stamp-deployment.mjs SITE_DIST");
