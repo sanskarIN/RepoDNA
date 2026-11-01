@@ -6,7 +6,7 @@
 use std::env;
 use std::fs;
 use std::hint::black_box;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -81,7 +81,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if fs::metadata(path)?.len() > MAX_MODEL_BYTES {
         return Err("checkpoint exceeds 65536-byte limit".into());
     }
-    let bytes = fs::read(path)?;
+    // A metadata check alone cannot bound special files or files that grow
+    // between stat and read. Never allocate more than the size cap plus one
+    // byte, even if the supplied path does not have a reliable file length.
+    let mut bytes = Vec::new();
+    fs::File::open(path)?
+        .take(MAX_MODEL_BYTES + 1)
+        .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > MAX_MODEL_BYTES {
         return Err("checkpoint grew beyond 65536-byte limit".into());
     }
