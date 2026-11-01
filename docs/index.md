@@ -45,6 +45,7 @@ accuracy on synthetic fixtures.
 
 - [Current native model capabilities and limitations](native-model.md)
 - [Human relevance annotation rubric](ai-annotation-rubric.md)
+- [Curated question-task coverage audit](ai-task-coverage.md)
 - [Double-review annotation agreement and adjudication](ai-reviewer-agreement.md)
 - [Data quality and copied-label audit](ai-label-audit.md)
 - [Clone-family-disjoint benchmark splits](ai-family-splits.md)
