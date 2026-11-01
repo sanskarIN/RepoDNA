@@ -12,6 +12,7 @@ use std::path::Path;
 
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, RankerModel, evaluate_original_order,
+    evaluate_repository_balanced,
     training_data_fingerprint, validate_repository_split,
 };
 
