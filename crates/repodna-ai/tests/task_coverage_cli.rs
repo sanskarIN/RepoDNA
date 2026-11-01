@@ -68,14 +68,26 @@ fn reports_curated_task_coverage_without_leaking_repository_or_questions() {
     assert_eq!(report["manifestQuestions"], 8);
     assert_eq!(report["training"]["dependencies"]["questions"], 1);
     assert_eq!(report["training"]["build_commands"]["positiveLabels"], 1);
-    assert_eq!(report["validation"]["build_commands"]["answerableQuestions"], 1);
+    assert_eq!(
+        report["validation"]["build_commands"]["answerableQuestions"],
+        1
+    );
     assert_eq!(report["finalTest"]["security"]["unanswerableQuestions"], 1);
     assert_eq!(report["finalTest"]["security"]["negativeLabels"], 2);
     assert_eq!(report["training"]["architecture"]["questions"], 0);
     assert!(!report["warnings"].as_array().unwrap().is_empty());
     let stdout = String::from_utf8(result.stdout).expect("utf8");
-    for private in ["synthetic-alpha", "SYNTHETIC-EPSILON", "Which dependencies", "Cargo.lock", "Where is the deployment secret?"] {
-        assert!(!stdout.contains(private), "private input leaked into aggregate report");
+    for private in [
+        "synthetic-alpha",
+        "SYNTHETIC-EPSILON",
+        "Which dependencies",
+        "Cargo.lock",
+        "Where is the deployment secret?",
+    ] {
+        assert!(
+            !stdout.contains(private),
+            "private input leaked into aggregate report"
+        );
     }
 }
 
