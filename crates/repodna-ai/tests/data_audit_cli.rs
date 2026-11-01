@@ -166,6 +166,55 @@ fn warns_on_cosmetically_changed_copied_evidence_without_disclosing_labels() {
 }
 
 #[test]
+fn warns_on_cosmetically_repeated_training_labels() {
+    let dir = tempfile::tempdir().expect("temporary files");
+    let mut train: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    let original = train[0].clone();
+    train[1]["query"] = original["query"]
+        .as_str()
+        .expect("question")
+        .to_uppercase()
+        .into();
+    train[1]["evidence"]["kind"] = original["evidence"]["kind"].clone();
+    train[1]["evidence"]["reference"] = original["evidence"]["reference"]
+        .as_str()
+        .expect("reference")
+        .to_uppercase()
+        .into();
+    train[1]["evidence"]["detail"] = original["evidence"]["detail"]
+        .as_str()
+        .expect("detail")
+        .to_uppercase()
+        .into();
+    let altered = dir.path().join("training-with-duplicate.json");
+    fs::write(&altered, serde_json::to_vec(&train).unwrap()).unwrap();
+    let output = audit(
+        &altered,
+        &fixture("holdout.demo.json"),
+        &fixture("test.demo.json"),
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("aggregate report");
+    assert_eq!(report["training"]["repeatedEvidenceSignaturesWithinSplit"], 0);
+    assert_eq!(
+        report["training"]["normalizedRepeatedEvidenceSignaturesWithinSplit"],
+        1
+    );
+    assert!(report["warnings"].as_array().unwrap().iter().any(|warning| {
+        warning
+            .as_str()
+            .unwrap()
+            .contains("duplicate annotation")
+    }));
+}
+
+#[test]
 fn rejects_leakage_and_invalid_training_classes() {
     let dir = tempfile::tempdir().unwrap();
     let alias = dir.path().join("alias.json");
