@@ -517,6 +517,53 @@ mod tests {
     }
 
     #[test]
+    fn cached_query_tokens_match_public_features_and_scoring_bit_for_bit() {
+        let model = RankerModel::train(&training(), 60).unwrap();
+        let inputs = training()
+            .into_iter()
+            .map(|label| label.evidence)
+            .collect::<Vec<_>>();
+        for query in [
+            "",
+            "dependencies and build commands",
+            "Cargo.lock cargo.lock CARGO.LOCK",
+            "C++ C# build!",
+            "中英文 mixed identifiers",
+            "a b c",
+            "spaced words\nwith delimiters",
+        ] {
+            let query_terms = terms(query);
+            for item in &inputs {
+                assert_eq!(
+                    features(query, item),
+                    features_with_terms(&query_terms, item)
+                );
+                assert_eq!(
+                    model.relevance(query, item).to_bits(),
+                    model.relevance_with_terms(&query_terms, item).to_bits()
+                );
+            }
+        }
+        // Input order and the sigmoid score must not vary with repeated
+        // calls or duplicate relevant-candidate feature vectors.
+        let query = "build commands";
+        let items = vec![
+            inputs[0].clone(),
+            inputs[0].clone(),
+            inputs[1].clone(),
+            inputs[0].clone(),
+        ];
+        let mut legacy = (0..items.len()).collect::<Vec<_>>();
+        legacy.sort_by(|&left, &right| {
+            model
+                .relevance(query, &items[right])
+                .total_cmp(&model.relevance(query, &items[left]))
+                .then(left.cmp(&right))
+        });
+        assert_eq!(model.rank_indices(query, &items), legacy);
+    }
+
+    #[test]
     fn training_is_invariant_to_json_row_order() {
         let originals = training();
         let mut reordered = originals.clone();
