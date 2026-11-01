@@ -184,14 +184,18 @@ mod tests {
 
         let mut invalid = ranker.clone();
         invalid.weights[0] = f64::NAN;
-        assert!(invalid
-            .evaluate_answerability_sweep(&holdout, &thresholds)
-            .is_err());
+        assert!(
+            invalid
+                .evaluate_answerability_sweep(&holdout, &thresholds)
+                .is_err()
+        );
         let mut pairwise = ranker;
         pairwise.format = super::super::PAIRWISE_MODEL_FORMAT.into();
-        assert!(pairwise
-            .evaluate_answerability_sweep(&holdout, &thresholds)
-            .is_err());
+        assert!(
+            pairwise
+                .evaluate_answerability_sweep(&holdout, &thresholds)
+                .is_err()
+        );
     }
 
     #[test]
