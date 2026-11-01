@@ -63,8 +63,11 @@ Do not manufacture positive samples to make retrieval scores computable.
    kappa is undefined.
 5. Privately adjudicate contested cases against recorded facts and this
    rubric. Document why the accepted label follows the task question.
-   Record aggregate counts of reviewed, contested, adjudicated and
-   unresolved examples, without publishing confidential evidence.
+   Use the optional third-file
+   [adjudication consistency audit](ai-reviewer-agreement.md#audit-an-explicitly-adjudicated-final-dataset)
+   before using finalized labels. Record aggregate counts of reviewed,
+   contested, adjudicated and unresolved examples, without publishing
+   confidential evidence.
 6. Freeze adjudicated labels and exact split membership. Check
    [dataset leakage](ai-label-audit.md), including repository family
    separation, before training and validation selection.

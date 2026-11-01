@@ -1,7 +1,7 @@
 //! Offline, aggregate-only agreement audit for two independently reviewed
 //! RepoDNA evidence annotation files.
 //!
-//! Usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json
+//! Usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json]
 //! Reviewers must judge the exact same evidence records. This audit measures
 //! consistency, not independence, factual correctness or reviewer expertise.
 
@@ -115,14 +115,89 @@ fn agreement(
     }))
 }
 
+/// Check a third, explicitly finalized set of labels against both completed
+/// independent reviews. This is a structural gate, *not* proof a human
+/// adjudicator actually inspected each disputed case.
+fn adjudication(
+    a: &[AnnotationExample],
+    b: &[AnnotationExample],
+    final_review: &[AnnotationExample],
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let first = records(a)?;
+    let second = records(b)?;
+    let final_labels = records(final_review)?;
+    if first.len() != second.len()
+        || first.len() != final_labels.len()
+        || !first.keys().eq(second.keys())
+        || !first.keys().eq(final_labels.keys())
+    {
+        return Err("adjudication files contain different evidence records".into());
+    }
+
+    let mut agreed_labels_preserved = 0_usize;
+    let mut disagreements_adjudicated = 0_usize;
+    let mut adjudicated_for_a = 0_usize;
+    let mut adjudicated_for_b = 0_usize;
+    let mut final_positive_labels = 0_usize;
+    for (identity, first_label) in &first {
+        let second_label = second
+            .get(identity)
+            .ok_or("adjudication files contain different evidence records")?;
+        let final_label = final_labels
+            .get(identity)
+            .ok_or("adjudication files contain different evidence records")?;
+        if *final_label {
+            final_positive_labels += 1;
+        }
+        if first_label == second_label {
+            // An override of two agreeing reviewers needs a separate documented
+            // correction protocol, not a silent change to the finalized labels.
+            if first_label != final_label {
+                return Err(
+                    "finalized label changes a judgment on which both reviewers agreed".into(),
+                );
+            }
+            agreed_labels_preserved += 1;
+        } else {
+            disagreements_adjudicated += 1;
+            if first_label == final_label {
+                adjudicated_for_a += 1;
+            } else {
+                adjudicated_for_b += 1;
+            }
+        }
+    }
+
+    Ok(serde_json::json!({
+        "schema": "repodna-reviewer-adjudication/1",
+        "structuralChecksPassed": true,
+        "agreedLabelsPreserved": agreed_labels_preserved,
+        "disagreementsAdjudicated": disagreements_adjudicated,
+        "adjudicatedInFavorOfReviewerA": adjudicated_for_a,
+        "adjudicatedInFavorOfReviewerB": adjudicated_for_b,
+        "finalPositiveLabels": final_positive_labels,
+        "finalNegativeLabels": final_labels.len() - final_positive_labels,
+        "note": "All records are complete, paired and preserve agreed reviewer labels. This cannot prove that contested labels were independently adjudicated, that any label is correct, or that repository metadata may be published. Reviewer identities and evidence content are not emitted."
+    }))
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
-    let (Some(a), Some(b), None) = (args.next(), args.next(), args.next()) else {
-        return Err("usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json".into());
+    let (Some(a), Some(b), final_path, None) = (args.next(), args.next(), args.next(), args.next())
+    else {
+        return Err(
+            "usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json]".into(),
+        );
     };
     let first = load(Path::new(&a))?;
     let second = load(Path::new(&b))?;
-    let report = agreement(&first, &second)?;
+    let mut report = agreement(&first, &second)?;
+    if let Some(path) = final_path {
+        // Load and validate the entire finalized dataset before producing any
+        // output. Missing judgments and changed evidence fail closed.
+        let finalized = load(Path::new(&path))?;
+        report["adjudication"] = adjudication(&first, &second, &finalized)?;
+    }
     let mut stdout = io::stdout().lock();
     serde_json::to_writer_pretty(&mut stdout, &report)?;
     stdout.write_all(b"\n")?;

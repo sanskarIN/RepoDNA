@@ -50,6 +50,47 @@ questions, evidence paths, source details or reviewer identities. Input roles
 A and B are labels, not actual identities. Agreement does not prove
 independent review, annotation quality, copyright permission or model accuracy.
 
+## Audit an explicitly adjudicated final dataset
+
+After both reviewers have finished, a human adjudicator can inspect contested
+examples using the original repository facts and the shared
+[relevance rubric](ai-annotation-rubric.md). Save a **third**, fully labeled
+`ADJUDICATED.json` file with exactly the same evidence metadata. A missing
+final relevance judgment is **not** an implicit negative.
+
+~~~sh
+cargo run --locked -p repodna-ai --bin audit-repodna-reviewers -- \
+  REVIEW_A.json REVIEW_B.json ADJUDICATED.json
+~~~
+
+The optional third argument turns on an additional fail-closed consistency
+check. It verifies that all three files contain precisely the same evidence
+records, accepts different JSON row ordering, refuses missing/duplicate
+records and source excerpts, and **rejects a finalized label that silently
+overrides both reviewers when they agreed**.
+
+The report retains the original agreement metrics and adds an aggregate
+`adjudication` object: count of agreed judgments preserved, disputes
+assigned an explicit final label, number resolved in favor of reviewer A
+or B, and final positive/negative label counts. The command prints
+**nothing to stdout when validation fails**. It never prints names, paths,
+questions, evidence details, or individual disputed judgments.
+
+Since relevance is Boolean, a final decision on a disputed item necessarily
+agrees with one of the two reviewers; **the command cannot distinguish a real
+adjudication from copying one reviewer's answers**. Document how disputes
+were settled privately. If two reviewers' shared judgment was truly wrong,
+correct the underlying review records through a documented correction step,
+then repeat agreement and adjudication audits. Do not silently override a
+consensus in the final file.
+
+The audit does not generate or export a training dataset. Keep
+`ADJUDICATED.json` private, verify repository permissions, freeze its exact
+contents and split membership, and then use independently validated records
+in the regular label and model evaluation pipeline. For a subset double
+review, audit that exact subset; do not misrepresent it as the complete
+training set.
+
 ## Follow up after disagreement
 
 Investigate disagreements privately against the written relevance rubric and
