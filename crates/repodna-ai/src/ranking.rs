@@ -271,12 +271,20 @@ impl RankerModel {
                 .then(left.query.cmp(&right.query))
                 .then(left.evidence.id.cmp(&right.evidence.id))
         });
+        // Feature extraction depends on frozen labels and the task, not on
+        // SGD weights. Build each vector once instead of repeating Unicode
+        // tokenization and overlap calculation every training epoch.
+        // Keep the original deterministic label order and floating-point
+        // operation order unchanged to preserve exact checkpoint weights.
+        let prepared = ordered
+            .iter()
+            .map(|sample| (features(&sample.query, &sample.evidence), sample.relevant))
+            .collect::<Vec<_>>();
         let mut weights = vec![0.0_f64; FEATURE_COUNT];
         for _ in 0..epochs {
-            for sample in &ordered {
-                let x = features(&sample.query, &sample.evidence);
+            for &(x, relevant) in &prepared {
                 let logit = weights.iter().zip(x).map(|(w, x)| w * x).sum::<f64>();
-                let target = if sample.relevant { 1.0 } else { 0.0 };
+                let target = if relevant { 1.0 } else { 0.0 };
                 let error = target - sigmoid(logit);
                 for (w, feature) in weights.iter_mut().zip(x) {
                     *w = (*w + 0.05 * (error * feature - 0.001 * *w)).clamp(-32.0, 32.0);
