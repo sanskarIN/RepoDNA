@@ -5,6 +5,10 @@ This offline tool measures consistency between two complete, independent reviews
 of exactly the same evidence subset. It does not generate labels or prove the
 reviewers' judgments are correct.
 
+Follow the [human relevance annotation rubric](ai-annotation-rubric.md) consistently
+before assigning labels. The rubric is a decision guide, not a substitute for
+independent review or validation of source facts.
+
 ## Prepare paired reviews
 
 1. Generate one annotation template with repodna-ranker-labels. Give the same
