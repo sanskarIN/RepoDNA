@@ -6,8 +6,8 @@ use std::path::Path;
 use std::process::{Command, Output};
 
 fn fixture() -> Vec<serde_json::Value> {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/native-ai/train.demo.json");
+    let path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/native-ai/train.demo.json");
     serde_json::from_slice(&fs::read(path).expect("read fixture")).expect("parse fixture")
 }
 
@@ -162,7 +162,11 @@ fn supports_fully_agreed_final_reviews_without_requiring_disputes() {
     write(&b_path, &a);
     write(&final_path, &a);
     let run = audit(&a_path, &b_path, &final_path);
-    assert!(run.status.success(), "{}", String::from_utf8_lossy(&run.stderr));
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
     let report: serde_json::Value = serde_json::from_slice(&run.stdout).expect("report");
     assert_eq!(report["adjudication"]["agreedLabelsPreserved"], 6);
     assert_eq!(report["adjudication"]["disagreementsAdjudicated"], 0);
