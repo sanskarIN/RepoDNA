@@ -183,12 +183,10 @@ fn adjudication(
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
-    let (Some(a), Some(b), final_path, None) =
-        (args.next(), args.next(), args.next(), args.next())
+    let (Some(a), Some(b), final_path, None) = (args.next(), args.next(), args.next(), args.next())
     else {
         return Err(
-            "usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json]"
-                .into(),
+            "usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json]".into(),
         );
     };
     let first = load(Path::new(&a))?;
