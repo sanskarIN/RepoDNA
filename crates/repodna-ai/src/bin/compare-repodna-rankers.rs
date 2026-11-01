@@ -10,8 +10,8 @@ use std::path::Path;
 
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, RankerModel, RepositoryProvenance, checkpoint_fingerprint,
-    evaluate_original_order, evaluate_repository_balanced, family_manifest_fingerprint, training_data_fingerprint,
-    validate_repository_families, validate_repository_split,
+    evaluate_original_order, evaluate_repository_balanced, family_manifest_fingerprint,
+    training_data_fingerprint, validate_repository_families, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -133,9 +133,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(io::Error::other)?;
     let final_pair_ordering = model
         .evaluate_pair_ordering(&test)
-        .map_err(io::Error::other)?;    let test_repository_balanced =
-        evaluate_repository_balanced(&model, &test, K)
-            .map_err(io::Error::other)?;
+        .map_err(io::Error::other)?;
+    let test_repository_balanced =
+        evaluate_repository_balanced(&model, &test, K).map_err(io::Error::other)?;
 
 
     // Fingerprint all splits and the saved checkpoint to bind the benchmark
