@@ -276,12 +276,20 @@ impl RankerModel {
                 .then(left.query.cmp(&right.query))
                 .then(left.evidence.id.cmp(&right.evidence.id))
         });
+        // Feature extraction depends on frozen labels and the task, not on
+        // SGD weights. Build each vector once instead of repeating Unicode
+        // tokenization and overlap calculation every training epoch.
+        // Keep the original deterministic label order and floating-point
+        // operation order unchanged to preserve exact checkpoint weights.
+        let prepared = ordered
+            .iter()
+            .map(|sample| (features(&sample.query, &sample.evidence), sample.relevant))
+            .collect::<Vec<_>>();
         let mut weights = vec![0.0_f64; FEATURE_COUNT];
         for _ in 0..epochs {
-            for sample in &ordered {
-                let x = features(&sample.query, &sample.evidence);
+            for &(x, relevant) in &prepared {
                 let logit = weights.iter().zip(x).map(|(w, x)| w * x).sum::<f64>();
-                let target = if sample.relevant { 1.0 } else { 0.0 };
+                let target = if relevant { 1.0 } else { 0.0 };
                 let error = target - sigmoid(logit);
                 for (w, feature) in weights.iter_mut().zip(x) {
                     *w = (*w + 0.05 * (error * feature - 0.001 * *w)).clamp(-32.0, 32.0);
@@ -561,6 +569,61 @@ mod tests {
                 .then(left.cmp(&right))
         });
         assert_eq!(model.rank_indices(query, &items), legacy);
+    }
+
+    #[test]
+    fn cached_training_features_match_original_sgd_weights_exactly() {
+        // Preserve this pre-optimization training loop as a reference,
+        // including the order of all floating-point operations.
+        fn legacy_weights(samples: &[LabeledEvidence], epochs: u32) -> Vec<f64> {
+            let mut ordered: Vec<&LabeledEvidence> = samples.iter().collect();
+            ordered.sort_unstable_by(|left, right| {
+                left.repository
+                    .cmp(&right.repository)
+                    .then(left.query.cmp(&right.query))
+                    .then(left.evidence.id.cmp(&right.evidence.id))
+            });
+            let mut weights = vec![0.0_f64; FEATURE_COUNT];
+            for _ in 0..epochs {
+                for sample in &ordered {
+                    let x = features(&sample.query, &sample.evidence);
+                    let logit = weights.iter().zip(x).map(|(w, x)| w * x).sum::<f64>();
+                    let target = if sample.relevant { 1.0 } else { 0.0 };
+                    let error = target - sigmoid(logit);
+                    for (w, feature) in weights.iter_mut().zip(x) {
+                        *w = (*w + 0.05 * (error * feature - 0.001 * *w)).clamp(-32.0, 32.0);
+                    }
+                }
+            }
+            weights
+        }
+
+        let mut cases = vec![training()];
+        let mut shuffled = training();
+        shuffled.reverse();
+        shuffled[0].query = "中文 dependency build // test".into();
+        cases.push(shuffled);
+        for samples in &cases {
+            for epochs in [1, 2, 7, 60, 200] {
+                let learned = RankerModel::train(samples, epochs).unwrap();
+                let original = legacy_weights(samples, epochs);
+                let actual_bits = learned
+                    .weights
+                    .iter()
+                    .map(|w| w.to_bits())
+                    .collect::<Vec<_>>();
+                let expected_bits = original.iter().map(|w| w.to_bits()).collect::<Vec<_>>();
+                assert_eq!(
+                    actual_bits, expected_bits,
+                    "checkpoint drift at epoch {epochs}"
+                );
+                assert_eq!(learned.training_examples, samples.len());
+                assert_eq!(
+                    learned.training_dataset_sha256,
+                    Some(training_data_fingerprint(samples).unwrap())
+                );
+            }
+        }
     }
 
     #[test]
