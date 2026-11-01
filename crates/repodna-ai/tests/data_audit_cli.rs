@@ -108,6 +108,64 @@ fn detects_exact_question_evidence_reuse_with_different_repository_and_id() {
 }
 
 #[test]
+fn warns_on_cosmetically_changed_copied_evidence_without_disclosing_labels() {
+    let dir = tempfile::tempdir().expect("temporary files");
+    let mut test: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("test.demo.json")).unwrap()).unwrap();
+    let train: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    // Copy a labeled fact into another repository, but change only casing
+    // and whitespace. Exact matching will miss this cosmetic copy.
+    let original = &train[0];
+    let query = original["query"].as_str().expect("question");
+    let reference = original["evidence"]["reference"].as_str().expect("reference");
+    let detail = original["evidence"]["detail"].as_str().expect("detail");
+    test[0]["query"] = format!("  {}  ", query.to_uppercase()).into();
+    test[0]["evidence"]["kind"] = original["evidence"]["kind"].clone();
+    test[0]["evidence"]["reference"] = format!(" {}\t", reference.to_uppercase()).into();
+    test[0]["evidence"]["detail"] = detail
+        .to_uppercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("  ")
+        .into();
+    test[0]["evidence"]["id"] = "new-evidence-id".into();
+    let suspect = dir.path().join("cosmetic-copy.json");
+    fs::write(&suspect, serde_json::to_vec(&test).unwrap()).unwrap();
+
+    let output = audit(
+        &fixture("train.demo.json"),
+        &fixture("holdout.demo.json"),
+        &suspect,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("aggregate report");
+    assert_eq!(
+        report["matchingEvidenceSignaturesAcrossSplits"]["trainingFinalTest"],
+        0
+    );
+    assert_eq!(
+        report["normalizedMatchingEvidenceSignaturesAcrossSplits"]["trainingFinalTest"],
+        1
+    );
+    assert!(report["warnings"].as_array().unwrap().iter().any(|warning| {
+        warning
+            .as_str()
+            .unwrap()
+            .contains("case/whitespace-normalized")
+    }));
+    let public = String::from_utf8(output.stdout).expect("UTF-8 report");
+    assert!(!public.contains(query));
+    assert!(!public.contains(reference));
+    assert!(!public.contains(detail));
+}
+
+#[test]
 fn rejects_leakage_and_invalid_training_classes() {
     let dir = tempfile::tempdir().unwrap();
     let alias = dir.path().join("alias.json");
