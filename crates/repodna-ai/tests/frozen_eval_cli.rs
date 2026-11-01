@@ -336,12 +336,7 @@ fn task_manifest() -> Vec<serde_json::Value> {
     ]
 }
 
-fn task_evaluate(
-    model: &Path,
-    training: &Path,
-    test: &Path,
-    manifest: &Path,
-) -> Output {
+fn task_evaluate(model: &Path, training: &Path, test: &Path, manifest: &Path) -> Output {
     Command::new(env!("CARGO_BIN_EXE_evaluate-repodna-ranker"))
         .arg(model)
         .arg(training)
@@ -394,7 +389,10 @@ fn reports_task_stratified_frozen_metrics_for_pointwise_and_pairwise_checkpoints
         assert_eq!(stratified["schema"], "repodna-frozen-task-retrieval/1");
         assert_eq!(stratified["manifestQuestions"], 3);
         assert_eq!(stratified["tasks"]["build_commands"]["questions"], 1);
-        assert_eq!(stratified["tasks"]["build_commands"]["answerableQuestions"], 1);
+        assert_eq!(
+            stratified["tasks"]["build_commands"]["answerableQuestions"],
+            1
+        );
         assert!(stratified["tasks"]["build_commands"]["retrieval"]["ndcgAtK"].is_number());
         assert!(stratified["tasks"]["dependencies"]["retrievalDelta"]["ndcgAtK"].is_number());
         assert_eq!(stratified["tasks"]["security"]["questions"], 1);
@@ -463,4 +461,3 @@ fn frozen_task_metrics_reject_incomplete_conflicting_and_unknown_manifests() {
         assert!(result.stdout.is_empty(), "partial JSON for case {index}");
     }
 }
-
