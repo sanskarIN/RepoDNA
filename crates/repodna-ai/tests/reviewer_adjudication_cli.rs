@@ -2,7 +2,7 @@
 //! No private source metadata or reviewer identities may be printed.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
 
 fn fixture() -> Vec<serde_json::Value> {
