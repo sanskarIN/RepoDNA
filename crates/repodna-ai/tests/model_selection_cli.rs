@@ -48,8 +48,14 @@ fn chooses_from_validation_and_saves_a_valid_checkpoint() {
     assert_eq!(report["testRetrieval"]["unanswerableQueries"], 1);
     assert_eq!(report["testPairOrdering"]["totalPairs"], 2);
     assert_eq!(report["testRepositoryBalancedRetrieval"]["repositories"], 2);
-    assert_eq!(report["testRepositoryBalancedRetrieval"]["evaluatedRepositories"], 1);
-    assert_eq!(report["testRepositoryBalancedRetrieval"]["unanswerableRepositories"], 1);
+    assert_eq!(
+        report["testRepositoryBalancedRetrieval"]["evaluatedRepositories"],
+        1
+    );
+    assert_eq!(
+        report["testRepositoryBalancedRetrieval"]["unanswerableRepositories"],
+        1
+    );
     assert_eq!(
         report["testRepositoryBalancedRetrieval"]["ndcgAtK"],
         report["testRetrieval"]["ndcgAtK"]
