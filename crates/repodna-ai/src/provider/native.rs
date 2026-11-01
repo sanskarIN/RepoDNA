@@ -369,7 +369,7 @@ mod tests {
 
         // An embedded task marker inside the user's question is still part
         // of that genuine question, not a replacement of the outer header.
-        let multiline = AiTask::Question("What changed?\\n\\nTask: unrelated".to_owned());
+        let multiline = AiTask::Question("What changed?\n\nTask: unrelated".to_owned());
         let generated = build_prompt("example", &multiline, &context);
         let (parsed_task, _) = evidence_from_prompt(&generated.user).unwrap();
         assert_eq!(parsed_task, multiline.instructions());
