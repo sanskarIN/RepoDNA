@@ -70,7 +70,7 @@ fn summarize_latency_micros(durations: &mut [f64]) -> (f64, f64, f64) {
     durations.sort_by(f64::total_cmp);
     let n = durations.len();
     let mean = durations.iter().sum::<f64>() / n as f64;
-    let median = if n % 2 == 0 {
+    let median = if n.is_multiple_of(2) {
         (durations[n / 2 - 1] + durations[n / 2]) / 2.0
     } else {
         durations[n / 2]
