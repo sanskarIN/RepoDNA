@@ -35,7 +35,11 @@ fn read_bounded<R: Read>(reader: R, limit: u64) -> Result<Vec<u8>, Box<dyn std::
 }
 
 fn load_bytes(path: &Path, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > limit {
+    let metadata = fs::metadata(path)?;
+    if !metadata.is_file() {
+        return Err("input must be a regular file".into());
+    }
+    if metadata.len() > limit {
         return Err(format!("input exceeds {limit}-byte bound").into());
     }
     read_bounded(fs::File::open(path)?, limit)
@@ -406,6 +410,12 @@ mod tests {
         assert_eq!(zero_error.to_string(), "input grew beyond 0-byte bound");
         let exact = read_bounded(io::Cursor::new(vec![1; 32]), 32).unwrap();
         assert_eq!(exact.len(), 32);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_non_regular_artifact_paths() {
+        assert!(super::load_bytes(std::path::Path::new("/dev/null"), 64).is_err());
     }
 
     #[test]
