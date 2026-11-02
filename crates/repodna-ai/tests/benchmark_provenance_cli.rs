@@ -335,3 +335,35 @@ fn replay_mode_rejects_misordered_candidates_and_argument_misuse() {
     assert!(!misplaced.status.success());
     assert!(misplaced.stdout.is_empty());
 }
+
+#[test]
+fn refuses_oversized_report_and_checkpoint_without_printing_json() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let oversized_report = dir.path().join("oversized-report.json");
+    fs::write(&oversized_report, vec![b' '; 512 * 1024 + 1])
+        .expect("write oversized report");
+    let missing_model = dir.path().join("missing-model.json");
+    let invalid = verify(
+        &oversized_report,
+        &missing_model,
+        &fixture("holdout.demo.json"),
+        None,
+    );
+    assert!(!invalid.status.success());
+    assert!(invalid.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("524288-byte bound"));
+
+    let (report, _) = prepare(dir.path(), None);
+    let oversized_model = dir.path().join("oversized-model.json");
+    fs::write(&oversized_model, vec![b' '; 64 * 1024 + 1])
+        .expect("write oversized checkpoint");
+    let invalid = verify(
+        &report,
+        &oversized_model,
+        &fixture("holdout.demo.json"),
+        None,
+    );
+    assert!(!invalid.status.success());
+    assert!(invalid.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("65536-byte bound"));
+}
