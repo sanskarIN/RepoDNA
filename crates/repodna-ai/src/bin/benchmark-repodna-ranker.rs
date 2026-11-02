@@ -63,7 +63,10 @@ fn synthetic_evidence(count: usize) -> Vec<EvidenceItem> {
 /// Mean, conventional median (midpoint for an even sample count), and
 /// nearest-rank p95. Samples are nonnegative elapsed times in microseconds.
 fn summarize_latency_micros(durations: &mut [f64]) -> (f64, f64, f64) {
-    assert!(!durations.is_empty(), "at least one timing sample is required");
+    assert!(
+        !durations.is_empty(),
+        "at least one timing sample is required"
+    );
     durations.sort_by(f64::total_cmp);
     let n = durations.len();
     let mean = durations.iter().sum::<f64>() / n as f64;
