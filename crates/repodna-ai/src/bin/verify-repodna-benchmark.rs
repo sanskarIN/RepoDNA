@@ -402,9 +402,10 @@ mod tests {
         // io::repeat never reaches EOF. A plain read_to_end would not finish.
         let error = read_bounded(io::repeat(0), 32).unwrap_err();
         assert!(error.to_string().contains("32-byte bound"));
-        assert_eq!(read_bounded(io::repeat(7), 0).unwrap_err().to_string(),
-            "input grew beyond 0-byte bound");
-        assert_eq!(read_bounded(io::Cursor::new(vec![1; 32]), 32).unwrap().len(), 32);
+        let zero_error = read_bounded(io::repeat(7), 0).unwrap_err();
+        assert_eq!(zero_error.to_string(), "input grew beyond 0-byte bound");
+        let exact = read_bounded(io::Cursor::new(vec![1; 32]), 32).unwrap();
+        assert_eq!(exact.len(), 32);
     }
 
     #[test]
