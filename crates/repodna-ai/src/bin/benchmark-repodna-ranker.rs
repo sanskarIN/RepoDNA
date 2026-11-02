@@ -60,6 +60,22 @@ fn synthetic_evidence(count: usize) -> Vec<EvidenceItem> {
         .collect()
 }
 
+/// Mean, conventional median (midpoint for an even sample count), and
+/// nearest-rank p95. Samples are nonnegative elapsed times in microseconds.
+fn summarize_latency_micros(durations: &mut [f64]) -> (f64, f64, f64) {
+    assert!(!durations.is_empty(), "at least one timing sample is required");
+    durations.sort_by(f64::total_cmp);
+    let n = durations.len();
+    let mean = durations.iter().sum::<f64>() / n as f64;
+    let median = if n % 2 == 0 {
+        (durations[n / 2 - 1] + durations[n / 2]) / 2.0
+    } else {
+        durations[n / 2]
+    };
+    let p95 = durations[(n * 95).div_ceil(100) - 1];
+    (mean, median, p95)
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args = env::args_os().skip(1).collect::<Vec<_>>();
     if !(1..=3).contains(&args.len()) {
@@ -110,10 +126,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         durations.push(elapsed.as_secs_f64() * 1_000_000.0);
     }
-    durations.sort_by(f64::total_cmp);
-    let mean = durations.iter().sum::<f64>() / iterations as f64;
-    let median = durations[(iterations - 1) / 2];
-    let p95 = durations[(iterations * 95).div_ceil(100) - 1];
+    let (mean, median, p95) = summarize_latency_micros(&mut durations);
     let results = serde_json::json!({
         "schema": "repodna-ranker-performance/1",
         "modelFormat": model.format,
@@ -135,5 +148,37 @@ fn main() {
     if let Err(error) = run() {
         let _ = writeln!(io::stderr().lock(), "benchmark failed: {error}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::summarize_latency_micros;
+
+    #[test]
+    fn conventional_median_averages_middle_pair() {
+        let mut samples = [9.0, 1.0, 3.0, 5.0];
+        let (mean, median, p95) = summarize_latency_micros(&mut samples);
+        assert_eq!(mean, 4.5);
+        assert_eq!(median, 4.0);
+        assert_eq!(p95, 9.0);
+        assert_eq!(samples, [1.0, 3.0, 5.0, 9.0]);
+    }
+
+    #[test]
+    fn odd_and_single_sample_percentiles_are_well_defined() {
+        let mut odd = [5.0, 1.0, 3.0];
+        assert_eq!(summarize_latency_micros(&mut odd), (3.0, 3.0, 5.0));
+        let mut single = [2.5];
+        assert_eq!(summarize_latency_micros(&mut single), (2.5, 2.5, 2.5));
+    }
+
+    #[test]
+    fn nearest_rank_p95_uses_the_ceiling_rank() {
+        let mut samples = (1..=100).rev().map(f64::from).collect::<Vec<_>>();
+        let (mean, median, p95) = summarize_latency_micros(&mut samples);
+        assert_eq!(mean, 50.5);
+        assert_eq!(median, 50.5);
+        assert_eq!(p95, 95.0);
     }
 }
