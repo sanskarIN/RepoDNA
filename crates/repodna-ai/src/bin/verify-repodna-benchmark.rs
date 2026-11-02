@@ -432,15 +432,13 @@ mod tests {
 
     #[test]
     fn replay_metric_floats_preserve_small_portable_tolerance() {
-        assert!(matching_metric(
+        let close = matching_metric(
             &serde_json::json!(0.50000000001),
             &serde_json::json!(0.5),
             "ndcg",
-        ).is_ok());
-        assert!(matching_metric(
-            &serde_json::json!(0.6),
-            &serde_json::json!(0.5),
-            "ndcg",
-        ).is_err());
+        );
+        assert!(close.is_ok());
+        let different = matching_metric(&serde_json::json!(0.6), &serde_json::json!(0.5), "ndcg");
+        assert!(different.is_err());
     }
 }
