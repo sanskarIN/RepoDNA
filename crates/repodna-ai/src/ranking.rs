@@ -109,7 +109,25 @@ fn overlap(query: &HashSet<String>, candidate: &str) -> f64 {
     if query.is_empty() {
         return 0.0;
     }
-    query.intersection(&terms(candidate)).count() as f64 / query.len() as f64
+    // Collect only *matching* unique candidate tokens rather than allocating
+    // a set for every token in possibly long evidence descriptions. This must
+    // retain the same case-folding and distinct-token semantics as terms().
+    let mut matched = HashSet::new();
+    for token in candidate
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|token| token.chars().count() >= 2)
+    {
+        let normalized = token.to_lowercase();
+        if query.contains(&normalized) {
+            matched.insert(normalized);
+            if matched.len() == query.len() {
+                // All query terms are accounted for; later tokens cannot
+                // increase overlap or change the score.
+                break;
+            }
+        }
+    }
+    matched.len() as f64 / query.len() as f64
 }
 
 fn kind_index(kind: EvidenceKind) -> usize {
@@ -380,6 +398,54 @@ impl SigmoidExt for f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn matching_only_overlap_matches_full_candidate_set_reference() {
+        // Keep the previous full-set algorithm as an independent oracle.
+        fn reference(query: &HashSet<String>, candidate: &str) -> f64 {
+            if query.is_empty() {
+                return 0.0;
+            }
+            query.intersection(&terms(candidate)).count() as f64 / query.len() as f64
+        }
+        let cases = [
+            ("", "build dependency"),
+            ("build dependencies", "BUILD build b b dependencies"),
+            ("build dependency", "unrelated tokens only"),
+            ("C++ C#", "C c++ c#"),
+            ("中文 构建 build", "中文 中文 构建 build 工具"),
+            ("İstanbul STRASSE", "İSTANBUL strasse İstanbul"),
+            ("a b one two", "a b a b one one TWO"),
+            ("build module", "build-module,build module"),
+        ];
+        for (query, candidate) in cases {
+            let query_terms = terms(query);
+            assert_eq!(
+                overlap(&query_terms, candidate).to_bits(),
+                reference(&query_terms, candidate).to_bits(),
+                "query={query:?}, candidate={candidate:?}"
+            );
+        }
+        // A long evidence detail with many distinct nonmatching words and
+        // duplicates must not inflate relevance or change the score.
+        let query = terms("build package");
+        let candidate = format!(
+            "{} build build",
+            (0..2_000)
+                .map(|index| format!("unrelated{index}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        assert_eq!(overlap(&query, &candidate), 0.5);
+        assert_eq!(overlap(&query, &candidate), reference(&query, &candidate));
+        let all_matched = "package build ".repeat(1_000);
+        assert_eq!(overlap(&query, &all_matched), 1.0);
+        assert_eq!(
+            overlap(&query, &all_matched),
+            reference(&query, &all_matched)
+        );
+    }
+
     fn sample(
         repo: &str,
         query: &str,
