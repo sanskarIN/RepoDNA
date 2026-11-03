@@ -429,10 +429,13 @@ mod tests {
         // A long evidence detail with many distinct nonmatching words and
         // duplicates must not inflate relevance or change the score.
         let query = terms("build package");
-        let candidate = format!("{} build build", (0..2_000)
-            .map(|index| format!("unrelated{index}"))
-            .collect::<Vec<_>>()
-            .join(" "));
+        let candidate = format!(
+            "{} build build",
+            (0..2_000)
+                .map(|index| format!("unrelated{index}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
         assert_eq!(overlap(&query, &candidate), 0.5);
         assert_eq!(overlap(&query, &candidate), reference(&query, &candidate));
         let all_matched = "package build ".repeat(1_000);
