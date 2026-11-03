@@ -47,7 +47,8 @@ cargo run --locked -p repodna-ai --bin verify-repodna-benchmark -- \
 
 Omit `FAMILIES.json` **only** if the original report also omitted it.
 The verifier refuses missing manifests from reports that claim they were
-checked. Its default **fast identity-check mode** validates each input size,
+checked. All local JSON inputs must be regular files, have fixed byte limits,
+and are read with bounded streams even when their reported sizes become stale. Its default **fast identity-check mode** validates each input size,
 all three repository split boundaries, the saved checkpoint format, complete
 training label identity, each dataset fingerprint, curated family identity and
 split counts when applicable, and consistency of the reported selection

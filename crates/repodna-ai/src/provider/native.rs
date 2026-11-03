@@ -5,6 +5,7 @@
 //! hosted RepoDNA model is developed and independently evaluated. It consumes
 //! only RepoDNA-selected evidence; repository text is never executable input.
 
+use std::io::Read;
 use std::path::Path;
 
 use repodna_core::CancellationToken;
@@ -45,19 +46,30 @@ impl NativeProvider {
             return Ok(Self::default());
         };
         let path = Path::new(path);
-        let size = std::fs::metadata(path)
-            .map_err(|e| {
-                AiError::Configuration(format!("cannot read local ranker checkpoint: {e}"))
-            })?
-            .len();
-        if size > 64 * 1024 {
+        let metadata = std::fs::metadata(path).map_err(|e| {
+            AiError::Configuration(format!("cannot read local ranker checkpoint: {e}"))
+        })?;
+        if !metadata.is_file() {
+            return Err(AiError::Configuration(
+                "local ranker checkpoint must be a regular file".to_owned(),
+            ));
+        }
+        if metadata.len() > 64 * 1024 {
             return Err(AiError::Configuration(
                 "local ranker checkpoint exceeds 64 KiB".to_owned(),
             ));
         }
-        let bytes = std::fs::read(path).map_err(|e| {
+        // The file can grow after metadata is read; limit the actual bytes
+        // consumed rather than allocating an unbounded fs::read buffer.
+        let file = std::fs::File::open(path).map_err(|e| {
             AiError::Configuration(format!("cannot read local ranker checkpoint: {e}"))
         })?;
+        let mut bytes = Vec::new();
+        file.take(64 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| {
+                AiError::Configuration(format!("cannot read local ranker checkpoint: {e}"))
+            })?;
         if bytes.len() > 64 * 1024 {
             return Err(AiError::Configuration(
                 "local ranker checkpoint exceeds 64 KiB".to_owned(),
@@ -425,6 +437,13 @@ mod tests {
         assert!(NativeProvider::from_checkpoint(checkpoint.to_str()).is_err());
         std::fs::write(&checkpoint, vec![b'x'; 65 * 1024]).unwrap();
         assert!(NativeProvider::from_checkpoint(checkpoint.to_str()).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_special_files_as_local_ranker_checkpoints() {
+        let err = NativeProvider::from_checkpoint(Some("/dev/null")).unwrap_err();
+        assert!(format!("{err}").contains("regular file"));
     }
 
     #[test]

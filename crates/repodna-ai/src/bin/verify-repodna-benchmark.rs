@@ -9,7 +9,7 @@
 //! Neither mode verifies reviewer quality, authorship or real generalization.
 
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
@@ -23,15 +23,26 @@ const MAX_REPORT_BYTES: u64 = 512 * 1024;
 const MAX_CHECKPOINT_BYTES: u64 = 64 * 1024;
 const MAX_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
 
-fn load_bytes(path: &Path, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > limit {
-        return Err(format!("input exceeds {limit}-byte bound").into());
-    }
-    let bytes = fs::read(path)?;
+/// Read at most limit + 1 bytes even when an input grows after stat, or
+/// its reported metadata length is inaccurate (for example, a special file).
+fn read_bounded<R: Read>(reader: R, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut bytes = Vec::new();
+    reader.take(limit + 1).read_to_end(&mut bytes)?;
     if bytes.len() as u64 > limit {
         return Err(format!("input grew beyond {limit}-byte bound").into());
     }
     Ok(bytes)
+}
+
+fn load_bytes(path: &Path, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let metadata = fs::metadata(path)?;
+    if !metadata.is_file() {
+        return Err("input must be a regular file".into());
+    }
+    if metadata.len() > limit {
+        return Err(format!("input exceeds {limit}-byte bound").into());
+    }
+    read_bounded(fs::File::open(path)?, limit)
 }
 
 fn load_labels(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {
@@ -80,7 +91,13 @@ fn matching_metric(
             }
         }
         (serde_json::Value::Number(a), serde_json::Value::Number(b)) => {
-            if a.is_i64() && b.is_i64() {
+            // Integers are exact counts, not approximate floats. Reject a
+            // reported 3.0 in place of a recomputed 3 and avoid lossy f64
+            // comparison of large unsigned integer values.
+            if a.is_f64() != b.is_f64() {
+                return Err(format!("{field}: replayed metric numeric type differs").into());
+            }
+            if !a.is_f64() {
                 if a != b {
                     return Err(format!("{field}: replayed integer count differs").into());
                 }
@@ -376,5 +393,52 @@ fn main() {
             "benchmark provenance verification failed: {error}"
         );
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{matching_metric, read_bounded};
+    use std::io;
+
+    #[test]
+    fn bounded_reader_rejects_unbounded_streams_without_reading_past_limit() {
+        // io::repeat never reaches EOF. A plain read_to_end would not finish.
+        let error = read_bounded(io::repeat(0), 32).unwrap_err();
+        assert!(error.to_string().contains("32-byte bound"));
+        let zero_error = read_bounded(io::repeat(7), 0).unwrap_err();
+        assert_eq!(zero_error.to_string(), "input grew beyond 0-byte bound");
+        let exact = read_bounded(io::Cursor::new(vec![1; 32]), 32).unwrap();
+        assert_eq!(exact.len(), 32);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_non_regular_artifact_paths() {
+        assert!(super::load_bytes(std::path::Path::new("/dev/null"), 64).is_err());
+    }
+
+    #[test]
+    fn replay_metric_counts_require_exact_integer_types_and_values() {
+        let count = serde_json::json!(3);
+        assert!(matching_metric(&count, &count, "counts").is_ok());
+        assert!(matching_metric(&serde_json::json!(3.0), &count, "counts").is_err());
+        assert!(matching_metric(&count, &serde_json::json!(3.0), "counts").is_err());
+        assert!(matching_metric(&serde_json::json!(4), &count, "counts").is_err());
+        let large = serde_json::json!(u64::MAX);
+        assert!(matching_metric(&large, &large, "counts").is_ok());
+        assert!(matching_metric(&serde_json::json!(u64::MAX - 1), &large, "counts").is_err());
+    }
+
+    #[test]
+    fn replay_metric_floats_preserve_small_portable_tolerance() {
+        let close = matching_metric(
+            &serde_json::json!(0.50000000001),
+            &serde_json::json!(0.5),
+            "ndcg",
+        );
+        assert!(close.is_ok());
+        let different = matching_metric(&serde_json::json!(0.6), &serde_json::json!(0.5), "ndcg");
+        assert!(different.is_err());
     }
 }
