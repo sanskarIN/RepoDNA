@@ -373,10 +373,12 @@ cargo run --release --locked -p repodna-ai --bin benchmark-repodna-ranker -- \
 The optional numbers are **candidate count** (1–1,024; default 12) and
 **measured iterations** (1–1,000; default 100). After ten warm-up runs,
 the command checks that every rank order matches the initial result and
-emits local JSON with mean, the conventional median (the average of the\ntwo middle samples when the iteration count is even), and nearest-rank p95\nranking time in microseconds.
+emits local JSON with mean, the conventional median (the average of the
+two middle samples when the iteration count is even), and nearest-rank p95
+ranking time in microseconds.
 It accepts pointwise and pairwise checkpoint formats and reads no source
-excerpt or benchmark labels. Invalid or larger-than-64-KiB checkpoints
-are rejected before any JSON output.
+excerpt or benchmark labels. Non-regular, invalid or larger-than-64-KiB
+checkpoint files are rejected before any JSON output.
 
 This synthetic single-query microbenchmark is a regression/profiling aid,
 **not** proof of actual app latency, production throughput, real-world model
