@@ -97,12 +97,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "iterations",
     )?;
     let path = Path::new(&args[0]);
-    if fs::metadata(path)?.len() > MAX_MODEL_BYTES {
+    let metadata = fs::metadata(path)?;
+    if !metadata.is_file() {
+        return Err("checkpoint must be a regular file".into());
+    }
+    if metadata.len() > MAX_MODEL_BYTES {
         return Err("checkpoint exceeds 65536-byte limit".into());
     }
-    // A metadata check alone cannot bound special files or files that grow
-    // between stat and read. Never allocate more than the size cap plus one
-    // byte, even if the supplied path does not have a reliable file length.
+    // A metadata check alone cannot bound files that grow between stat and
+    // read. Never allocate more than the size cap plus one byte.
     let mut bytes = Vec::new();
     fs::File::open(path)?
         .take(MAX_MODEL_BYTES + 1)
