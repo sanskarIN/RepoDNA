@@ -92,3 +92,12 @@ fn invalid_counts_and_checkpoints_fail_without_json() {
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
 }
+
+#[cfg(unix)]
+#[test]
+fn rejects_special_checkpoint_files_without_json() {
+    let result = benchmark(Path::new("/dev/null"), &[]);
+    assert!(!result.status.success());
+    assert!(result.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("regular file"));
+}
