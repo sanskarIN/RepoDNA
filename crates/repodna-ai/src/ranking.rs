@@ -440,7 +440,10 @@ mod tests {
         assert_eq!(overlap(&query, &candidate), reference(&query, &candidate));
         let all_matched = "package build ".repeat(1_000);
         assert_eq!(overlap(&query, &all_matched), 1.0);
-        assert_eq!(overlap(&query, &all_matched), reference(&query, &all_matched));
+        assert_eq!(
+            overlap(&query, &all_matched),
+            reference(&query, &all_matched)
+        );
     }
 
     fn sample(
