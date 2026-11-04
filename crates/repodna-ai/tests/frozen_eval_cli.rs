@@ -70,8 +70,27 @@ fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
             "mismatch: {key}"
         );
     }
+    // The synthetic holdout has one repository, so query-weighted and
+    // repository-balanced metrics coincide. No repository names are exposed.
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["repositories"],
+        1
+    );
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["evaluatedRepositories"],
+        1
+    );
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["ndcgAtK"],
+        evaluation_report["retrieval"]["ndcgAtK"]
+    );
+    assert_eq!(
+        evaluation_report["repositoryBalancedRetrieval"]["originalOrderNdcgAtK"],
+        evaluation_report["originalOrderBaseline"]["ndcgAtK"]
+    );
     assert_eq!(evaluation_report["trainingRepositories"], 2);
     assert_eq!(evaluation_report["trainingExamples"], 6);
+    assert_eq!(evaluation_report["trainingFingerprintVerified"], true);
     assert_eq!(before, fs::read(&checkpoint).unwrap());
 
     // No source paths, labels, or repository identifiers are included in the
@@ -160,4 +179,285 @@ fn frozen_evaluation_rejects_repeated_holdout_labels_and_oversized_model() {
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("65536-byte limit"));
+}
+
+#[test]
+fn frozen_evaluation_rejects_modified_training_labels_with_unchanged_counts() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("ranker.json");
+    assert!(train(&checkpoint).status.success());
+    let mut records: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    records[0]["relevant"] = false.into();
+    let changed = dir.path().join("changed-labels.json");
+    fs::write(&changed, serde_json::to_vec(&records).unwrap()).unwrap();
+
+    let output = evaluate(&checkpoint, &changed, &fixture("holdout.demo.json"));
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("fingerprint mismatch"));
+}
+
+#[test]
+fn frozen_evaluation_accepts_reordered_training_labels_and_marks_legacy_unverified() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("ranker.json");
+    assert!(train(&checkpoint).status.success());
+    let mut records: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    records.reverse();
+    let reversed = dir.path().join("reversed.json");
+    fs::write(&reversed, serde_json::to_vec_pretty(&records).unwrap()).unwrap();
+
+    let checked = evaluate(&checkpoint, &reversed, &fixture("holdout.demo.json"));
+    assert!(checked.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&checked.stdout).unwrap();
+    assert_eq!(report["trainingFingerprintVerified"], true);
+
+    let mut old: serde_json::Value =
+        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    old.as_object_mut()
+        .unwrap()
+        .remove("training_dataset_sha256");
+    let legacy = dir.path().join("legacy.json");
+    fs::write(&legacy, serde_json::to_vec(&old).unwrap()).unwrap();
+    let legacy_output = evaluate(&legacy, &reversed, &fixture("holdout.demo.json"));
+    assert!(legacy_output.status.success());
+    let legacy_report: serde_json::Value = serde_json::from_slice(&legacy_output.stdout).unwrap();
+    assert_eq!(legacy_report["trainingFingerprintVerified"], false);
+}
+
+#[test]
+fn frozen_pairwise_evaluation_reports_ranking_without_false_probability_metrics() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("pairwise.json");
+    let trained = Command::new(env!("CARGO_BIN_EXE_train-repodna-pairwise"))
+        .arg(fixture("train.demo.json"))
+        .arg(fixture("holdout.demo.json"))
+        .arg(&checkpoint)
+        .output()
+        .expect("launch pairwise trainer");
+    assert!(
+        trained.status.success(),
+        "trainer stderr: {}",
+        String::from_utf8_lossy(&trained.stderr)
+    );
+    let before = fs::read(&checkpoint).unwrap();
+    let evaluated = evaluate(
+        &checkpoint,
+        &fixture("train.demo.json"),
+        &fixture("holdout.demo.json"),
+    );
+    assert!(
+        evaluated.status.success(),
+        "evaluator stderr: {}",
+        String::from_utf8_lossy(&evaluated.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&evaluated.stdout).unwrap();
+    assert_eq!(report["modelFormat"], "repodna-evidence-pairwise/1");
+    assert_eq!(report["scoreSemantics"], "relative-ranking-only");
+    assert_eq!(report["trainingFingerprintVerified"], true);
+    assert_eq!(report["retrieval"]["evaluatedQueries"], 2);
+    assert_eq!(report["pairOrdering"]["totalPairs"], 2);
+    assert_eq!(report["repositoryBalancedRetrieval"]["repositories"], 1);
+    assert_eq!(
+        report["repositoryBalancedRetrieval"]["ndcgAtK"],
+        report["retrieval"]["ndcgAtK"]
+    );
+    assert!(report["retrievalDelta"]["ndcgAtK"].is_number());
+    // It is mathematically incorrect to treat a pairwise score as an
+    // absolute relevance probability or claim-confidence threshold.
+    for absent in [
+        "holdout",
+        "holdoutAccuracy",
+        "relevanceScoreDiagnostics",
+        "answerability",
+        "answerabilitySweep",
+        "answerableDetectionRate",
+        "unanswerableAbstentionRate",
+    ] {
+        assert!(report.get(absent).is_none(), "unexpected field: {absent}");
+    }
+    assert_eq!(before, fs::read(&checkpoint).unwrap());
+    let output = String::from_utf8(evaluated.stdout).unwrap();
+    assert!(!output.contains("synthetic-alpha"));
+    assert!(!output.contains("\"relevant\":"));
+}
+
+#[test]
+fn frozen_pairwise_evaluation_checks_original_training_fingerprint() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("pairwise.json");
+    let trained = Command::new(env!("CARGO_BIN_EXE_train-repodna-pairwise"))
+        .arg(fixture("train.demo.json"))
+        .arg(fixture("holdout.demo.json"))
+        .arg(&checkpoint)
+        .output()
+        .unwrap();
+    assert!(trained.status.success());
+    let mut records: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    records[0]["relevant"] = false.into();
+    let modified = dir.path().join("different-training.json");
+    fs::write(&modified, serde_json::to_vec(&records).unwrap()).unwrap();
+    let result = evaluate(&checkpoint, &modified, &fixture("holdout.demo.json"));
+    assert!(!result.status.success());
+    assert!(result.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("fingerprint mismatch"));
+}
+
+fn task_manifest() -> Vec<serde_json::Value> {
+    vec![
+        serde_json::json!({
+            "repository": "synthetic-gamma",
+            "query": "What build commands exist?",
+            "task": "build_commands"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-gamma",
+            "query": "What dependencies are installed?",
+            "task": "dependencies"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-delta",
+            "query": "Which build command is available?",
+            "task": "build_commands"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-delta",
+            "query": "Which dependency is locked?",
+            "task": "dependencies"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-epsilon",
+            "query": "Where is the deployment secret?",
+            "task": "security"
+        }),
+    ]
+}
+
+fn task_evaluate(model: &Path, training: &Path, test: &Path, manifest: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_evaluate-repodna-ranker"))
+        .arg(model)
+        .arg(training)
+        .arg(test)
+        .arg(manifest)
+        .output()
+        .expect("run frozen task evaluation")
+}
+
+#[test]
+fn reports_task_stratified_frozen_metrics_for_pointwise_and_pairwise_checkpoints() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = dir.path().join("tasks.json");
+    let mut tasks = task_manifest();
+    tasks.retain(|entry| entry["repository"] != "synthetic-gamma");
+    tasks.reverse();
+    tasks[0]["repository"] = " SYNTHETIC-EPSILON ".into();
+    fs::write(&manifest, serde_json::to_vec(&tasks).unwrap()).unwrap();
+
+    for objective in ["train-repodna-ranker", "train-repodna-pairwise"] {
+        let checkpoint = dir.path().join(format!("{objective}.json"));
+        let trained = Command::new(match objective {
+            "train-repodna-ranker" => env!("CARGO_BIN_EXE_train-repodna-ranker"),
+            _ => env!("CARGO_BIN_EXE_train-repodna-pairwise"),
+        })
+        .arg(fixture("train.demo.json"))
+        .arg(fixture("holdout.demo.json"))
+        .arg(&checkpoint)
+        .output()
+        .unwrap();
+        assert!(
+            trained.status.success(),
+            "trainer failed: {}",
+            String::from_utf8_lossy(&trained.stderr)
+        );
+        let before = fs::read(&checkpoint).unwrap();
+        let evaluated = task_evaluate(
+            &checkpoint,
+            &fixture("train.demo.json"),
+            &fixture("test.demo.json"),
+            &manifest,
+        );
+        assert!(
+            evaluated.status.success(),
+            "evaluator failed: {}",
+            String::from_utf8_lossy(&evaluated.stderr)
+        );
+        let result: serde_json::Value = serde_json::from_slice(&evaluated.stdout).unwrap();
+        let stratified = &result["taskStratifiedRetrieval"];
+        assert_eq!(stratified["schema"], "repodna-frozen-task-retrieval/1");
+        assert_eq!(stratified["manifestQuestions"], 3);
+        assert_eq!(stratified["tasks"]["build_commands"]["questions"], 1);
+        assert_eq!(
+            stratified["tasks"]["build_commands"]["answerableQuestions"],
+            1
+        );
+        assert!(stratified["tasks"]["build_commands"]["retrieval"]["ndcgAtK"].is_number());
+        assert!(stratified["tasks"]["dependencies"]["retrievalDelta"]["ndcgAtK"].is_number());
+        assert_eq!(stratified["tasks"]["security"]["questions"], 1);
+        assert_eq!(stratified["tasks"]["security"]["unanswerableQuestions"], 1);
+        assert!(stratified["tasks"]["security"]["retrieval"].is_null());
+        assert!(stratified["tasks"]["architecture"]["retrieval"].is_null());
+        assert_eq!(before, fs::read(&checkpoint).unwrap());
+
+        let stdout = String::from_utf8(evaluated.stdout).unwrap();
+        for secret in [
+            "synthetic-delta",
+            "synthetic-epsilon",
+            "Where is the deployment secret?",
+            "Cargo.lock",
+        ] {
+            assert!(!stdout.contains(secret), "private input leaked");
+        }
+        if objective == "train-repodna-pairwise" {
+            assert_eq!(result["scoreSemantics"], "relative-ranking-only");
+            assert!(result.get("answerability").is_none());
+        }
+    }
+}
+
+#[test]
+fn frozen_task_metrics_reject_incomplete_conflicting_and_unknown_manifests() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("model.json");
+    assert!(train(&checkpoint).status.success());
+    let path = dir.path().join("tasks.json");
+    let test = fixture("test.demo.json");
+    let training = fixture("train.demo.json");
+
+    let mut cases = Vec::new();
+    let mut missing = task_manifest();
+    missing.retain(|entry| entry["repository"] != "synthetic-gamma");
+    missing.pop();
+    cases.push(missing);
+
+    let mut duplicate = task_manifest();
+    duplicate.retain(|entry| entry["repository"] != "synthetic-gamma");
+    duplicate.push(serde_json::json!({
+        "repository": " SYNTHETIC-DELTA ",
+        "query": "Which dependency is locked?",
+        "task": "other"
+    }));
+    cases.push(duplicate);
+
+    let mut unknown = task_manifest();
+    unknown.retain(|entry| entry["repository"] != "synthetic-gamma");
+    unknown[0]["task"] = "guess_from_title".into();
+    cases.push(unknown);
+
+    let mut extra = task_manifest();
+    extra.push(serde_json::json!({
+        "repository": "orphan",
+        "query": "Unknown?",
+        "task": "other"
+    }));
+    cases.push(extra);
+
+    for (index, case) in cases.iter().enumerate() {
+        fs::write(&path, serde_json::to_vec(case).unwrap()).unwrap();
+        let result = task_evaluate(&checkpoint, &training, &test, &path);
+        assert!(!result.status.success(), "invalid case {index} accepted");
+        assert!(result.stdout.is_empty(), "partial JSON for case {index}");
+    }
 }

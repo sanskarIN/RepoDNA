@@ -31,6 +31,23 @@ RepoDNA. Contributor identities are left out of the evidence. Source code is not
 unless you set `include_source_excerpts = true`, and even then only short excerpts, with
 anything that looks like a secret redacted.
 
+## Experimental local-model development
+
+The built-in native provider remains an evidence digest. Its optional CPU
+ranker is trained only on developer-supplied relevance judgments. It is not a
+generative model, its scores are not verified factual confidence, and
+synthetic labels do not establish real-world accuracy.
+
+For reproducible research and safer use, start with the
+[human review rubric](ai-annotation-rubric.md) and
+[independent reviewer agreement audit](ai-reviewer-agreement.md), then
+[check dataset leakage](ai-label-audit.md) and
+[clone-family separation](ai-family-splits.md). Choose objectives on
+[validation data](ai-objective-selection.md), preserve untouched final-test
+repositories, and use the [offline benchmark verifier](ai-benchmark-provenance.md)
+to detect changes to saved benchmark inputs and results. Fingerprints are
+not proof that reviewers or weights are trustworthy.
+
 ## See exactly what would be sent
 
 ```sh
@@ -151,6 +168,14 @@ Explanations are cached: asking the same model, at the same endpoint or through 
 command, the same question with the same evidence reuses the earlier answer instead of
 sending a request. `--fresh` asks the
 provider again, and `repodna cache clear` removes cached explanations.
+
+## Offline ranker reproducibility
+
+For reproducibility audits of the optional native ranker, run
+`reproduce-repodna-ranker` with the saved checkpoint and original training
+labels. See [Native model development](native-model.md#reproduce-a-saved-checkpoint-from-training-labels).
+This checks deterministic weights, **not** whether the labels or citations are
+correct, and never calls a remote provider.
 
 ## Costs
 

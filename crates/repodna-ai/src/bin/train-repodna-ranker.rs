@@ -67,6 +67,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "modelFormat": model.format,
         "trainingExamples": model.training_examples,
         "trainingRepositories": model.training_repositories,
+        "trainingDatasetSha256": model.training_dataset_sha256,
         "holdout": evaluation,
         "holdoutAccuracy": evaluation.accuracy(),
         "relevanceScoreDiagnostics": score_diagnostics,

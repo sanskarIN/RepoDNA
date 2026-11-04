@@ -57,6 +57,11 @@ impl RankerModel {
         holdout: &[LabeledEvidence],
     ) -> Result<RelevanceScoreEvaluation, String> {
         self.validate()?;
+        if self.format != super::MODEL_FORMAT {
+            return Err(
+                "pairwise ranker scores are not calibrated for relevance diagnostics".into(),
+            );
+        }
         validate_holdout(holdout)?;
 
         let mut counts = [0_usize; SCORE_BIN_COUNT];
@@ -127,6 +132,7 @@ mod tests {
             weights: vec![0.0; FEATURE_COUNT],
             training_examples: 4,
             training_repositories: 2,
+            training_dataset_sha256: None,
         }
     }
 

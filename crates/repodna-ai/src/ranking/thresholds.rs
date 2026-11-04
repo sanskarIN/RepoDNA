@@ -32,10 +32,58 @@ impl RankerModel {
         if thresholds.windows(2).any(|pair| pair[0] >= pair[1]) {
             return Err("answerability thresholds must be strictly increasing".into());
         }
-        thresholds
+        // The score of a candidate does not depend on the threshold. Validate
+        // and group the labels once, then score each candidate once for the
+        // entire sweep instead of repeating work up to 32 times.
+        self.validate()?;
+        if self.format != super::MODEL_FORMAT {
+            return Err("pairwise ranker scores cannot be used as answerability thresholds".into());
+        }
+        let groups = super::evaluation::group_holdout(holdout)?;
+        let total_queries = groups.len();
+        let mut results = thresholds
             .iter()
-            .map(|&threshold| self.evaluate_answerability(holdout, threshold))
-            .collect()
+            .map(|&threshold| AnswerabilityEvaluation {
+                threshold,
+                total_queries,
+                answerable_queries: 0,
+                unanswerable_queries: 0,
+                true_positive_queries: 0,
+                false_negative_queries: 0,
+                false_positive_queries: 0,
+                true_negative_queries: 0,
+            })
+            .collect::<Vec<_>>();
+
+        for ((_, query), candidates) in groups {
+            let answerable = candidates.iter().any(|item| item.relevant);
+            let query_terms = super::terms(query);
+            let max_score = candidates
+                .iter()
+                .map(|item| self.relevance_with_terms(&query_terms, &item.evidence))
+                .fold(f64::NEG_INFINITY, f64::max);
+            for result in &mut results {
+                match (answerable, max_score >= result.threshold) {
+                    (true, true) => {
+                        result.answerable_queries += 1;
+                        result.true_positive_queries += 1;
+                    }
+                    (true, false) => {
+                        result.answerable_queries += 1;
+                        result.false_negative_queries += 1;
+                    }
+                    (false, true) => {
+                        result.unanswerable_queries += 1;
+                        result.false_positive_queries += 1;
+                    }
+                    (false, false) => {
+                        result.unanswerable_queries += 1;
+                        result.true_negative_queries += 1;
+                    }
+                }
+            }
+        }
+        Ok(results)
     }
 }
 
@@ -51,6 +99,7 @@ mod tests {
             weights: vec![0.0; FEATURE_COUNT],
             training_examples: 2,
             training_repositories: 2,
+            training_dataset_sha256: None,
         }
     }
 
@@ -98,6 +147,55 @@ mod tests {
             assert!(pair[0].false_positive_queries >= pair[1].false_positive_queries);
             assert_eq!(pair[0].total_queries, pair[1].total_queries);
         }
+    }
+
+    #[test]
+    fn sweep_matches_independent_threshold_evaluation_on_mixed_groups() {
+        let mut ranker = model();
+        ranker.weights[0] = -0.5;
+        ranker.weights[7] = 2.0;
+        ranker.weights[8] = -2.0;
+
+        let mut second = sample(" repo-positive ", false);
+        second.evidence.id = "E2".into();
+        second.evidence.kind = EvidenceKind::Commit;
+        let mut international = sample("repo-international", true);
+        international.query = "依存関係 dependencies".into();
+        let mut negative = sample("repo-negative", false);
+        negative.evidence.kind = EvidenceKind::Commit;
+        let holdout = vec![
+            sample("Repo-Positive", true),
+            second,
+            international,
+            negative,
+        ];
+        let thresholds = [0.0, 0.1, 0.25, 0.5, 0.75, 0.95, 1.0];
+        let expected = thresholds
+            .iter()
+            .map(|&threshold| ranker.evaluate_answerability(&holdout, threshold).unwrap())
+            .collect::<Vec<_>>();
+        let actual = ranker
+            .evaluate_answerability_sweep(&holdout, &thresholds)
+            .unwrap();
+        assert_eq!(actual, expected);
+        assert_eq!(actual[0].total_queries, 3);
+        assert_eq!(actual[0].answerable_queries, 2);
+        assert_eq!(actual[0].unanswerable_queries, 1);
+
+        let mut invalid = ranker.clone();
+        invalid.weights[0] = f64::NAN;
+        assert!(
+            invalid
+                .evaluate_answerability_sweep(&holdout, &thresholds)
+                .is_err()
+        );
+        let mut pairwise = ranker;
+        pairwise.format = super::super::PAIRWISE_MODEL_FORMAT.into();
+        assert!(
+            pairwise
+                .evaluate_answerability_sweep(&holdout, &thresholds)
+                .is_err()
+        );
     }
 
     #[test]

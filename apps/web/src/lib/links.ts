@@ -15,7 +15,7 @@ export interface ProjectLink {
 export const SUPPORT: ProjectLink[] = [
   {
     label: "Buy Me a Coffee",
-    url: "https://buymeacoffee.com/SanskarCodes",
+    url: "https://buymeacoffee.com/sanskarIN",
     description: "Support RepoDNA's development on Buy Me a Coffee.",
   },
   {

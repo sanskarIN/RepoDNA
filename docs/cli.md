@@ -164,6 +164,13 @@ With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
   ordered by descending severity and then finding ID.
 - `changes.architecture.touchedModules`: modules owning files that differ between
   the two snapshots (using the most specific module directory boundary).
+- `changes.architecture.fileOwners`: a path-sorted record for each added, removed
+  or modified file, containing `path`, `baselineModule` and `currentModule`.
+  Module IDs are the closest analyzed boundaries in each snapshot. An added file
+  has a null `baselineModule`, and a removed file has a null `currentModule`;
+  null may also indicate no matching module. A modified file can show a module
+  boundary change even when its repository-relative path is unchanged. The
+  root module only owns files directly at the repository root.
 - `changes.architecture.directDependents`: modules directly depending on those
   touched modules in either analyzed snapshot; **not** transitive impact.
 - `changes.architecture.moduleEdges.added` and `removed`: deterministic

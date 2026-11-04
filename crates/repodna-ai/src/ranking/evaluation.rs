@@ -147,6 +147,9 @@ impl RankerModel {
         threshold: f64,
     ) -> Result<AnswerabilityEvaluation, String> {
         self.validate()?;
+        if self.format != super::MODEL_FORMAT {
+            return Err("pairwise ranker scores cannot be used as answerability thresholds".into());
+        }
         if !threshold.is_finite() || !(0.0..=1.0).contains(&threshold) {
             return Err("answerability threshold must be finite and between 0 and 1".into());
         }
@@ -189,7 +192,100 @@ impl RankerModel {
     }
 }
 
-fn group_holdout(
+/// Repository-balanced retrieval metrics. Each repository with at least one
+/// answerable labeled question contributes exactly one equally weighted score,
+/// regardless of its number of questions or evidence items.
+///
+/// Repositories containing only unanswerable questions are counted separately
+/// and do not contribute to ranking metrics, as NDCG is undefined for them.
+/// This complements query-weighted retrieval results; neither score verifies
+/// factual correctness, representativeness or model fairness.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryBalancedEvaluation {
+    /// Top-k cutoff used for every repository.
+    pub k: usize,
+    /// Distinct normalized repository identifiers.
+    pub repositories: usize,
+    /// Repositories with one or more answerable labeled questions.
+    pub evaluated_repositories: usize,
+    /// Repositories with no positive-labeled candidate in any question.
+    pub unanswerable_repositories: usize,
+    /// Equal-repository-weight mean NDCG@k of model ranking.
+    pub ndcg_at_k: f64,
+    /// Equal-repository-weight mean NDCG@k of original candidate order.
+    pub original_order_ndcg_at_k: f64,
+    /// Difference between model and original-order repository means.
+    pub ndcg_delta: f64,
+    /// Equal-repository-weight mean reciprocal rank of model ranking.
+    pub mean_reciprocal_rank: f64,
+    /// Equal-repository-weight original-order mean reciprocal rank.
+    pub original_order_mean_reciprocal_rank: f64,
+    /// Difference between model and original-order repository means.
+    pub mean_reciprocal_rank_delta: f64,
+}
+
+/// Independently summarize ranking quality across repositories, without
+/// printing per-repository identifiers, question text or selected evidence.
+///
+/// This is diagnostic only. Select the model on validation NDCG@5; do not
+/// retune candidates using a final-test repository-balanced score.
+pub fn evaluate_repository_balanced(
+    model: &RankerModel,
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<RepositoryBalancedEvaluation, String> {
+    model.validate()?;
+    if !(1..=100).contains(&k) {
+        return Err("retrieval cutoff k must be between 1 and 100".to_owned());
+    }
+    let grouped = group_holdout(holdout)?;
+    let mut repositories: BTreeMap<String, Vec<LabeledEvidence>> = BTreeMap::new();
+    for ((repository, _), candidates) in grouped {
+        repositories
+            .entry(repository)
+            .or_default()
+            .extend(candidates.into_iter().cloned());
+    }
+
+    let count = repositories.len();
+    let mut evaluated = 0_usize;
+    let mut model_ndcg = 0.0_f64;
+    let mut baseline_ndcg = 0.0_f64;
+    let mut model_mrr = 0.0_f64;
+    let mut baseline_mrr = 0.0_f64;
+    for candidates in repositories.values() {
+        let actual = model.evaluate_retrieval(candidates, k)?;
+        if actual.evaluated_queries == 0 {
+            continue;
+        }
+        let baseline = evaluate_original_order(candidates, k)?;
+        evaluated += 1;
+        model_ndcg += actual.ndcg_at_k;
+        baseline_ndcg += baseline.ndcg_at_k;
+        model_mrr += actual.mean_reciprocal_rank;
+        baseline_mrr += baseline.mean_reciprocal_rank;
+    }
+    let divisor = evaluated.max(1) as f64;
+    let ndcg_at_k = model_ndcg / divisor;
+    let original_order_ndcg_at_k = baseline_ndcg / divisor;
+    let mean_reciprocal_rank = model_mrr / divisor;
+    let original_order_mean_reciprocal_rank = baseline_mrr / divisor;
+    Ok(RepositoryBalancedEvaluation {
+        k,
+        repositories: count,
+        evaluated_repositories: evaluated,
+        unanswerable_repositories: count - evaluated,
+        ndcg_at_k,
+        original_order_ndcg_at_k,
+        ndcg_delta: ndcg_at_k - original_order_ndcg_at_k,
+        mean_reciprocal_rank,
+        original_order_mean_reciprocal_rank,
+        mean_reciprocal_rank_delta: mean_reciprocal_rank - original_order_mean_reciprocal_rank,
+    })
+}
+
+pub(super) fn group_holdout(
     holdout: &[LabeledEvidence],
 ) -> Result<BTreeMap<(String, &str), Vec<&LabeledEvidence>>, String> {
     if holdout.is_empty() {
@@ -247,13 +343,21 @@ fn evaluate_retrieval_inner(
             continue;
         }
         evaluated_queries += 1;
-        // Stable sort preserves input order when scores tie.
+        // Tokenize once and score each candidate once. Stable sorting
+        // preserves the original input order when learned scores tie.
         if let Some(model) = model {
-            group.sort_by(|left, right| {
-                model
-                    .relevance(query, &right.evidence)
-                    .total_cmp(&model.relevance(query, &left.evidence))
-            });
+            let query_terms = super::terms(query);
+            let mut scored = group
+                .into_iter()
+                .map(|item| {
+                    (
+                        model.relevance_with_terms(&query_terms, &item.evidence),
+                        item,
+                    )
+                })
+                .collect::<Vec<_>>();
+            scored.sort_by(|(left_score, _), (right_score, _)| right_score.total_cmp(left_score));
+            group = scored.into_iter().map(|(_, item)| item).collect();
         }
         if let Some(position) = group.iter().position(|item| item.relevant) {
             mrr += 1.0 / (position + 1) as f64;
@@ -321,7 +425,128 @@ mod tests {
             weights,
             training_examples: 10,
             training_repositories: 3,
+            training_dataset_sha256: None,
         }
+    }
+
+    #[test]
+    fn cached_retrieval_scores_match_legacy_stable_sort_metrics() {
+        let candidates = (0..180)
+            .map(|index| {
+                let kind = match index % 5 {
+                    0 => EvidenceKind::Commit,
+                    1 => EvidenceKind::Package,
+                    2 => EvidenceKind::Finding,
+                    3 => EvidenceKind::Metric,
+                    _ => EvidenceKind::Command,
+                };
+                LabeledEvidence {
+                    repository: "repo-stable".into(),
+                    query: "Which dependencies and build commands are recorded?".into(),
+                    evidence: EvidenceItem {
+                        id: format!("E{}", index + 1),
+                        kind,
+                        reference: "Cargo.lock and Makefile".into(),
+                        detail: match index % 3 {
+                            0 => "Recorded build commands".into(),
+                            1 => "Recorded packages and versions".into(),
+                            _ => "Measured contribution activity".into(),
+                        },
+                    },
+                    relevant: index % 7 == 0,
+                }
+            })
+            .collect::<Vec<_>>();
+        let ranker = model();
+        // This is the original comparator, deliberately retained only in
+        // the regression test as an ordering reference for frozen metrics.
+        let mut sorted = candidates.clone();
+        sorted.sort_by(|left, right| {
+            ranker
+                .relevance(&right.query, &right.evidence)
+                .total_cmp(&ranker.relevance(&left.query, &left.evidence))
+        });
+        for k in [1, 3, 5, 20, 100] {
+            assert_eq!(
+                ranker.evaluate_retrieval(&candidates, k).unwrap(),
+                evaluate_original_order(&sorted, k).unwrap()
+            );
+        }
+
+        // A tied model must preserve original input order across all
+        // candidates, including if the first relevant item is not first.
+        let mut tied = ranker;
+        tied.weights.fill(0.0);
+        for k in [1, 5, 100] {
+            assert_eq!(
+                tied.evaluate_retrieval(&candidates, k).unwrap(),
+                evaluate_original_order(&candidates, k).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn repository_balanced_metrics_do_not_overweight_large_repositories() {
+        let holdout = vec![
+            labeled("repo-a", "question-1", "E1", EvidenceKind::Commit, false),
+            labeled("repo-a", "question-1", "E2", EvidenceKind::Package, true),
+            labeled(" repo-A ", "question-2", "E1", EvidenceKind::Commit, false),
+            labeled("repo-a", "question-2", "E2", EvidenceKind::Package, true),
+            labeled("repo-b", "question-3", "E1", EvidenceKind::Package, true),
+            labeled("repo-b", "question-3", "E2", EvidenceKind::Commit, false),
+            labeled("repo-c", "question-4", "E1", EvidenceKind::Commit, false),
+        ];
+        let balanced = evaluate_repository_balanced(&model(), &holdout, 5).unwrap();
+        assert_eq!(balanced.k, 5);
+        assert_eq!(balanced.repositories, 3);
+        assert_eq!(balanced.evaluated_repositories, 2);
+        assert_eq!(balanced.unanswerable_repositories, 1);
+        assert_eq!(balanced.mean_reciprocal_rank, 1.0);
+        assert!((balanced.original_order_mean_reciprocal_rank - 0.75).abs() < 1e-12);
+        assert!((balanced.mean_reciprocal_rank_delta - 0.25).abs() < 1e-12);
+        assert_eq!(balanced.ndcg_at_k, 1.0);
+        assert!(balanced.original_order_ndcg_at_k < 1.0);
+        assert!(balanced.ndcg_delta > 0.0);
+
+        // The existing query-weighted metric is 2/3; the new macro average
+        // is 3/4 because a repository with two questions counts only once.
+        let original = evaluate_original_order(&holdout, 5).unwrap();
+        assert!((original.mean_reciprocal_rank - 2.0 / 3.0).abs() < 1e-12);
+
+        // Input row order must not change model metrics if score ties do not
+        // occur. All positive packages score above the negative commits.
+        let mut reversed = holdout.clone();
+        reversed.reverse();
+        let repeated = evaluate_repository_balanced(&model(), &reversed, 5).unwrap();
+        assert_eq!(balanced.mean_reciprocal_rank, repeated.mean_reciprocal_rank);
+        assert_eq!(balanced.ndcg_at_k, repeated.ndcg_at_k);
+    }
+
+    #[test]
+    fn repository_balanced_reports_unanswerable_and_rejects_invalid_holdouts() {
+        let only_negative = [labeled(
+            "repo-a",
+            "question",
+            "E1",
+            EvidenceKind::Commit,
+            false,
+        )];
+        let result = evaluate_repository_balanced(&model(), &only_negative, 5).unwrap();
+        assert_eq!(result.repositories, 1);
+        assert_eq!(result.evaluated_repositories, 0);
+        assert_eq!(result.unanswerable_repositories, 1);
+        assert_eq!(result.ndcg_at_k, 0.0);
+        assert_eq!(result.mean_reciprocal_rank, 0.0);
+        assert!(evaluate_repository_balanced(&model(), &only_negative, 0).is_err());
+        assert!(evaluate_repository_balanced(&model(), &[], 5).is_err());
+        assert!(
+            evaluate_repository_balanced(
+                &model(),
+                &[only_negative[0].clone(), only_negative[0].clone()],
+                5,
+            )
+            .is_err()
+        );
     }
 
     #[test]

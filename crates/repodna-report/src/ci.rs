@@ -81,9 +81,22 @@ pub struct CiModuleEdge {
     pub to: String,
 }
 
+/// A changed file's closest module in the baseline and current snapshots.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CiFileModuleOwner {
+    /// Repository-relative path of the changed file.
+    pub path: String,
+    /// Owning baseline module, absent for added files or unknown ownership.
+    pub baseline_module: Option<String>,
+    /// Owning current module, absent for removed files or unknown ownership.
+    pub current_module: Option<String>,
+}
+
 /// Changed modules and one-hop dependency signals for CI review.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CiArchitectureImpact {
+    /// Per-file closest-module mapping, sorted by repository-relative path.
+    pub file_owners: Vec<CiFileModuleOwner>,
     /// Modules that own added, removed or modified files.
     pub touched_modules: Vec<String>,
     /// Immediate dependents of any touched module from either snapshot.
@@ -167,11 +180,16 @@ fn module_for_path<'a>(dna: &'a RepositoryDna, path: &str) -> Option<&'a str> {
         .iter()
         .filter(|module| {
             let prefix = module.path.trim_end_matches('/');
-            prefix.is_empty()
-                || path == prefix
-                || path
-                    .strip_prefix(prefix)
-                    .is_some_and(|suffix| suffix.starts_with('/'))
+            if prefix.is_empty() {
+                // The root module owns direct root-level files, not nested files
+                // whose inferred module was absent or skipped in an artifact.
+                !path.contains('/')
+            } else {
+                path == prefix
+                    || path
+                        .strip_prefix(prefix)
+                        .is_some_and(|suffix| suffix.starts_with('/'))
+            }
         })
         .max_by_key(|module| module.path.trim_end_matches('/').len())
         .map(|module| module.id.as_str())
@@ -200,6 +218,30 @@ fn architecture_impact(
             touched.insert(id.to_owned());
         }
     }
+
+    // Show the closest module on each side of a file change. Added/removed
+    // files are mapped only on the side where the file exists. A missing
+    // module mapping remains None rather than guessing ownership.
+    let mut file_owners: Vec<CiFileModuleOwner> = files
+        .added
+        .iter()
+        .map(|path| CiFileModuleOwner {
+            path: path.clone(),
+            baseline_module: None,
+            current_module: module_for_path(current, path).map(str::to_owned),
+        })
+        .chain(files.removed.iter().map(|path| CiFileModuleOwner {
+            path: path.clone(),
+            baseline_module: module_for_path(baseline, path).map(str::to_owned),
+            current_module: None,
+        }))
+        .chain(files.modified.iter().map(|path| CiFileModuleOwner {
+            path: path.clone(),
+            baseline_module: module_for_path(baseline, path).map(str::to_owned),
+            current_module: module_for_path(current, path).map(str::to_owned),
+        }))
+        .collect();
+    file_owners.sort_by(|a, b| a.path.cmp(&b.path));
 
     let before: BTreeSet<_> = baseline
         .architecture
@@ -231,6 +273,7 @@ fn architecture_impact(
         .collect();
 
     Some(CiArchitectureImpact {
+        file_owners,
         touched_modules: touched.into_iter().collect(),
         direct_dependents,
         added_edges,
@@ -515,6 +558,18 @@ pub fn markdown(outcome: &CiOutcome) -> String {
             );
             markdown_entries(
                 &mut out,
+                "Changed file module owners",
+                architecture.file_owners.iter().map(|owner| {
+                    format!(
+                        "{}: {} → {}",
+                        owner.path,
+                        owner.baseline_module.as_deref().unwrap_or("(not mapped)"),
+                        owner.current_module.as_deref().unwrap_or("(not mapped)")
+                    )
+                }),
+            );
+            markdown_entries(
+                &mut out,
                 "Immediate dependents",
                 architecture.direct_dependents.iter().cloned(),
             );
@@ -599,6 +654,11 @@ pub fn json(outcome: &CiOutcome) -> serde_json::Value {
             };
             result["changes"]["architecture"] = serde_json::json!({
                 "touchedModules": architecture.touched_modules,
+                "fileOwners": architecture.file_owners.iter().map(|owner| serde_json::json!({
+                    "path": owner.path,
+                    "baselineModule": owner.baseline_module,
+                    "currentModule": owner.current_module,
+                })).collect::<Vec<_>>(),
                 "directDependents": architecture.direct_dependents,
                 "moduleEdges": {
                     "added": architecture.added_edges.iter().map(edge_json).collect::<Vec<_>>(),
@@ -755,6 +815,7 @@ mod tests {
                 }],
                 resolved: Vec::new(),
                 architecture: Some(CiArchitectureImpact {
+                    file_owners: Vec::new(),
                     touched_modules: vec!["core".to_owned()],
                     direct_dependents: vec!["consumer".to_owned()],
                     added_edges: vec![CiModuleEdge {
@@ -1205,9 +1266,47 @@ mod tests {
             serde_json::json!([{"from": "src2", "to": "removed"}])
         );
         assert_eq!(
+            architecture["fileOwners"],
+            serde_json::json!([
+                {"path": "removed/old.rs", "baselineModule": "removed", "currentModule": null},
+                {"path": "src/core/a.rs", "baselineModule": "src/core", "currentModule": "src/core"},
+                {"path": "src/core/new.rs", "baselineModule": null, "currentModule": "src/core"}
+            ])
+        );
+        assert_eq!(
             report["summary"]["Changed files"],
             "3 (1 added, 1 removed, 1 modified)"
         );
+    }
+
+    #[test]
+    fn changed_file_owners_detect_module_boundary_moves_without_guessing() {
+        let mut baseline = artifact(
+            Vec::new(),
+            &[("src/sub/file.rs", "old"), ("unknown/deep.rs", "old")],
+        );
+        let mut current = artifact(
+            Vec::new(),
+            &[("src/sub/file.rs", "new"), ("unknown/deep.rs", "new")],
+        );
+        baseline.architecture.status = SectionStatus::Analyzed;
+        current.architecture.status = SectionStatus::Analyzed;
+        baseline.architecture.modules = vec![module("src", "src")];
+        current.architecture.modules = vec![module("src/sub", "src/sub")];
+        let outcome = evaluate(&current, Some(&baseline), CiPolicy::default());
+        let report = json(&outcome);
+        assert_eq!(
+            report["changes"]["architecture"]["fileOwners"],
+            serde_json::json!([
+                {"path": "src/sub/file.rs", "baselineModule": "src", "currentModule": "src/sub"},
+                {"path": "unknown/deep.rs", "baselineModule": null, "currentModule": null}
+            ])
+        );
+        assert_eq!(
+            report["changes"]["architecture"]["touchedModules"],
+            serde_json::json!(["src", "src/sub"])
+        );
+        assert!(markdown(&outcome).contains("Changed file module owners (2)"));
     }
 
     #[test]
@@ -1239,5 +1338,27 @@ mod tests {
         assert_eq!(module_for_path(&current, "src/deep/lib.rs"), Some("deep"));
         assert_eq!(module_for_path(&current, "src/other.rs"), Some("src"));
         assert_eq!(module_for_path(&current, "notes.md"), Some("root"));
+        assert_eq!(module_for_path(&current, "orphan/deeper.rs"), None);
+        assert_eq!(module_for_path(&current, "src2-other/lib.rs"), None);
+    }
+
+    #[test]
+    fn root_module_never_claims_a_nested_changed_file_without_a_matching_module() {
+        let mut baseline = artifact(Vec::new(), &[]);
+        let mut current = artifact(Vec::new(), &[("unknown/deep/file.rs", "new")]);
+        baseline.architecture.status = SectionStatus::Analyzed;
+        current.architecture.status = SectionStatus::Analyzed;
+        baseline.architecture.modules = vec![module("(root)", "")];
+        current.architecture.modules = vec![module("(root)", "")];
+
+        let report = json(&evaluate(&current, Some(&baseline), CiPolicy::default()));
+        assert_eq!(
+            report["changes"]["architecture"]["touchedModules"],
+            serde_json::json!([])
+        );
+        assert_eq!(
+            report["changes"]["files"]["added"],
+            serde_json::json!(["unknown/deep/file.rs"])
+        );
     }
 }

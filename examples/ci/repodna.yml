@@ -31,7 +31,8 @@ jobs:
 
       - name: Install RepoDNA
         env:
-          VERSION: 1.4.0
+          # Keep pinned to a verified published release and update deliberately.
+          VERSION: 1.4.5
         run: |
           set -euo pipefail
           name="repodna-$VERSION-x86_64-unknown-linux-musl"

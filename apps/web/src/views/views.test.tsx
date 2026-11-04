@@ -266,6 +266,27 @@ describe("views", () => {
     expect(json).toHaveProperty("disabled", true);
   });
 
+  it("requires review before saving a local findings JSON export", async () => {
+    await renderAt("/findings", dataset);
+    fireEvent.click(screen.getByRole("button", { name: "Export filtered JSON" }));
+    const panel = screen.getByRole("region", { name: "Review findings export" });
+    expect(panel.textContent).toContain("This preview does not detect secrets");
+    expect(screen.getByRole("button", { name: "Save full JSON export" })).toBeTruthy();
+    expect(screen.getByLabelText("Filtered findings export sample")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel export" }));
+    expect(screen.queryByRole("region", { name: "Review findings export" })).toBeNull();
+  });
+
+  it("clears a previous findings review after changing filters", async () => {
+    await renderAt("/findings", dataset);
+    fireEvent.click(screen.getByRole("button", { name: "Export filtered CSV" }));
+    expect(screen.getByRole("region", { name: "Review findings export" })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Search findings"), {
+      target: { value: "no matching finding 78392" },
+    });
+    expect(screen.queryByRole("region", { name: "Review findings export" })).toBeNull();
+  });
+
   it("offers Markdown as a third filtered findings export", async () => {
     await renderAt("/findings", dataset);
     const markdown = screen.getByRole("button", { name: "Export filtered Markdown" });
@@ -310,7 +331,7 @@ describe("views", () => {
       "https://github.com/sanskarIN",
       "https://sanskarin.github.io",
       "https://sanskarIN.gumroad.com",
-      "https://buymeacoffee.com/SanskarCodes",
+      "https://buymeacoffee.com/sanskarIN",
       "https://razorpay.me/@SanskarCodes",
     ]) {
       expect(document.querySelector(`a[href="${url}"]`), url).toBeTruthy();

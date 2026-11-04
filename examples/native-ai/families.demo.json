@@ -1,0 +1,32 @@
+[
+  {
+    "repository": "synthetic-alpha",
+    "family": "synthetic-family-1",
+    "revision": "1111111111111111111111111111111111111111",
+    "license": "NOASSERTION"
+  },
+  {
+    "repository": "synthetic-beta",
+    "family": "synthetic-family-2",
+    "revision": "2222222222222222222222222222222222222222",
+    "license": "NOASSERTION"
+  },
+  {
+    "repository": "synthetic-gamma",
+    "family": "synthetic-family-3",
+    "revision": "3333333333333333333333333333333333333333",
+    "license": "NOASSERTION"
+  },
+  {
+    "repository": "synthetic-delta",
+    "family": "synthetic-family-4",
+    "revision": "4444444444444444444444444444444444444444",
+    "license": "NOASSERTION"
+  },
+  {
+    "repository": "synthetic-epsilon",
+    "family": "synthetic-family-5",
+    "revision": "5555555555555555555555555555555555555555",
+    "license": "NOASSERTION"
+  }
+]

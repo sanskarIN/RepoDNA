@@ -11,10 +11,15 @@ import {
   type Severity,
 } from "@repodna/schema";
 import { thousands } from "@repodna/visualization";
-import { ErrorBox, PageHeader, SearchBox, Select, SeverityBadge } from "../components/common";
+import { ErrorBox, Note, PageHeader, SearchBox, Select, SeverityBadge } from "../components/common";
 import { FindingItem } from "../components/FindingItem";
 import { useDownload } from "../lib/download";
-import { findingsCsv, findingsJson } from "../lib/findings-export";
+import {
+  findingsCsv,
+  findingsExportReview,
+  findingsJson,
+  type FindingsExportFormat,
+} from "../lib/findings-export";
 import { findingsMarkdown } from "../lib/findings-markdown";
 import { filterFindings } from "../lib/findings-filter";
 import { useRoute } from "../lib/router";
@@ -41,6 +46,7 @@ export function Findings() {
     return CONFIDENCES.includes(value as Confidence) ? (value as Confidence) : "all";
   });
   const [showSuppressed, setShowSuppressed] = useState(false);
+  const [reviewFormat, setReviewFormat] = useState<FindingsExportFormat | null>(null);
   const [shown, setShown] = useState(FINDINGS_PAGE);
   const counts = findingCounts(dna);
   const categories = useMemo(
@@ -51,6 +57,12 @@ export function Findings() {
     () => filterFindings(dna.findings, { query, severity, category, confidence, showSuppressed }),
     [dna.findings, query, severity, category, confidence, showSuppressed],
   );
+  const review = useMemo(
+    () => (reviewFormat ? findingsExportReview(filtered, reviewFormat) : null),
+    [filtered, reviewFormat],
+  );
+  // Closing a stale preview prevents exporting a selection that has changed.
+  useEffect(() => setReviewFormat(null), [filtered]);
   const suppressed = dna.findings.filter(isSuppressed).length;
   // Changing a filter starts again from the first page.
   useEffect(() => setShown(FINDINGS_PAGE), [query, severity, category, confidence, showSuppressed]);
@@ -66,6 +78,26 @@ export function Findings() {
     setCategory("all");
     setConfidence("all");
     setShowSuppressed(false);
+    setReviewFormat(null);
+  };
+
+  const saveReviewedExport = () => {
+    if (!reviewFormat || filtered.length === 0) return;
+    const extension = reviewFormat === "markdown" ? "md" : reviewFormat;
+    const content =
+      reviewFormat === "csv"
+        ? findingsCsv(filtered)
+        : reviewFormat === "json"
+          ? findingsJson(filtered)
+          : findingsMarkdown(filtered);
+    const mime =
+      reviewFormat === "csv"
+        ? "text/csv;charset=utf-8"
+        : reviewFormat === "json"
+          ? "application/json;charset=utf-8"
+          : "text/markdown;charset=utf-8";
+    download("repodna-findings." + extension, content, mime);
+    setReviewFormat(null);
   };
 
   return (
@@ -145,9 +177,7 @@ export function Findings() {
           type="button"
           className="ghost"
           disabled={filtered.length === 0}
-          onClick={() =>
-            download("repodna-findings.csv", findingsCsv(filtered), "text/csv;charset=utf-8")
-          }
+          onClick={() => setReviewFormat("csv")}
         >
           Export filtered CSV
         </button>
@@ -155,13 +185,7 @@ export function Findings() {
           type="button"
           className="ghost"
           disabled={filtered.length === 0}
-          onClick={() =>
-            download(
-              "repodna-findings.json",
-              findingsJson(filtered),
-              "application/json;charset=utf-8",
-            )
-          }
+          onClick={() => setReviewFormat("json")}
         >
           Export filtered JSON
         </button>
@@ -169,13 +193,7 @@ export function Findings() {
           type="button"
           className="ghost"
           disabled={filtered.length === 0}
-          onClick={() =>
-            download(
-              "repodna-findings.md",
-              findingsMarkdown(filtered),
-              "text/markdown;charset=utf-8",
-            )
-          }
+          onClick={() => setReviewFormat("markdown")}
         >
           Export filtered Markdown
         </button>
@@ -185,6 +203,38 @@ export function Findings() {
             : `${thousands(filtered.length)} ${filtered.length === 1 ? "finding" : "findings"}`}
         </span>
       </div>
+      {reviewFormat && review ? (
+        <section className="panel" role="region" aria-label="Review findings export">
+          <div className="panel-header">
+            <h2>Review filtered {reviewFormat.toUpperCase()} export</h2>
+          </div>
+          <p>
+            The full file will contain {thousands(filtered.length)} findings,{" "}
+            {thousands(review.paths)} distinct repository paths, {thousands(review.evidenceItems)}{" "}
+            evidence items, and {thousands(review.suppressed)} suppressed findings.
+          </p>
+          <Note caution>
+            Repository paths, summaries, and evidence may contain sensitive information. This
+            preview does not detect secrets, anonymize content, or remove private data. Review the
+            saved file before sharing it.
+          </Note>
+          <p className="muted">
+            Local sample of the first {review.sampled} findings (up to 4,000 characters).
+            {review.shortened ? " The saved file contains additional content not shown here." : ""}
+          </p>
+          <pre className="note mono" tabIndex={0} aria-label="Filtered findings export sample">
+            {review.preview}
+          </pre>
+          <div className="actions">
+            <button type="button" onClick={saveReviewedExport}>
+              Save full {reviewFormat.toUpperCase()} export
+            </button>{" "}
+            <button type="button" className="ghost" onClick={() => setReviewFormat(null)}>
+              Cancel export
+            </button>
+          </div>
+        </section>
+      ) : null}
       {downloadFailure ? <ErrorBox>{downloadFailure}</ErrorBox> : null}
       {filtered.length === 0 ? (
         <p className="muted">

@@ -1,0 +1,68 @@
+[
+  {
+    "repository": "synthetic-delta",
+    "query": "Which build command is available?",
+    "evidence": {
+      "id": "E1",
+      "kind": "metric",
+      "reference": "src",
+      "detail": "Repository size measured"
+    },
+    "relevant": false
+  },
+  {
+    "repository": "synthetic-delta",
+    "query": "Which build command is available?",
+    "evidence": {
+      "id": "E2",
+      "kind": "command",
+      "reference": "Makefile",
+      "detail": "Detected make build command"
+    },
+    "relevant": true
+  },
+  {
+    "repository": "synthetic-delta",
+    "query": "Which dependency is locked?",
+    "evidence": {
+      "id": "E3",
+      "kind": "commit",
+      "reference": "history",
+      "detail": "Recent repository changes"
+    },
+    "relevant": false
+  },
+  {
+    "repository": "synthetic-delta",
+    "query": "Which dependency is locked?",
+    "evidence": {
+      "id": "E4",
+      "kind": "package",
+      "reference": "Cargo.lock",
+      "detail": "Locked package version recorded"
+    },
+    "relevant": true
+  },
+  {
+    "repository": "synthetic-epsilon",
+    "query": "Where is the deployment secret?",
+    "evidence": {
+      "id": "E1",
+      "kind": "metric",
+      "reference": "src",
+      "detail": "Static repository metrics"
+    },
+    "relevant": false
+  },
+  {
+    "repository": "synthetic-epsilon",
+    "query": "Where is the deployment secret?",
+    "evidence": {
+      "id": "E2",
+      "kind": "commit",
+      "reference": "history",
+      "detail": "Historical changes recorded"
+    },
+    "relevant": false
+  }
+]

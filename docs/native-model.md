@@ -82,7 +82,10 @@ repository count; it does not rewrite the input dataset.
 Train only on data you have permission to use, and never include secrets.
 Training sorts labeled examples by repository, exact question, and evidence ID
 before deterministic SGD, so changing the JSON array's row order does not
-change the resulting checkpoint weights. This does not make labels, rankings,
+change the resulting checkpoint weights. New checkpoints also store a SHA-256
+fingerprint of the complete typed training records, sorted independently of
+input row order and JSON whitespace. It includes relevance labels and evidence
+metadata without embedding the raw records in the checkpoint. This does not make labels, rankings,
 or checkpoint outputs independent of the actual training data.
 
 ```sh
@@ -129,7 +132,12 @@ at each operating point. The Rust library can evaluate a caller-supplied
 strictly increasing list of up to 32 finite thresholds between zero and one.
 Use the sweep to understand sensitivity, **not** to choose a deployable
 threshold from the final test set. Any operating-point selection needs a
-separate, repository-disjoint validation set and an untouched test set. The report
+separate, repository-disjoint validation set and an untouched test set. The sweep reuses a candidate's evidence-relevance score across all requested
+thresholds instead of rescoring it separately for every threshold. This
+changes evaluation cost, not the threshold semantics or whether the runtime
+suppresses answers; the sweep remains diagnostic only.
+
+The report
 counts true/false positives and negatives at the **repository/question** level,
 including unanswerable questions omitted from retrieval averages. A threshold
 score is not a calibrated probability of factual correctness, and RepoDNA
@@ -231,17 +239,155 @@ includes classification, relevance-score diagnostics, retrieval metrics, origina
 evidence-order baseline and signed deltas, plus hypothetical answerability
 thresholds. It never writes a new checkpoint or modifies the existing one.
 
-Keep the **original training dataset** available for this check. The checkpoint
-currently stores training counts, not a cryptographic dataset fingerprint. Matching
-counts and repository-disjoint input therefore **cannot prove** the checkpoint was
-trained on precisely those records. Preserve dataset hashes and the training command
-in your own experiment log; do not choose a threshold or tune parameters using this
-final test result. A separate validation split is required for those decisions.
+Keep the **original training dataset** available for this check. New checkpoints
+store `training_dataset_sha256` as a lowercase 64-character SHA-256 digest of
+canonical typed records. The evaluator rejects mismatches even when repository
+and sample counts still match; reordered JSON records and whitespace changes
+do not change the digest. The report includes `trainingFingerprintVerified`.
+Legacy checkpoints without this field still load, but evaluation explicitly
+reports `false` because only basic training counts can be checked.
+
+The digest binds the checkpoint's declared provenance metadata to the provided
+labels. **It is not a digital signature and cannot prove honest training, model
+weights, label quality, or dataset licensing.** Keep a separate experiment log
+with training settings and trusted dataset hashes. Do not choose a threshold or
+tune parameters using this final test result. A separate validation split is
+required for those decisions.
 
 The evaluator accepts at most 64 KiB of checkpoint JSON and 8 MiB per label file,
 with a maximum of 100,000 examples in each input. Invalid checkpoints, duplicate
 evidence IDs, source excerpts and overlapping repository identifiers are rejected.
-The JSON output contains aggregate numbers rather than source paths or raw labels,
-but the local input datasets may contain sensitive repository metadata. The results
+The JSON output contains aggregate numbers, a verification flag and (from the
+trainer) a dataset digest rather than raw paths or labels. A digest can reveal
+whether two runs used identical labeled data, so review it before publishing.
+The local input datasets may contain sensitive repository metadata. The results
 measure labeled evidence relevance, **not** factual accuracy of natural-language
 explanations.
+
+## Reproduce a saved checkpoint from training labels
+
+After training, you can verify whether a saved ranker agrees with a fresh,
+deterministic fit from the **supplied** labeled training file. This operates
+entirely offline and never modifies the checkpoint:
+
+```sh
+cargo run --locked -p repodna-ai --bin reproduce-repodna-ranker -- \
+  ranker-local.json train-reviewed.json
+```
+
+The default **60 epochs** matches the current `train-repodna-ranker` CLI.
+If a checkpoint was created using the library API with another epoch count,
+pass it as a third argument (between 1 and 200). The command validates
+checkpoint weights and training examples, checks the stored training counts,
+fits the same CPU-only linear ranker again, and compares the learned weights
+within a documented small floating-point tolerance. It exits with an error
+and prints no JSON on a mismatch. It prints only aggregate metadata on success.
+
+This is a **reproducibility check, not cryptographic dataset provenance**.
+Different datasets can sometimes produce identical input features and weights;
+a modified model could also be retrained or substituted deliberately.
+The command cannot establish that the labels were originally used, are
+correct, are properly licensed, or generalize to other repositories. Keep the
+original training data and its independently recorded digest in your model
+release records. Run frozen evaluation on a separate, untouched test split
+to measure performance, not just reproducibility.
+
+## Frozen evaluation of either checkpoint objective
+
+The offline `evaluate-repodna-ranker` command accepts saved pointwise
+(`repodna-evidence-ranker/1`) and pairwise
+(`repodna-evidence-pairwise/1`) checkpoints:
+
+```sh
+cargo run --locked -p repodna-ai --bin evaluate-repodna-ranker -- \
+  native-pairwise.json train-reviewed.json untouched-test-reviewed.json
+```
+
+The evaluator validates that the supplied training labels match the saved
+checkpoint fingerprint where present, rejects canonical repository overlap,
+and reports NDCG@5, retrieval deltas, and exact within-question ordering
+agreement against independently reviewed test labels. It does not change
+weights or make any network request.
+
+For **pointwise** checkpoints, the existing relevance classification,
+score-calibration diagnostics, and hypothetical answerability thresholds
+remain available. For **pairwise** checkpoints, those statistics are
+intentionally **omitted**, because pairwise training optimizes relative
+ordering, not absolute relevance probabilities. The `scoreSemantics` field
+makes this distinction explicit. An omitted probability statistic is not a
+missing measurement; it is a deliberate safeguard against misleading
+confidence estimates. Neither format proves claim accuracy.
+
+## Experimental pairwise evidence ranking
+
+RepoDNA also offers an alternative **locally trained ranking objective** that
+compares positive and negative evidence *for the same repository and question*.
+This is a small CPU-only learning experiment using the existing 13 inspectable
+features. It is **not** a generative AI model, and its scores are not calibrated
+relevance probabilities or factual confidence.
+
+```sh
+cargo run --locked -p repodna-ai --bin train-repodna-pairwise -- \
+  examples/native-ai/train.demo.json \
+  examples/native-ai/holdout.demo.json \
+  native-pairwise.json
+```
+
+The trainer creates a distinct `repodna-evidence-pairwise/1` checkpoint
+format and reports holdout retrieval metrics alongside the original-order
+baseline, and a same-epoch **pointwise** model fitted to the same
+training labels for comparison. It does **not** report classification accuracy or
+answerability scores, since pairwise training does not calibrate absolute
+relevance scores. APIs that report calibration diagnostics and answerability
+thresholds reject pairwise checkpoints rather than silently treating these
+ordering scores as probabilities.
+The sample files are synthetic smoke tests, not model-quality evidence.
+
+For production-oriented experimentation, split human-reviewed labels by
+repository, use independent validation repositories to choose training
+settings, and evaluate only once on an untouched final test. The separate
+`select-repodna-ranker` command currently optimizes the original *pointwise*
+training objective; it does not automatically compare pointwise and pairwise
+training.
+
+The pairwise trainer uses bounded, deterministic pairing with no cross-question
+negatives, automatic downloads or external AI runtime. It rejects datasets
+without any same-question positive/negative pair, prevents duplicate evidence
+IDs and checks repository-disjoint holdouts. Saving a checkpoint does not
+activate it: opt into local inference using `[ai] provider = "native"` and
+`model = "/path/to/native-pairwise.json"` in your user config.
+
+You can verify pairwise checkpoint weight reproducibility with the existing
+`reproduce-repodna-ranker` CLI; specify the training epoch count (60 by
+default). The checkpoint's format identifies the training objective.
+Reproducing weights is not evidence of accuracy, labeling quality or
+authentic data provenance.
+
+## Measure local native ranker latency
+
+Use the offline CPU microbenchmark with a checkpoint already trained and
+validated locally. The candidate evidence is generated synthetically in
+memory; the benchmark does not open a repository, read training labels,
+download models or call any API:
+
+```sh
+cargo run --release --locked -p repodna-ai --bin benchmark-repodna-ranker -- \
+  ranker-local.json 100 200
+```
+
+The optional numbers are **candidate count** (1–1,024; default 12) and
+**measured iterations** (1–1,000; default 100). After ten warm-up runs,
+the command checks that every rank order matches the initial result and
+emits local JSON with mean, the conventional median (the average of the
+two middle samples when the iteration count is even), and nearest-rank p95
+ranking time in microseconds.
+It accepts pointwise and pairwise checkpoint formats and reads no source
+excerpt or benchmark labels. Non-regular, invalid or larger-than-64-KiB
+checkpoint files are rejected before any JSON output.
+
+This synthetic single-query microbenchmark is a regression/profiling aid,
+**not** proof of actual app latency, production throughput, real-world model
+quality or a speedup over an earlier release. For useful comparisons,
+record the model identity privately, identical candidate/iteration settings,
+CPU, OS, toolchain, build profile and repeated samples. Keep human-reviewed
+repository-disjoint evaluation separate from timing benchmarks.
