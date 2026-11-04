@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Finding } from "@repodna/schema";
-import { findingsCsv, findingsJson } from "./findings-export";
+import { findingsCsv, findingsExportReview, findingsJson } from "./findings-export";
+import { findingsMarkdown } from "./findings-markdown";
 
 function sample(values: Record<string, unknown> = {}): Finding {
   return {
@@ -64,5 +65,44 @@ describe("findings JSON export", () => {
 
   it("serializes no matching findings as a valid empty array", () => {
     expect(findingsJson([])).toBe("[]\n");
+  });
+});
+
+describe("filtered findings export review", () => {
+  it("previews the first three findings but counts every matching record", () => {
+    const findings = Array.from({ length: 5 }, (_, index) =>
+      sample({
+        id: "finding-" + index,
+        title: "Result " + index,
+        paths: ["src/" + index + ".rs"],
+        evidence: [{ kind: "source", path: "src/" + index + ".rs", detail: "Checked" }],
+        ...(index === 4 ? { suppressed: { reason: "accepted", source: "config" } } : {}),
+      }),
+    );
+    const review = findingsExportReview(findings, "json");
+    expect(review.paths).toBe(5);
+    expect(review.evidenceItems).toBe(5);
+    expect(review.suppressed).toBe(1);
+    expect(review.sampled).toBe(3);
+    expect(review.shortened).toBe(true);
+    expect(JSON.parse(review.preview)).toEqual(findings.slice(0, 3));
+    expect(review.preview).not.toContain("Result 4");
+  });
+
+  it("bounds long untrusted repository text before display", () => {
+    const review = findingsExportReview([sample({ summary: "x".repeat(20_000) })], "markdown");
+    expect(review.shortened).toBe(true);
+    expect(review.preview).toContain("[Sample shortened]");
+    expect(review.preview.length).toBeLessThan(4_100);
+  });
+
+  it("keeps a small preview in the requested format without removing evidence", () => {
+    const findings = [sample({ paths: ["src/a.rs"] })];
+    const csv = findingsExportReview(findings, "csv");
+    const markdown = findingsExportReview(findings, "markdown");
+    expect(csv.preview).toBe(findingsCsv(findings));
+    expect(markdown.preview).toBe(findingsMarkdown(findings));
+    expect(csv.shortened).toBe(false);
+    expect(markdown.shortened).toBe(false);
   });
 });
