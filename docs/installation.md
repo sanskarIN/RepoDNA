@@ -26,6 +26,10 @@ reports no history). Nothing else: the binaries have no runtime dependencies.
 The command examples below use the published **v1.4.5** assets. For another
 release, substitute its version number and verify the exact asset filename on
 the [GitHub releases page](https://github.com/sanskarIN/RepoDNA/releases).
+The development-tree v1.5.0 features documented in this repository are **not
+implicitly included** in v1.4.5 downloads. The GitHub Pages web interface can
+update from `main` before new desktop and CLI installers are released. See
+[reviewing changes and version compatibility](reviewing-changes.md).
 
 Download the archive for your platform from the
 [releases page](https://github.com/sanskarIN/RepoDNA/releases):
