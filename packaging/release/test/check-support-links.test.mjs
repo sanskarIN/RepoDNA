@@ -72,6 +72,18 @@ test("old BMC accounts, insecure destinations, URL variations and tracking fail"
   }
 });
 
+test("a BMC URL substring must not pass as the canonical destination", () => {
+  const wrongDestination = BMC_URL + "/someone-else";
+  const problems = auditSupportLinks(
+    [{ path: "README.md", text: RAZORPAY_URL + "\n" + wrongDestination }],
+    { requiredFiles: ["README.md"] },
+  );
+  assert.deepEqual(problems, [
+    "README.md:2: replace " + wrongDestination + " with " + BMC_URL,
+    "README.md: missing the official Buy Me a Coffee support URL",
+  ]);
+});
+
 test("GitHub Sponsors must use the canonical BMC account", () => {
   const issues = auditSupportLinks(
     [{
