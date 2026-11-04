@@ -123,12 +123,18 @@ path = "tests/fixtures/**"
 reason = "Intentional fake credentials used by tests"
 ```
 
-See the [example workflow](../examples/ci/repodna.yml).
+See the [example workflow](../examples/ci/repodna.yml). For a baseline-versus-PR
+comparison, including the structured impact JSON and the new per-file module
+mapping in the development tree, see [reviewing changes](reviewing-changes.md).
+The published stable CLI and action are currently v1.4.5; changes on `main`
+may not yet be included in the release downloads.
 
 ## Next steps
 
 - Follow a [practical workflow](workflows.md) for browser-only use, full Git history,
   a new-findings CI gate, or privacy-aware review exports.
+- Use the [version-aware review guide](reviewing-changes.md) to understand
+  baseline impact and local Findings-export confirmation.
 - [Configure](configuration.md) profiles, thresholds, and ignore patterns (`repodna init`
   writes a commented `repodna.toml`).
 - Learn what each part of the analysis does, starting with

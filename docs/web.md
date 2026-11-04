@@ -91,6 +91,11 @@ selection as a readable review, escaping untrusted Markdown and HTML punctuation
 All three respect search, severity, category, confidence, and the **Show
 suppressed** selection, including matches beyond the visible page.
 
+**Version note:** This review-before-save interaction landed on `main` for
+v1.5.0 development. The hosted GitHub Pages web app may receive it before the
+next stable desktop installer; the published v1.4.5 desktop build does not
+have this confirmation. See [reviewing changes](reviewing-changes.md).
+
 Before saving, RepoDNA displays a **local review** with the selected finding count,
 distinct repository paths, evidence item count, suppressed finding count, and a
 bounded preview (up to three matching findings and 4,000 characters). Choose
