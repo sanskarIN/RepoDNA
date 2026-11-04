@@ -7,6 +7,13 @@ the severity you choose. It runs on the runner: the code is never uploaded. It d
 the RepoDNA release it runs from this repository's releases, and checks it against the
 release's `SHA256SUMS.txt`.
 
+**Version compatibility:** The examples below use the published stable tag
+`v1.4.5`. New developments in the repository's `main` branch (including the
+`changes.architecture.fileOwners` CI JSON field planned for v1.5.0) do not
+appear in a workflow pinned to `@v1.4.5`. See the
+[review guide](reviewing-changes.md) before interpreting output fields or
+moving an action pin.
+
 ```yaml
 name: RepoDNA
 
@@ -103,3 +110,8 @@ Each use of the action keeps its analysis apart, and adds its summary to the run
 The action runs `repodna export`, `repodna report`, and `repodna ci`; see the
 [command line](cli.md) for what each does. For a workflow without the action, see
 [`examples/ci/repodna.yml`](../examples/ci/repodna.yml).
+
+The baseline and head analyses must use comparable profiles, configuration,
+and repository scope. The step summary and annotations may reveal repository
+paths and findings. Review workflow artifacts before uploading or sharing
+anything externally.
