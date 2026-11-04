@@ -167,11 +167,16 @@ fn module_for_path<'a>(dna: &'a RepositoryDna, path: &str) -> Option<&'a str> {
         .iter()
         .filter(|module| {
             let prefix = module.path.trim_end_matches('/');
-            prefix.is_empty()
-                || path == prefix
-                || path
-                    .strip_prefix(prefix)
-                    .is_some_and(|suffix| suffix.starts_with('/'))
+            if prefix.is_empty() {
+                // The root module owns direct root-level files, not nested files
+                // whose inferred module was absent or skipped in an artifact.
+                !path.contains('/')
+            } else {
+                path == prefix
+                    || path
+                        .strip_prefix(prefix)
+                        .is_some_and(|suffix| suffix.starts_with('/'))
+            }
         })
         .max_by_key(|module| module.path.trim_end_matches('/').len())
         .map(|module| module.id.as_str())
@@ -1239,5 +1244,27 @@ mod tests {
         assert_eq!(module_for_path(&current, "src/deep/lib.rs"), Some("deep"));
         assert_eq!(module_for_path(&current, "src/other.rs"), Some("src"));
         assert_eq!(module_for_path(&current, "notes.md"), Some("root"));
+        assert_eq!(module_for_path(&current, "orphan/deeper.rs"), None);
+        assert_eq!(module_for_path(&current, "src2-other/lib.rs"), None);
+    }
+
+    #[test]
+    fn root_module_never_claims_a_nested_changed_file_without_a_matching_module() {
+        let mut baseline = artifact(Vec::new(), &[]);
+        let mut current = artifact(Vec::new(), &[("unknown/deep/file.rs", "new")]);
+        baseline.architecture.status = SectionStatus::Analyzed;
+        current.architecture.status = SectionStatus::Analyzed;
+        baseline.architecture.modules = vec![module("(root)", "")];
+        current.architecture.modules = vec![module("(root)", "")];
+
+        let report = json(&evaluate(&current, Some(&baseline), CiPolicy::default()));
+        assert_eq!(
+            report["changes"]["architecture"]["touchedModules"],
+            serde_json::json!([])
+        );
+        assert_eq!(
+            report["changes"]["files"]["added"],
+            serde_json::json!(["unknown/deep/file.rs"])
+        );
     }
 }
