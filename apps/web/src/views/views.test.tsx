@@ -331,7 +331,7 @@ describe("views", () => {
       "https://github.com/sanskarIN",
       "https://sanskarin.github.io",
       "https://sanskarIN.gumroad.com",
-      "https://buymeacoffee.com/SanskarCodes",
+      "https://buymeacoffee.com/sanskarIN",
       "https://razorpay.me/@SanskarCodes",
     ]) {
       expect(document.querySelector(`a[href="${url}"]`), url).toBeTruthy();
