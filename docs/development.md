@@ -186,6 +186,16 @@ tests in CI, and the Web version workflow fail on a link to a file or a heading 
 not exist. The sidebar follows the sections and links of `docs/index.md`, so a new guide
 belongs there too; a page it does not link to is listed under More.
 
+When documenting functionality merged after the latest stable tag, clearly
+label which behavior is present on `main` and which users can obtain from the
+published binaries and GitHub Action. Avoid presenting a development-tree
+feature as already included in a tagged release. The
+[reviewing changes guide](reviewing-changes.md) shows this distinction for
+CI `fileOwners` and Findings-export confirmation, and the
+[v1.5.0 release checklist](../packaging/release/v1.5.0-checklist.md) records
+remaining qualification gates. The public GitHub Pages deployment can be newer
+than the latest packaged CLI or desktop version.
+
 ## The desktop app
 
 ```sh
