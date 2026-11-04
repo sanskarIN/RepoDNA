@@ -49,6 +49,32 @@ test('accepts synchronized release metadata from both package ecosystems', (t) =
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('rejects a stale internal Rust workspace dependency despite synchronized lockfiles', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.toml');
+  const contents = readFileSync(path, 'utf8');
+  const currentVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  const original = `repodna-core = { path = "crates/repodna-core", version = "${currentVersion}" }`;
+  assert.ok(contents.includes(original));
+  writeFileSync(path, contents.replace(original, 'repodna-core = { path = "crates/repodna-core", version = "0.0.1" }'));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Cargo\.toml workspace\.dependencies repodna-core version/);
+});
+
+test('rejects a missing version constraint on a released internal crate', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.toml');
+  const contents = readFileSync(path, 'utf8');
+  const currentVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  const original = `repodna-report = { path = "crates/repodna-report", version = "${currentVersion}" }`;
+  assert.ok(contents.includes(original));
+  writeFileSync(path, contents.replace(original, 'repodna-report = { path = "crates/repodna-report" }'));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Cargo\.toml workspace\.dependencies repodna-report version/);
+});
+
 test('rejects an incorrect web dependency version even when the right string appears elsewhere', (t) => {
   const root = fixture(t);
   editJson(root, 'apps/web/package.json', (data) => {
