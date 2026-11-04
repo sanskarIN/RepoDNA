@@ -198,6 +198,38 @@ export function Findings() {
             : `${thousands(filtered.length)} ${filtered.length === 1 ? "finding" : "findings"}`}
         </span>
       </div>
+      {reviewFormat && review ? (
+        <section className="panel" role="region" aria-label="Review findings export">
+          <div className="panel-header">
+            <h2>Review filtered {reviewFormat.toUpperCase()} export</h2>
+          </div>
+          <p>
+            The full file will contain {thousands(filtered.length)} findings,{" "}
+            {thousands(review.paths)} distinct repository paths, {thousands(review.evidenceItems)}{" "}
+            evidence items, and {thousands(review.suppressed)} suppressed findings.
+          </p>
+          <Note caution>
+            Repository paths, summaries, and evidence may contain sensitive information.
+            This preview does not detect secrets, anonymize content, or remove private data.
+            Review the saved file before sharing it.
+          </Note>
+          <p className="muted">
+            Local sample of the first {review.sampled} findings (up to 4,000 characters).
+            {review.shortened ? " The saved file contains additional content not shown here." : ""}
+          </p>
+          <pre className="note mono" tabIndex={0} aria-label="Filtered findings export sample">
+            {review.preview}
+          </pre>
+          <div className="actions">
+            <button type="button" onClick={saveReviewedExport}>
+              Save full {reviewFormat.toUpperCase()} export
+            </button>{" "}
+            <button type="button" className="ghost" onClick={() => setReviewFormat(null)}>
+              Cancel export
+            </button>
+          </div>
+        </section>
+      ) : null}
       {downloadFailure ? <ErrorBox>{downloadFailure}</ErrorBox> : null}
       {filtered.length === 0 ? (
         <p className="muted">
