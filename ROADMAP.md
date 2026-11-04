@@ -22,25 +22,34 @@ RepoDNA v1.4.5 is the current published stable release. The next milestone is
 Work should be reviewed in separately tested PRs with compatibility, privacy,
 offline behavior, and performance checks.
 
-The first incremental CI impact improvement is a typed machine-readable
-baseline delta: introduced and resolved finding details, stable IDs and
-repository-relative changed paths, while retaining existing summary fields.
-It is only one part of a future review-ready pull-request impact experience.
-Follow-on work should cover affected modules and dependency edges, evidence
-links, an optional share-safe output, and real-world validation before claiming
-a complete impact analysis or releasing v1.5.0.
+The development tree already includes typed baseline CI deltas for introduced
+and resolved findings, repository-relative file paths, touched modules,
+immediate dependents and module edges. It also reports before-and-after
+module ownership for changed files (#198) and prevents incorrect root-module
+attribution (#197). Filtered Findings exports now require a bounded local
+review and an explicit save action (#195). **These changes on `main` do not
+mean that v1.5.0 has been released.**
+
+Next steps include verified evidence navigation, handling renames and unknown
+coverage explicitly, a genuinely share-safe export policy, and real-world
+performance and correctness measurements. An export preview is not redaction;
+one-hop dependencies do not prove causation. See the
+[review guide](docs/reviewing-changes.md) and
+[release checklist](packaging/release/v1.5.0-checklist.md).
 
 ## Candidate feature milestones
 
 These are prioritized candidates, not features claimed to be complete or a promised
 release schedule. Ship each behind tests and independent PR review:
 
-1. **Review-ready findings exports.** Keep the interactive CSV workflow and add a
-   filtered JSON export retaining structured finding evidence; then explore an
-   optional privacy-preview step before sharing sensitive paths or history.
-2. **Pull request impact summaries.** Build on `repodna ci --baseline` to show
-   introduced and resolved findings plus affected modules and dependency edges,
-   with a stable machine-readable output for CI comments.
+1. **Review-ready findings exports.** Filtered CSV, JSON and Markdown exports
+   and a local review-before-save step are implemented on `main`. Next: a
+   clearly defined privacy or redaction policy that covers the full export,
+   not just the bounded preview.
+2. **Pull request impact summaries.** Typed finding deltas, changed paths,
+   one-hop architecture impact and per-file module ownership exist on `main`.
+   Next: actionable evidence references, real-world evaluation, and explicit
+   rename/unknown semantics before claiming comprehensive impact analysis.
 3. **Incremental local analysis.** Cache stages by revision, profile, and relevant
    configuration hash; invalidate safely when ignore patterns or analyzer versions
    change. Measure correctness against cold full analyses.
@@ -58,9 +67,9 @@ release schedule. Ship each behind tests and independent PR review:
   F#, and OCaml.
 - **Deeper import resolution** for more languages and build setups, so that the dependency
   graph misses fewer edges.
-- **Pull request analysis.** Compare a change with its base branch in CI and summarize what
-  it changes in structure, dependencies, and findings, building on
-  `repodna ci --baseline`.
+- **Deeper pull request analysis.** Expand the existing `repodna ci --baseline`
+  workflow with validated evidence links, explicit uncertainty and realistic
+  change comparisons; one-hop graph neighbors are not causal predictions.
 - **Easier installation** through package managers such as Homebrew, Scoop, and crates.io.
 
 ## Later
