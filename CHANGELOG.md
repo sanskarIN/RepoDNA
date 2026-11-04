@@ -21,6 +21,10 @@ the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
 
 ### Fixed
 
+- Make baseline CI finding deltas and `--new-only` policy checks deterministic
+  when imported artifacts repeat a finding ID with conflicting severity. Use
+  the highest-severity variant for machine-readable impact and annotations,
+  regardless of input order.
 - Prevent unrelated nested paths from being incorrectly attributed to the root
   module in baseline CI impact results (#197).
 
