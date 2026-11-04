@@ -107,11 +107,32 @@ pub struct CiArchitectureImpact {
     pub removed_edges: Vec<CiModuleEdge>,
 }
 
+/// Choose a reproducible representative for an imported finding ID. Imported
+/// artifacts can contain duplicate IDs with conflicting severity or metadata;
+/// preferring the highest severity prevents input ordering from hiding a policy
+/// failure. Equal-severity ties use a stable, documented field ordering.
+fn unique_findings<'a>(findings: impl IntoIterator<Item = &'a Finding>) -> Vec<&'a Finding> {
+    let mut by_id: BTreeMap<&str, &Finding> = BTreeMap::new();
+    for finding in findings {
+        by_id
+            .entry(finding.id.as_str())
+            .and_modify(|existing| {
+                if finding.severity > existing.severity
+                    || (finding.severity == existing.severity
+                        && (&finding.rule, &finding.title, &finding.paths)
+                            < (&existing.rule, &existing.title, &existing.paths))
+                {
+                    *existing = finding;
+                }
+            })
+            .or_insert(finding);
+    }
+    by_id.into_values().collect()
+}
+
 fn changed_findings<'a>(findings: impl IntoIterator<Item = &'a Finding>) -> Vec<CiFindingChange> {
-    let mut seen = HashSet::new();
-    let mut changes: Vec<_> = findings
+    let mut changes: Vec<_> = unique_findings(findings)
         .into_iter()
-        .filter(|finding| seen.insert(finding.id.as_str()))
         .map(|finding| CiFindingChange {
             id: finding.id.clone(),
             rule: finding.rule.clone(),
@@ -300,14 +321,16 @@ pub fn evaluate(
                 .collect()
         })
         .unwrap_or_default();
-    let mut seen_new = HashSet::new();
-    let new: Vec<_> = active
-        .iter()
-        .filter(|f| {
-            baseline.is_some() && !known.contains(f.id.as_str()) && seen_new.insert(f.id.as_str())
-        })
-        .copied()
-        .collect();
+    let new = if baseline.is_some() {
+        unique_findings(
+            active
+                .iter()
+                .copied()
+                .filter(|f| !known.contains(f.id.as_str())),
+        )
+    } else {
+        Vec::new()
+    };
     let count = |severity: Severity| active.iter().filter(|f| f.severity == severity).count();
     let mut values = vec![("Repository".to_owned(), dna.identity.name.clone())];
     if let Some(revision) = &dna.analysis_metadata.revision {
@@ -702,9 +725,17 @@ pub fn github_annotations_for_changes(
             .map(|finding| finding.id.as_str())
             .collect::<HashSet<_>>()
     });
+    // When an impact delta is supplied, annotations must describe the same
+    // highest-severity record selected for the JSON and failure policy.
+    let mut baseline_candidates = introduced
+        .map(|_| unique_findings(dna.findings.iter().filter(|f| !f.is_suppressed())));
+    if let Some(candidates) = &mut baseline_candidates {
+        candidates.sort_by(|a, b| b.severity.cmp(&a.severity).then_with(|| a.id.cmp(&b.id)));
+    }
+    let candidates = baseline_candidates.unwrap_or_else(|| dna.findings.iter().collect());
     let mut seen = HashSet::new();
-    dna.findings
-        .iter()
+    candidates
+        .into_iter()
         .filter(|finding| {
             !finding.is_suppressed()
                 && finding.severity >= minimum
@@ -1165,6 +1196,70 @@ mod tests {
         assert!(outcome.changes.is_none());
         assert!(json(&outcome).get("changes").is_none());
         assert!(json(&outcome).get("summary").is_some());
+    }
+
+    #[test]
+    fn duplicate_new_ids_select_highest_severity_for_policy_json_and_annotations() {
+        let mut low = finding("duplicate", Severity::Info).path("src/low.rs");
+        low.title = "Low severity variant".to_owned();
+        let mut high = finding("duplicate", Severity::Critical).path("src/high.rs");
+        high.title = "Critical variant".to_owned();
+        let baseline = artifact(Vec::new(), &[]);
+        let policy = CiPolicy {
+            fail_on: Some(Severity::Warning),
+            new_only: true,
+        };
+
+        let first = artifact(vec![low.clone(), high.clone()], &[]);
+        let reversed = artifact(vec![high, low], &[]);
+        let expected = json(&evaluate(&first, Some(&baseline), policy));
+        for current in [&first, &reversed] {
+            let outcome = evaluate(current, Some(&baseline), policy);
+            assert_eq!(json(&outcome), expected);
+            assert!(outcome.failed);
+            assert_eq!(
+                outcome.failing,
+                vec![(Severity::Critical, "Critical variant".to_owned())]
+            );
+            assert_eq!(outcome.changes.as_ref().unwrap().introduced.len(), 1);
+            let messages = github_annotations_for_changes(
+                current,
+                Severity::Info,
+                Some(&outcome.changes.as_ref().unwrap().introduced),
+            );
+            assert_eq!(messages.len(), 1);
+            assert!(messages[0].starts_with("::warning "));
+            assert!(messages[0].contains("Critical variant"));
+        }
+        assert_eq!(
+            expected["changes"]["findings"]["introduced"][0]["severity"],
+            "critical"
+        );
+        assert_eq!(
+            expected["changes"]["findings"]["introduced"][0]["paths"],
+            serde_json::json!(["src/high.rs"])
+        );
+    }
+
+    #[test]
+    fn duplicate_resolved_ids_have_stable_severity_and_tie_breaks() {
+        let mut later = finding("duplicate", Severity::Warning);
+        later.title = "Z variant".to_owned();
+        let mut earlier = later.clone();
+        earlier.title = "A variant".to_owned();
+        let current = artifact(Vec::new(), &[]);
+        let left = artifact(vec![later.clone(), earlier.clone()], &[]);
+        let right = artifact(vec![earlier, later], &[]);
+        let left_json = json(&evaluate(&current, Some(&left), CiPolicy::default()));
+        let right_json = json(&evaluate(&current, Some(&right), CiPolicy::default()));
+        assert_eq!(
+            left_json["changes"]["findings"]["resolved"],
+            right_json["changes"]["findings"]["resolved"]
+        );
+        assert_eq!(
+            left_json["changes"]["findings"]["resolved"][0]["title"],
+            "A variant"
+        );
     }
 
     #[test]
