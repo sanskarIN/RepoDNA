@@ -83,17 +83,25 @@ alone. **Download CSV** under a table saves all of its rows, in the order shown,
 spreadsheet: numbers stay numbers, and text that a spreadsheet would run as a formula is
 written so that it does not run.
 
-On the **Findings** page, **Export filtered CSV** downloads the current matching
-findings as spreadsheet-safe text. **Export filtered JSON** downloads the same full
-matching set as a JSON array, including each finding's original structured evidence,
-methods, and limitations. **Export filtered Markdown** saves the same current selection as a human-readable review
-with severity, confidence, paths, evidence, method, limitations and suggested next
-steps. Repository-provided text is escaped to prevent unintended Markdown links or
-headings. All three exports respect search, severity, category, and the
-**Show suppressed** selection and include matching findings beyond the visible page.
-They are saved locally without uploading repository data. A findings-only JSON array
-is **not** a complete RepoDNA analysis file; use **Reports & export** for the full
-RepositoryDNA artifact. Review file paths and evidence before sharing either export.
+On the **Findings** page, **Export filtered CSV** prepares the current matching
+findings as spreadsheet-safe text. **Export filtered JSON** prepares the same full
+matching set as a JSON array, including each finding's structured evidence,
+methods, and limitations. **Export filtered Markdown** prepares the same matching
+selection as a readable review, escaping untrusted Markdown and HTML punctuation.
+All three respect search, severity, category, confidence, and the **Show
+suppressed** selection, including matches beyond the visible page.
+
+Before saving, RepoDNA displays a **local review** with the selected finding count,
+distinct repository paths, evidence item count, suppressed finding count, and a
+bounded preview (up to three matching findings and 4,000 characters). Choose
+**Save full export** to download the complete selection, or **Cancel export**.
+Changing the filters closes any open review so it cannot confirm a stale
+selection. This is a review aid, **not a secret scanner**: it neither removes
+sensitive paths and evidence nor guarantees unseen parts of a large export are safe.
+Exporting does not upload repository data.
+
+A findings-only JSON array is **not** a complete RepoDNA analysis file; use
+**Reports & export** for a complete artifact. Review files before sharing them.
 
 To print a view, or save it as PDF, use the browser's Print command, or **Print this view**
 in the command palette (Ctrl/Cmd + K), which the desktop app needs, having no print menu.
