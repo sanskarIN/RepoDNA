@@ -14,7 +14,12 @@ import { thousands } from "@repodna/visualization";
 import { ErrorBox, Note, PageHeader, SearchBox, Select, SeverityBadge } from "../components/common";
 import { FindingItem } from "../components/FindingItem";
 import { useDownload } from "../lib/download";
-import { findingsCsv, findingsExportReview, findingsJson, type FindingsExportFormat } from "../lib/findings-export";
+import {
+  findingsCsv,
+  findingsExportReview,
+  findingsJson,
+  type FindingsExportFormat,
+} from "../lib/findings-export";
 import { findingsMarkdown } from "../lib/findings-markdown";
 import { filterFindings } from "../lib/findings-filter";
 import { useRoute } from "../lib/router";
@@ -209,9 +214,9 @@ export function Findings() {
             evidence items, and {thousands(review.suppressed)} suppressed findings.
           </p>
           <Note caution>
-            Repository paths, summaries, and evidence may contain sensitive information.
-            This preview does not detect secrets, anonymize content, or remove private data.
-            Review the saved file before sharing it.
+            Repository paths, summaries, and evidence may contain sensitive information. This
+            preview does not detect secrets, anonymize content, or remove private data. Review the
+            saved file before sharing it.
           </Note>
           <p className="muted">
             Local sample of the first {review.sampled} findings (up to 4,000 characters).
