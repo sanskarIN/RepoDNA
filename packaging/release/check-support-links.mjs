@@ -7,6 +7,8 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const RAZORPAY_URL = "https://razorpay.me/@SanskarCodes";
+export const BMC_URL = "https://buymeacoffee.com/sanskarIN";
+export const BMC_FUNDING_HANDLE = "sanskarIN";
 
 export const REQUIRED_LINK_FILES = [
   ".github/FUNDING.yml",
@@ -22,6 +24,8 @@ const TEXT_FILE = /\.(?:c|cc|cpp|cs|css|go|h|html|java|js|jsx|json|md|mdx|mjs|py
 // Match provider destinations, including short links and links without a scheme.
 // Only the exact canonical HTTPS URL is permitted as a Razorpay destination.
 const RAZORPAY_LINK = /\b(?:https?:\/\/)?(?:www\.)?(?:razorpay\.me|rzp\.io)(?:\/[^\s<>"'\x60()[\]{}]+)?/gi;
+// Reject alternate accounts, insecure schemes, short links and tracking parameters.
+const BMC_LINK = /\b(?:https?:\/\/)?(?:www\.)?(?:buymeacoffee\.com|bmc\.link)(?:\/[^\s<>"'\x60()[\]{}]+)?/gi;
 
 /** Return actionable errors without reading or modifying the filesystem. */
 export function auditSupportLinks(files, { requiredFiles = REQUIRED_LINK_FILES } = {}) {
@@ -36,11 +40,33 @@ export function auditSupportLinks(files, { requiredFiles = REQUIRED_LINK_FILES }
       const line = text.slice(0, match.index).split("\n").length;
       issues.push(path + ":" + line + ": replace " + found + " with " + RAZORPAY_URL);
     }
+    for (const match of text.matchAll(BMC_LINK)) {
+      const found = match[0].replace(/[.,;!]+$/, "");
+      if (found === BMC_URL) continue;
+      const line = text.slice(0, match.index).split("\n").length;
+      issues.push(path + ":" + line + ": replace " + found + " with " + BMC_URL);
+    }
   }
 
   for (const path of requiredFiles) {
     if (!contents.get(path)?.includes(RAZORPAY_URL)) {
       issues.push(path + ": missing the official Razorpay support URL");
+    }
+    if (path === ".github/FUNDING.yml") {
+      const expected = "buy_me_a_coffee: " + BMC_FUNDING_HANDLE;
+      if (!contents.get(path)?.split("\n").some((line) => line.trim() === expected)) {
+        issues.push(path + ": expected " + expected);
+      }
+    } else {
+      // Do not validate a destination with string.includes(): it can accept
+      // the intended URL as a substring of a longer, untrusted destination.
+      const matches = (contents.get(path) ?? "").matchAll(BMC_LINK);
+      const hasOfficialUrl = Array.from(matches).some(
+        ([url]) => url.replace(/[.,;!]+$/, "") === BMC_URL,
+      );
+      if (!hasOfficialUrl) {
+        issues.push(path + ": missing the official Buy Me a Coffee support URL");
+      }
     }
   }
   return issues;
@@ -64,6 +90,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     console.error("RepoDNA support link verification failed:\n" + issues.join("\n"));
     process.exitCode = 1;
   } else {
-    console.log("All tracked Razorpay links use the official support URL.");
+    console.log("All tracked Razorpay and Buy Me a Coffee links use their official support URLs.");
   }
 }

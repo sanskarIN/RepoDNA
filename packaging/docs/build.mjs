@@ -467,7 +467,7 @@ ${page.html}
 <nav class="pager" aria-label="Previous and next page">${pager}</nav>
 <p class="edit"><a href="${REPOSITORY}/edit/main/${encodePath(page.source)}" rel="noopener">Edit this page on GitHub</a></p>
 <footer>
-<p>RepoDNA is made by <a href="https://sanskarin.github.io" rel="noopener">Sanskar</a> and licensed under the <a href="${REPOSITORY}/blob/main/LICENSE" rel="noopener">Apache License 2.0</a>. Support its development on <a href="https://buymeacoffee.com/SanskarCodes" rel="noopener">Buy Me a Coffee</a> or <a href="https://razorpay.me/@SanskarCodes" rel="noopener">Razorpay</a>.</p>
+<p>RepoDNA is made by <a href="https://sanskarin.github.io" rel="noopener">Sanskar</a> and licensed under the <a href="${REPOSITORY}/blob/main/LICENSE" rel="noopener">Apache License 2.0</a>. Support its development on <a href="https://buymeacoffee.com/sanskarIN" rel="noopener">Buy Me a Coffee</a> or <a href="https://razorpay.me/@SanskarCodes" rel="noopener">Razorpay</a>.</p>
 </footer>
 </main>
 ${toc}
