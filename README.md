@@ -31,8 +31,20 @@ sends nothing anywhere unless you ask it to.
 [Web version](https://sanskarin.github.io/RepoDNA/) · [Demo](#demo) ·
 [Documentation](https://sanskarin.github.io/RepoDNA/docs/) · [Contributing](CONTRIBUTING.md)**
 
+## Release status
+
+**Published stable:** [v1.4.5](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.4.5).
+**Next milestone:** v1.5.0 is under development, **not yet released**.
+The development tree now includes a local review step before downloading
+filtered Findings exports and a CI baseline-impact view of changed files'
+before/after module ownership. These are not features of the v1.4.5 desktop
+or CLI installer. The hosted GitHub Pages interface can update independently
+of tagged binaries. See the [review workflow and version guide](docs/reviewing-changes.md)
+and the [v1.5.0 qualification checklist](packaging/release/v1.5.0-checklist.md).
+
 ## Contents
 
+- [Release status](#release-status)
 - [Demo](#demo)
 - [Why RepoDNA exists](#why-repodna-exists)
 - [Features](#features)
@@ -470,6 +482,7 @@ configure in your user configuration:
 | Provider | What it is |
 |---|---|
 | `none` | The default: AI features are off. |
+| `native` | Built-in, opt-in **offline extractive explanations**; the experimental local evidence ranker is not a generative model. |
 | `command` | A program on your machine that reads the prompt on standard input, such as `ollama run <model>`. |
 | `openai-compatible` | Any OpenAI-compatible server: local runtimes (Ollama, llama.cpp, LM Studio, vLLM) or hosted services. |
 | `anthropic` | The Anthropic Messages API. |
@@ -612,9 +625,13 @@ public issues.
 
 ## Roadmap
 
-Next on the list are lexical analysis for more languages, deeper import resolution, pull
-request analysis in CI, and installation through package managers such as Homebrew and
-Scoop; editor integrations come later. The [roadmap](ROADMAP.md) lists what is planned
+The next stable milestone is **v1.5.0**, focused on review-ready CI impact,
+safer Findings exports, correctness, native-model evidence and release quality.
+Baseline CI finding/file/module impact exists in the development tree; the
+versioned v1.4.5 release does not include its newest per-file ownership field.
+Longer-term work includes lexical analysis for more languages, deeper import
+resolution, package-manager distribution such as Homebrew and Scoop, and editor
+integrations. See the [review guide](docs/reviewing-changes.md). The [roadmap](ROADMAP.md) lists what is planned
 now, next, later, and under exploration, and the [changelog](CHANGELOG.md) what each
 release changed. Each release also has its own folder on the
 [`releases-info`](https://github.com/sanskarIN/RepoDNA/tree/releases-info) branch, with its
