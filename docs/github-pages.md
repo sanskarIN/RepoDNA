@@ -47,6 +47,10 @@ on a feature branch is **not** a public Pages deployment.
 
 The deployment action's logs confirm the published commit and resulting URL.
 The site does not automatically reflect unmerged feature-branch changes.
+It may show features merged to `main` for v1.5.0 **before** those features
+appear in a tagged desktop installer or CLI release. Compare against the
+[review and release status guide](reviewing-changes.md), not only the package
+version shown by a local installer.
 
 ## Pages source and deployment pitfalls
 
@@ -69,6 +73,14 @@ If a deployment fails, inspect the first failing step in the matching run:
   files/heading anchors.
 - Deployment: inspect `github-pages` environment permissions and Actions
   Pages source; do not publish an untested `dist` directory as a workaround.
+
+If **Build** succeeded but **Deploy** fails with a transient GitHub API
+HTTP 500 response, inspect the job log and GitHub status before changing source
+files. Retry the failed deployment job from **Actions → Web version**. Only
+mark deployment successful when the retried **Deploy** job completes and the
+published site has the intended SHA. An HTTP 500 alone does not prove a
+WebAssembly, application or documentation build error; avoid empty commits,
+new version tags or unverified manual uploads as a workaround.
 
 ## Reproducible local documentation build
 
