@@ -11,10 +11,10 @@ import {
   type Severity,
 } from "@repodna/schema";
 import { thousands } from "@repodna/visualization";
-import { ErrorBox, PageHeader, SearchBox, Select, SeverityBadge } from "../components/common";
+import { ErrorBox, Note, PageHeader, SearchBox, Select, SeverityBadge } from "../components/common";
 import { FindingItem } from "../components/FindingItem";
 import { useDownload } from "../lib/download";
-import { findingsCsv, findingsJson } from "../lib/findings-export";
+import { findingsCsv, findingsExportReview, findingsJson, type FindingsExportFormat } from "../lib/findings-export";
 import { findingsMarkdown } from "../lib/findings-markdown";
 import { filterFindings } from "../lib/findings-filter";
 import { useRoute } from "../lib/router";
@@ -41,6 +41,7 @@ export function Findings() {
     return CONFIDENCES.includes(value as Confidence) ? (value as Confidence) : "all";
   });
   const [showSuppressed, setShowSuppressed] = useState(false);
+  const [reviewFormat, setReviewFormat] = useState<FindingsExportFormat | null>(null);
   const [shown, setShown] = useState(FINDINGS_PAGE);
   const counts = findingCounts(dna);
   const categories = useMemo(
@@ -51,6 +52,12 @@ export function Findings() {
     () => filterFindings(dna.findings, { query, severity, category, confidence, showSuppressed }),
     [dna.findings, query, severity, category, confidence, showSuppressed],
   );
+  const review = useMemo(
+    () => (reviewFormat ? findingsExportReview(filtered, reviewFormat) : null),
+    [filtered, reviewFormat],
+  );
+  // Closing a stale preview prevents exporting a selection that has changed.
+  useEffect(() => setReviewFormat(null), [filtered]);
   const suppressed = dna.findings.filter(isSuppressed).length;
   // Changing a filter starts again from the first page.
   useEffect(() => setShown(FINDINGS_PAGE), [query, severity, category, confidence, showSuppressed]);
@@ -66,6 +73,26 @@ export function Findings() {
     setCategory("all");
     setConfidence("all");
     setShowSuppressed(false);
+    setReviewFormat(null);
+  };
+
+  const saveReviewedExport = () => {
+    if (!reviewFormat || filtered.length === 0) return;
+    const extension = reviewFormat === "markdown" ? "md" : reviewFormat;
+    const content =
+      reviewFormat === "csv"
+        ? findingsCsv(filtered)
+        : reviewFormat === "json"
+          ? findingsJson(filtered)
+          : findingsMarkdown(filtered);
+    const mime =
+      reviewFormat === "csv"
+        ? "text/csv;charset=utf-8"
+        : reviewFormat === "json"
+          ? "application/json;charset=utf-8"
+          : "text/markdown;charset=utf-8";
+    download("repodna-findings." + extension, content, mime);
+    setReviewFormat(null);
   };
 
   return (
@@ -145,9 +172,7 @@ export function Findings() {
           type="button"
           className="ghost"
           disabled={filtered.length === 0}
-          onClick={() =>
-            download("repodna-findings.csv", findingsCsv(filtered), "text/csv;charset=utf-8")
-          }
+          onClick={() => setReviewFormat("csv")}
         >
           Export filtered CSV
         </button>
@@ -155,13 +180,7 @@ export function Findings() {
           type="button"
           className="ghost"
           disabled={filtered.length === 0}
-          onClick={() =>
-            download(
-              "repodna-findings.json",
-              findingsJson(filtered),
-              "application/json;charset=utf-8",
-            )
-          }
+          onClick={() => setReviewFormat("json")}
         >
           Export filtered JSON
         </button>
@@ -169,13 +188,7 @@ export function Findings() {
           type="button"
           className="ghost"
           disabled={filtered.length === 0}
-          onClick={() =>
-            download(
-              "repodna-findings.md",
-              findingsMarkdown(filtered),
-              "text/markdown;charset=utf-8",
-            )
-          }
+          onClick={() => setReviewFormat("markdown")}
         >
           Export filtered Markdown
         </button>
