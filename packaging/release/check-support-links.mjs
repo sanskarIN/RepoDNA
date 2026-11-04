@@ -57,8 +57,16 @@ export function auditSupportLinks(files, { requiredFiles = REQUIRED_LINK_FILES }
       if (!contents.get(path)?.split("\n").some((line) => line.trim() === expected)) {
         issues.push(path + ": expected " + expected);
       }
-    } else if (!contents.get(path)?.includes(BMC_URL)) {
-      issues.push(path + ": missing the official Buy Me a Coffee support URL");
+    } else {
+      // Do not validate a destination with string.includes(): it can accept
+      // the intended URL as a substring of a longer, untrusted destination.
+      const matches = (contents.get(path) ?? "").matchAll(BMC_LINK);
+      const hasOfficialUrl = Array.from(matches).some(
+        ([url]) => url.replace(/[.,;!]+$/, "") === BMC_URL,
+      );
+      if (!hasOfficialUrl) {
+        issues.push(path + ": missing the official Buy Me a Coffee support URL");
+      }
     }
   }
   return issues;
