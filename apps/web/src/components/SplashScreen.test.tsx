@@ -13,6 +13,9 @@ describe("RepoDNA startup branding", () => {
 
   it("provides PayPal support without removing the existing options", () => {
     expect(SUPPORT.map(({ label }) => label)).toEqual(["Buy Me a Coffee", "Razorpay", "PayPal"]);
+    expect(SUPPORT.find(({ label }) => label === "Buy Me a Coffee")?.url).toBe(
+      "https://buymeacoffee.com/sanskarIN",
+    );
     expect(SUPPORT.find(({ label }) => label === "PayPal")?.url).toBe(
       "https://paypal.me/SanskarCodes",
     );
