@@ -727,8 +727,8 @@ pub fn github_annotations_for_changes(
     });
     // When an impact delta is supplied, annotations must describe the same
     // highest-severity record selected for the JSON and failure policy.
-    let mut baseline_candidates = introduced
-        .map(|_| unique_findings(dna.findings.iter().filter(|f| !f.is_suppressed())));
+    let mut baseline_candidates =
+        introduced.map(|_| unique_findings(dna.findings.iter().filter(|f| !f.is_suppressed())));
     if let Some(candidates) = &mut baseline_candidates {
         candidates.sort_by(|a, b| b.severity.cmp(&a.severity).then_with(|| a.id.cmp(&b.id)));
     }
