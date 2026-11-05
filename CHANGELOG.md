@@ -21,6 +21,9 @@ the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
 
 ### Fixed
 
+- Reject a missing, duplicated, or misdirected internal Rust workspace dependency
+  during release metadata checks, rather than relying on a minimum dependency
+  count. Keep the local testkit path intentionally unversioned.
 - Treat conflicting or missing hashes on duplicate imported file paths as
   unknown in baseline comparisons, preventing input-order-dependent or falsely
   reported modifications. Keep rename output as separate added/removed paths.
