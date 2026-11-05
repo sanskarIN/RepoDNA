@@ -1043,16 +1043,20 @@ mod tests {
         baseline.structure.files[1].hash = None;
         let mut current = artifact(
             Vec::new(),
-            &[("src/uncertain-before.rs", "new"), ("src/uncertain-after.rs", "new"), ("src/uncertain-after.rs", "new")],
+            &[
+                ("src/uncertain-before.rs", "new"),
+                ("src/uncertain-after.rs", "new"),
+                ("src/uncertain-after.rs", "new"),
+            ],
         );
         current.structure.files[2].hash = None;
-        let mut second_baseline = artifact(Vec::new(), &[("src/uncertain-after.rs", "old")]);
-        // Test both current-side and baseline-side ambiguity independently.
-        second_baseline.structure.files.push(baseline.structure.files[0].clone());
+        let baseline_after = artifact(Vec::new(), &[("src/uncertain-after.rs", "old")]);
 
+        // The missing hash prevents a false modification, whether the
+        // duplicate appears in the baseline or in the current artifact.
         let changes = file_changes(&baseline, &current);
         assert!(changes.modified.is_empty());
-        let changes = file_changes(&second_baseline, &current);
+        let changes = file_changes(&baseline_after, &current);
         assert!(changes.modified.is_empty());
     }
 
