@@ -26,8 +26,8 @@ for (const path of manifests) {
 const tauriConfig = json('apps/desktop/src-tauri/tauri.conf.json');
 assert.equal(
   tauriConfig.bundle?.publisher,
-  'SanskarIN',
-  'desktop Tauri publisher must be SanskarIN, not inferred from the identifier',
+  'RepoDNA',
+  'desktop Tauri publisher must be RepoDNA, not inferred from the identifier',
 );
 assert.equal(
   tauriConfig.identifier,

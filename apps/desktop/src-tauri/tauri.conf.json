@@ -35,7 +35,7 @@
   },
   "bundle": {
     "active": true,
-    "publisher": "SanskarIN",
+    "publisher": "RepoDNA",
     "targets": [
       "deb",
       "rpm",
