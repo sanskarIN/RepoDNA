@@ -36,7 +36,7 @@ function Get-RepoDNAInstallations {
     'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
   )
   @(Get-ItemProperty -Path $paths -ErrorAction SilentlyContinue |
-      Where-Object { $_.DisplayName -ceq 'RepoDNA' })
+      Where-Object { $_.PSObject.Properties['DisplayName'] -and $_.PSObject.Properties['DisplayName'].Value -ceq 'RepoDNA' })
 }
 
 function Assert-OneVersion([string] $expected) {
@@ -66,8 +66,9 @@ Invoke-Installer 'i' $baselineMsi 'baseline-install'
 
 Invoke-Installer 'i' $targetMsi 'candidate-upgrade'
 $newInstallation = Assert-OneVersion $candidateVersion
-if ($newInstallation.Publisher -and $newInstallation.Publisher -cne 'RepoDNA') {
-  throw "Installed MSI publisher is '$($newInstallation.Publisher)', expected RepoDNA."
+$publisher = $newInstallation.PSObject.Properties['Publisher']
+if ($publisher -and $publisher.Value -and $publisher.Value -cne 'RepoDNA') {
+  throw "Installed MSI publisher is '$($publisher.Value)', expected RepoDNA."
 }
 Write-Host "Verified in-place MSI upgrade $baselineVersion -> $candidateVersion, with one installed RepoDNA entry."
 
