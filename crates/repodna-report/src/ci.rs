@@ -152,20 +152,30 @@ const COMPLEXITY_RULES: [&str; 4] = [
     "quality.large-file",
 ];
 
-/// Changed paths between two snapshots. A missing hash is not evidence of a modification.
+/// A repeated path in an imported artifact may carry conflicting hashes.
+/// Treat that path's hash as unknown instead of choosing the last record:
+/// otherwise the reported file delta depends on artifact input ordering.
+fn unambiguous_file_hashes(dna: &RepositoryDna) -> BTreeMap<&str, Option<&String>> {
+    let mut files = BTreeMap::new();
+    for file in &dna.structure.files {
+        let hash = file.hash.as_ref();
+        files
+            .entry(file.path.as_str())
+            .and_modify(|existing| {
+                if *existing != hash {
+                    *existing = None;
+                }
+            })
+            .or_insert(hash);
+    }
+    files
+}
+
+/// Changed paths between two snapshots. A missing or conflicting hash is not
+/// evidence of modification. Renames remain an addition plus a removal.
 fn file_changes(baseline: &RepositoryDna, current: &RepositoryDna) -> CiFileChanges {
-    let before: BTreeMap<&str, Option<&String>> = baseline
-        .structure
-        .files
-        .iter()
-        .map(|f| (f.path.as_str(), f.hash.as_ref()))
-        .collect();
-    let after: BTreeMap<&str, Option<&String>> = current
-        .structure
-        .files
-        .iter()
-        .map(|f| (f.path.as_str(), f.hash.as_ref()))
-        .collect();
+    let before = unambiguous_file_hashes(baseline);
+    let after = unambiguous_file_hashes(current);
     let added = after
         .keys()
         .filter(|p| !before.contains_key(*p))
@@ -976,6 +986,81 @@ mod tests {
             json(&outcome)["summary"]["Changed files"],
             "1 (0 added, 0 removed, 1 modified)"
         );
+    }
+
+    #[test]
+    fn duplicate_file_paths_have_order_independent_conservative_deltas() {
+        let before = [
+            ("src/ambiguous-baseline.rs", "old"),
+            ("src/ambiguous-baseline.rs", "conflicting"),
+            ("src/ambiguous-current.rs", "old"),
+            ("src/known-duplicate.rs", "old"),
+            ("src/known-duplicate.rs", "old"),
+            ("src/real-change.rs", "old"),
+            ("src/old-name.rs", "same-content"),
+        ];
+        let after = [
+            ("src/ambiguous-baseline.rs", "new"),
+            ("src/ambiguous-current.rs", "new"),
+            ("src/ambiguous-current.rs", "conflicting"),
+            ("src/known-duplicate.rs", "new"),
+            ("src/known-duplicate.rs", "new"),
+            ("src/real-change.rs", "new"),
+            ("src/new-name.rs", "same-content"),
+        ];
+        let baseline = artifact(Vec::new(), &before);
+        let current = artifact(Vec::new(), &after);
+        let mut reversed_baseline = artifact(Vec::new(), &before);
+        reversed_baseline.structure.files.reverse();
+        let mut reversed_current = artifact(Vec::new(), &after);
+        reversed_current.structure.files.reverse();
+
+        for (baseline, current) in [
+            (&baseline, &current),
+            (&reversed_baseline, &reversed_current),
+        ] {
+            let outcome = evaluate(current, Some(baseline), CiPolicy::default());
+            let changes = &json(&outcome)["changes"]["files"];
+            assert_eq!(
+                changes["modified"],
+                serde_json::json!(["src/known-duplicate.rs", "src/real-change.rs"])
+            );
+            assert_eq!(changes["added"], serde_json::json!(["src/new-name.rs"]));
+            assert_eq!(changes["removed"], serde_json::json!(["src/old-name.rs"]));
+            assert_eq!(
+                json(&outcome)["summary"]["Changed files"],
+                "4 (1 added, 1 removed, 2 modified)"
+            );
+        }
+    }
+
+    #[test]
+    fn duplicate_file_paths_with_missing_hashes_remain_unknown() {
+        let mut baseline = artifact(
+            Vec::new(),
+            &[
+                ("src/uncertain-before.rs", "old"),
+                ("src/uncertain-before.rs", "old"),
+            ],
+        );
+        baseline.structure.files[1].hash = None;
+        let mut current = artifact(
+            Vec::new(),
+            &[
+                ("src/uncertain-before.rs", "new"),
+                ("src/uncertain-after.rs", "new"),
+                ("src/uncertain-after.rs", "new"),
+            ],
+        );
+        current.structure.files[2].hash = None;
+        let baseline_after = artifact(Vec::new(), &[("src/uncertain-after.rs", "old")]);
+
+        // The missing hash prevents a false modification, whether the
+        // duplicate appears in the baseline or in the current artifact.
+        let changes = file_changes(&baseline, &current);
+        assert!(changes.modified.is_empty());
+        let changes = file_changes(&baseline_after, &current);
+        assert!(changes.modified.is_empty());
     }
 
     #[test]
