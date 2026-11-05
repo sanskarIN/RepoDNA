@@ -73,6 +73,10 @@ export interface Backend {
   repositories(): Promise<RepositorySummary[]>;
   repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }>;
   artifact(id: string, scan?: string): Promise<RepositoryDna>;
+  /** Deletes every saved scan and artifact for one repository, not the source code. */
+  deleteRepository(id: string): Promise<void>;
+  /** Deletes one saved scan and its artifact. */
+  deleteScan(repositoryId: string, scanId: string): Promise<void>;
   startScan(input: string, profile?: string): Promise<JobState>;
   job(id: string): Promise<JobState>;
   cancelJob(id: string): Promise<void>;
@@ -299,6 +303,17 @@ export class ServerBackend implements Backend {
       `repositories/${encodeURIComponent(id)}/artifact${query}`,
     );
     return checkArtifact(value).artifact;
+  }
+
+  async deleteRepository(id: string): Promise<void> {
+    await this.request(`repositories/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  async deleteScan(repositoryId: string, scanId: string): Promise<void> {
+    await this.request(
+      `repositories/${encodeURIComponent(repositoryId)}/scans/${encodeURIComponent(scanId)}`,
+      { method: "DELETE" },
+    );
   }
 
   async startScan(input: string, profile?: string): Promise<JobState> {

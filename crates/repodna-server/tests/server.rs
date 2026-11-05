@@ -336,6 +336,114 @@ fn protects_the_api_and_serves_analyses() {
 }
 
 #[test]
+fn deleting_saved_scans_requires_authentication_and_exact_ownership() {
+    let (_home, source, paths) = analyzed_home();
+    let store = paths.open_store().unwrap();
+    let repository = store.repositories().unwrap().remove(0);
+    let scan = store.scans(&repository.id, 10).unwrap().remove(0);
+    let artifact = store.artifact_path(&scan);
+    assert!(artifact.exists());
+    let running = Running::start(paths, None);
+    let address = running.address();
+    let token = running.server.token().to_owned();
+    let auth = [("X-RepoDNA-Token", token.as_str())];
+    let deletion = format!("/api/repositories/{}/scans/{}", repository.id, scan.id);
+
+    assert_eq!(send(address, "DELETE", &deletion, &[], "").status, 401);
+    let foreign_origin = [
+        ("X-RepoDNA-Token", token.as_str()),
+        ("Origin", "https://attacker.example"),
+    ];
+    assert_eq!(
+        send(address, "DELETE", &deletion, &foreign_origin, "").status,
+        403
+    );
+    assert_eq!(
+        send(
+            address,
+            "DELETE",
+            &format!(
+                "/api/repositories/{}/scans/{}",
+                repository.id,
+                &scan.id[..4]
+            ),
+            &auth,
+            ""
+        )
+        .status,
+        404,
+        "a scan prefix must not be accepted for deletion"
+    );
+    assert_eq!(
+        send(
+            address,
+            "DELETE",
+            &format!("/api/repositories/not-this-repository/scans/{}", scan.id),
+            &auth,
+            ""
+        )
+        .status,
+        404
+    );
+    assert!(artifact.exists());
+    let deleted = send(address, "DELETE", &deletion, &auth, "");
+    assert_eq!(deleted.status, 200, "{}", deleted.body);
+    assert_eq!(deleted.json()["deleted"], true);
+    assert!(!artifact.exists());
+    assert!(source.path().join("src/app.py").exists());
+    assert_eq!(
+        send(address, "GET", "/api/repositories", &auth, "").json(),
+        serde_json::json!([])
+    );
+    assert_eq!(send(address, "DELETE", &deletion, &auth, "").status, 404);
+}
+
+#[test]
+fn deleting_repository_history_never_deletes_source_or_accepts_name_aliases() {
+    let (_home, source, paths) = analyzed_home();
+    let store = paths.open_store().unwrap();
+    let repository = store.repositories().unwrap().remove(0);
+    let scan = store.scans(&repository.id, 10).unwrap().remove(0);
+    let artifact = store.artifact_path(&scan);
+    let running = Running::start(paths, None);
+    let address = running.address();
+    let token = running.server.token().to_owned();
+    let auth = [("X-RepoDNA-Token", token.as_str())];
+
+    assert_eq!(
+        send(
+            address,
+            "DELETE",
+            &format!("/api/repositories/{}", repository.name),
+            &auth,
+            ""
+        )
+        .status,
+        404
+    );
+    assert_eq!(
+        send(address, "DELETE", "/api/repositories/..", &auth, "").status,
+        404
+    );
+    assert!(artifact.exists());
+    let deleted = send(
+        address,
+        "DELETE",
+        &format!("/api/repositories/{}", repository.id),
+        &auth,
+        "",
+    );
+    assert_eq!(deleted.status, 200, "{}", deleted.body);
+    assert_eq!(deleted.json()["deleted"], true);
+    assert!(!artifact.exists());
+    assert!(source.path().join("README.md").exists());
+    assert_eq!(
+        send(address, "GET", "/api/repositories", &auth, "").json(),
+        serde_json::json!([])
+    );
+}
+
+#[test]
 fn serves_a_web_interface_directory() {
     let (_home, _repo, paths) = analyzed_home();
     let web = tempfile::tempdir().expect("web");

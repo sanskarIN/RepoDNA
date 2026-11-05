@@ -4,7 +4,7 @@ import { BrowserScan, useEngine } from "../components/BrowserAnalysis";
 import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../components/common";
 import { droppedFolder, isArchive } from "../engine/input";
 import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
-import type { JobState, RepositorySummary } from "../lib/backend";
+import type { JobState, RepositorySummary, ScanSummary } from "../lib/backend";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
 import { REPOSITORY } from "../lib/links";
@@ -176,11 +176,15 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
 export const STORED_SHOWN = 8;
 
 function Stored() {
-  const { backend, open } = useApp();
+  const { backend, open, close, dataset } = useApp();
   const [repositories, setRepositories] = useState<RepositorySummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [scans, setScans] = useState<ScanSummary[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!backend) {
@@ -205,6 +209,86 @@ function Stored() {
       setError(message(reason));
     }
   };
+  const refresh = async () => {
+    setRepositories(await backend.repositories());
+  };
+
+  const manageScans = async (repository: RepositorySummary) => {
+    setError(null);
+    if (expandedId === repository.id) {
+      setExpandedId(null);
+      setScans(null);
+      return;
+    }
+    setExpandedId(repository.id);
+    setScans(null);
+    try {
+      const detail = await backend.repository(repository.id);
+      setScans(detail.scans);
+    } catch (reason) {
+      setError(message(reason));
+    }
+  };
+
+  const removeRepository = async (repository: RepositorySummary) => {
+    if (
+      !window.confirm(
+        `Permanently delete all ${repository.scans} stored analyses for “${repository.name}”? This removes RepoDNA's saved analysis records and artifacts, NOT your source code or exported reports. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await backend.deleteRepository(repository.id);
+      if (dataset?.origin.kind === "stored" && dataset.origin.repositoryId === repository.id) {
+        close();
+      }
+      setExpandedId(null);
+      setScans(null);
+      await refresh();
+      setNotice(`Deleted stored analyses for ${repository.name}.`);
+    } catch (reason) {
+      setError(message(reason));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const removeScan = async (repository: RepositorySummary, scan: ScanSummary) => {
+    if (
+      !window.confirm(
+        `Permanently delete analysis ${scan.id} for “${repository.name}”? Its saved record and artifact will be removed, NOT the source code or exported reports. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await backend.deleteScan(repository.id, scan.id);
+      if (dataset?.origin.kind === "stored" && dataset.origin.repositoryId === repository.id) {
+        close();
+      }
+      const remaining = await backend.repositories();
+      setRepositories(remaining);
+      if (remaining.some((item) => item.id === repository.id)) {
+        setScans((await backend.repository(repository.id)).scans);
+      } else {
+        setExpandedId(null);
+        setScans(null);
+      }
+      setNotice(`Deleted analysis ${scan.id}.`);
+    } catch (reason) {
+      setError(message(reason));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const all = repositories ?? [];
   const needle = query.trim().toLowerCase();
   const matching = needle
@@ -222,6 +306,7 @@ function Stored() {
         </div>
       </div>
       {error ? <ErrorBox>{error}</ErrorBox> : null}
+      {notice ? <p role="status">{notice}</p> : null}
       {repositories === null && !error ? <p className="muted">Loading…</p> : null}
       {repositories && repositories.length === 0 ? (
         <p className="muted">
@@ -251,10 +336,60 @@ function Stored() {
                 {repository.scans} {repository.scans === 1 ? "analysis" : "analyses"} · latest{" "}
                 {repository.lastScannedAt.slice(0, 10)}
               </div>
+              {expandedId === repository.id ? (
+                <div aria-label={`History for ${repository.name}`}>
+                  {scans === null ? <p className="muted">Loading history…</p> : null}
+                  {scans?.length === 0 ? <p className="muted">No saved scans.</p> : null}
+                  {scans && scans.length > 0 ? (
+                    <ul className="evidence">
+                      {scans.map((scan) => (
+                        <li key={scan.id}>
+                          <code>{scan.id}</code> · {date(scan.generatedAt)} · {scan.profile}{" "}
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={deleting}
+                            aria-label={`Delete stored analysis ${scan.id}`}
+                            onClick={() => void removeScan(repository, scan)}
+                          >
+                            Delete record
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {scans?.length === 100 ? (
+                    <p className="muted">Showing the 100 most recent scans.</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-            <button type="button" onClick={() => void openRepository(repository)}>
-              Open
-            </button>
+            <div className="row-actions">
+              <button
+                type="button"
+                disabled={deleting}
+                aria-label={`Manage stored analyses for ${repository.name}`}
+                onClick={() => void manageScans(repository)}
+              >
+                {expandedId === repository.id ? "Hide history" : "History"}
+              </button>
+              <button
+                type="button"
+                disabled={deleting || repository.scans === 0}
+                onClick={() => void openRepository(repository)}
+              >
+                Open
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                disabled={deleting}
+                aria-label={`Delete all stored analyses for ${repository.name}`}
+                onClick={() => void removeRepository(repository)}
+              >
+                Delete all
+              </button>
+            </div>
           </li>
         ))}
       </ul>

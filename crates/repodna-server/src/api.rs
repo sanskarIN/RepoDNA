@@ -314,6 +314,18 @@ pub fn handle(state: &State, request: &mut Request) -> Reply {
                 Ok(list) => json(200, &list),
                 Err(failure) => lookup_error(&failure),
             },
+            (Method::Delete, ["repositories", id]) => {
+                match library::delete_repository(&state.store, id) {
+                    Ok(()) => json(200, &json!({ "deleted": true })),
+                    Err(failure) => lookup_error(&failure),
+                }
+            }
+            (Method::Delete, ["repositories", id, "scans", scan]) => {
+                match library::delete_scan(&state.store, id, scan) {
+                    Ok(()) => json(200, &json!({ "deleted": true })),
+                    Err(failure) => lookup_error(&failure),
+                }
+            }
             (Method::Get, ["repositories", query]) => {
                 match library::repository_detail(&state.store, query) {
                     Ok(detail) => json(200, &detail),
