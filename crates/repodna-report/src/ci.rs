@@ -1038,7 +1038,10 @@ mod tests {
     fn duplicate_file_paths_with_missing_hashes_remain_unknown() {
         let mut baseline = artifact(
             Vec::new(),
-            &[("src/uncertain-before.rs", "old"), ("src/uncertain-before.rs", "old")],
+            &[
+                ("src/uncertain-before.rs", "old"),
+                ("src/uncertain-before.rs", "old"),
+            ],
         );
         baseline.structure.files[1].hash = None;
         let mut current = artifact(
