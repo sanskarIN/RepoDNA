@@ -310,6 +310,30 @@ jobs:
       # Builds the web interface first (Tauri's beforeBuildCommand) and embeds it.
       - name: Build the installers
         run: npm run bundle -w @repodna/desktop -- ${{ matrix.bundle-args }}
+      - name: Verify Windows executable CompanyName
+        # Windows Explorer reads this PE VERSIONINFO field on hover/Properties.
+        # The Tauri identifier contains "github" for historical compatibility;
+        # it must not be used as the publisher in new binaries.
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $relativeExe = if ('${{ matrix.name }}' -eq 'Windows-arm64') {
+            'target/aarch64-pc-windows-msvc/release/repodna-desktop.exe'
+          } else {
+            'target/release/repodna-desktop.exe'
+          }
+          $exe = Join-Path 'apps/desktop/src-tauri' $relativeExe
+          if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
+            throw "Desktop executable missing: $exe"
+          }
+          $info = (Get-Item -LiteralPath $exe).VersionInfo
+          if ($info.CompanyName -cne 'SanskarIN') {
+            throw "Windows CompanyName is '$($info.CompanyName)', expected SanskarIN."
+          }
+          if ($info.FileDescription -cne 'RepoDNA') {
+            throw "Windows FileDescription is '$($info.FileDescription)', expected RepoDNA."
+          }
+          Write-Host ("Verified Windows executable metadata: " + $exe + " CompanyName=" + $info.CompanyName)
       - name: Check the app signature
         # The ad-hoc signature must cover the whole bundle: macOS reports a downloaded app
         # without one as damaged, instead of offering to open it from Privacy & Security.

@@ -49,6 +49,36 @@ test('accepts synchronized release metadata from both package ecosystems', (t) =
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('rejects a missing Windows executable and installer publisher', (t) => {
+  const root = fixture(t);
+  editJson(root, 'apps/desktop/src-tauri/tauri.conf.json', (config) => {
+    delete config.bundle.publisher;
+  });
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /desktop Tauri publisher must be SanskarIN/);
+});
+
+test('rejects the old inferred github publisher', (t) => {
+  const root = fixture(t);
+  editJson(root, 'apps/desktop/src-tauri/tauri.conf.json', (config) => {
+    config.bundle.publisher = 'github';
+  });
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /desktop Tauri publisher must be SanskarIN/);
+});
+
+test('preserves the existing desktop application identifier for upgrades', (t) => {
+  const root = fixture(t);
+  editJson(root, 'apps/desktop/src-tauri/tauri.conf.json', (config) => {
+    config.identifier = 'io.sanskarin.repodna';
+  });
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /desktop Tauri identifier must remain stable/);
+});
+
 test('rejects a stale internal Rust workspace dependency despite synchronized lockfiles', (t) => {
   const root = fixture(t);
   const path = join(root, 'Cargo.toml');
