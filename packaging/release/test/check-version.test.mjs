@@ -75,6 +75,59 @@ test('rejects a missing version constraint on a released internal crate', (t) =>
   assert.match(result.stderr, /Cargo\.toml workspace\.dependencies repodna-report version/);
 });
 
+test('rejects a missing internal Rust workspace dependency even with enough others present', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.toml');
+  const contents = readFileSync(path, 'utf8');
+  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  const entry = `repodna-app = { path = "crates/repodna-app", version = "${version}" }\n`;
+  assert.ok(contents.includes(entry));
+  writeFileSync(path, contents.replace(entry, ''));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /required internal workspace dependency inventory/);
+});
+
+test('rejects a duplicate internal Rust workspace dependency', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.toml');
+  const contents = readFileSync(path, 'utf8');
+  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  const entry = `repodna-app = { path = "crates/repodna-app", version = "${version}" }\n`;
+  assert.ok(contents.includes(entry));
+  writeFileSync(path, contents.replace(entry, entry + entry));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /required internal workspace dependency inventory/);
+});
+
+test('rejects internal Rust workspace dependency paths pointing to the wrong crate', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.toml');
+  const contents = readFileSync(path, 'utf8');
+  const entry = 'repodna-app = { path = "crates/repodna-app"';
+  assert.ok(contents.includes(entry));
+  writeFileSync(path, contents.replace(entry, 'repodna-app = { path = "crates/repodna-server"'));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /workspace.dependencies repodna-app path is out of sync/);
+});
+
+test('requires the local testkit workspace dependency to remain unversioned', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.toml');
+  const contents = readFileSync(path, 'utf8');
+  const entry = 'repodna-testkit = { path = "crates/repodna-testkit" }';
+  assert.ok(contents.includes(entry));
+  writeFileSync(
+    path,
+    contents.replace(entry, 'repodna-testkit = { path = "crates/repodna-testkit", version = "0.0.1" }'),
+  );
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /repodna-testkit must remain unversioned/);
+});
+
 test('rejects an incorrect web dependency version even when the right string appears elsewhere', (t) => {
   const root = fixture(t);
   editJson(root, 'apps/web/package.json', (data) => {
