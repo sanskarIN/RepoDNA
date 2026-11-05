@@ -6,9 +6,28 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-These changes are merged on `main` **after v1.4.5**, and are not yet available
-in a new stable desktop or CLI release. v1.5.0 is still in development; see
-the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
+No additional changes are recorded beyond the current v1.5.0 candidate.
+
+## [1.5.0] - 2026-11-05
+
+**Unpublished release candidate — provisional date.** The 1.5.0 metadata
+and these notes are staged on a development branch for validation only.
+Do not advertise the version as released or merge this candidate to `main`
+until all remaining gates in the
+[qualification checklist](packaging/release/v1.5.0-checklist.md) have passed.
+
+### Highlights
+
+- Preview selected findings locally before exporting CSV, JSON, or Markdown,
+  with explicit confirmation and clear warnings about unreviewed data.
+- Review baseline CI changes with per-file module ownership, immediate
+  dependency context, and bounded, escaped Markdown path hints.
+- Make finding deltas deterministic for repeated IDs and avoid false file
+  modifications from ambiguous duplicate-path hashes.
+- Check the exact Rust workspace dependency inventory and package versions
+  in both Cargo lockfiles before a release can publish.
+- Preserve local-first, opt-in extractive AI evidence and independent
+  evaluation requirements; no generative model capability is claimed.
 
 ### Added
 
