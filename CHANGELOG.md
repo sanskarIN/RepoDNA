@@ -18,6 +18,8 @@ until all remaining gates in the
 
 ### Highlights
 
+- Delete saved analysis records or an entire repository's stored history
+  from the desktop or local server, with confirmation and unchanged source code.
 - Preview selected findings locally before exporting CSV, JSON, or Markdown,
   with explicit confirmation and clear warnings about unreviewed data.
 - Review baseline CI changes with per-file module ownership, immediate
@@ -31,6 +33,11 @@ until all remaining gates in the
 
 ### Added
 
+- Add confirmed deletion of one saved scan or a repository's complete stored
+  analysis history, available from desktop and local-server History controls.
+  Enforce exact scan ownership and repository IDs, update database history,
+  and clean up local analysis artifacts without deleting original source
+  repositories (#211).
 - Show the first associated file path and remaining-path count for introduced
   and resolved findings in bounded Markdown CI impact summaries, making review
   hints easier to locate without asserting an exact source-evidence line.
