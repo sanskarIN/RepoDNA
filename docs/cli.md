@@ -163,7 +163,10 @@ a step-by-step example and compatibility notes, see
 - `changes.files.added`, `removed`, and `modified`: alphabetically ordered,
   repository-relative paths (not merely counts). A file is reported as
   modified only when both snapshots contain content hashes and those hashes
-  differ; missing hashes are unknown, not evidence of modification.
+  differ; missing hashes are unknown, not evidence of modification. When an
+  imported artifact repeats a path with conflicting or missing hashes, that
+  path's hash is treated as unknown, regardless of record order. A rename
+  appears as a removed path plus an added path, not as an inferred modification.
 - `changes.findings.introduced` and `resolved`: stable-ID, deduplicated
   records with `id`, `rule`, lower-case `severity`, `title`, and `paths`,
   ordered by descending severity and then finding ID. In the v1.5.0 development
