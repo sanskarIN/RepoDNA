@@ -128,6 +128,55 @@ test('requires the local testkit workspace dependency to remain unversioned', (t
   assert.match(result.stderr, /repodna-testkit must remain unversioned/);
 });
 
+test('rejects a missing root Cargo.lock internal package even if enough entries remain', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.lock');
+  const contents = readFileSync(path, 'utf8');
+  const name = 'name = "repodna-report"';
+  assert.ok(contents.includes(name));
+  writeFileSync(path, contents.replace(name, 'name = "missing-report"'));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Cargo\.lock: internal Rust package inventory/);
+});
+
+test('rejects an unexpected internal package in root Cargo.lock', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.lock');
+  const contents = readFileSync(path, 'utf8');
+  const name = 'name = "repodna-report"';
+  assert.ok(contents.includes(name));
+  writeFileSync(path, contents.replace(name, 'name = "repodna-unexpected"'));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Cargo\.lock: internal Rust package inventory/);
+});
+
+test('rejects duplicated internal packages in the desktop Cargo.lock', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'apps/desktop/src-tauri/Cargo.lock');
+  const contents = readFileSync(path, 'utf8');
+  const name = 'name = "repodna-app"';
+  assert.ok(contents.includes(name));
+  writeFileSync(path, contents.replace(name, 'name = "repodna-core"'));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /apps\/desktop\/src-tauri\/Cargo\.lock: internal Rust package inventory/);
+});
+
+test('rejects an out-of-sync xtask package in root Cargo.lock', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'Cargo.lock');
+  const contents = readFileSync(path, 'utf8');
+  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  const entry = `name = "xtask"\nversion = "${version}"`;
+  assert.ok(contents.includes(entry));
+  writeFileSync(path, contents.replace(entry, 'name = "xtask"\nversion = "0.0.1"'));
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Cargo\.lock: xtask is out of sync/);
+});
+
 test('rejects an incorrect web dependency version even when the right string appears elsewhere', (t) => {
   const root = fixture(t);
   editJson(root, 'apps/web/package.json', (data) => {
