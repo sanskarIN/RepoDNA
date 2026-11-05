@@ -82,9 +82,11 @@ Items are sorted by repository-relative path.
 - Paths, titles, evidence and module names may reveal private repository
   context. Inspect outputs before posting them to an issue or uploading them.
 
-The Markdown CI summary lists representative entries and counts. Detail lists
-are bounded at **10 entries**, with per-entry text clipped to **180 characters**
-and escaped. The JSON retains full paths and records.
+The Markdown CI summary lists representative entries and counts. Introduced
+and resolved findings show the first associated path (when available) and a
+count of additional paths, rather than claiming an exact evidence line.
+Detail lists are bounded at **10 entries**, with per-entry text clipped to
+**180 characters** and escaped. The JSON retains full paths and records.
 
 ## 3. Add a CI failure policy
 
