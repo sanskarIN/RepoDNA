@@ -56,7 +56,7 @@ test('rejects a missing Windows executable and installer publisher', (t) => {
   });
   const result = check(root);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /desktop Tauri publisher must be SanskarIN/);
+  assert.match(result.stderr, /desktop Tauri publisher must be Repo DNA/);
 });
 
 test('rejects the old inferred github publisher', (t) => {
@@ -66,7 +66,17 @@ test('rejects the old inferred github publisher', (t) => {
   });
   const result = check(root);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /desktop Tauri publisher must be SanskarIN/);
+  assert.match(result.stderr, /desktop Tauri publisher must be Repo DNA/);
+});
+
+test('rejects an outdated personal publisher instead of the Repo DNA company', (t) => {
+  const root = fixture(t);
+  editJson(root, 'apps/desktop/src-tauri/tauri.conf.json', (config) => {
+    config.bundle.publisher = 'SanskarIN';
+  });
+  const result = check(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /desktop Tauri publisher must be Repo DNA/);
 });
 
 test('preserves the existing desktop application identifier for upgrades', (t) => {

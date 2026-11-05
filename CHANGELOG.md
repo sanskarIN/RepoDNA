@@ -43,7 +43,7 @@ until all remaining gates in the
 
 ### Fixed
 
-- Set the Windows desktop executable and installer publisher to SanskarIN
+- Set the Windows desktop executable and installer publisher to Repo DNA
   rather than accidentally displaying `github` in the Explorer Company field.
   Keep the stable app identifier and enforce publisher metadata in release checks.
 - Verify the exact internal Rust package inventories in both Cargo lockfiles,
