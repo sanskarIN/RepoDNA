@@ -77,4 +77,14 @@ $remaining = @(Get-RepoDNAInstallations)
 if ($remaining.Count -ne 0) {
   throw "RepoDNA remains registered after uninstall ($($remaining.Count) entries)."
 }
-Write-Host "Verified complete MSI uninstall."
+Write-Host "Verified MSI uninstall after upgrade."
+
+# Also verify the new MSI can install on a clean Windows runner, independently
+# of the earlier version's UpgradeCode and registry history.
+Invoke-Installer 'i' $targetMsi 'candidate-clean-install'
+[void] (Assert-OneVersion $candidateVersion)
+Invoke-Installer 'x' $targetMsi 'candidate-clean-uninstall'
+if (@(Get-RepoDNAInstallations).Count -ne 0) {
+  throw 'RepoDNA remains registered after clean-install uninstall.'
+}
+Write-Host "Verified clean v1.5.0 MSI installation and uninstall."
