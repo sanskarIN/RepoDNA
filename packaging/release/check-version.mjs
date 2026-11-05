@@ -66,15 +66,55 @@ assert.equal(
 // Check the declared path dependencies as well as the lockfile. Cargo.lock
 // can remain at the expected version while a forgotten workspace dependency
 // constraint still points at an older release.
-const internalCrates = [...workspace.matchAll(/^(repodna-[\w-]+)\s*=\s*\{([^}\n]+)\}/gm)]
-  .filter(([, name, fields]) => name !== 'repodna-testkit' && /\bpath\s*=/.test(fields));
-assert.ok(internalCrates.length >= 15, 'Cargo.toml: missing internal workspace dependencies');
+// Verify the entire known release-workspace dependency inventory, not merely a
+// minimum count: losing one path dependency could otherwise leave enough
+// entries to pass the check while breaking the packaged release.
+const expectedInternalCrates = [
+  'repodna-ai',
+  'repodna-app',
+  'repodna-architecture',
+  'repodna-core',
+  'repodna-dependencies',
+  'repodna-discovery',
+  'repodna-engine',
+  'repodna-evolution',
+  'repodna-git',
+  'repodna-parser',
+  'repodna-plugin',
+  'repodna-project',
+  'repodna-quality',
+  'repodna-report',
+  'repodna-security',
+  'repodna-server',
+  'repodna-store',
+  'repodna-testkit',
+];
+const internalCrates = [...workspace.matchAll(/^(repodna-[\w-]+)\s*=\s*\{([^}\n]+)\}/gm)];
+assert.deepEqual(
+  internalCrates.map(([, name]) => name).sort(),
+  expectedInternalCrates,
+  'Cargo.toml: required internal workspace dependency inventory is missing, duplicated or unexpected',
+);
 for (const [, name, fields] of internalCrates) {
   assert.equal(
-    fields.match(/\bversion\s*=\s*"([^"]+)"/)?.[1],
-    version,
-    'Cargo.toml workspace.dependencies ' + name + ' version is out of sync',
+    fields.match(/\bpath\s*=\s*"([^"]+)"/)?.[1],
+    'crates/' + name,
+    'Cargo.toml workspace.dependencies ' + name + ' path is out of sync',
   );
+  const dependencyVersion = fields.match(/\bversion\s*=\s*"([^"]+)"/)?.[1];
+  if (name === 'repodna-testkit') {
+    assert.equal(
+      dependencyVersion,
+      undefined,
+      'Cargo.toml workspace.dependencies repodna-testkit must remain unversioned',
+    );
+  } else {
+    assert.equal(
+      dependencyVersion,
+      version,
+      'Cargo.toml workspace.dependencies ' + name + ' version is out of sync',
+    );
+  }
 }
 const desktop = read('apps/desktop/src-tauri/Cargo.toml');
 assert.equal(
