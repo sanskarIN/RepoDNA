@@ -20,9 +20,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run download 42050883059 --repo sanskarIN/RepoDNA --name desktop-Windows --dir dist
-          if (-not (Test-Path -LiteralPath 'dist/RepoDNA_1.5.0_x64_en-US.msi' -PathType Leaf)) {
-            throw 'Missing v1.5.0 x64 MSI in frozen release-trial artifact'
+          $downloaded = $false
+          for ($attempt = 1; $attempt -le 24; $attempt++) {
+            if (Test-Path -LiteralPath dist) {
+              Remove-Item -LiteralPath dist -Recurse -Force
+            }
+            gh run download 42050883059 --repo sanskarIN/RepoDNA --name desktop-Windows --dir dist
+            if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath 'dist/RepoDNA_1.5.0_x64_en-US.msi' -PathType Leaf)) {
+              $downloaded = $true
+              break
+            }
+            if ($attempt -lt 24) { Start-Sleep -Seconds 15 }
+          }
+          if (-not $downloaded) {
+            throw 'Missing v1.5.0 x64 MSI from the frozen unpublished release trial'
           }
       - name: Verify real install, upgrade and uninstall
         shell: pwsh
