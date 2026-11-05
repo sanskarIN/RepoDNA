@@ -20,6 +20,20 @@ const manifests = [
 for (const path of manifests) {
   assert.equal(json(path).version, version, path + ' version is out of sync');
 }
+// Tauri otherwise derives the Windows CompanyName from the second label in
+// "io.github.sanskarin.repodna" and incorrectly displays "github" as publisher.
+// Keep the identifier itself stable so existing installations can upgrade.
+const tauriConfig = json('apps/desktop/src-tauri/tauri.conf.json');
+assert.equal(
+  tauriConfig.bundle?.publisher,
+  'SanskarIN',
+  'desktop Tauri publisher must be SanskarIN, not inferred from the identifier',
+);
+assert.equal(
+  tauriConfig.identifier,
+  'io.github.sanskarin.repodna',
+  'desktop Tauri identifier must remain stable for installer compatibility',
+);
 const npmLock = json('package-lock.json');
 assert.equal(npmLock.version, version);
 const requiredWorkspaces = [
