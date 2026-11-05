@@ -10,11 +10,11 @@ No additional changes are recorded beyond the current v1.5.0 candidate.
 
 ## [1.5.0] - 2026-11-05
 
-**Unpublished release candidate — provisional date.** The 1.5.0 metadata
-and these notes are staged on a development branch for validation only.
-Do not advertise the version as released or merge this candidate to `main`
-until all remaining gates in the
-[qualification checklist](packaging/release/v1.5.0-checklist.md) have passed.
+RepoDNA v1.5.0 strengthens evidence-based repository review, safer
+findings exports, and local control over saved analysis history. It adds
+confirmed record deletion for desktop and local-server users and improves
+release reliability, while preserving offline-first operation and avoiding
+unsupported generative-AI claims.
 
 ### Highlights
 
