@@ -43,6 +43,9 @@ until all remaining gates in the
 
 ### Fixed
 
+- Set the Windows desktop executable and installer publisher to SanskarIN
+  rather than accidentally displaying `github` in the Explorer Company field.
+  Keep the stable app identifier and enforce publisher metadata in release checks.
 - Verify the exact internal Rust package inventories in both Cargo lockfiles,
   including the CLI, WebAssembly, desktop and xtask packages. Reject missing,
   duplicate, unexpected or out-of-sync entries before packaging.

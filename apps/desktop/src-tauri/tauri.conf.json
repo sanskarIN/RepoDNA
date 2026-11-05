@@ -35,6 +35,7 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "SanskarIN",
     "targets": [
       "deb",
       "rpm",
