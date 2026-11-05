@@ -35,8 +35,8 @@ This builds the web interface, embeds it, and writes installers for your platfor
 `.dmg` on macOS, and `.msi` and `.exe` installers on Windows. Choose formats with
 `npm run bundle -w @repodna/desktop -- --bundles deb`.
 
-On Windows, `bundle.publisher` is explicitly set to `Repo DNA` so that
-`repodna-desktop.exe` displays **Company: Repo DNA** in Explorer's
+On Windows, `bundle.publisher` is explicitly set to `RepoDNA` so that
+`repodna-desktop.exe` displays **Company: RepoDNA** in Explorer's
 tooltip and Properties > Details, instead of incorrectly inheriting
 `github` from the unchanged application identifier
 `io.github.sanskarin.repodna`. The MSI/NSIS manufacturer name uses

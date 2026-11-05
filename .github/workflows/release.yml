@@ -327,8 +327,8 @@ jobs:
             throw "Desktop executable missing: $exe"
           }
           $info = (Get-Item -LiteralPath $exe).VersionInfo
-          if ($info.CompanyName -cne 'Repo DNA') {
-            throw "Windows CompanyName is '$($info.CompanyName)', expected Repo DNA."
+          if ($info.CompanyName -cne 'RepoDNA') {
+            throw "Windows CompanyName is '$($info.CompanyName)', expected RepoDNA."
           }
           if ($info.FileDescription -cne 'RepoDNA') {
             throw "Windows FileDescription is '$($info.FileDescription)', expected RepoDNA."
