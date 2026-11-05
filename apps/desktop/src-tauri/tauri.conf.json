@@ -35,7 +35,7 @@
   },
   "bundle": {
     "active": true,
-    "publisher": "Repo DNA",
+    "publisher": "RepoDNA",
     "targets": [
       "deb",
       "rpm",
