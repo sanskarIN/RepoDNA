@@ -21,6 +21,9 @@ the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
 
 ### Fixed
 
+- Treat conflicting or missing hashes on duplicate imported file paths as
+  unknown in baseline comparisons, preventing input-order-dependent or falsely
+  reported modifications. Keep rename output as separate added/removed paths.
 - Make baseline CI finding deltas and `--new-only` policy checks deterministic
   when imported artifacts repeat a finding ID with conflicting severity. Use
   the highest-severity variant for machine-readable impact and annotations,
