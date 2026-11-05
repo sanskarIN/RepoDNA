@@ -12,6 +12,9 @@ the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
 
 ### Added
 
+- Show the first associated file path and remaining-path count for introduced
+  and resolved findings in bounded Markdown CI impact summaries, making review
+  hints easier to locate without asserting an exact source-evidence line.
 - Require a local, bounded preview and explicit save confirmation before
   downloading filtered Findings CSV, JSON, or Markdown. Show selection counts
   and explain that unseen data is neither scanned for secrets nor redacted (#195).
