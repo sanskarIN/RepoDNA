@@ -122,19 +122,30 @@ assert.equal(
   version,
   'desktop Cargo.toml version is out of sync',
 );
+// Lockfile validation must cover the exact local package inventory, too.
+// Checking 15+ entries would silently accept a missing crate, an unexpected
+// repodna-* package, or a duplicated package name if versions still matched.
+const expectedRootLockPackages = [
+  ...expectedInternalCrates,
+  'repodna-cli',
+  'repodna-wasm',
+  'xtask',
+].sort();
+const expectedDesktopLockPackages = [
+  ...expectedInternalCrates.filter((name) => name !== 'repodna-testkit'),
+  'repodna-desktop',
+].sort();
 for (const path of ['Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock']) {
-  const text = read(path);
-  const matches = [...text.matchAll(/name = "(repodna-[^"]+)"\r?\nversion = "([^"]+)"/g)];
-  assert.ok(matches.length >= 15, path + ': missing internal Rust crate versions');
+  const locked = read(path);
+  const matches = [...locked.matchAll(/^name = "(repodna-[^"]+|xtask)"\r?\nversion = "([^"]+)"/gm)];
+  const expected = path === 'Cargo.lock' ? expectedRootLockPackages : expectedDesktopLockPackages;
+  assert.deepEqual(
+    matches.map(([, name]) => name).sort(),
+    expected,
+    path + ': internal Rust package inventory is missing, duplicated or unexpected',
+  );
   for (const [, name, lockedVersion] of matches) {
     assert.equal(lockedVersion, version, path + ': ' + name + ' is out of sync');
-  }
-  if (path === 'Cargo.lock') {
-    assert.equal(
-      text.match(/name = "xtask"\r?\nversion = "([^"]+)"/)?.[1],
-      version,
-      'xtask CLI workspace package version is out of sync',
-    );
   }
 }
 assert.ok(

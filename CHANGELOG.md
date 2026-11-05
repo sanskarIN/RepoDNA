@@ -21,6 +21,9 @@ the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
 
 ### Fixed
 
+- Verify the exact internal Rust package inventories in both Cargo lockfiles,
+  including the CLI, WebAssembly, desktop and xtask packages. Reject missing,
+  duplicate, unexpected or out-of-sync entries before packaging.
 - Reject a missing, duplicated, or misdirected internal Rust workspace dependency
   during release metadata checks, rather than relying on a minimum dependency
   count. Keep the local testkit path intentionally unversioned.
