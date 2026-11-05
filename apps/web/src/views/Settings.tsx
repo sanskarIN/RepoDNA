@@ -84,11 +84,6 @@ export function Settings() {
             </span>
           </p>
           <p className="muted">
-            Manage saved repository history from <a href={href("/")}>Stored analyses</a> on the
-            start page. Delete one scan or all saved records for a repository. Your source code
-            and exported reports are not deleted.
-          </p>
-          <p className="muted">
             Read the <a href={href("/privacy")}>Privacy Policy</a> and the{" "}
             <a href={href("/terms")}>Terms of Use</a>, or learn more{" "}
             <a href={href("/about")}>about RepoDNA and how to support it</a>.
