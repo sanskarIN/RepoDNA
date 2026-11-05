@@ -80,6 +80,16 @@ fn get_repository(desktop: State<'_, Desktop>, id: String) -> Reply<Value> {
 }
 
 #[tauri::command]
+fn delete_repository(desktop: State<'_, Desktop>, id: String) -> Reply<()> {
+    library::delete_repository(&desktop.library()?.store, &id).map_err(message)
+}
+
+#[tauri::command]
+fn delete_scan(desktop: State<'_, Desktop>, id: String, scan: String) -> Reply<()> {
+    library::delete_scan(&desktop.library()?.store, &id, &scan).map_err(message)
+}
+
+#[tauri::command]
 fn load_artifact(desktop: State<'_, Desktop>, id: String, scan: Option<String>) -> Reply<Value> {
     let store = &desktop.library()?.store;
     let dna = library::load(store, &id, scan.as_deref(), PrivacyPreset::Local).map_err(message)?;
@@ -362,6 +372,8 @@ fn main() {
             session,
             list_repositories,
             get_repository,
+            delete_repository,
+            delete_scan,
             load_artifact,
             start_scan,
             get_job,

@@ -78,6 +78,31 @@ describe("local server API responses", () => {
     });
   });
 
+  it("deletes saved repositories and scans through authenticated encoded URLs", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async () => new Response("{}", { status: 200 }));
+    const backend = new ServerBackend("local-token");
+    await backend.deleteRepository("repo /1");
+    await backend.deleteScan("repo /1", "scan /2");
+    expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+      "/api/repositories/repo%20%2F1",
+      "/api/repositories/repo%20%2F1/scans/scan%20%2F2",
+    ]);
+    for (const [, init] of fetchSpy.mock.calls) {
+      expect(init).toMatchObject({
+        method: "DELETE",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
+    }
+  });
+
+  it("allows an empty successful deletion response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    await expect(new ServerBackend(null).deleteRepository("repo-1")).resolves.toBeUndefined();
+  });
+
   it("allows an empty successful cancellation response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
     await expect(new ServerBackend(null).cancelJob("job-1")).resolves.toBeUndefined();

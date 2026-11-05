@@ -518,14 +518,46 @@ impl Store {
         Ok(FindingChanges { added, resolved })
     }
 
-    /// Removes a scan and its artifact. Returns `false` when it did not exist.
+    /// Removes a scan, its artifact, and an empty repository record. Updates the
+    /// repository's date range when other scans remain.
     pub fn delete_scan(&self, id: &str) -> Result<bool, StoreError> {
         let Some(scan) = self.scan(id)? else {
             return Ok(false);
         };
-        self.lock()
-            .execute("DELETE FROM scans WHERE id = ?1", [&scan.id])?;
-        remove_file(&self.artifact_path(&scan))?;
+        let mut connection = self.lock();
+        let transaction = connection.transaction()?;
+        transaction.execute("DELETE FROM scans WHERE id = ?1", [&scan.id])?;
+        let remaining: i64 = transaction.query_row(
+            "SELECT COUNT(*) FROM scans WHERE repository_id = ?1",
+            [&scan.repository_id],
+            |row| row.get(0),
+        )?;
+        if remaining == 0 {
+            transaction.execute(
+                "DELETE FROM repositories WHERE id = ?1",
+                [&scan.repository_id],
+            )?;
+        } else {
+            transaction.execute(
+                "UPDATE repositories SET
+                    first_scanned_at = (SELECT MIN(generated_at) FROM scans WHERE repository_id = ?1),
+                    last_scanned_at = (SELECT MAX(generated_at) FROM scans WHERE repository_id = ?1)
+                 WHERE id = ?1",
+                [&scan.repository_id],
+            )?;
+        }
+        transaction.commit()?;
+        drop(connection);
+
+        if remaining == 0 {
+            let directory = self.paths.artifacts().join(&scan.repository_id);
+            if directory.is_dir() {
+                fs::remove_dir_all(&directory)
+                    .map_err(|source| StoreError::io(&directory, source))?;
+            }
+        } else {
+            remove_file(&self.artifact_path(&scan))?;
+        }
         Ok(true)
     }
 
@@ -535,6 +567,9 @@ impl Store {
         let removed = self
             .lock()
             .execute("DELETE FROM repositories WHERE id = ?1", [id])?;
+        if removed == 0 {
+            return Ok(false);
+        }
         let directory = self.paths.artifacts().join(id);
         if directory.is_dir() {
             fs::remove_dir_all(&directory).map_err(|source| StoreError::io(&directory, source))?;

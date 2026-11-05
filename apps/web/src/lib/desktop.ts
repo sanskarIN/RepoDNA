@@ -33,6 +33,14 @@ export class DesktopBackend implements Backend {
     return checkArtifact(value).artifact;
   }
 
+  async deleteRepository(id: string): Promise<void> {
+    await invoke("delete_repository", { id });
+  }
+
+  async deleteScan(id: string, scan: string): Promise<void> {
+    await invoke("delete_scan", { id, scan });
+  }
+
   startScan(input: string, profile?: string): Promise<JobState> {
     return invoke<JobState>("start_scan", { input, profile: profile ?? null });
   }
