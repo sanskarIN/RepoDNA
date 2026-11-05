@@ -2,7 +2,12 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { App } from "../App";
-import { detectBackend, type Backend, type RepositorySummary, type ScanSummary } from "../lib/backend";
+import {
+  detectBackend,
+  type Backend,
+  type RepositorySummary,
+  type ScanSummary,
+} from "../lib/backend";
 import { memoryStore } from "../lib/recent";
 
 vi.mock("../lib/backend", async (original) => ({
@@ -36,8 +41,12 @@ const scan: ScanSummary = {
 
 function fixture() {
   let exists = true;
-  const deleteRepository = vi.fn(async () => { exists = false; });
-  const deleteScan = vi.fn(async () => { exists = false; });
+  const deleteRepository = vi.fn(async () => {
+    exists = false;
+  });
+  const deleteScan = vi.fn(async () => {
+    exists = false;
+  });
   const backend = {
     kind: "desktop",
     session: async () => ({ version: "test", allowScans: true }),
@@ -56,13 +65,19 @@ function fixture() {
 
 async function start() {
   window.location.hash = "#/";
-  await act(async () => { render(<App store={memoryStore()} />); });
+  await act(async () => {
+    render(<App store={memoryStore()} />);
+  });
   return screen.findByRole("region", { name: "Stored analyses" });
 }
 
 describe("deleting stored analyses", () => {
-  beforeEach(() => vi.mocked(detectBackend).mockReset());
-  afterEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    vi.mocked(detectBackend).mockReset();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it("asks before deleting a repository and refreshes the stored list", async () => {
     const { deleteRepository } = fixture();
@@ -71,9 +86,13 @@ describe("deleting stored analyses", () => {
     const remove = within(region).getByRole("button", {
       name: "Delete all stored analyses for example-project",
     });
-    await act(async () => { fireEvent.click(remove); });
+    await act(async () => {
+      fireEvent.click(remove);
+    });
     expect(deleteRepository).not.toHaveBeenCalled();
-    await act(async () => { fireEvent.click(remove); });
+    await act(async () => {
+      fireEvent.click(remove);
+    });
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(deleteRepository).toHaveBeenCalledWith("repo-1");
     expect(await within(region).findByText(/None yet\. Analyze a repository above/)).toBeTruthy();
@@ -85,14 +104,18 @@ describe("deleting stored analyses", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const region = await start();
     await act(async () => {
-      fireEvent.click(within(region).getByRole("button", {
-        name: "Manage stored analyses for example-project",
-      }));
+      fireEvent.click(
+        within(region).getByRole("button", {
+          name: "Manage stored analyses for example-project",
+        }),
+      );
     });
     const button = await within(region).findByRole("button", {
       name: "Delete stored analysis scan-1",
     });
-    await act(async () => { fireEvent.click(button); });
+    await act(async () => {
+      fireEvent.click(button);
+    });
     expect(deleteScan).toHaveBeenCalledWith("repo-1", "scan-1");
     expect(await within(region).findByText(/None yet\. Analyze a repository above/)).toBeTruthy();
     expect(within(region).getByRole("status").textContent).toContain("Deleted analysis scan-1");

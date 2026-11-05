@@ -362,10 +362,15 @@ fn deleting_saved_scans_requires_authentication_and_exact_ownership() {
         send(
             address,
             "DELETE",
-            &format!("/api/repositories/{}/scans/{}", repository.id, &scan.id[..4]),
+            &format!(
+                "/api/repositories/{}/scans/{}",
+                repository.id,
+                &scan.id[..4]
+            ),
             &auth,
             ""
-        ).status,
+        )
+        .status,
         404,
         "a scan prefix must not be accepted for deletion"
     );
@@ -376,7 +381,8 @@ fn deleting_saved_scans_requires_authentication_and_exact_ownership() {
             &format!("/api/repositories/not-this-repository/scans/{}", scan.id),
             &auth,
             ""
-        ).status,
+        )
+        .status,
         404
     );
     assert!(artifact.exists());
@@ -385,7 +391,10 @@ fn deleting_saved_scans_requires_authentication_and_exact_ownership() {
     assert_eq!(deleted.json()["deleted"], true);
     assert!(!artifact.exists());
     assert!(source.path().join("src/app.py").exists());
-    assert_eq!(send(address, "GET", "/api/repositories", &auth, "").json(), serde_json::json!([]));
+    assert_eq!(
+        send(address, "GET", "/api/repositories", &auth, "").json(),
+        serde_json::json!([])
+    );
     assert_eq!(send(address, "DELETE", &deletion, &auth, "").status, 404);
 }
 
@@ -408,7 +417,8 @@ fn deleting_repository_history_never_deletes_source_or_accepts_name_aliases() {
             &format!("/api/repositories/{}", repository.name),
             &auth,
             ""
-        ).status,
+        )
+        .status,
         404
     );
     assert_eq!(
@@ -427,7 +437,10 @@ fn deleting_repository_history_never_deletes_source_or_accepts_name_aliases() {
     assert_eq!(deleted.json()["deleted"], true);
     assert!(!artifact.exists());
     assert!(source.path().join("README.md").exists());
-    assert_eq!(send(address, "GET", "/api/repositories", &auth, "").json(), serde_json::json!([]));
+    assert_eq!(
+        send(address, "GET", "/api/repositories", &auth, "").json(),
+        serde_json::json!([])
+    );
 }
 
 #[test]

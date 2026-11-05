@@ -84,10 +84,9 @@ export function Settings() {
             </span>
           </p>
           <p className="muted">
-            To delete saved repository analysis records and artifacts from RepoDNA's local
-            database, use <a href={href("/")}>Stored analyses on the start page</a>. You can
-            delete an individual scan or a repository's entire analysis history. Your source
-            code and previously exported reports will not be deleted.
+            Manage saved repository history from <a href={href("/")}>Stored analyses</a> on the
+            start page. Delete one scan or all saved records for a repository. Your source code
+            and exported reports are not deleted.
           </p>
           <p className="muted">
             Read the <a href={href("/privacy")}>Privacy Policy</a> and the{" "}
