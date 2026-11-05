@@ -63,6 +63,19 @@ assert.equal(
   version,
   'Cargo.toml workspace.package version is out of sync',
 );
+// Check the declared path dependencies as well as the lockfile. Cargo.lock
+// can remain at the expected version while a forgotten workspace dependency
+// constraint still points at an older release.
+const internalCrates = [...workspace.matchAll(/^(repodna-[\w-]+)\s*=\s*\{([^}\n]+)\}/gm)]
+  .filter(([, name, fields]) => name !== 'repodna-testkit' && /\bpath\s*=/.test(fields));
+assert.ok(internalCrates.length >= 15, 'Cargo.toml: missing internal workspace dependencies');
+for (const [, name, fields] of internalCrates) {
+  assert.equal(
+    fields.match(/\bversion\s*=\s*"([^"]+)"/)?.[1],
+    version,
+    'Cargo.toml workspace.dependencies ' + name + ' version is out of sync',
+  );
+}
 const desktop = read('apps/desktop/src-tauri/Cargo.toml');
 assert.equal(
   desktop.match(/^version = "([^"]+)"/m)?.[1],
