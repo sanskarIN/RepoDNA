@@ -80,7 +80,7 @@ describe("local server API responses", () => {
 
   it("deletes saved repositories and scans through authenticated encoded URLs", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    fetchSpy.mockResolvedValue(new Response("{}", { status: 200 }));
+    fetchSpy.mockImplementation(async () => new Response("{}", { status: 200 }));
     const backend = new ServerBackend("local-token");
     await backend.deleteRepository("repo /1");
     await backend.deleteScan("repo /1", "scan /2");
