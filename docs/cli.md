@@ -166,7 +166,11 @@ a step-by-step example and compatibility notes, see
   differ; missing hashes are unknown, not evidence of modification.
 - `changes.findings.introduced` and `resolved`: stable-ID, deduplicated
   records with `id`, `rule`, lower-case `severity`, `title`, and `paths`,
-  ordered by descending severity and then finding ID.
+  ordered by descending severity and then finding ID. In the v1.5.0 development
+  tree, duplicate IDs in imported artifacts use the highest-severity active
+  variant (then a deterministic rule/title/path tie-break), including for
+  `--new-only --fail-on` and baseline-limited workflow annotations. This
+  prevents input order from masking a higher-severity introduced finding.
 - `changes.architecture.touchedModules`: modules owning files that differ between
   the two snapshots (using the most specific module directory boundary).
 - `changes.architecture.fileOwners`: a path-sorted record for each added, removed
