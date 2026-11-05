@@ -6,6 +6,29 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+These changes are merged on `main` **after v1.4.5**, and are not yet available
+in a new stable desktop or CLI release. v1.5.0 is still in development; see
+the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
+
+### Added
+
+- Require a local, bounded preview and explicit save confirmation before
+  downloading filtered Findings CSV, JSON, or Markdown. Show selection counts
+  and explain that unseen data is neither scanned for secrets nor redacted (#195).
+- Include before-and-after per-file module ownership in structured CI baseline
+  impact (`changes.architecture.fileOwners`), with bounded Markdown summaries
+  and regression tests for changed module boundaries (#198).
+
+### Fixed
+
+- Prevent unrelated nested paths from being incorrectly attributed to the root
+  module in baseline CI impact results (#197).
+
+### Documentation
+
+- Explain the stable-vs-development feature boundary, CI review semantics,
+  safe sharing limitations, and required v1.5.0 release gates.
+
 ## [1.4.5] - 2026-10-30
 
 RepoDNA v1.4.5 focuses on reproducible, privacy-conscious native evidence

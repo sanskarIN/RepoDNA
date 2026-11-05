@@ -97,7 +97,10 @@ Suppressed findings do not fail the gate.
 
 A meaningful comparison requires equivalent analysis profiles and consistent
 configuration. Use comparable repository scope and Git history depth; otherwise
-a difference may reflect the inputs rather than a code change. For a ready
+a difference may reflect the inputs rather than a code change. For the
+machine-readable changed-file, finding, module and one-hop edge fields (including
+before/after file ownership added on `main` for v1.5.0), see the
+[review guide](reviewing-changes.md#2-read-the-baseline-impact). For a ready
 workflow, see [GitHub Action](github-action.md) and
 [command-line options](cli.md#repodna-ci).
 
@@ -124,8 +127,13 @@ For a smaller review, open **Findings**, apply filters and export:
   suggested next steps.
 
 These exports include all matching findings, not only the currently visible
-page. A findings-only JSON array is **not** a full RepositoryDNA artifact; use
+page. On the development-tree web interface, a local review shows counts and
+a limited sample before the explicit **Save full export** action. The review
+is not a secret scanner or redaction; do not assume unseen data is safe to
+share. This new confirmation is not in the v1.4.5 packaged desktop app.
+A findings-only JSON array is **not** a full RepositoryDNA artifact; use
 **Reports & export** or `repodna analyze --format json` for the full artifact.
+See [reviewing changes](reviewing-changes.md#4-review-and-save-selected-findings-in-the-web-interface).
 
 Review outputs before distributing them and never attach session tokens,
 API keys, or private source files to a public issue. See

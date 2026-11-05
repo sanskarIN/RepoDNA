@@ -89,8 +89,20 @@ changed.
 ## CI summaries
 
 `repodna ci` prints a summary for continuous integration: text, Markdown for job summaries,
-JSON, or GitHub Actions annotations. See [the CLI reference](cli.md#repodna-ci) and the
-[example workflow](../examples/ci/repodna.yml).
+JSON, or GitHub Actions annotations. With `--baseline`, the JSON includes changed
+file paths, introduced/resolved active findings, touched modules and observed
+module edges, when both snapshots have architecture results. The development
+branch for v1.5.0 also includes `changes.architecture.fileOwners`: each changed
+path's closest module in the baseline and head snapshots. Its Markdown version
+shows bounded, escaped samples, not the complete JSON.
+
+Use comparable analysis profiles and configuration. An absent content hash is
+**not** proof of a modification; renamed paths are not paired automatically,
+and immediate dependents are not a transitive impact prediction. CI output can
+expose private paths, titles and module names.
+
+See [reviewing changes](reviewing-changes.md), [the CLI reference](cli.md#repodna-ci),
+and the [example workflow](../examples/ci/repodna.yml).
 
 ## Badges
 

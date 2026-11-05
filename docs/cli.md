@@ -153,7 +153,12 @@ automatically upload reports or claim code-scanning compatibility beyond its
 documented SARIF subset.
 
 With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
-`failed`, and `failing` fields and adds a structured `changes` object:
+`failed`, and `failing` fields and adds a structured `changes` object.
+**Availability:** `changes.architecture.fileOwners` is implemented on `main`
+for v1.5.0 development, not in the published v1.4.5 CLI or versioned GitHub
+Action. The other documented baseline-delta fields predate this addition. For
+a step-by-step example and compatibility notes, see
+[reviewing changes](reviewing-changes.md):
 
 - `changes.files.added`, `removed`, and `modified`: alphabetically ordered,
   repository-relative paths (not merely counts). A file is reported as
@@ -193,7 +198,8 @@ edge changes when architecture was analyzed. Each detail list includes at most
 escaped, and individual entries are clipped to 180 characters. The ordinary
 summary remains unchanged when no baseline is provided. This output may still
 contain private paths and finding titles: do not post it publicly without
-reviewing its contents.
+reviewing its contents. In the v1.5.0 development tree, the Markdown baseline
+impact also includes up to 10 per-file module-ownership entries.
 
 An active finding that was suppressed in the baseline counts as introduced if
 it becomes active, including for `--new-only --fail-on`. Without a baseline
