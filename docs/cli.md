@@ -200,7 +200,10 @@ For human-readable pull-request reviews, use
 `--summary-file "$GITHUB_STEP_SUMMARY"` with any CI format. The Markdown
 summary now contains a **Baseline impact** section showing file changes,
 introduced/resolved findings, touched modules, immediate dependents, and module
-edge changes when architecture was analyzed. Each detail list includes at most
+edge changes when architecture was analyzed. Introduced and resolved
+findings include one associated file path when available and a count of
+additional paths. This is a review hint, not a verified evidence line;
+use structured JSON for the complete path list. Each detail list includes at most
 10 entries plus an omitted-count indicator; repository-controlled text is
 escaped, and individual entries are clipped to 180 characters. The ordinary
 summary remains unchanged when no baseline is provided. This output may still
