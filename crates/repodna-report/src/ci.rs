@@ -514,6 +514,26 @@ fn markdown_entries(out: &mut String, title: &str, entries: impl ExactSizeIterat
     }
 }
 
+/// A bounded Markdown review hint, not a claim that the path is the
+/// finding's exact evidence location. Complete paths remain in the JSON delta.
+fn review_finding_entry(finding: &CiFindingChange) -> String {
+    let mut summary = format!(
+        "{} [{}; {}] ({})",
+        finding.title,
+        finding.severity.label(),
+        finding.rule,
+        finding.id
+    );
+    if let Some(first_path) = finding.paths.first() {
+        summary.push_str(" — path: ");
+        summary.push_str(first_path);
+        if finding.paths.len() > 1 {
+            summary.push_str(&format!(" (+{} more paths)", finding.paths.len() - 1));
+        }
+    }
+    summary
+}
+
 /// Markdown summary, for example for $GITHUB_STEP_SUMMARY.
 pub fn markdown(outcome: &CiOutcome) -> String {
     let mut out = String::from("### RepoDNA analysis\n\n| Signal | Value |\n| --- | --- |\n");
@@ -560,28 +580,12 @@ pub fn markdown(outcome: &CiOutcome) -> String {
         markdown_entries(
             &mut out,
             "Introduced findings",
-            changes.introduced.iter().map(|f| {
-                format!(
-                    "{} [{}; {}] ({})",
-                    f.title,
-                    f.severity.label(),
-                    f.rule,
-                    f.id
-                )
-            }),
+            changes.introduced.iter().map(review_finding_entry),
         );
         markdown_entries(
             &mut out,
             "Resolved findings",
-            changes.resolved.iter().map(|f| {
-                format!(
-                    "{} [{}; {}] ({})",
-                    f.title,
-                    f.severity.label(),
-                    f.rule,
-                    f.id
-                )
-            }),
+            changes.resolved.iter().map(review_finding_entry),
         );
         if let Some(architecture) = &changes.architecture {
             markdown_entries(
@@ -879,6 +883,29 @@ mod tests {
         assert!(report.contains(r"name\|\<img src=x\>"));
         assert!(!report.contains("\n## suspicious"));
         assert!(report.contains("not proven causation"));
+    }
+
+    #[test]
+    fn markdown_finding_deltas_include_bounded_escaped_path_hints() {
+        let baseline = artifact(
+            vec![finding("resolved", Severity::Attention).path("old/file.rs")],
+            &[],
+        );
+        let current = artifact(
+            vec![
+                finding("introduced", Severity::Warning)
+                    .path("src/[review]|file.rs")
+                    .path("src/second.rs"),
+                finding("unmapped", Severity::Info),
+            ],
+            &[],
+        );
+        let summary = markdown(&evaluate(&current, Some(&baseline), CiPolicy::default()));
+        assert!(summary.contains("Introduced findings (2)"));
+        assert!(summary.contains("path: src/\\[review\\]\\|file.rs (+1 more paths)"));
+        assert!(summary.contains("path: old/file.rs"));
+        assert!(!summary.contains("src/second.rs"));
+        assert!(summary.contains("Cycle unmapped"));
     }
 
     #[test]
