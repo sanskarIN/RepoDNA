@@ -132,6 +132,32 @@ pub fn load(
     Ok(apply_privacy(&dna, preset))
 }
 
+/// Deletes only the exact stored repository ID, never a matching name or path.
+pub fn delete_repository(store: &Store, id: &str) -> Result<(), LookupError> {
+    let repository = find_repository(store, id)?;
+    if repository.id != id || !store.delete_repository(&repository.id)? {
+        return Err(LookupError::NoRepository(id.to_owned()));
+    }
+    Ok(())
+}
+
+/// Deletes one exact scan owned by the selected repository. A missing or
+/// unrelated scan must never remove another repository's history.
+pub fn delete_scan(store: &Store, repository_id: &str, scan_id: &str) -> Result<(), LookupError> {
+    let repository = find_repository(store, repository_id)?;
+    if repository.id != repository_id {
+        return Err(LookupError::NoRepository(repository_id.to_owned()));
+    }
+    let scan = store
+        .scan(scan_id)?
+        .filter(|scan| scan.id == scan_id && scan.repository_id == repository.id)
+        .ok_or(LookupError::NoScan)?;
+    if !store.delete_scan(&scan.id)? {
+        return Err(LookupError::NoScan);
+    }
+    Ok(())
+}
+
 /// Parses a privacy preset name (`local`, `share`, or `public`).
 pub fn parse_privacy(name: &str) -> Result<PrivacyPreset, String> {
     match name {

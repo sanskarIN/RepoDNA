@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: October 10, 2026
+Last updated: November 5, 2026
 
 This policy explains how RepoDNA handles information. It covers the `repodna` command line,
 the RepoDNA desktop app, the web interface of `repodna serve`, and the web version at
@@ -33,7 +33,11 @@ described in "AI explanations" below.
   explanations you ask for, and your settings in a folder on your device. The
   [privacy guide](https://github.com/sanskarIN/RepoDNA/blob/main/docs/privacy.md) says where
   it is and how to delete it; `repodna clean` and `repodna cache reset` remove stored data,
-  and `--no-store` analyzes without storing anything.
+  and `--no-store` analyzes without storing anything. In the desktop app and the
+  authenticated local server web interface, **Stored analyses** on the start page lets
+  you permanently delete one saved scan or every saved scan for a repository. This
+  deletes RepoDNA's corresponding local database records and saved analysis artifacts,
+  but not the source repository, exported reports, or unrelated cache entries.
 - Reports, cards, badges, exports, and diagnostics files are created only when you ask for
   them, where you choose.
 - The web interface keeps your theme choice in your browser's local storage. When it is
