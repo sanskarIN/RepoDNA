@@ -1,0 +1,29 @@
+name: v1.5.0 Windows MSI upgrade qualification
+
+on:
+  push:
+    branches:
+      - qa/v1.5.0-msi-upgrade
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  windows-msi-upgrade:
+    name: Verify v1.4.5 to v1.5.0 MSI upgrade and uninstall
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download the exact unpublished candidate installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 42050883059 --repo sanskarIN/RepoDNA --name desktop-Windows --dir dist
+          if (-not (Test-Path -LiteralPath 'dist/RepoDNA_1.5.0_x64_en-US.msi' -PathType Leaf)) {
+            throw 'Missing v1.5.0 x64 MSI in frozen release-trial artifact'
+          }
+      - name: Verify real install, upgrade and uninstall
+        shell: pwsh
+        run: ./packaging/release/test/windows-msi-upgrade.ps1 -CandidateMsi 'dist/RepoDNA_1.5.0_x64_en-US.msi'
