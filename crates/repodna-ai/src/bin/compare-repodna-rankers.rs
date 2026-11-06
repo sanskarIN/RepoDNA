@@ -12,8 +12,7 @@ use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, RankerModel, RepositoryProvenance, checkpoint_fingerprint,
     evaluate_original_order, evaluate_repository_balanced, evaluate_repository_stability,
     evaluation_order_fingerprint, family_manifest_fingerprint, training_data_fingerprint,
-    validate_repository_families,
-    validate_repository_split,
+    validate_repository_families, validate_repository_split,
 };
 
 #[path = "support/bounded_input.rs"]
@@ -145,8 +144,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // or score-tie behavior. Bind the exact typed validation/test row sequence.
     let validation_order_sha256 =
         evaluation_order_fingerprint(&validation).map_err(io::Error::other)?;
-    let final_test_order_sha256 =
-        evaluation_order_fingerprint(&test).map_err(io::Error::other)?;
+    let final_test_order_sha256 = evaluation_order_fingerprint(&test).map_err(io::Error::other)?;
     // Export only after validation and final evaluation have succeeded.
     // create_new refuses an accidental overwrite of a prior experiment.
     let bytes = serde_json::to_vec_pretty(&model)?;
