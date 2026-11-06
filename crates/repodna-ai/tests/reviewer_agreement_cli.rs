@@ -26,6 +26,159 @@ fn audit(a: &Path, b: &Path) -> Output {
         .expect("run reviewer agreement audit")
 }
 
+fn task_manifest() -> Vec<serde_json::Value> {
+    vec![
+        serde_json::json!({
+            "repository": " SYNTHETIC-ALPHA ",
+            "query": "Which dependencies are locked?",
+            "task": "dependencies"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-alpha",
+            "query": "How is the project built?",
+            "task": "build_commands"
+        }),
+        serde_json::json!({
+            "repository": "synthetic-beta",
+            "query": "Where are security findings?",
+            "task": "security"
+        }),
+    ]
+}
+
+fn audit_tasks(a: &Path, b: &Path, tasks: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_audit-repodna-reviewers"))
+        .arg(a)
+        .arg(b)
+        .arg("--tasks")
+        .arg(tasks)
+        .output()
+        .expect("run task-stratified reviewer agreement")
+}
+
+#[test]
+fn reports_curated_task_agreement_without_disclosing_individual_reviews() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let first = dir.path().join("first.json");
+    let second = dir.path().join("second.json");
+    let tasks = dir.path().join("tasks.json");
+    let a = labels();
+    let mut b = a.clone();
+    b[0]["relevant"] = false.into();
+    b.reverse();
+    review(&first, &a);
+    review(&second, &b);
+    review(&tasks, &task_manifest());
+
+    let output = audit_tasks(&first, &second, &tasks);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("task agreement JSON");
+    assert_eq!(report["pairedAnnotations"], 6);
+    assert_eq!(report["disagreements"], 1);
+    assert_eq!(
+        report["taskAgreement"]["schema"],
+        "repodna-reviewer-task-agreement/1"
+    );
+    assert_eq!(report["taskAgreement"]["manifestQuestions"], 3);
+    assert_eq!(
+        report["taskAgreement"]["summaries"]["dependencies"]["pairedAnnotations"],
+        2
+    );
+    assert_eq!(
+        report["taskAgreement"]["summaries"]["dependencies"]["disagreements"],
+        1
+    );
+    assert_eq!(
+        report["taskAgreement"]["summaries"]["build_commands"]["disagreements"],
+        0
+    );
+    assert_eq!(
+        report["taskAgreement"]["summaries"]["security"]["agreements"],
+        2
+    );
+    let public = String::from_utf8(output.stdout).expect("UTF-8");
+    for private in [
+        "synthetic-alpha",
+        "synthetic-beta",
+        "Which dependencies",
+        "Cargo.lock",
+        "Where are security findings?",
+    ] {
+        assert!(!public.contains(private), "raw review metadata was emitted");
+    }
+}
+
+#[test]
+fn task_manifest_fails_closed_on_missing_duplicate_and_unknown_categories() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let first = dir.path().join("first.json");
+    let second = dir.path().join("second.json");
+    let tasks = dir.path().join("tasks.json");
+    let a = labels();
+    review(&first, &a);
+    review(&second, &a);
+
+    let mut entries = task_manifest();
+    entries.pop();
+    review(&tasks, &entries);
+    let missing = audit_tasks(&first, &second, &tasks);
+    assert!(!missing.status.success());
+    assert!(missing.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("missing"));
+
+    let mut entries = task_manifest();
+    entries.push(entries[0].clone());
+    review(&tasks, &entries);
+    let duplicate = audit_tasks(&first, &second, &tasks);
+    assert!(!duplicate.status.success());
+    assert!(duplicate.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&duplicate.stderr).contains("duplicate"));
+
+    let mut entries = task_manifest();
+    entries[0]["task"] = "uncertain".into();
+    review(&tasks, &entries);
+    let unknown = audit_tasks(&first, &second, &tasks);
+    assert!(!unknown.status.success());
+    assert!(unknown.stdout.is_empty());
+
+    let nonregular = audit_tasks(&first, &second, dir.path());
+    assert!(!nonregular.status.success());
+    assert!(nonregular.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&nonregular.stderr).contains("regular file"));
+}
+
+#[test]
+fn supports_simultaneous_adjudication_and_task_aggregation() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let first = dir.path().join("first.json");
+    let second = dir.path().join("second.json");
+    let finalized = dir.path().join("final.json");
+    let tasks = dir.path().join("tasks.json");
+    let a = labels();
+    review(&first, &a);
+    review(&second, &a);
+    review(&finalized, &a);
+    review(&tasks, &task_manifest());
+    let output = Command::new(env!("CARGO_BIN_EXE_audit-repodna-reviewers"))
+        .arg(&first)
+        .arg(&second)
+        .arg(&finalized)
+        .arg("--tasks")
+        .arg(&tasks)
+        .output()
+        .expect("run adjudication and task audit");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid JSON");
+    assert_eq!(report["adjudication"]["structuralChecksPassed"], true);
+    assert_eq!(report["taskAgreement"]["manifestQuestions"], 3);
+}
+
 #[test]
 fn rejects_nonregular_reviewer_inputs_without_partial_output() {
     let dir = tempfile::tempdir().expect("temporary directory");
