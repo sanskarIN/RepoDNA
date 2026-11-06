@@ -24,7 +24,11 @@ const MAX_CHECKPOINT_BYTES: u64 = 64 * 1024;
 const MAX_TASK_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
 
 fn bounded_read(path: &Path, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    bounded_input::read_bounded_file(path, limit, &format!("input exceeds the {limit}-byte limit"))
+    bounded_input::read_bounded_file(
+        path,
+        limit,
+        &format!("input exceeds the {limit}-byte limit"),
+    )
 }
 
 fn load_samples(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {
