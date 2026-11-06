@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 use std::ffi::OsString;
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -16,19 +16,15 @@ use repodna_ai::ranking::{
 use repodna_ai::task::AiTask;
 use repodna_core::model::artifact::RepositoryDna;
 
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
+
 const MAX_ARTIFACT_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_LABELS_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Read a local JSON file with a hard byte budget.
 fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > limit {
-        return Err(format!("input exceeds {limit}-byte limit").into());
-    }
-    let bytes = fs::read(path)?;
-    if bytes.len() as u64 > limit {
-        return Err(format!("input exceeds {limit}-byte limit").into());
-    }
-    Ok(bytes)
+    bounded_input::read_bounded_file(path, limit, &format!("input exceeds {limit}-byte limit"))
 }
 
 fn required_utf8<'a>(arg: &'a OsString, name: &str) -> Result<&'a str, io::Error> {
@@ -141,6 +137,7 @@ mod tests {
     use repodna_ai::ranking::AnnotationExample;
     use repodna_core::model::identity::RepositoryIdentity;
     use repodna_core::model::metadata::AnalysisMetadata;
+    use std::fs;
 
     #[test]
     fn prepare_requires_explicit_review_before_finalize() {

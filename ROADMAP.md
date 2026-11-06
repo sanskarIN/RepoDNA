@@ -15,39 +15,38 @@ the browser, and an official GitHub Action runs RepoDNA in workflows.
 - Measure and improve performance on large repositories and long histories, and publish the
   results with the [benchmarks](benchmarks/README.md).
 
-## After v1.4.5 — v1.5.0 development
+## After v1.5.0 — continued development
 
-RepoDNA v1.4.5 is the current published stable release. The next milestone is
-**v1.5.0 development**, not an immediate version change or a release promise.
-Work should be reviewed in separately tested PRs with compatibility, privacy,
-offline behavior, and performance checks.
+RepoDNA **v1.5.0 was published as a stable release on November 6, 2026**.
+See the [stable release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)
+and [release notes](CHANGELOG.md). It ships confirmed deletion of locally
+saved analysis history, reviewed findings export previews, more deterministic
+CI baseline comparisons, and stronger release inventory checks. The Windows
+desktop publisher is `RepoDNA`.
 
-The development tree already includes typed baseline CI deltas for introduced
-and resolved findings, repository-relative file paths, touched modules,
-immediate dependents and module edges. It also reports before-and-after
-module ownership for changed files (#198) and prevents incorrect root-module
-attribution (#197). Filtered Findings exports now require a bounded local
-review and an explicit save action (#195). **These changes on `main` do not
-mean that v1.5.0 has been released.**
+Development after this release continues in separately tested PRs; changes
+on `main` are not automatically part of an existing stable binary. No next
+version number or release date is promised.
 
-Next steps include verified evidence navigation, handling renames and unknown
-coverage explicitly, a genuinely share-safe export policy, and real-world
-performance and correctness measurements. An export preview is not redaction;
-one-hop dependencies do not prove causation. See the
-[review guide](docs/reviewing-changes.md) and
-[release checklist](packaging/release/v1.5.0-checklist.md).
+The next priorities are privacy-safe full exports, reliable source-evidence
+navigation, explicit rename/unknown semantics in CI change comparisons,
+and measured performance on real repositories. The offline native evidence
+ranker also needs a genuinely independent, human-reviewed,
+clone-family-disjoint benchmark before any accuracy claims; see
+[benchmark issue #173](https://github.com/sanskarIN/RepoDNA/issues/173).
 
 ## Candidate feature milestones
 
-These are prioritized candidates, not features claimed to be complete or a promised
-release schedule. Ship each behind tests and independent PR review:
+These are follow-on development areas, not a promised release schedule.
+Previously shipped functionality is noted explicitly; ship further changes
+behind tests and independent PR review:
 
 1. **Review-ready findings exports.** Filtered CSV, JSON and Markdown exports
-   and a local review-before-save step are implemented on `main`. Next: a
+   and a local review-before-save step shipped in v1.5.0. Next: a
    clearly defined privacy or redaction policy that covers the full export,
    not just the bounded preview.
 2. **Pull request impact summaries.** Typed finding deltas, changed paths,
-   one-hop architecture impact and per-file module ownership exist on `main`.
+   one-hop architecture impact and per-file module ownership shipped in v1.5.0.
    Next: actionable evidence references, real-world evaluation, and explicit
    rename/unknown semantics before claiming comprehensive impact analysis.
 3. **Incremental local analysis.** Cache stages by revision, profile, and relevant

@@ -21,6 +21,19 @@ fn audit(train: &Path, validation: &Path, test: &Path) -> Output {
 }
 
 #[test]
+fn rejects_nonregular_dataset_without_partial_report() {
+    let temp = tempfile::tempdir().expect("temporary directory");
+    let output = audit(
+        temp.path(),
+        &fixture("holdout.demo.json"),
+        &fixture("test.demo.json"),
+    );
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("regular file"));
+}
+
+#[test]
 fn audits_independent_datasets_with_aggregates_only() {
     let output = audit(
         &fixture("train.demo.json"),
