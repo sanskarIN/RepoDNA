@@ -28,11 +28,7 @@ fn train(training: &Path, holdout: &Path, destination: &Path) -> Output {
 fn rejects_nonregular_training_input_before_checkpoint_creation() {
     let dir = tempfile::tempdir().expect("temporary directory");
     let checkpoint = dir.path().join("must-not-exist.json");
-    let output = train(
-        dir.path(),
-        &fixture("holdout.demo.json"),
-        &checkpoint,
-    );
+    let output = train(dir.path(), &fixture("holdout.demo.json"), &checkpoint);
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
     assert!(!checkpoint.exists());
