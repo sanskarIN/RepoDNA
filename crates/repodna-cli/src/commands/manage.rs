@@ -248,7 +248,7 @@ pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
             let report = repodna_store::reset(&StorePaths::new(&ctx.paths.data_home))?;
             let explanations = repodna_app::explain::clear_explanations(&ctx.paths)?;
             print(&format!(
-                "Removed {} database files and {} cached explanations. Your repositories were not touched.",
+                "Removed {} SQLite database files and {} cached explanations. Saved analysis artifacts were kept. Run `repodna cache repair` to restore their index. Source repositories and user configuration were not touched.",
                 report.removed.len(),
                 explanations
             ))
