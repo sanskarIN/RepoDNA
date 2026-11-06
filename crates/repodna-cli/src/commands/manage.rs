@@ -177,6 +177,7 @@ pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
         CacheAction::Stats { json } => {
             let store = ctx.paths.open_store()?;
             let stats = store.stats()?;
+            let unindexed_artifacts = store.unindexed_artifact_count()?;
             let (explanations, explanation_bytes) =
                 count_explanations(&ctx.paths.explanation_dir());
             if *json {
@@ -187,6 +188,7 @@ pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
                     "scans": stats.scans,
                     "artifacts": stats.artifacts,
                     "artifactBytes": stats.artifact_bytes,
+                    "unindexedArtifacts": unindexed_artifacts,
                     "cacheEntries": stats.cache.entries,
                     "cacheBytes": stats.cache.bytes,
                     "explanations": explanations,
@@ -194,11 +196,17 @@ pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
                 }))?);
             }
             print(&format!(
-                "Storage: {}\n  Repositories         {}\n  Stored analyses      {} ({})\n  Database             {}\n  File analysis cache  {} entries ({})\n  Cached explanations  {} ({})\n",
+                "Storage: {}\n  Repositories         {}\n  Stored analyses      {} ({})\n  Unindexed artifacts  {}{}\n  Database             {}\n  File analysis cache  {} entries ({})\n  Cached explanations  {} ({})\n",
                 stats.home.display(),
                 thousands(stats.repositories),
                 thousands(stats.scans),
                 bytes(stats.artifact_bytes),
+                thousands(unindexed_artifacts as u64),
+                if unindexed_artifacts > 0 {
+                    " (run `repodna cache repair` before cleanup)"
+                } else {
+                    ""
+                },
                 bytes(stats.database_bytes),
                 thousands(stats.cache.entries),
                 bytes(stats.cache.bytes),
@@ -259,6 +267,19 @@ pub fn run_cache(ctx: &Ctx, cmd: &CacheCmd) -> Result<(), AppError> {
 /// Runs `repodna clean`.
 pub fn run_clean(ctx: &Ctx, cmd: &CleanCmd) -> Result<(), AppError> {
     let store = ctx.paths.open_store()?;
+    // The index may be empty after `cache reset` while saved JSON artifacts
+    // are still on disk. Refuse a misleading "Nothing to delete" response,
+    // and never delete a repository directory containing unindexed scans.
+    // This check applies to dry runs, --all and individual repositories.
+    let unindexed = store.unindexed_artifact_count()?;
+    if unindexed > 0 {
+        return Err(AppError::input(format!(
+            "cannot clean stored analyses: {unindexed} saved artifact(s) are not indexed"
+        ))
+        .with_hint(
+            "Run `repodna cache repair` first, then repeat `repodna clean`. Inspect skipped or damaged artifacts before deleting files manually.",
+        ));
+    }
     let repositories = if cmd.all {
         store.repositories()?
     } else {
