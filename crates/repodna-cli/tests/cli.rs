@@ -529,7 +529,10 @@ fn cache_reset_preserves_analysis_files_and_repair_restores_history() {
         .filter(|file| file.extension().is_some_and(|ext| ext == "json"))
         .map(|file| (file.clone(), std::fs::read(file).unwrap()))
         .collect();
-    assert!(files.len() >= 2, "scan JSON and repository descriptor expected");
+    assert!(
+        files.len() >= 2,
+        "scan JSON and repository descriptor expected"
+    );
 
     let config = env.home.path().join("config.toml");
     std::fs::write(&config, "[performance]\ncache = true\n").unwrap();
