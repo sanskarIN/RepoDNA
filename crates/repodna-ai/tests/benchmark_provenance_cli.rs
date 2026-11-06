@@ -88,7 +88,8 @@ fn verifies_saved_model_and_all_label_splits_without_manifest() {
     let result: serde_json::Value =
         serde_json::from_slice(&verified.stdout).expect("valid verifier output");
     assert_eq!(result["verified"], true);
-    assert_eq!(result["schema"], "repodna-benchmark-provenance/2");
+    assert_eq!(result["evaluationOrderVerified"], true);
+    assert_eq!(result["schema"], "repodna-benchmark-provenance/3");
     assert_eq!(result["familyManifestChecked"], false);
     assert!(result["familyManifestSha256"].is_null());
     assert_eq!(
@@ -234,7 +235,8 @@ fn full_replay_verifies_all_ten_candidates_and_final_test_without_manifest() {
         serde_json::from_slice(&replayed.stdout).expect("valid replay JSON");
     assert_eq!(value["replayVerified"], true);
     assert_eq!(value["verified"], true);
-    assert_eq!(value["schema"], "repodna-benchmark-provenance/2");
+    assert_eq!(value["evaluationOrderVerified"], true);
+    assert_eq!(value["schema"], "repodna-benchmark-provenance/3");
     assert!(!String::from_utf8_lossy(&replayed.stdout).contains("synthetic-alpha"));
 }
 
@@ -246,7 +248,7 @@ fn replay_validates_v2_repository_stability_and_balanced_metrics() {
         serde_json::from_slice(&fs::read(&report).expect("read report")).expect("valid report");
     assert_eq!(
         payload["provenanceSchema"],
-        "repodna-benchmark-provenance/2"
+        "repodna-benchmark-provenance/3"
     );
     let stability = &payload["finalTestRepositoryStability"];
     assert_eq!(stability["repositories"], 2);
@@ -317,6 +319,8 @@ fn legacy_v1_report_remains_verifiable_without_v2_stability_metrics() {
     let mut payload: serde_json::Value =
         serde_json::from_slice(&fs::read(&report).expect("read original")).expect("valid report");
     payload["provenanceSchema"] = "repodna-benchmark-provenance/1".into();
+    payload.as_object_mut().unwrap().remove("validationOrderSha256");
+    payload.as_object_mut().unwrap().remove("finalTestOrderSha256");
     payload
         .as_object_mut()
         .expect("report object")
@@ -337,6 +341,7 @@ fn legacy_v1_report_remains_verifiable_without_v2_stability_metrics() {
     let identity: serde_json::Value =
         serde_json::from_slice(&checked.stdout).expect("valid result");
     assert_eq!(identity["schema"], "repodna-benchmark-provenance/1");
+    assert_eq!(identity["evaluationOrderVerified"], false);
     let replay = verify_replay(&legacy, &model, &fixture("holdout.demo.json"), None);
     assert!(
         replay.status.success(),
@@ -346,6 +351,92 @@ fn legacy_v1_report_remains_verifiable_without_v2_stability_metrics() {
     let result: serde_json::Value = serde_json::from_slice(&replay.stdout).expect("replay JSON");
     assert_eq!(result["schema"], "repodna-benchmark-provenance/1");
     assert_eq!(result["replayVerified"], true);
+}
+
+#[test]
+fn v3_refuses_reordered_evaluation_records_even_when_content_hash_matches() {
+    use repodna_ai::ranking::{LabeledEvidence, training_data_fingerprint};
+
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let (report, model) = prepare(dir.path(), None);
+    let original: serde_json::Value =
+        serde_json::from_slice(&fs::read(&report).expect("read report")).expect("report JSON");
+    assert_eq!(original["provenanceSchema"], "repodna-benchmark-provenance/3");
+    assert_eq!(original["validationOrderSha256"].as_str().unwrap().len(), 64);
+    assert_eq!(original["finalTestOrderSha256"].as_str().unwrap().len(), 64);
+
+    for (name, field) in [
+        ("holdout.demo.json", "validationOrderSha256"),
+        ("test.demo.json", "finalTestOrderSha256"),
+    ] {
+        let mut altered = records(name);
+        altered.swap(0, 1); // Same reviewed labels; candidate sequence changes.
+        let path = dir.path().join(format!("reordered-{name}"));
+        fs::write(&path, serde_json::to_vec(&altered).expect("JSON")).expect("write dataset");
+
+        let original_labels: Vec<LabeledEvidence> =
+            serde_json::from_slice(&fs::read(fixture(name)).unwrap()).unwrap();
+        let altered_labels: Vec<LabeledEvidence> =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            training_data_fingerprint(&original_labels).unwrap(),
+            training_data_fingerprint(&altered_labels).unwrap(),
+            "canonical content fingerprint is intentionally row-order-independent"
+        );
+
+        let output = if name == "holdout.demo.json" {
+            verify(&report, &model, &path, None)
+        } else {
+            Command::new(env!("CARGO_BIN_EXE_verify-repodna-benchmark"))
+                .arg(&report)
+                .arg(&model)
+                .arg(fixture("train.demo.json"))
+                .arg(fixture("holdout.demo.json"))
+                .arg(&path)
+                .output()
+                .expect("verify reordered final test")
+        };
+        assert!(!output.status.success(), "{name} order unexpectedly accepted");
+        assert!(output.stdout.is_empty());
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains(field),
+            "expected order mismatch diagnostic for {field}"
+        );
+    }
+
+    let mut missing = original;
+    missing.as_object_mut().unwrap().remove("validationOrderSha256");
+    let path = dir.path().join("missing-order.json");
+    fs::write(&path, serde_json::to_vec(&missing).unwrap()).unwrap();
+    let output = verify(&path, &model, &fixture("holdout.demo.json"), None);
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("validationOrderSha256"));
+}
+
+#[test]
+fn legacy_v2_report_still_verifies_but_cannot_claim_order_identity() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let (report, model) = prepare(dir.path(), None);
+    let mut payload: serde_json::Value =
+        serde_json::from_slice(&fs::read(&report).unwrap()).unwrap();
+    payload["provenanceSchema"] = "repodna-benchmark-provenance/2".into();
+    payload.as_object_mut().unwrap().remove("validationOrderSha256");
+    payload.as_object_mut().unwrap().remove("finalTestOrderSha256");
+    let legacy = dir.path().join("legacy-v2.json");
+    fs::write(&legacy, serde_json::to_vec(&payload).unwrap()).unwrap();
+
+    let checked = verify(&legacy, &model, &fixture("holdout.demo.json"), None);
+    assert!(checked.status.success(), "{}", String::from_utf8_lossy(&checked.stderr));
+    let result: serde_json::Value = serde_json::from_slice(&checked.stdout).unwrap();
+    assert_eq!(result["schema"], "repodna-benchmark-provenance/2");
+    assert_eq!(result["evaluationOrderVerified"], false);
+
+    let replay = verify_replay(&legacy, &model, &fixture("holdout.demo.json"), None);
+    assert!(replay.status.success(), "{}", String::from_utf8_lossy(&replay.stderr));
+    let result: serde_json::Value = serde_json::from_slice(&replay.stdout).unwrap();
+    assert_eq!(result["replayVerified"], true);
+    assert_eq!(result["evaluationOrderVerified"], false);
 }
 
 #[test]
