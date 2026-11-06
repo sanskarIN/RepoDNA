@@ -37,8 +37,9 @@ clone-family-disjoint benchmark before any accuracy claims; see
 
 ## Candidate feature milestones
 
-These are prioritized candidates, not features claimed to be complete or a promised
-release schedule. Ship each behind tests and independent PR review:
+These are follow-on development areas, not a promised release schedule.
+Previously shipped functionality is noted explicitly; ship further changes
+behind tests and independent PR review:
 
 1. **Review-ready findings exports.** Filtered CSV, JSON and Markdown exports
    and a local review-before-save step shipped in v1.5.0. Next: a
