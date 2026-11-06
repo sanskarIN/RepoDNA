@@ -52,9 +52,19 @@ The data directory holds:
 - `artifacts/`: each stored analysis as a JSON file;
 - `explanations/`: cached AI explanations, if you use them.
 
-The analyzed repositories are never written to. Remove stored data with `repodna clean`,
-`repodna cache clear`, or `repodna cache reset`, or by deleting the directory. Use
-`--no-store` to analyze without storing anything.
+The analyzed source repositories are never written to. To delete saved analysis
+records and their JSON artifacts, run `repodna clean --all --yes`. To remove
+only cached per-file analysis results and cached AI explanations, run
+`repodna cache clear`.
+
+`repodna cache reset --yes` removes the SQLite database and analysis cache
+**but deliberately preserves the saved JSON artifacts**. The index appears empty
+until you run `repodna cache repair` to re-index those artifacts. It also
+clears cached AI explanations. Do not use cache reset to permanently erase
+stored analyses. To discard every kind of locally stored data, close RepoDNA
+and remove its data directory after reviewing any data and configuration
+stored there; deleting that directory cannot be undone. Use `--no-store` to
+analyze without creating saved analysis records.
 
 ### In the browser
 
