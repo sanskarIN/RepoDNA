@@ -101,6 +101,18 @@ fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
         evaluation_report["repositoryBalancedRetrieval"]["originalOrderNdcgAtK"],
         evaluation_report["originalOrderBaseline"]["ndcgAtK"]
     );
+    assert_eq!(evaluation_report["repositoryStability"]["repositories"], 1);
+    assert_eq!(
+        evaluation_report["repositoryStability"]["evaluatedRepositories"],
+        1
+    );
+    assert_eq!(
+        evaluation_report["repositoryStability"]["minRepositoryNdcgAtK"],
+        evaluation_report["repositoryBalancedRetrieval"]["ndcgAtK"]
+    );
+    assert!(
+        evaluation_report["repositoryStability"]["leaveOneOutMinNdcgAtK"].is_null()
+    );
     assert_eq!(evaluation_report["trainingRepositories"], 2);
     assert_eq!(evaluation_report["trainingExamples"], 6);
     assert_eq!(evaluation_report["trainingFingerprintVerified"], true);
@@ -112,6 +124,66 @@ fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
     assert!(!output_text.contains("synthetic-alpha"));
     assert!(!output_text.contains("src/main.rs"));
     assert!(!output_text.contains("\"relevant\":"));
+}
+
+#[test]
+fn frozen_evaluation_reports_repository_robustness_without_identifiers() {
+    let dir = tempfile::tempdir().expect("temporary folder");
+    let checkpoint = dir.path().join("trained.json");
+    assert!(train(&checkpoint).status.success());
+    let holdout = dir.path().join("combined.json");
+    let mut samples: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("test.demo.json")).unwrap()).unwrap();
+    let extra: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("holdout.demo.json")).unwrap()).unwrap();
+    samples.extend(extra);
+    fs::write(&holdout, serde_json::to_vec(&samples).unwrap()).unwrap();
+
+    let output = evaluate(&checkpoint, &fixture("train.demo.json"), &holdout);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("aggregate JSON report");
+    let stability = &report["repositoryStability"];
+    assert_eq!(stability["k"], 5);
+    assert_eq!(stability["repositories"], 3);
+    assert_eq!(stability["evaluatedRepositories"], 2);
+    assert_eq!(stability["unanswerableRepositories"], 1);
+    let category_total = stability["improvedRepositories"].as_u64().unwrap()
+        + stability["unchangedRepositories"].as_u64().unwrap()
+        + stability["regressedRepositories"].as_u64().unwrap();
+    assert_eq!(category_total, 2);
+    for key in [
+        "minRepositoryNdcgAtK",
+        "maxRepositoryNdcgAtK",
+        "leaveOneOutMinNdcgAtK",
+        "leaveOneOutMaxNdcgAtK",
+        "leaveOneOutMinNdcgDelta",
+        "leaveOneOutMaxNdcgDelta",
+    ] {
+        assert!(stability[key].is_number(), "expected numeric {key}");
+    }
+    assert!(
+        stability["minRepositoryNdcgAtK"].as_f64().unwrap()
+            <= stability["maxRepositoryNdcgAtK"].as_f64().unwrap()
+    );
+    assert!(
+        stability["leaveOneOutMinNdcgDelta"].as_f64().unwrap()
+            <= stability["leaveOneOutMaxNdcgDelta"].as_f64().unwrap()
+    );
+    let published = String::from_utf8(output.stdout).unwrap();
+    for hidden in [
+        "synthetic-delta",
+        "synthetic-gamma",
+        "synthetic-epsilon",
+        "Where is the deployment secret?",
+        "Cargo.lock",
+    ] {
+        assert!(!published.contains(hidden), "private test labels leaked");
+    }
 }
 
 #[test]
