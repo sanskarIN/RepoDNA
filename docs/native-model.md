@@ -64,6 +64,12 @@ Trained neural checkpoints and generative text inference are **not included yet*
 
 ## Experimental trainable ranker (developer tooling)
 
+Native trainer, selector, evaluator and task-audit JSON inputs must be regular
+files; each input is read using a strict byte cap, including files whose
+sizes change during reading. The CLI refuses oversized inputs before
+training or writing a checkpoint. Checkpoint and dataset limits remain
+command-specific.
+
 The experimental CPU-only linear relevance model can now be trained **locally** from
 human-labeled examples, without pre-trained weights, an AI API or a GPU. It ranks
 RepoDNA evidence; **it cannot generate language**, understand runtime behavior, or
