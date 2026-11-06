@@ -5,7 +5,6 @@
 //! contamination. It cannot verify reviewer expertise or license compliance.
 
 use std::collections::{BTreeMap, HashSet};
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -14,17 +13,14 @@ use repodna_ai::ranking::{
     training_data_fingerprint, validate_repository_families, validate_repository_split,
 };
 
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
+
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
 
 fn load(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > MAX_DATASET_BYTES {
-        return Err("dataset exceeds 8 MiB".into());
-    }
-    let bytes = fs::read(path)?;
-    if bytes.len() as u64 > MAX_DATASET_BYTES {
-        return Err("dataset grew beyond 8 MiB".into());
-    }
+    let bytes = bounded_input::read_bounded_file(path, MAX_DATASET_BYTES, "dataset exceeds 8 MiB")?;
     let samples: Vec<LabeledEvidence> = serde_json::from_slice(&bytes)?;
     if samples.len() > MAX_EXAMPLES {
         return Err("dataset exceeds maximum example count".into());
@@ -160,13 +156,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     validate_repository_split(&train, &test).map_err(io::Error::other)?;
     validate_repository_split(&validation, &test).map_err(io::Error::other)?;
     let (family_audit, family_sha256) = if let Some(path) = family_path {
-        if fs::metadata(&path)?.len() > MAX_MANIFEST_BYTES {
-            return Err("family manifest exceeds 2 MiB".into());
-        }
-        let bytes = fs::read(&path)?;
-        if bytes.len() as u64 > MAX_MANIFEST_BYTES {
-            return Err("family manifest grew beyond 2 MiB".into());
-        }
+        let bytes = bounded_input::read_bounded_file(
+            Path::new(&path),
+            MAX_MANIFEST_BYTES,
+            "family manifest exceeds 2 MiB",
+        )?;
         let entries: Vec<RepositoryProvenance> = serde_json::from_slice(&bytes)?;
         let checked = validate_repository_families(&train, &validation, &test, &entries)
             .map_err(io::Error::other)?;
