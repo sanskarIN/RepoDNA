@@ -52,6 +52,60 @@ questions, evidence paths, source details or reviewer identities. Input roles
 A and B are labels, not actual identities. Agreement does not prove
 independent review, annotation quality, copyright permission or model accuracy.
 
+## Audit double-reviewed subset coverage against a frozen dataset
+
+When only part of a training, validation or final-test split received independent
+second review, the two review files alone cannot establish which portion of the
+**full, fully labeled split** they represent. Supply that split as an optional
+`--source` file to verify exact evidence membership and calculate coverage:
+
+```sh
+cargo run --locked -p repodna-ai --bin audit-repodna-reviewers -- \
+  REVIEW_A.json REVIEW_B.json --source FROZEN_SPLIT.json
+```
+
+The `FROZEN_SPLIT.json` input has the same complete JSON label-record schema as
+the output of `repodna-ranker-labels finalize`. It must contain 1–100,000
+non-excerpt annotations in a regular file no larger than 8 MiB. Its entries
+must be complete and have unique evidence IDs within each normalized
+repository/question. Each double-reviewed evidence record must be **exactly**
+present in this source dataset (repository ID, question, evidence ID, kind,
+reference and detail; review labels may differ). Changing a source record,
+including its evidence metadata, fails the audit without any partial stdout.
+
+The optional `sourceCoverage` report includes source and double-reviewed
+annotation counts, annotation coverage rate, source and reviewed question and
+repository counts, and the numbers of **fully**, **partially** and **not**
+double-reviewed questions. It also includes the stable SHA-256 fingerprint
+of the complete typed source labels. Do not publish this fingerprint if
+linkage between private datasets would be sensitive. These counts establish
+**structural coverage, not the independence, correctness or representative
+sampling of the reviewers**. If reviewing only a subset, avoid claiming the
+entire source dataset was double-reviewed.
+
+To verify that the finalized reviewed subset's judgments actually match
+the source labels, also supply the explicitly adjudicated records:
+
+```sh
+cargo run --locked -p repodna-ai --bin audit-repodna-reviewers -- \
+  REVIEW_A.json REVIEW_B.json ADJUDICATED.json --source FROZEN_SPLIT.json
+```
+
+This enforces exact metadata pairing, adjudication consistency, membership
+and label equality for every adjudicated record. The report field
+`adjudicatedLabelsMatchSourceVerified` is true only in this mode; without the
+third file the audit **cannot** establish label agreement with the source.
+Neither mode verifies how final labels were adjudicated. The source may
+include records outside the reviewed subset; the tool never modifies them.
+
+The `--tasks TASKS.json` and `--source FROZEN_SPLIT.json` flags can be used
+together in either order, with the optional `ADJUDICATED.json` before them.
+Task manifest questions cover exactly the **double-reviewed subset**, not
+the full source dataset. Run the audit separately for each split to avoid
+mixing training, validation and final-test coverage, and preserve the
+repository and clone-family split boundaries established in the
+[dataset audit](ai-label-audit.md).
+
 ## Optional agreement by human-curated task type
 
 Overall agreement can hide inconsistent relevance judgments for individual
