@@ -401,12 +401,21 @@ repodna explain --format json -o explanation.json
 | `repodna cache stats` | Shows storage and cache sizes. |
 | `repodna cache clear` | Clears the per-file analysis cache and cached explanations. |
 | `repodna cache repair` | Checks the database, sets a damaged one aside, and rebuilds the index from stored artifacts. |
-| `repodna cache reset` | Deletes the database and cache; stored artifacts are kept and can be re-indexed. |
+| `repodna cache reset --yes` | Removes the SQLite index and analysis cache, and clears cached explanations. Saved analysis JSON files are kept; `repodna cache repair` restores their index. |
 
 ```sh
 repodna clean polyglot --keep 3          # dry run
 repodna clean polyglot --keep 3 --yes
+
+repodna cache reset --yes                # resets index, retains saved JSON
+repodna cache repair                     # re-indexes saved JSON analyses
+repodna clean --all --yes                # intentionally deletes saved analyses
 ```
+
+**Important:** A cache reset is not an analysis deletion operation. Previously
+saved analysis artifacts remain on disk even while `repodna list` reports no
+indexed scans. Use `clean` for deliberate removal of saved analyses; `cache
+clear` only clears caches.
 
 Repositories themselves are never touched. Storage locations are described in
 [privacy](privacy.md#what-is-stored-and-where).
