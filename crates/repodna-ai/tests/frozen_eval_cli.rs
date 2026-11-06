@@ -110,9 +110,7 @@ fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
         evaluation_report["repositoryStability"]["minRepositoryNdcgAtK"],
         evaluation_report["repositoryBalancedRetrieval"]["ndcgAtK"]
     );
-    assert!(
-        evaluation_report["repositoryStability"]["leaveOneOutMinNdcgAtK"].is_null()
-    );
+    assert!(evaluation_report["repositoryStability"]["leaveOneOutMinNdcgAtK"].is_null());
     assert_eq!(evaluation_report["trainingRepositories"], 2);
     assert_eq!(evaluation_report["trainingExamples"], 6);
     assert_eq!(evaluation_report["trainingFingerprintVerified"], true);
