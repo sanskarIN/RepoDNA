@@ -14,14 +14,17 @@ use std::path::Path;
 
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, PAIRWISE_MODEL_FORMAT, RankerModel,
-    RepositoryProvenance, checkpoint_fingerprint, family_manifest_fingerprint,
-    training_data_fingerprint, validate_repository_families, validate_repository_split,
+    RepositoryProvenance, checkpoint_fingerprint, evaluate_repository_balanced,
+    evaluate_repository_stability, family_manifest_fingerprint, training_data_fingerprint,
+    validate_repository_families, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_REPORT_BYTES: u64 = 512 * 1024;
 const MAX_CHECKPOINT_BYTES: u64 = 64 * 1024;
 const MAX_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
+const PROVENANCE_V1: &str = "repodna-benchmark-provenance/1";
+const PROVENANCE_V2: &str = "repodna-benchmark-provenance/2";
 
 /// Read at most limit + 1 bytes even when an input grows after stat, or
 /// its reported metadata length is inaccurate (for example, a special file).
@@ -204,6 +207,8 @@ fn replay_metrics(
     let ordering = selected
         .evaluate_pair_ordering(test)
         .map_err(io::Error::other)?;
+    let repository_balanced =
+        evaluate_repository_balanced(&selected, test, 5).map_err(io::Error::other)?;
     for (name, expected) in [
         ("finalTestRetrieval", serde_json::to_value(final_retrieval)?),
         (
@@ -212,8 +217,21 @@ fn replay_metrics(
         ),
         ("finalTestRetrievalDelta", serde_json::to_value(delta)?),
         ("finalTestPairOrdering", serde_json::to_value(ordering)?),
+        (
+            "finalTestRepositoryBalancedRetrieval",
+            serde_json::to_value(repository_balanced)?,
+        ),
     ] {
         matching_metric(&report[name], &expected, name)?;
+    }
+    if report["provenanceSchema"] == PROVENANCE_V2 {
+        let stability =
+            evaluate_repository_stability(&selected, test, 5).map_err(io::Error::other)?;
+        matching_metric(
+            &report["finalTestRepositoryStability"],
+            &serde_json::to_value(stability)?,
+            "finalTestRepositoryStability",
+        )?;
     }
     Ok(())
 }
@@ -273,11 +291,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let test_sha256 = training_data_fingerprint(&test).map_err(io::Error::other)?;
     let model_sha256 = checkpoint_fingerprint(&model).map_err(io::Error::other)?;
 
-    require_string(
-        &report,
-        "provenanceSchema",
-        "repodna-benchmark-provenance/1",
-    )?;
+    let provenance_schema = report["provenanceSchema"]
+        .as_str()
+        .ok_or("report is missing benchmark provenance schema")?;
+    if !matches!(provenance_schema, PROVENANCE_V1 | PROVENANCE_V2) {
+        return Err("unsupported benchmark provenance schema".into());
+    }
+    if !report["finalTestRepositoryBalancedRetrieval"].is_object() {
+        return Err("report is missing repository-balanced final-test metrics".into());
+    }
+    if provenance_schema == PROVENANCE_V2 && !report["finalTestRepositoryStability"].is_object() {
+        return Err("v2 benchmark report is missing repository-stability metrics".into());
+    }
     require_string(&report, "selectionMetric", "validationNdcgAt5")?;
     require_string(&report, "trainingDatasetSha256", &training_sha256)?;
     require_string(&report, "validationDatasetSha256", &validation_sha256)?;
@@ -367,7 +392,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let result = serde_json::json!({
         "verified": true,
         "replayVerified": replay,
-        "schema": "repodna-benchmark-provenance/1",
+        "schema": provenance_schema,
         "checkpointSha256": model_sha256,
         "trainingDatasetSha256": training_sha256,
         "validationDatasetSha256": validation_sha256,

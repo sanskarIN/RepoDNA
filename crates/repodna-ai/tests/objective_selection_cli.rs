@@ -40,6 +40,7 @@ fn selects_objective_from_validation_and_exports_reproducible_checkpoint() {
     );
 
     let report: serde_json::Value = serde_json::from_slice(&run.stdout).unwrap();
+    assert_eq!(report["provenanceSchema"], "repodna-benchmark-provenance/2");
     assert_eq!(report["selectionMetric"], "validationNdcgAt5");
     assert_eq!(report["candidates"].as_array().unwrap().len(), 10);
     // The selected configuration must be the first strict maximum in
@@ -75,6 +76,20 @@ fn selects_objective_from_validation_and_exports_reproducible_checkpoint() {
     assert_eq!(
         report["finalTestRepositoryBalancedRetrieval"]["ndcgAtK"],
         report["finalTestRetrieval"]["ndcgAtK"]
+    );
+    assert_eq!(report["finalTestRepositoryStability"]["repositories"], 2);
+    assert_eq!(
+        report["finalTestRepositoryStability"]["evaluatedRepositories"],
+        1
+    );
+    assert_eq!(
+        report["finalTestRepositoryStability"]["unanswerableRepositories"],
+        1
+    );
+    assert!(report["finalTestRepositoryStability"]["leaveOneOutMinNdcgAtK"].is_null());
+    assert_eq!(
+        report["finalTestRepositoryStability"]["minRepositoryNdcgAtK"],
+        report["finalTestRepositoryBalancedRetrieval"]["ndcgAtK"]
     );
     assert_eq!(report["finalTestPairOrdering"]["evaluatedQueries"], 2);
     assert!(report["candidates"][0]["validationPairAgreement"].is_number());
