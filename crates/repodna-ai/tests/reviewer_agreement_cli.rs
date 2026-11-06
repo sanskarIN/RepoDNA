@@ -27,6 +27,15 @@ fn audit(a: &Path, b: &Path) -> Output {
 }
 
 #[test]
+fn rejects_nonregular_reviewer_inputs_without_partial_output() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let output = audit(dir.path(), &fixture());
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("regular file"));
+}
+
+#[test]
 fn reports_perfect_order_independent_agreement_without_leaking_evidence() {
     let dir = tempfile::tempdir().expect("temporary directory");
     let a_path = dir.path().join("a.json");
