@@ -16,8 +16,7 @@ use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, PAIRWISE_MODEL_FORMAT, RankerModel,
     RepositoryProvenance, checkpoint_fingerprint, evaluate_repository_balanced,
     evaluate_repository_stability, evaluation_order_fingerprint, family_manifest_fingerprint,
-    training_data_fingerprint,
-    validate_repository_families, validate_repository_split,
+    training_data_fingerprint, validate_repository_families, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -299,7 +298,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let provenance_schema = report["provenanceSchema"]
         .as_str()
         .ok_or("report is missing benchmark provenance schema")?;
-    if !matches!(provenance_schema, PROVENANCE_V1 | PROVENANCE_V2 | PROVENANCE_V3) {
+    if !matches!(
+        provenance_schema,
+        PROVENANCE_V1 | PROVENANCE_V2 | PROVENANCE_V3
+    ) {
         return Err("unsupported benchmark provenance schema".into());
     }
     if !report["finalTestRepositoryBalancedRetrieval"].is_object() {
