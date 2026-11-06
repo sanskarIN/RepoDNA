@@ -13,7 +13,8 @@ use serde::Deserialize;
 
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, RankerModel, evaluate_original_order,
-    evaluate_repository_balanced, training_data_fingerprint, validate_repository_split,
+    evaluate_repository_balanced, evaluate_repository_stability, training_data_fingerprint,
+    validate_repository_split,
 };
 
 #[path = "support/bounded_input.rs"]
