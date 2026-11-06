@@ -5,12 +5,14 @@
 //! categories or manufactures relevance labels from question text.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{LabeledEvidence, MAX_EXAMPLES, validate_repository_split};
 use serde::{Deserialize, Serialize};
+
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_TASKS_BYTES: u64 = 2 * 1024 * 1024;
@@ -79,14 +81,7 @@ type QuestionKey = (String, String);
 type TaskManifest = BTreeMap<QuestionKey, TaskKind>;
 
 fn read_limited(path: &Path, max: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > max {
-        return Err("benchmark input exceeds configured byte limit".into());
-    }
-    let bytes = fs::read(path)?;
-    if bytes.len() as u64 > max {
-        return Err("benchmark input grew beyond configured byte limit".into());
-    }
-    Ok(bytes)
+    bounded_input::read_bounded_file(path, max, "benchmark input exceeds configured byte limit")
 }
 
 fn load_labels(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {

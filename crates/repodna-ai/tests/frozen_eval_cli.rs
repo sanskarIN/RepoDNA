@@ -30,6 +30,19 @@ fn evaluate(model: &Path, training: &Path, test: &Path) -> Output {
 }
 
 #[test]
+fn rejects_nonregular_frozen_model_inputs_without_partial_report() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let output = evaluate(
+        dir.path(),
+        &fixture("train.demo.json"),
+        &fixture("holdout.demo.json"),
+    );
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("regular file"));
+}
+
+#[test]
 fn frozen_evaluation_matches_training_time_metrics_without_changing_weights() {
     let dir = tempfile::tempdir().unwrap();
     let checkpoint = dir.path().join("ranker.json");

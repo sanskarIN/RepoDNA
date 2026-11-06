@@ -6,7 +6,6 @@
 //! authenticate the model or prove that weights were honestly trained.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -17,19 +16,19 @@ use repodna_ai::ranking::{
     evaluate_repository_balanced, training_data_fingerprint, validate_repository_split,
 };
 
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
+
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_CHECKPOINT_BYTES: u64 = 64 * 1024;
 const MAX_TASK_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
 
 fn bounded_read(path: &Path, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > limit {
-        return Err(format!("input exceeds the {limit}-byte limit").into());
-    }
-    let contents = fs::read(path)?;
-    if contents.len() as u64 > limit {
-        return Err(format!("input grew beyond the {limit}-byte limit").into());
-    }
-    Ok(contents)
+    bounded_input::read_bounded_file(
+        path,
+        limit,
+        &format!("input exceeds the {limit}-byte limit"),
+    )
 }
 
 fn load_samples(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {

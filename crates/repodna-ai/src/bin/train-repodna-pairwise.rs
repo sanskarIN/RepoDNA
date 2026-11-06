@@ -4,7 +4,7 @@
 //! Comparisons are formed only within the same repository and question.
 //! Output scores are relative rankings, not calibrated truth probabilities.
 
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -12,17 +12,18 @@ use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, validate_repository_split,
 };
 
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
+
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 const DEFAULT_EPOCHS: u32 = 60;
 
 fn load(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > MAX_DATASET_BYTES {
-        return Err("dataset exceeds the 8 MiB size limit".into());
-    }
-    let bytes = fs::read(path)?;
-    if bytes.len() as u64 > MAX_DATASET_BYTES {
-        return Err("dataset grew beyond the 8 MiB size limit".into());
-    }
+    let bytes = bounded_input::read_bounded_file(
+        path,
+        MAX_DATASET_BYTES,
+        "dataset exceeds the 8 MiB size limit",
+    )?;
     let samples: Vec<LabeledEvidence> = serde_json::from_slice(&bytes)?;
     if samples.len() > MAX_EXAMPLES {
         return Err("too many labeled examples".into());
