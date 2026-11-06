@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 use std::ffi::OsString;
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -134,6 +134,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use repodna_ai::ranking::AnnotationExample;
     use repodna_core::model::identity::RepositoryIdentity;
     use repodna_core::model::metadata::AnalysisMetadata;
