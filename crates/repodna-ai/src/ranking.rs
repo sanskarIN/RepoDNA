@@ -17,7 +17,8 @@ pub use annotation::{AnnotationExample, annotation_template, finish_annotations}
 
 pub use evaluation::{
     AnswerabilityEvaluation, RepositoryBalancedEvaluation, RetrievalDelta, RetrievalEvaluation,
-    evaluate_original_order, evaluate_repository_balanced,
+    evaluate_original_order, evaluate_repository_balanced, evaluate_repository_stability,
+    RepositoryStabilityEvaluation,
 };
 pub use families::{
     FamilySplitAudit, MAX_FAMILY_MANIFEST_ENTRIES, RepositoryProvenance,
