@@ -80,8 +80,9 @@ final-test set.
 
 Run the audit before using `compare-repodna-rankers`; examine warnings
 and any suspicious repeated content before drawing conclusions from
-validation or test metrics. All operations stay local, with a maximum
-of 8 MiB and 100,000 labels per JSON file.
+validation or test metrics. All operations stay local. Inputs must be regular files; reads are capped to
+8 MiB plus one detection byte, even if a file grows after its initial size
+check. Each label JSON file allows a maximum of 8 MiB and 100,000 labels.
 
 ## Optional fork-family disjointness gate
 
