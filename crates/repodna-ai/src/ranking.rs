@@ -24,7 +24,7 @@ pub use families::{
     FamilySplitAudit, MAX_FAMILY_MANIFEST_ENTRIES, RepositoryProvenance,
     validate_repository_families,
 };
-pub use fingerprint::training_data_fingerprint;
+pub use fingerprint::{evaluation_order_fingerprint, training_data_fingerprint};
 pub use pair_ordering::PairOrderingEvaluation;
 pub use pairwise::PAIRWISE_MODEL_FORMAT;
 pub use provenance::{checkpoint_fingerprint, family_manifest_fingerprint};

@@ -40,7 +40,9 @@ fn selects_objective_from_validation_and_exports_reproducible_checkpoint() {
     );
 
     let report: serde_json::Value = serde_json::from_slice(&run.stdout).unwrap();
-    assert_eq!(report["provenanceSchema"], "repodna-benchmark-provenance/2");
+    assert_eq!(report["provenanceSchema"], "repodna-benchmark-provenance/3");
+    assert_eq!(report["validationOrderSha256"].as_str().unwrap().len(), 64);
+    assert_eq!(report["finalTestOrderSha256"].as_str().unwrap().len(), 64);
     assert_eq!(report["selectionMetric"], "validationNdcgAt5");
     assert_eq!(report["candidates"].as_array().unwrap().len(), 10);
     // The selected configuration must be the first strict maximum in

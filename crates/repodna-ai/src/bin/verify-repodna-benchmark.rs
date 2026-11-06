@@ -15,8 +15,8 @@ use std::path::Path;
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, PAIRWISE_MODEL_FORMAT, RankerModel,
     RepositoryProvenance, checkpoint_fingerprint, evaluate_repository_balanced,
-    evaluate_repository_stability, family_manifest_fingerprint, training_data_fingerprint,
-    validate_repository_families, validate_repository_split,
+    evaluate_repository_stability, evaluation_order_fingerprint, family_manifest_fingerprint,
+    training_data_fingerprint, validate_repository_families, validate_repository_split,
 };
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
@@ -25,6 +25,7 @@ const MAX_CHECKPOINT_BYTES: u64 = 64 * 1024;
 const MAX_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
 const PROVENANCE_V1: &str = "repodna-benchmark-provenance/1";
 const PROVENANCE_V2: &str = "repodna-benchmark-provenance/2";
+const PROVENANCE_V3: &str = "repodna-benchmark-provenance/3";
 
 /// Read at most limit + 1 bytes even when an input grows after stat, or
 /// its reported metadata length is inaccurate (for example, a special file).
@@ -224,7 +225,10 @@ fn replay_metrics(
     ] {
         matching_metric(&report[name], &expected, name)?;
     }
-    if report["provenanceSchema"] == PROVENANCE_V2 {
+    if matches!(
+        report["provenanceSchema"].as_str(),
+        Some(PROVENANCE_V2 | PROVENANCE_V3)
+    ) {
         let stability =
             evaluate_repository_stability(&selected, test, 5).map_err(io::Error::other)?;
         matching_metric(
@@ -294,19 +298,35 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let provenance_schema = report["provenanceSchema"]
         .as_str()
         .ok_or("report is missing benchmark provenance schema")?;
-    if !matches!(provenance_schema, PROVENANCE_V1 | PROVENANCE_V2) {
+    if !matches!(
+        provenance_schema,
+        PROVENANCE_V1 | PROVENANCE_V2 | PROVENANCE_V3
+    ) {
         return Err("unsupported benchmark provenance schema".into());
     }
     if !report["finalTestRepositoryBalancedRetrieval"].is_object() {
         return Err("report is missing repository-balanced final-test metrics".into());
     }
-    if provenance_schema == PROVENANCE_V2 && !report["finalTestRepositoryStability"].is_object() {
+    if matches!(provenance_schema, PROVENANCE_V2 | PROVENANCE_V3)
+        && !report["finalTestRepositoryStability"].is_object()
+    {
         return Err("v2 benchmark report is missing repository-stability metrics".into());
     }
     require_string(&report, "selectionMetric", "validationNdcgAt5")?;
     require_string(&report, "trainingDatasetSha256", &training_sha256)?;
     require_string(&report, "validationDatasetSha256", &validation_sha256)?;
     require_string(&report, "finalTestDatasetSha256", &test_sha256)?;
+    // v1/v2 predate order binding. Their canonical content fingerprints
+    // cannot detect reordered candidate sequences; mark them unverified.
+    // v3 refuses any altered validation or test row sequence even in fast mode.
+    let evaluation_order_verified = provenance_schema == PROVENANCE_V3;
+    if evaluation_order_verified {
+        let validation_order =
+            evaluation_order_fingerprint(&validation).map_err(io::Error::other)?;
+        let test_order = evaluation_order_fingerprint(&test).map_err(io::Error::other)?;
+        require_string(&report, "validationOrderSha256", &validation_order)?;
+        require_string(&report, "finalTestOrderSha256", &test_order)?;
+    }
     require_string(&report, "checkpointSha256", &model_sha256)?;
     require_string(&report, "checkpointFormat", &model.format)?;
     if model.training_dataset_sha256.as_deref() != Some(training_sha256.as_str()) {
@@ -392,6 +412,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let result = serde_json::json!({
         "verified": true,
         "replayVerified": replay,
+        "evaluationOrderVerified": evaluation_order_verified,
         "schema": provenance_schema,
         "checkpointSha256": model_sha256,
         "trainingDatasetSha256": training_sha256,

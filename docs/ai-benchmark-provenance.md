@@ -20,16 +20,23 @@ research claims about independent codebases, curate and supply it.
 Use actual reviewed labels; the included synthetic files test the pipeline
 only, not real-world model quality.
 
-New reports use `provenanceSchema: "repodna-benchmark-provenance/2"`
+New reports use `provenanceSchema: "repodna-benchmark-provenance/3"`
 and include content-based SHA-256 values:
 `trainingDatasetSha256`, `validationDatasetSha256`,
 `finalTestDatasetSha256`, and `checkpointSha256`. When provided, the
 reviewer-curated family file is represented by `familyManifestSha256`,
 `familyManifestChecked: true`, and aggregate `familySplit` counts.
 
-Dataset fingerprints use **complete, typed label records**, sorted into
-canonical order: JSON indentation and annotation-array order do not change
-the identity. The manifest fingerprint normalizes repository/family IDs,
+The existing **content** fingerprints use complete, typed label records sorted
+into canonical order: JSON indentation and annotation-array order do not change
+those hashes. In v3, `validationOrderSha256` and `finalTestOrderSha256`
+also bind the exact **typed JSON array order** of the validation and final-test
+labels. Changing whitespace or JSON key order does not change either order
+fingerprint, but reordering evidence records does. This matters because the
+original-order baseline and stable score ties can depend on candidate order
+within a repository/question. Training continues using its canonical
+order-insensitive fingerprint, because training sorts examples itself.
+The manifest fingerprint normalizes repository/family IDs,
 revision hex casing and record order; license text remains
 case-sensitive. The checkpoint fingerprint includes model format, every
 weight, and training metadata independent of file indentation.
@@ -38,9 +45,9 @@ The fingerprint formats use separate domains so a model hash cannot be
 confused with a family manifest hash. This does not turn them into
 authenticated signatures.
 
-### Repository sensitivity captured in benchmark v2
+### Repository sensitivity and evaluation order in benchmark v3
 
-The new `finalTestRepositoryStability` field summarizes the final test
+The v2-and-later `finalTestRepositoryStability` field summarizes the final test
 **only after** selecting the objective and epochs on validation NDCG@5.
 It reports aggregate per-repository NDCG@5 ranges, numbers of repositories
 improving or regressing against the original-order baseline, and the
@@ -99,15 +106,27 @@ platform-specific rounding differences in floating-point scores are allowed;
 integer counts, candidate order, and metadata must match exactly.
 Replay is more computationally expensive than identity-only verification.
 
-Older v1 benchmark reports remain supported in both modes. Their
-`finalTestRepositoryBalancedRetrieval` is also replay-checked, but they
-do not require the new v2 `finalTestRepositoryStability` field. Newly
-created v2 reports **must** include that object: removing it causes
-even fast identity verification to fail. Identity-only mode checks that
-the required metric objects exist but **does not independently verify
-their numeric contents**; use `--replay` to detect metric tampering.
+Older v1 and v2 benchmark reports remain supported in both modes. Their
+`finalTestRepositoryBalancedRetrieval` is replay-checked, but v1 reports
+do not require the v2 `finalTestRepositoryStability` field. New v3 reports
+and earlier v2 reports must include the stability object, or fast identity
+verification fails.
+
+In v3, **even fast identity verification** recomputes both evaluation-order
+fingerprints and refuses missing or mismatched hashes. The verifier emits
+`evaluationOrderVerified: true` only for v3. On v1/v2, this value is
+`false`: the older sorted content hashes cannot establish that the exact
+candidate row sequence is unchanged, even after a successful replay.
+Retain the original files for those reports; do not silently represent
+legacy verification as fully order-bound. Identity-only mode still **does
+not independently verify numeric metric contents**; use `--replay` to
+detect metric tampering.
 The report schema version is metadata, not an authenticated signature,
 so no version should be trusted without its original provenance.
+Order fingerprints are also unsigned identifiers, not attestations of
+reviewer independence or integrity against an attacker who can replace the
+report and its inputs together. They ensure that accidental reorderings
+cannot quietly pass the v3 identity check.
 
 A successful `replayVerified: true` establishes that the saved evaluation
 is **numerically reproducible from these local labels and this particular
