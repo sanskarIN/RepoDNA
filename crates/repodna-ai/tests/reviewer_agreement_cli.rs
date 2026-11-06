@@ -172,9 +172,12 @@ fn supports_simultaneous_adjudication_and_task_aggregation() {
         .arg(&tasks)
         .output()
         .expect("run adjudication and task audit");
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
-    let report: serde_json::Value =
-        serde_json::from_slice(&output.stdout).expect("valid JSON");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("valid JSON");
     assert_eq!(report["adjudication"]["structuralChecksPassed"], true);
     assert_eq!(report["taskAgreement"]["manifestQuestions"], 3);
 }
