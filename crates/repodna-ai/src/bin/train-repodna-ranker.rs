@@ -3,7 +3,7 @@
 //! Usage: train-repodna-ranker TRAIN.json HOLDOUT.json OUTPUT.json
 //! Inputs are arrays of LabeledEvidence objects. No network or model download.
 
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -11,18 +11,18 @@ use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, RankerModel, evaluate_original_order, validate_repository_split,
 };
 
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
+
 const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Read bounded JSON without making a network request.
 fn load(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {
-    let metadata = fs::metadata(path)?;
-    if metadata.len() > MAX_INPUT_BYTES {
-        return Err("dataset exceeds the 8 MiB size limit".into());
-    }
-    let data = fs::read(path)?;
-    if data.len() as u64 > MAX_INPUT_BYTES {
-        return Err("dataset grew beyond the 8 MiB size limit".into());
-    }
+    let data = bounded_input::read_bounded_file(
+        path,
+        MAX_INPUT_BYTES,
+        "dataset exceeds the 8 MiB size limit",
+    )?;
     let examples: Vec<LabeledEvidence> = serde_json::from_slice(&data)?;
     if examples.len() > MAX_EXAMPLES {
         return Err("too many labeled examples".into());
