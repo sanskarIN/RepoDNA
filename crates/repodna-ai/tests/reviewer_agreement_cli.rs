@@ -188,10 +188,12 @@ fn finalized_review_must_match_source_labels_and_work_with_task_audit() {
         "{}",
         String::from_utf8_lossy(&success.stderr)
     );
-    let value: serde_json::Value =
-        serde_json::from_slice(&success.stdout).expect("valid report");
+    let value: serde_json::Value = serde_json::from_slice(&success.stdout).expect("valid report");
     assert_eq!(value["adjudication"]["disagreementsAdjudicated"], 1);
-    assert_eq!(value["sourceCoverage"]["adjudicatedLabelsMatchSourceVerified"], true);
+    assert_eq!(
+        value["sourceCoverage"]["adjudicatedLabelsMatchSourceVerified"],
+        true
+    );
     assert_eq!(value["taskAgreement"]["manifestQuestions"], 2);
 
     let mut changed = original.clone();
@@ -207,7 +209,10 @@ fn finalized_review_must_match_source_labels_and_work_with_task_audit() {
     assert!(structural.status.success());
     let value: serde_json::Value =
         serde_json::from_slice(&structural.stdout).expect("structural report");
-    assert_eq!(value["sourceCoverage"]["adjudicatedLabelsMatchSourceVerified"], false);
+    assert_eq!(
+        value["sourceCoverage"]["adjudicatedLabelsMatchSourceVerified"],
+        false
+    );
 }
 
 #[test]
