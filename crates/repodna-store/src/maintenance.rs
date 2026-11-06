@@ -397,9 +397,13 @@ mod tests {
         let store = Store::open(paths.clone()).unwrap();
         assert!(store.repositories().unwrap().is_empty());
         assert_eq!(store.unindexed_artifact_count().unwrap(), 1);
-        assert!(store.check().unwrap().iter().any(|problem| {
-            problem.contains("stored artifacts are not indexed")
-        }));
+        assert!(
+            store
+                .check()
+                .unwrap()
+                .iter()
+                .any(|problem| { problem.contains("stored artifacts are not indexed") })
+        );
         drop(store);
         let repaired = repair(&paths).unwrap();
         assert_eq!(repaired.indexed, 1);
