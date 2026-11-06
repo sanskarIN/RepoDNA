@@ -13,7 +13,8 @@ use serde::Deserialize;
 
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, RankerModel, evaluate_original_order,
-    evaluate_repository_balanced, training_data_fingerprint, validate_repository_split,
+    evaluate_repository_balanced, evaluate_repository_stability, training_data_fingerprint,
+    validate_repository_split,
 };
 
 #[path = "support/bounded_input.rs"]
@@ -243,6 +244,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(io::Error::other)?;
     let repository_balanced =
         evaluate_repository_balanced(&model, &test, 5).map_err(io::Error::other)?;
+    let repository_stability =
+        evaluate_repository_stability(&model, &test, 5).map_err(io::Error::other)?;
 
     // Emit only aggregate metrics. No labels, source paths or evidence text.
     let mut report = serde_json::json!({
@@ -255,6 +258,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "retrievalDelta": delta,
         "pairOrdering": pair_ordering,
         "repositoryBalancedRetrieval": repository_balanced,
+        "repositoryStability": repository_stability,
     });
 
     if let Some(manifest_path) = task_manifest {

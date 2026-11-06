@@ -245,6 +245,41 @@ includes classification, relevance-score diagnostics, retrieval metrics, origina
 evidence-order baseline and signed deltas, plus hypothetical answerability
 thresholds. It never writes a new checkpoint or modifies the existing one.
 
+### Repository sensitivity diagnostics
+
+A frozen evaluation also reports `repositoryStability`, an aggregate check
+for whether ranking quality is unusually dependent on one test repository.
+It groups labels by normalized repository ID and measures NDCG@5 and
+trained-minus-original-order NDCG@5 **separately for each repository**.
+The report includes the smallest and largest per-repository values, plus
+counts of repositories where the trained ordering improves, does not
+materially change, or regresses compared with original order.
+Changes within `1e-12` count as unchanged.
+
+For every repository with answerable questions, the diagnostic also computes
+what the **equal-repository-weight mean** would be if that repository were
+excluded, without retraining the model. The fields
+`leaveOneOutMinNdcgAtK`, `leaveOneOutMaxNdcgAtK`,
+`leaveOneOutMinNdcgDelta`, and `leaveOneOutMaxNdcgDelta`
+show the range of those leave-one-repository-out values.
+
+- Repositories with no positively labeled questions are counted under
+  `unanswerableRepositories` but excluded from ranking score denominators.
+- With zero answerable repositories, per-repository extrema are `null`.
+  With fewer than **two** answerable repositories, leave-one-out extrema are
+  `null`, not a fabricated zero.
+- Only counts, score ranges and deltas appear; no repository identifiers,
+  evidence details, question text or individual labels are reported.
+
+These are **descriptive sensitivity measurements, not statistical confidence
+intervals, significance tests, fairness proofs or an independent accuracy
+estimate**. Excluding one repository does not simulate a new unseen
+repository. A large spread is a reason to investigate dataset diversity,
+source provenance and label balance, not a reason to tune the model against
+the untouched final-test set. Continue selecting the objective and epochs
+only against validation repositories. The original-order baseline must
+use the same candidate pool and within-question order as the model.
+
 Keep the **original training dataset** available for this check. New checkpoints
 store `training_dataset_sha256` as a lowercase 64-character SHA-256 digest of
 canonical typed records. The evaluator rejects mismatches even when repository

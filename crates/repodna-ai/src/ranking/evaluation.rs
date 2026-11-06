@@ -225,6 +225,131 @@ pub struct RepositoryBalancedEvaluation {
     pub mean_reciprocal_rank_delta: f64,
 }
 
+/// Sensitivity of frozen retrieval scores to the choice of test repository.
+///
+/// Each answerable repository contributes one equally weighted score. The
+/// leave-one-out range excludes one such repository at a time; it is undefined
+/// with fewer than two answerable repositories. These are descriptive
+/// diagnostics, not confidence intervals or evidence of independent sampling.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryStabilityEvaluation {
+    /// Top-k cutoff for all retrieval measurements.
+    pub k: usize,
+    /// Number of distinct normalized repository identifiers.
+    pub repositories: usize,
+    /// Repositories with at least one positive-labeled question.
+    pub evaluated_repositories: usize,
+    /// Repositories excluded because no question has positive evidence.
+    pub unanswerable_repositories: usize,
+    /// Lowest per-repository mean NDCG@k, or null if none are answerable.
+    pub min_repository_ndcg_at_k: Option<f64>,
+    /// Highest per-repository mean NDCG@k, or null if none are answerable.
+    pub max_repository_ndcg_at_k: Option<f64>,
+    /// Lowest per-repository NDCG@k improvement relative to original order.
+    pub min_repository_ndcg_delta: Option<f64>,
+    /// Highest per-repository NDCG@k improvement relative to original order.
+    pub max_repository_ndcg_delta: Option<f64>,
+    /// Repositories with an NDCG improvement greater than 1e-12.
+    pub improved_repositories: usize,
+    /// Repositories whose NDCG change is within 1e-12 of zero.
+    pub unchanged_repositories: usize,
+    /// Repositories with an NDCG regression smaller than -1e-12.
+    pub regressed_repositories: usize,
+    /// Smallest macro NDCG@k when one answerable repository is excluded.
+    pub leave_one_out_min_ndcg_at_k: Option<f64>,
+    /// Largest macro NDCG@k when one answerable repository is excluded.
+    pub leave_one_out_max_ndcg_at_k: Option<f64>,
+    /// Smallest macro NDCG@k delta after removing one answerable repository.
+    pub leave_one_out_min_ndcg_delta: Option<f64>,
+    /// Largest macro NDCG@k delta after removing one answerable repository.
+    pub leave_one_out_max_ndcg_delta: Option<f64>,
+}
+
+/// Quantify how strongly an aggregate retrieval result depends on individual
+/// test repositories, without returning repository names or evidence records.
+///
+/// Computes NDCG@k and its original-order delta within each normalized
+/// repository, then summarizes ranges across equally weighted repositories.
+/// Unanswerable-only repositories are counted but excluded from score ranges.
+/// No refitting, model selection, label inference, or network access occurs.
+pub fn evaluate_repository_stability(
+    model: &RankerModel,
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<RepositoryStabilityEvaluation, String> {
+    model.validate()?;
+    if !(1..=100).contains(&k) {
+        return Err("retrieval cutoff k must be between 1 and 100".to_owned());
+    }
+    let grouped = group_holdout(holdout)?;
+    let mut repositories: BTreeMap<String, Vec<LabeledEvidence>> = BTreeMap::new();
+    for ((repository, _), candidates) in grouped {
+        repositories
+            .entry(repository)
+            .or_default()
+            .extend(candidates.into_iter().cloned());
+    }
+
+    let count = repositories.len();
+    let mut scores = Vec::new();
+    for candidates in repositories.values() {
+        let learned = model.evaluate_retrieval(candidates, k)?;
+        if learned.evaluated_queries == 0 {
+            continue;
+        }
+        let baseline = evaluate_original_order(candidates, k)?;
+        scores.push((learned.ndcg_at_k, learned.ndcg_at_k - baseline.ndcg_at_k));
+    }
+    let evaluated = scores.len();
+    let improved = scores.iter().filter(|(_, delta)| *delta > 1e-12).count();
+    let regressed = scores.iter().filter(|(_, delta)| *delta < -1e-12).count();
+    let min_ndcg = scores.iter().map(|(value, _)| *value).reduce(f64::min);
+    let max_ndcg = scores.iter().map(|(value, _)| *value).reduce(f64::max);
+    let min_delta = scores.iter().map(|(_, delta)| *delta).reduce(f64::min);
+    let max_delta = scores.iter().map(|(_, delta)| *delta).reduce(f64::max);
+
+    let (loo_min_ndcg, loo_max_ndcg, loo_min_delta, loo_max_delta) = if evaluated >= 2 {
+        let denominator = (evaluated - 1) as f64;
+        let total_ndcg: f64 = scores.iter().map(|(value, _)| value).sum();
+        let total_delta: f64 = scores.iter().map(|(_, delta)| delta).sum();
+        let leave_one_out_ndcg = scores
+            .iter()
+            .map(|(value, _)| (total_ndcg - value) / denominator)
+            .collect::<Vec<_>>();
+        let leave_one_out_delta = scores
+            .iter()
+            .map(|(_, delta)| (total_delta - delta) / denominator)
+            .collect::<Vec<_>>();
+        (
+            leave_one_out_ndcg.iter().copied().reduce(f64::min),
+            leave_one_out_ndcg.iter().copied().reduce(f64::max),
+            leave_one_out_delta.iter().copied().reduce(f64::min),
+            leave_one_out_delta.iter().copied().reduce(f64::max),
+        )
+    } else {
+        (None, None, None, None)
+    };
+
+    Ok(RepositoryStabilityEvaluation {
+        k,
+        repositories: count,
+        evaluated_repositories: evaluated,
+        unanswerable_repositories: count - evaluated,
+        min_repository_ndcg_at_k: min_ndcg,
+        max_repository_ndcg_at_k: max_ndcg,
+        min_repository_ndcg_delta: min_delta,
+        max_repository_ndcg_delta: max_delta,
+        improved_repositories: improved,
+        unchanged_repositories: evaluated - improved - regressed,
+        regressed_repositories: regressed,
+        leave_one_out_min_ndcg_at_k: loo_min_ndcg,
+        leave_one_out_max_ndcg_at_k: loo_max_ndcg,
+        leave_one_out_min_ndcg_delta: loo_min_delta,
+        leave_one_out_max_ndcg_delta: loo_max_delta,
+    })
+}
+
 /// Independently summarize ranking quality across repositories, without
 /// printing per-repository identifiers, question text or selected evidence.
 ///
@@ -520,6 +645,79 @@ mod tests {
         let repeated = evaluate_repository_balanced(&model(), &reversed, 5).unwrap();
         assert_eq!(balanced.mean_reciprocal_rank, repeated.mean_reciprocal_rank);
         assert_eq!(balanced.ndcg_at_k, repeated.ndcg_at_k);
+    }
+
+    #[test]
+    fn stability_reports_repository_ranges_and_leave_one_out_sensitivity() {
+        let holdout = vec![
+            labeled(" Repo-A ", "qa", "E1", EvidenceKind::Commit, false),
+            labeled("repo-a", "qa", "E2", EvidenceKind::Package, true),
+            labeled("repo-b", "qb", "E1", EvidenceKind::Commit, true),
+            labeled("repo-b", "qb", "E2", EvidenceKind::Package, false),
+            labeled("repo-c", "qc", "E1", EvidenceKind::Package, true),
+            labeled("repo-c", "qc", "E2", EvidenceKind::Commit, false),
+            labeled("repo-d", "no-answer", "E1", EvidenceKind::Commit, false),
+        ];
+        let result = evaluate_repository_stability(&model(), &holdout, 5).unwrap();
+        assert_eq!(result.k, 5);
+        assert_eq!(result.repositories, 4);
+        assert_eq!(result.evaluated_repositories, 3);
+        assert_eq!(result.unanswerable_repositories, 1);
+        assert_eq!(result.improved_repositories, 1);
+        assert_eq!(result.unchanged_repositories, 1);
+        assert_eq!(result.regressed_repositories, 1);
+
+        let second_rank = 1.0 / 3.0_f64.log2();
+        let difference = 1.0 - second_rank;
+        assert!((result.min_repository_ndcg_at_k.unwrap() - second_rank).abs() < 1e-12);
+        assert_eq!(result.max_repository_ndcg_at_k, Some(1.0));
+        assert!((result.min_repository_ndcg_delta.unwrap() + difference).abs() < 1e-12);
+        assert!((result.max_repository_ndcg_delta.unwrap() - difference).abs() < 1e-12);
+        assert!(
+            (result.leave_one_out_min_ndcg_at_k.unwrap() - (1.0 + second_rank) / 2.0).abs() < 1e-12
+        );
+        assert_eq!(result.leave_one_out_max_ndcg_at_k, Some(1.0));
+        assert!((result.leave_one_out_min_ndcg_delta.unwrap() + difference / 2.0).abs() < 1e-12);
+        assert!((result.leave_one_out_max_ndcg_delta.unwrap() - difference / 2.0).abs() < 1e-12);
+
+        let mut shuffled = holdout.clone();
+        shuffled.rotate_left(2);
+        assert_eq!(
+            result,
+            evaluate_repository_stability(&model(), &shuffled, 5).unwrap()
+        );
+        let published = serde_json::to_string(&result).unwrap();
+        assert!(!published.contains("repo-a"));
+        assert!(!published.contains("no-answer"));
+    }
+
+    #[test]
+    fn stability_has_no_fake_ranges_for_too_few_answerable_repositories() {
+        let not_answerable = [labeled("repo-zero", "q", "E1", EvidenceKind::Commit, false)];
+        let absent = evaluate_repository_stability(&model(), &not_answerable, 5).unwrap();
+        assert_eq!(absent.repositories, 1);
+        assert_eq!(absent.evaluated_repositories, 0);
+        assert!(absent.min_repository_ndcg_at_k.is_none());
+        assert!(absent.max_repository_ndcg_delta.is_none());
+        assert!(absent.leave_one_out_min_ndcg_at_k.is_none());
+
+        let one_answerable = [labeled("repo-one", "q", "E1", EvidenceKind::Package, true)];
+        let single = evaluate_repository_stability(&model(), &one_answerable, 5).unwrap();
+        assert_eq!(single.evaluated_repositories, 1);
+        assert_eq!(single.min_repository_ndcg_at_k, Some(1.0));
+        assert!(single.leave_one_out_min_ndcg_at_k.is_none());
+        assert!(single.leave_one_out_max_ndcg_delta.is_none());
+        assert!(evaluate_repository_stability(&model(), &[], 5).is_err());
+        assert!(evaluate_repository_stability(&model(), &one_answerable, 0).is_err());
+        assert!(evaluate_repository_stability(&model(), &one_answerable, 101).is_err());
+        assert!(
+            evaluate_repository_stability(
+                &model(),
+                &[one_answerable[0].clone(), one_answerable[0].clone()],
+                5
+            )
+            .is_err()
+        );
     }
 
     #[test]
