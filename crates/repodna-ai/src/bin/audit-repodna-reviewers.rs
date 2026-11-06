@@ -1,7 +1,7 @@
 //! Offline, aggregate-only agreement audit for two independently reviewed
 //! RepoDNA evidence annotation files.
 //!
-//! Usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json] [--tasks TASKS.json]
+//! Usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json] [--tasks TASKS.json] [--source FINAL_DATASET.json]
 //! Reviewers must judge the exact same evidence records. This audit measures
 //! consistency, not independence, factual correctness or reviewer expertise.
 
@@ -11,7 +11,9 @@ use serde::Deserialize;
 use std::io::{self, Write};
 use std::path::Path;
 
-use repodna_ai::ranking::{AnnotationExample, MAX_EXAMPLES, finish_annotations};
+use repodna_ai::ranking::{
+    AnnotationExample, MAX_EXAMPLES, finish_annotations, training_data_fingerprint,
+};
 
 #[path = "support/bounded_input.rs"]
 mod bounded_input;
@@ -294,35 +296,139 @@ fn task_agreement(
     }))
 }
 
+
+/// Count evidence judgments by normalized repository and exact question.
+fn question_counts(reviews: &[AnnotationExample]) -> BTreeMap<(String, String), usize> {
+    let mut counts = BTreeMap::new();
+    for review in reviews {
+        *counts
+            .entry((review.repository.trim().to_lowercase(), review.query.clone()))
+            .or_insert(0) += 1;
+    }
+    counts
+}
+
+/// Verify that the independently double-reviewed subset is drawn from a fixed,
+/// fully labeled source dataset. When adjudication is provided, require every
+/// finalized reviewed judgment to agree with the corresponding source label.
+/// Neither structural membership nor a matching label proves human review.
+fn source_coverage(
+    first: &[AnnotationExample],
+    final_review: Option<&[AnnotationExample]>,
+    source_path: &Path,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let source = load(source_path)?;
+    let full = records(&source)?;
+    let subset = records(first)?;
+    for identity in subset.keys() {
+        if !full.contains_key(identity) {
+            return Err("reviewed evidence record is not present in source dataset".into());
+        }
+    }
+
+    if let Some(final_review) = final_review {
+        for (identity, label) in records(final_review)? {
+            if full.get(&identity) != Some(&label) {
+                return Err("adjudicated label differs from source dataset".into());
+            }
+        }
+    }
+
+    let source_questions = question_counts(&source);
+    let reviewed_questions = question_counts(first);
+    let mut completely_reviewed = 0_usize;
+    let mut partially_reviewed = 0_usize;
+    let mut unreviewed = 0_usize;
+    for (question, total) in &source_questions {
+        match reviewed_questions.get(question).copied().unwrap_or(0) {
+            0 => unreviewed += 1,
+            count if count == *total => completely_reviewed += 1,
+            count if count < *total => partially_reviewed += 1,
+            _ => return Err("reviewed question exceeds source evidence count".into()),
+        }
+    }
+    let source_repositories: BTreeSet<_> = source
+        .iter()
+        .map(|row| row.repository.trim().to_lowercase())
+        .collect();
+    let reviewed_repositories: BTreeSet<_> = first
+        .iter()
+        .map(|row| row.repository.trim().to_lowercase())
+        .collect();
+
+    let labeled = finish_annotations(source).map_err(io::Error::other)?;
+    let fingerprint = training_data_fingerprint(&labeled).map_err(io::Error::other)?;
+    Ok(serde_json::json!({
+        "schema": "repodna-double-review-coverage/1",
+        "sourceDatasetSha256": fingerprint,
+        "sourceAnnotations": full.len(),
+        "doubleReviewedAnnotations": subset.len(),
+        "notDoubleReviewedAnnotations": full.len() - subset.len(),
+        "annotationCoverageRate": subset.len() as f64 / full.len() as f64,
+        "sourceQuestions": source_questions.len(),
+        "doubleReviewedQuestions": reviewed_questions.len(),
+        "completelyDoubleReviewedQuestions": completely_reviewed,
+        "partiallyDoubleReviewedQuestions": partially_reviewed,
+        "notDoubleReviewedQuestions": unreviewed,
+        "sourceRepositories": source_repositories.len(),
+        "doubleReviewedRepositories": reviewed_repositories.len(),
+        "adjudicatedLabelsMatchSourceVerified": final_review.is_some(),
+        "note": "Structural membership only: coverage does not establish reviewer independence, correctness or representative sampling. Matching finalized labels are checked only when ADJUDICATED.json is supplied. The dataset fingerprint can link repeated uses of private data."
+    }))
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
-    let usage = "usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json] [--tasks TASKS.json]";
-    let (final_path, tasks_path): (Option<&Path>, Option<&Path>) = match args.as_slice() {
-        [_, _] => (None, None),
-        [_, _, final_path] if final_path.to_str() != Some("--tasks") => {
-            (Some(Path::new(final_path)), None)
+    let usage = "usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json] [--tasks TASKS.json] [--source FINAL_DATASET.json]";
+    if args.len() < 2 {
+        return Err(usage.into());
+    }
+    let (mut final_path, mut tasks_path, mut source_path) = (None, None, None);
+    let mut index = 2;
+    while index < args.len() {
+        match args[index].to_str() {
+            Some("--tasks") | Some("--source") => {
+                let flag = args[index].to_str().ok_or(usage)?;
+                let value = args.get(index + 1).ok_or(usage)?;
+                if value.to_str().is_some_and(|text| text.starts_with("--")) {
+                    return Err(usage.into());
+                }
+                let destination = if flag == "--tasks" {
+                    &mut tasks_path
+                } else {
+                    &mut source_path
+                };
+                if destination.replace(Path::new(value)).is_some() {
+                    return Err("duplicate reviewer audit option".into());
+                }
+                index += 2;
+            }
+            Some(flag) if flag.starts_with("--") => return Err(usage.into()),
+            _ if final_path.is_none() && tasks_path.is_none() && source_path.is_none() => {
+                final_path = Some(Path::new(&args[index]));
+                index += 1;
+            }
+            _ => return Err(usage.into()),
         }
-        [_, _, flag, tasks_path] if flag.to_str() == Some("--tasks") => {
-            (None, Some(Path::new(tasks_path)))
-        }
-        [_, _, final_path, flag, tasks_path]
-            if flag.to_str() == Some("--tasks") && final_path.to_str() != Some("--tasks") =>
-        {
-            (Some(Path::new(final_path)), Some(Path::new(tasks_path)))
-        }
-        _ => return Err(usage.into()),
-    };
+    }
+
     let first = load(Path::new(&args[0]))?;
     let second = load(Path::new(&args[1]))?;
     let mut report = agreement(&first, &second)?;
-    if let Some(path) = final_path {
-        // Load and validate the entire finalized dataset before producing any
+    let finalized = if let Some(path) = final_path {
+        // Load and validate the entire finalized subset before producing any
         // output. Missing judgments and changed evidence fail closed.
-        let finalized = load(path)?;
-        report["adjudication"] = adjudication(&first, &second, &finalized)?;
-    }
+        let labels = load(path)?;
+        report["adjudication"] = adjudication(&first, &second, &labels)?;
+        Some(labels)
+    } else {
+        None
+    };
     if let Some(path) = tasks_path {
         report["taskAgreement"] = task_agreement(&first, &second, path)?;
+    }
+    if let Some(path) = source_path {
+        report["sourceCoverage"] = source_coverage(&first, finalized.as_deref(), path)?;
     }
     let mut stdout = io::stdout().lock();
     serde_json::to_writer_pretty(&mut stdout, &report)?;
