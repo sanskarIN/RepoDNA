@@ -6,12 +6,38 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-These changes are merged on `main` **after v1.4.5**, and are not yet available
-in a new stable desktop or CLI release. v1.5.0 is still in development; see
-the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
+No additional changes are recorded beyond the current v1.5.0 candidate.
+
+## [1.5.0] - 2026-11-05
+
+RepoDNA v1.5.0 strengthens evidence-based repository review, safer
+findings exports, and local control over saved analysis history. It adds
+confirmed record deletion for desktop and local-server users and improves
+release reliability, while preserving offline-first operation and avoiding
+unsupported generative-AI claims.
+
+### Highlights
+
+- Delete saved analysis records or an entire repository's stored history
+  from the desktop or local server, with confirmation and unchanged source code.
+- Preview selected findings locally before exporting CSV, JSON, or Markdown,
+  with explicit confirmation and clear warnings about unreviewed data.
+- Review baseline CI changes with per-file module ownership, immediate
+  dependency context, and bounded, escaped Markdown path hints.
+- Make finding deltas deterministic for repeated IDs and avoid false file
+  modifications from ambiguous duplicate-path hashes.
+- Check the exact Rust workspace dependency inventory and package versions
+  in both Cargo lockfiles before a release can publish.
+- Preserve local-first, opt-in extractive AI evidence and independent
+  evaluation requirements; no generative model capability is claimed.
 
 ### Added
 
+- Add confirmed deletion of one saved scan or a repository's complete stored
+  analysis history, available from desktop and local-server History controls.
+  Enforce exact scan ownership and repository IDs, update database history,
+  and clean up local analysis artifacts without deleting original source
+  repositories (#211).
 - Show the first associated file path and remaining-path count for introduced
   and resolved findings in bounded Markdown CI impact summaries, making review
   hints easier to locate without asserting an exact source-evidence line.
@@ -24,7 +50,7 @@ the [release qualification checklist](packaging/release/v1.5.0-checklist.md).
 
 ### Fixed
 
-- Set the Windows desktop executable and installer publisher to SanskarIN
+- Set the Windows desktop executable and installer publisher to RepoDNA
   rather than accidentally displaying `github` in the Explorer Company field.
   Keep the stable app identifier and enforce publisher metadata in release checks.
 - Verify the exact internal Rust package inventories in both Cargo lockfiles,

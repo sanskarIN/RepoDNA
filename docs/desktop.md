@@ -33,7 +33,10 @@ To build it yourself, see [apps/desktop/README.md](../apps/desktop/README.md).
 - **Analyze a repository**: choose a folder with the native folder picker, or enter an
   archive path or a Git URL, pick a profile, and start. Progress is shown while it runs.
 - **Stored analyses** are the same ones the command line uses: an analysis made with
-  `repodna analyze` appears in the app, and the other way around.
+  `repodna analyze` appears in the app, and the other way around. In History, use
+  **Delete record** to remove a single saved scan or **Delete all** to clear a
+  repository's saved analyses. Both require confirmation; neither deletes the
+  original repository's source code. Existing exported reports remain separate.
 - **Open an analysis file** (`repodna.json` or `.repodna`), by choosing it or dropping it
   on the window, or **try the demo**.
 - **Save reports**: the Reports view saves the HTML report, the Markdown report, the JSON
