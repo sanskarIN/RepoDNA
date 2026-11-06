@@ -52,6 +52,62 @@ questions, evidence paths, source details or reviewer identities. Input roles
 A and B are labels, not actual identities. Agreement does not prove
 independent review, annotation quality, copyright permission or model accuracy.
 
+## Optional agreement by human-curated task type
+
+Overall agreement can hide inconsistent relevance judgments for individual
+tasks. To inspect agreement separately for architecture, dependencies, build
+commands, security, onboarding, history, hotspots and other tasks, supply a
+task manifest for the **exact independently reviewed subset**:
+
+```sh
+cargo run --locked -p repodna-ai --bin audit-repodna-reviewers -- \
+  REVIEW_A.json REVIEW_B.json --tasks REVIEW_TASKS.json
+```
+
+The manifest is a JSON array with one record per unique repository/question,
+using the same shape and category names as the
+[task coverage audit](ai-task-coverage.md):
+
+```json
+[
+  {
+    "repository": "example-repository",
+    "query": "Which dependencies are declared?",
+    "task": "dependencies"
+  }
+]
+```
+
+This is a **schema example, not actual reviewed evidence**. The task category
+must be chosen by a person; the CLI does not infer it. The task manifest must
+cover every reviewed question and no others. Duplicate normalized repository/
+question pairs, invalid task categories, missing/extra questions, malformed
+JSON and nonregular or oversized files are rejected with no partial JSON output.
+It is limited to 2 MiB and 100,000 question entries. Repository IDs are matched
+case-insensitively after trimming outer whitespace; question text is matched
+exactly. Review evidence identity is still matched exactly.
+
+The result adds an optional `taskAgreement` object with a versioned schema,
+the number of questions and a `summaries` map. Each present task has paired
+sample counts, positive rates, raw agreement, disagreement directions and
+Cohen's kappa. A category absent from the subset is omitted, **not** scored
+zero. Kappa can be null when undefined. Task counts are not independent
+samples when multiple evidence records share a question or repository, and
+small groups have unstable metrics: avoid claiming model accuracy from these
+descriptive agreement figures.
+
+To combine with explicit adjudication, place the reviewed final labels before
+the `--tasks` flag:
+
+```sh
+cargo run --locked -p repodna-ai --bin audit-repodna-reviewers -- \
+  REVIEW_A.json REVIEW_B.json ADJUDICATED.json --tasks REVIEW_TASKS.json
+```
+
+The output includes aggregates only, but small group counts or reused manifests
+can still be sensitive. Inspect reports before publishing and keep private
+questions, repository metadata, reviewer identities and evidence local.
+
 ## Audit an explicitly adjudicated final dataset
 
 After both reviewers have finished, a human adjudicator can inspect contested
