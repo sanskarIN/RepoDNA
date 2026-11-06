@@ -1,0 +1,99 @@
+# One-time v1.5.0 publication dispatch, explicitly authorized by the maintainer.
+# Kept off main. The existing release.yml builds, checks and publishes artifacts.
+name: Publish approved RepoDNA v1.5.0
+on:
+  push:
+    branches: [release/approved-v1.5.0-publish]
+    paths:
+      - .github/workflows/approved-v1.5.0-publish.yml
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: approved-v1.5.0-publication
+  cancel-in-progress: false
+
+jobs:
+  authorize-and-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: 6d2014ed48682b9d238ba22f3c1dcd8ccb90b47c
+      TESTED_TREE_SHA: 83876aa4ac85f5b4ecb716477a569ad45bf976c2
+      RELEASE_TAG: v1.5.0
+    steps:
+      - name: Check repository, frozen main, and passing post-merge workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REPOSITORY" != "sanskarIN/RepoDNA" ]]; then
+            echo "::error::Unexpected repository"
+            exit 1
+          fi
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [[ "$main_sha" != "$TARGET_SHA" ]]; then
+            echo "::error::main moved away from the explicitly reviewed release commit."
+            exit 1
+          fi
+          tree_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$TARGET_SHA" --jq '.tree.sha')
+          if [[ "$tree_sha" != "$TESTED_TREE_SHA" ]]; then
+            echo "::error::The candidate tree differs from the successful unpublished trial."
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::The release tag already exists; refusing to replace or move it."
+            exit 1
+          fi
+          # Require CI, CodeQL and web deployment to pass on the exact merged commit.
+          for attempt in $(seq 1 72); do
+            all_passed=true
+            for run_id in 42156497422 42156497313 42156497352; do
+              data=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")
+              head=$(jq -r .head_sha <<< "$data")
+              status=$(jq -r .status <<< "$data")
+              conclusion=$(jq -r '.conclusion // ""' <<< "$data")
+              if [[ "$head" != "$TARGET_SHA" ]]; then
+                echo "::error::Workflow $run_id checks a different commit."
+                exit 1
+              fi
+              if [[ "$status" == completed && "$conclusion" != success ]]; then
+                echo "::error::Workflow $run_id finished as '$conclusion'."
+                exit 1
+              fi
+              if [[ "$status" != completed ]]; then
+                all_passed=false
+              fi
+            done
+            if [[ "$all_passed" == true ]]; then
+              echo "All three post-merge workflows succeeded on $TARGET_SHA."
+              break
+            fi
+            if [[ "$attempt" -eq 72 ]]; then
+              echo "::error::Post-merge checks did not complete successfully in the gate period."
+              exit 1
+            fi
+            sleep 10
+          done
+      - name: Create immutable verified v1.5.0 tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$TARGET_SHA" >/dev/null
+          actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')
+          if [[ "$actual" != "$TARGET_SHA" ]]; then
+            echo "::error::Created tag does not target the approved commit."
+            exit 1
+          fi
+          echo "Created $RELEASE_TAG at $TARGET_SHA"
+      - name: Run existing full stable-release workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A GITHUB_TOKEN-created tag does not recurse into push workflows.
+          # workflow_dispatch explicitly invokes the repository's existing release gate.
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main --field "tag=$RELEASE_TAG"
+          echo "Dispatched the existing release workflow for $RELEASE_TAG."
