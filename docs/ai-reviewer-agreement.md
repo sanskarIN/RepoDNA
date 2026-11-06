@@ -27,7 +27,9 @@ cargo run --locked -p repodna-ai --bin audit-repodna-reviewers -- \
   REVIEW_A.json REVIEW_B.json
 ~~~
 
-Both files are limited to 8 MiB and 100,000 records. If only a subset was
+Both files must be regular files and are limited to 8 MiB and 100,000
+records. The reader caps streamed input even if a file changes after its
+initial size check. If only a subset was
 double-reviewed, select the same fixed subset for both files before collecting
 judgments. This command rejects mismatches and incomplete review files rather
 than guessing missing judgments.
