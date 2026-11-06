@@ -181,7 +181,6 @@ fn adjudication(
     }))
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum TaskKind {
@@ -256,15 +255,15 @@ fn task_agreement(
     let mut grouped: BTreeMap<TaskKind, (Vec<AnnotationExample>, Vec<AnnotationExample>)> =
         BTreeMap::new();
     for example in a {
-        let key = (example.repository.trim().to_lowercase(), example.query.clone());
+        let key = (
+            example.repository.trim().to_lowercase(),
+            example.query.clone(),
+        );
         let task = *assignments
             .get(&key)
             .ok_or("task manifest is missing a reviewed question")?;
-        let identity = serde_json::to_vec(&(
-            &example.repository,
-            &example.query,
-            &example.evidence,
-        ))?;
+        let identity =
+            serde_json::to_vec(&(&example.repository, &example.query, &example.evidence))?;
         let other_label = *other
             .get(&identity)
             .ok_or("review files contain different evidence records")?;
@@ -307,8 +306,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             (None, Some(Path::new(tasks_path)))
         }
         [_, _, final_path, flag, tasks_path]
-            if flag.to_str() == Some("--tasks")
-                && final_path.to_str() != Some("--tasks") =>
+            if flag.to_str() == Some("--tasks") && final_path.to_str() != Some("--tasks") =>
         {
             (Some(Path::new(final_path)), Some(Path::new(tasks_path)))
         }
