@@ -31,8 +31,8 @@ version number or release date is promised.
 The next priorities are privacy-safe full exports, reliable source-evidence
 navigation, explicit rename/unknown semantics in CI change comparisons,
 and measured performance on real repositories. The offline native evidence
-ranker also needs a genuinely independent, human-reviewed, clone-family-
-disjoint benchmark before any accuracy claims; see
+ranker also needs a genuinely independent, human-reviewed,
+clone-family-disjoint benchmark before any accuracy claims; see
 [benchmark issue #173](https://github.com/sanskarIN/RepoDNA/issues/173).
 
 ## Candidate feature milestones
