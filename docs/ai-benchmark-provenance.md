@@ -20,7 +20,8 @@ research claims about independent codebases, curate and supply it.
 Use actual reviewed labels; the included synthetic files test the pipeline
 only, not real-world model quality.
 
-The report now includes `provenanceSchema` and content-based SHA-256 values:
+New reports use `provenanceSchema: "repodna-benchmark-provenance/2"`
+and include content-based SHA-256 values:
 `trainingDatasetSha256`, `validationDatasetSha256`,
 `finalTestDatasetSha256`, and `checkpointSha256`. When provided, the
 reviewer-curated family file is represented by `familyManifestSha256`,
@@ -36,6 +37,25 @@ weight, and training metadata independent of file indentation.
 The fingerprint formats use separate domains so a model hash cannot be
 confused with a family manifest hash. This does not turn them into
 authenticated signatures.
+
+### Repository sensitivity captured in benchmark v2
+
+The new `finalTestRepositoryStability` field summarizes the final test
+**only after** selecting the objective and epochs on validation NDCG@5.
+It reports aggregate per-repository NDCG@5 ranges, numbers of repositories
+improving or regressing against the original-order baseline, and the
+range of equal-repository-weight NDCG@5 and baseline deltas when one
+answerable repository is excluded in turn. Repositories with no relevant
+labeled evidence are counted but excluded from these ranking score ranges.
+With fewer than two answerable repositories, leave-one-out ranges are
+`null`, not estimated zeros. The report still includes
+`finalTestRepositoryBalancedRetrieval`.
+
+These are sensitivity diagnostics, **not** confidence intervals, causal
+evidence of generalization, a substitute for human review, or a reason
+to select a model based on the final test. No repository IDs or raw
+labels appear in the output. Keep potentially sensitive dataset
+fingerprints private.
 
 ## Verify a saved benchmark later
 
@@ -69,13 +89,25 @@ NDCG@5, evaluated-query counts, and pair-ordering diagnostics, verifies
 the original deterministic winner and saved checkpoint weights within
 a strict floating-point tolerance, then independently recalculates the
 final-test retrieval metrics, original-order baseline, deltas and pair-order
-agreement. It never uses final-test performance to select a model.
+agreement, equal-repository-weight final-test retrieval metrics, and
+(for v2 reports) per-repository stability and leave-one-repository-out
+ranges. It never uses final-test performance to select a model.
 
 The mode rejects missing, additional or shuffled candidate fields, altered
 metric values, unsupported epoch counts or a different winner. Tiny
 platform-specific rounding differences in floating-point scores are allowed;
 integer counts, candidate order, and metadata must match exactly.
 Replay is more computationally expensive than identity-only verification.
+
+Older v1 benchmark reports remain supported in both modes. Their
+`finalTestRepositoryBalancedRetrieval` is also replay-checked, but they
+do not require the new v2 `finalTestRepositoryStability` field. Newly
+created v2 reports **must** include that object: removing it causes
+even fast identity verification to fail. Identity-only mode checks that
+the required metric objects exist but **does not independently verify
+their numeric contents**; use `--replay` to detect metric tampering.
+The report schema version is metadata, not an authenticated signature,
+so no version should be trusted without its original provenance.
 
 A successful `replayVerified: true` establishes that the saved evaluation
 is **numerically reproducible from these local labels and this particular
