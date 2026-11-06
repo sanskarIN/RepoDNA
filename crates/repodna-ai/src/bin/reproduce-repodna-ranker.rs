@@ -24,7 +24,11 @@ const DEFAULT_EPOCHS: u32 = 60;
 const RELATIVE_WEIGHT_TOLERANCE: f64 = 1e-12;
 
 fn bounded_read(path: &Path, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    bounded_input::read_bounded_file(path, limit, &format!("input exceeds the {limit}-byte limit"))
+    bounded_input::read_bounded_file(
+        path,
+        limit,
+        &format!("input exceeds the {limit}-byte limit"),
+    )
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
