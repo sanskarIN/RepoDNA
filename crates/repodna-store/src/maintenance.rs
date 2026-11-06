@@ -360,10 +360,7 @@ mod tests {
             assert!(!contents.is_empty());
             (filename, contents)
         };
-        let repository_descriptor = artifact_file
-            .parent()
-            .unwrap()
-            .join(REPOSITORY_FILE);
+        let repository_descriptor = artifact_file.parent().unwrap().join(REPOSITORY_FILE);
         assert!(repository_descriptor.is_file());
 
         let report = reset(&paths).unwrap();
