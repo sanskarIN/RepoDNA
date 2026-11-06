@@ -2,8 +2,8 @@
 //!
 //! Nothing here touches analyzed repositories. Repair never deletes a damaged database: it
 //! is renamed next to the original and a new index is built from the stored artifacts.
-//! Reset removes only what RepoDNA created (the database and the artifacts), keeping the
-//! user configuration file.
+//! Cache reset removes only the SQLite database and its sidecars. Stored
+//! analysis artifacts remain recoverable through repair; configuration is kept.
 
 use std::collections::HashSet;
 use std::fs;
@@ -49,7 +49,7 @@ pub struct RepairReport {
 /// Outcome of [`reset`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ResetReport {
-    /// Files and directories removed.
+    /// Database files and SQLite sidecars removed, not stored analysis artifacts.
     pub removed: Vec<PathBuf>,
 }
 
@@ -247,8 +247,12 @@ pub fn repair(paths: &StorePaths) -> Result<RepairReport, StoreError> {
     })
 }
 
-/// Removes the database and all stored artifacts. The storage directory itself and the
-/// user configuration file are kept.
+/// Removes the SQLite index and per-file analysis cache without deleting
+/// stored analysis artifacts or the user's configuration.
+///
+/// A follow-up [`repair`] can rebuild the index from the preserved artifacts.
+/// Callers must close any open database connections before resetting; SQLite
+/// connections left open may recreate the journal files during later writes.
 pub fn reset(paths: &StorePaths) -> Result<ResetReport, StoreError> {
     let mut report = ResetReport::default();
     for file in database_files(paths) {
@@ -257,11 +261,8 @@ pub fn reset(paths: &StorePaths) -> Result<ResetReport, StoreError> {
             report.removed.push(file);
         }
     }
-    let artifacts = paths.artifacts();
-    if artifacts.exists() {
-        fs::remove_dir_all(&artifacts).map_err(|source| StoreError::io(&artifacts, source))?;
-        report.removed.push(artifacts);
-    }
+    // The cache lives in SQLite, but saved analysis JSON documents do not.
+    // Never conflate a cache reset with permanent deletion of user analyses.
     Ok(report)
 }
 
@@ -342,22 +343,48 @@ mod tests {
     }
 
     #[test]
-    fn reset_keeps_the_user_configuration() {
+    fn reset_preserves_saved_analyses_and_configuration_for_repair() {
         let dir = tempfile::tempdir().unwrap();
         let paths = StorePaths::new(dir.path());
-        fs::write(dir.path().join("config.toml"), "[analysis]\n").unwrap();
-        {
+        let config = dir.path().join("config.toml");
+        fs::write(&config, "[analysis]\n").unwrap();
+        let unrelated = dir.path().join("user-owned.txt");
+        fs::write(&unrelated, b"must stay").unwrap();
+        let (artifact_file, original) = {
             let store = Store::open(paths.clone()).unwrap();
-            store
-                .record(&artifact("aaaa1111", 1, &[]), &location())
+            let scan = store
+                .record(&artifact("aaaa1111", 1, &["a.rs"]), &location())
                 .unwrap();
-        }
+            let filename = store.artifact_path(&scan);
+            let contents = fs::read(&filename).unwrap();
+            assert!(!contents.is_empty());
+            (filename, contents)
+        };
+        let repository_descriptor = artifact_file
+            .parent()
+            .unwrap()
+            .join(REPOSITORY_FILE);
+        assert!(repository_descriptor.is_file());
+
         let report = reset(&paths).unwrap();
         assert!(report.removed.contains(&paths.database()));
-        assert!(report.removed.contains(&paths.artifacts()));
+        assert!(!report.removed.contains(&paths.artifacts()));
         assert!(!paths.database().exists());
-        assert!(dir.path().join("config.toml").is_file());
-        let store = Store::open(paths).unwrap();
+        assert!(paths.artifacts().is_dir());
+        assert_eq!(fs::read(&artifact_file).unwrap(), original);
+        assert!(repository_descriptor.is_file());
+        assert_eq!(fs::read_to_string(&config).unwrap(), "[analysis]\n");
+        assert_eq!(fs::read(&unrelated).unwrap(), b"must stay");
+
+        let store = Store::open(paths.clone()).unwrap();
         assert!(store.repositories().unwrap().is_empty());
+        drop(store);
+        let repaired = repair(&paths).unwrap();
+        assert_eq!(repaired.indexed, 1);
+        assert!(repaired.skipped.is_empty());
+        let store = Store::open(paths).unwrap();
+        assert_eq!(store.repositories().unwrap().len(), 1);
+        assert_eq!(store.scans(&location().id(), 10).unwrap().len(), 1);
+        assert!(store.check().unwrap().is_empty());
     }
 }
