@@ -6,13 +6,15 @@
 //! Matching weights are a reproducibility check, NOT proof of dataset identity:
 //! different label files may yield identical feature vectors and weights.
 
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, PAIRWISE_MODEL_FORMAT, RankerModel,
 };
+
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_CHECKPOINT_BYTES: u64 = 64 * 1024;
@@ -22,14 +24,7 @@ const DEFAULT_EPOCHS: u32 = 60;
 const RELATIVE_WEIGHT_TOLERANCE: f64 = 1e-12;
 
 fn bounded_read(path: &Path, limit: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > limit {
-        return Err(format!("input exceeds the {limit}-byte limit").into());
-    }
-    let contents = fs::read(path)?;
-    if contents.len() as u64 > limit {
-        return Err(format!("input grew beyond the {limit}-byte limit").into());
-    }
-    Ok(contents)
+    bounded_input::read_bounded_file(path, limit, &format!("input exceeds the {limit}-byte limit"))
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
