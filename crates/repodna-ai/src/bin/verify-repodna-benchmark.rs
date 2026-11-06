@@ -300,9 +300,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if !report["finalTestRepositoryBalancedRetrieval"].is_object() {
         return Err("report is missing repository-balanced final-test metrics".into());
     }
-    if provenance_schema == PROVENANCE_V2
-        && !report["finalTestRepositoryStability"].is_object()
-    {
+    if provenance_schema == PROVENANCE_V2 && !report["finalTestRepositoryStability"].is_object() {
         return Err("v2 benchmark report is missing repository-stability metrics".into());
     }
     require_string(&report, "selectionMetric", "validationNdcgAt5")?;
