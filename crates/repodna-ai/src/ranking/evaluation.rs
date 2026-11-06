@@ -299,10 +299,7 @@ pub fn evaluate_repository_stability(
             continue;
         }
         let baseline = evaluate_original_order(candidates, k)?;
-        scores.push((
-            learned.ndcg_at_k,
-            learned.ndcg_at_k - baseline.ndcg_at_k,
-        ));
+        scores.push((learned.ndcg_at_k, learned.ndcg_at_k - baseline.ndcg_at_k));
     }
     let evaluated = scores.len();
     let improved = scores.iter().filter(|(_, delta)| *delta > 1e-12).count();
@@ -676,14 +673,19 @@ mod tests {
         assert_eq!(result.max_repository_ndcg_at_k, Some(1.0));
         assert!((result.min_repository_ndcg_delta.unwrap() + difference).abs() < 1e-12);
         assert!((result.max_repository_ndcg_delta.unwrap() - difference).abs() < 1e-12);
-        assert!((result.leave_one_out_min_ndcg_at_k.unwrap() - (1.0 + second_rank) / 2.0).abs() < 1e-12);
+        assert!(
+            (result.leave_one_out_min_ndcg_at_k.unwrap() - (1.0 + second_rank) / 2.0).abs() < 1e-12
+        );
         assert_eq!(result.leave_one_out_max_ndcg_at_k, Some(1.0));
         assert!((result.leave_one_out_min_ndcg_delta.unwrap() + difference / 2.0).abs() < 1e-12);
         assert!((result.leave_one_out_max_ndcg_delta.unwrap() - difference / 2.0).abs() < 1e-12);
 
         let mut shuffled = holdout.clone();
         shuffled.rotate_left(2);
-        assert_eq!(result, evaluate_repository_stability(&model(), &shuffled, 5).unwrap());
+        assert_eq!(
+            result,
+            evaluate_repository_stability(&model(), &shuffled, 5).unwrap()
+        );
         let published = serde_json::to_string(&result).unwrap();
         assert!(!published.contains("repo-a"));
         assert!(!published.contains("no-answer"));
@@ -691,9 +693,7 @@ mod tests {
 
     #[test]
     fn stability_has_no_fake_ranges_for_too_few_answerable_repositories() {
-        let not_answerable = [labeled(
-            "repo-zero", "q", "E1", EvidenceKind::Commit, false,
-        )];
+        let not_answerable = [labeled("repo-zero", "q", "E1", EvidenceKind::Commit, false)];
         let absent = evaluate_repository_stability(&model(), &not_answerable, 5).unwrap();
         assert_eq!(absent.repositories, 1);
         assert_eq!(absent.evaluated_repositories, 0);
@@ -701,9 +701,7 @@ mod tests {
         assert!(absent.max_repository_ndcg_delta.is_none());
         assert!(absent.leave_one_out_min_ndcg_at_k.is_none());
 
-        let one_answerable = [labeled(
-            "repo-one", "q", "E1", EvidenceKind::Package, true,
-        )];
+        let one_answerable = [labeled("repo-one", "q", "E1", EvidenceKind::Package, true)];
         let single = evaluate_repository_stability(&model(), &one_answerable, 5).unwrap();
         assert_eq!(single.evaluated_repositories, 1);
         assert_eq!(single.min_repository_ndcg_at_k, Some(1.0));
@@ -712,9 +710,14 @@ mod tests {
         assert!(evaluate_repository_stability(&model(), &[], 5).is_err());
         assert!(evaluate_repository_stability(&model(), &one_answerable, 0).is_err());
         assert!(evaluate_repository_stability(&model(), &one_answerable, 101).is_err());
-        assert!(evaluate_repository_stability(
-            &model(), &[one_answerable[0].clone(), one_answerable[0].clone()], 5
-        ).is_err());
+        assert!(
+            evaluate_repository_stability(
+                &model(),
+                &[one_answerable[0].clone(), one_answerable[0].clone()],
+                5
+            )
+            .is_err()
+        );
     }
 
     #[test]
