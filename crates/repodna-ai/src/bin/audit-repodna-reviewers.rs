@@ -6,22 +6,19 @@
 //! consistency, not independence, factual correctness or reviewer expertise.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
 use repodna_ai::ranking::{AnnotationExample, MAX_EXAMPLES, finish_annotations};
 
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
+
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 
 fn load(path: &Path) -> Result<Vec<AnnotationExample>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > MAX_DATASET_BYTES {
-        return Err("review file exceeds 8 MiB".into());
-    }
-    let bytes = fs::read(path)?;
-    if bytes.len() as u64 > MAX_DATASET_BYTES {
-        return Err("review file grew beyond 8 MiB".into());
-    }
+    let bytes =
+        bounded_input::read_bounded_file(path, MAX_DATASET_BYTES, "review file exceeds 8 MiB")?;
     let examples: Vec<AnnotationExample> = serde_json::from_slice(&bytes)?;
     if examples.is_empty() || examples.len() > MAX_EXAMPLES {
         return Err("review file must contain 1..=100000 records".into());
