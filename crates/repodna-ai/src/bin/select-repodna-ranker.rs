@@ -4,7 +4,7 @@
 //! Candidate epochs are selected using validation NDCG@5 only. The test set is
 //! evaluated exactly once after selection and is never used to choose settings.
 
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -13,18 +13,19 @@ use repodna_ai::ranking::{
     evaluate_repository_balanced, validate_repository_split,
 };
 
+#[path = "support/bounded_input.rs"]
+mod bounded_input;
+
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
 const CANDIDATE_EPOCHS: &[u32] = &[10, 30, 60, 100, 150];
 const EVALUATION_K: usize = 5;
 
 fn load(path: &Path) -> Result<Vec<LabeledEvidence>, Box<dyn std::error::Error>> {
-    if fs::metadata(path)?.len() > MAX_DATASET_BYTES {
-        return Err("dataset exceeds the 8 MiB size limit".into());
-    }
-    let contents = fs::read(path)?;
-    if contents.len() as u64 > MAX_DATASET_BYTES {
-        return Err("dataset grew beyond the 8 MiB size limit".into());
-    }
+    let contents = bounded_input::read_bounded_file(
+        path,
+        MAX_DATASET_BYTES,
+        "dataset exceeds the 8 MiB size limit",
+    )?;
     let samples: Vec<LabeledEvidence> = serde_json::from_slice(&contents)?;
     if samples.len() > MAX_EXAMPLES {
         return Err("too many labeled examples".into());
