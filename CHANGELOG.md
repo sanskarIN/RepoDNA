@@ -6,9 +6,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-No additional changes are recorded beyond the current v1.5.0 candidate.
+No additional changes are recorded since the v1.5.0 stable release.
 
-## [1.5.0] - 2026-11-05
+## [1.5.0] - 2026-11-06
 
 RepoDNA v1.5.0 strengthens evidence-based repository review, safer
 findings exports, and local control over saved analysis history. It adds
