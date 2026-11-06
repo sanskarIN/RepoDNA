@@ -682,7 +682,7 @@ mod tests {
         assert!((result.leave_one_out_max_ndcg_delta.unwrap() - difference / 2.0).abs() < 1e-12);
 
         let mut shuffled = holdout.clone();
-        shuffled.reverse();
+        shuffled.rotate_left(2);
         assert_eq!(result, evaluate_repository_stability(&model(), &shuffled, 5).unwrap());
         let published = serde_json::to_string(&result).unwrap();
         assert!(!published.contains("repo-a"));
