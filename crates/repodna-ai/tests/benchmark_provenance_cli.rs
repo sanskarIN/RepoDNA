@@ -319,8 +319,14 @@ fn legacy_v1_report_remains_verifiable_without_v2_stability_metrics() {
     let mut payload: serde_json::Value =
         serde_json::from_slice(&fs::read(&report).expect("read original")).expect("valid report");
     payload["provenanceSchema"] = "repodna-benchmark-provenance/1".into();
-    payload.as_object_mut().unwrap().remove("validationOrderSha256");
-    payload.as_object_mut().unwrap().remove("finalTestOrderSha256");
+    payload
+        .as_object_mut()
+        .unwrap()
+        .remove("validationOrderSha256");
+    payload
+        .as_object_mut()
+        .unwrap()
+        .remove("finalTestOrderSha256");
     payload
         .as_object_mut()
         .expect("report object")
@@ -361,8 +367,14 @@ fn v3_refuses_reordered_evaluation_records_even_when_content_hash_matches() {
     let (report, model) = prepare(dir.path(), None);
     let original: serde_json::Value =
         serde_json::from_slice(&fs::read(&report).expect("read report")).expect("report JSON");
-    assert_eq!(original["provenanceSchema"], "repodna-benchmark-provenance/3");
-    assert_eq!(original["validationOrderSha256"].as_str().unwrap().len(), 64);
+    assert_eq!(
+        original["provenanceSchema"],
+        "repodna-benchmark-provenance/3"
+    );
+    assert_eq!(
+        original["validationOrderSha256"].as_str().unwrap().len(),
+        64
+    );
     assert_eq!(original["finalTestOrderSha256"].as_str().unwrap().len(), 64);
 
     for (name, field) in [
@@ -396,7 +408,10 @@ fn v3_refuses_reordered_evaluation_records_even_when_content_hash_matches() {
                 .output()
                 .expect("verify reordered final test")
         };
-        assert!(!output.status.success(), "{name} order unexpectedly accepted");
+        assert!(
+            !output.status.success(),
+            "{name} order unexpectedly accepted"
+        );
         assert!(output.stdout.is_empty());
         assert!(
             String::from_utf8_lossy(&output.stderr).contains(field),
@@ -405,7 +420,10 @@ fn v3_refuses_reordered_evaluation_records_even_when_content_hash_matches() {
     }
 
     let mut missing = original;
-    missing.as_object_mut().unwrap().remove("validationOrderSha256");
+    missing
+        .as_object_mut()
+        .unwrap()
+        .remove("validationOrderSha256");
     let path = dir.path().join("missing-order.json");
     fs::write(&path, serde_json::to_vec(&missing).unwrap()).unwrap();
     let output = verify(&path, &model, &fixture("holdout.demo.json"), None);
@@ -421,19 +439,33 @@ fn legacy_v2_report_still_verifies_but_cannot_claim_order_identity() {
     let mut payload: serde_json::Value =
         serde_json::from_slice(&fs::read(&report).unwrap()).unwrap();
     payload["provenanceSchema"] = "repodna-benchmark-provenance/2".into();
-    payload.as_object_mut().unwrap().remove("validationOrderSha256");
-    payload.as_object_mut().unwrap().remove("finalTestOrderSha256");
+    payload
+        .as_object_mut()
+        .unwrap()
+        .remove("validationOrderSha256");
+    payload
+        .as_object_mut()
+        .unwrap()
+        .remove("finalTestOrderSha256");
     let legacy = dir.path().join("legacy-v2.json");
     fs::write(&legacy, serde_json::to_vec(&payload).unwrap()).unwrap();
 
     let checked = verify(&legacy, &model, &fixture("holdout.demo.json"), None);
-    assert!(checked.status.success(), "{}", String::from_utf8_lossy(&checked.stderr));
+    assert!(
+        checked.status.success(),
+        "{}",
+        String::from_utf8_lossy(&checked.stderr)
+    );
     let result: serde_json::Value = serde_json::from_slice(&checked.stdout).unwrap();
     assert_eq!(result["schema"], "repodna-benchmark-provenance/2");
     assert_eq!(result["evaluationOrderVerified"], false);
 
     let replay = verify_replay(&legacy, &model, &fixture("holdout.demo.json"), None);
-    assert!(replay.status.success(), "{}", String::from_utf8_lossy(&replay.stderr));
+    assert!(
+        replay.status.success(),
+        "{}",
+        String::from_utf8_lossy(&replay.stderr)
+    );
     let result: serde_json::Value = serde_json::from_slice(&replay.stdout).unwrap();
     assert_eq!(result["replayVerified"], true);
     assert_eq!(result["evaluationOrderVerified"], false);
