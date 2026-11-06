@@ -1,11 +1,13 @@
 //! Offline, aggregate-only agreement audit for two independently reviewed
 //! RepoDNA evidence annotation files.
 //!
-//! Usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json]
+//! Usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json] [--tasks TASKS.json]
 //! Reviewers must judge the exact same evidence records. This audit measures
 //! consistency, not independence, factual correctness or reviewer expertise.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+
+use serde::Deserialize;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -15,6 +17,7 @@ use repodna_ai::ranking::{AnnotationExample, MAX_EXAMPLES, finish_annotations};
 mod bounded_input;
 
 const MAX_DATASET_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_TASK_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
 
 fn load(path: &Path) -> Result<Vec<AnnotationExample>, Box<dyn std::error::Error>> {
     let bytes =
@@ -178,22 +181,150 @@ fn adjudication(
     }))
 }
 
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum TaskKind {
+    Architecture,
+    Dependencies,
+    BuildCommands,
+    Security,
+    Onboarding,
+    History,
+    Hotspots,
+    Other,
+}
+
+impl TaskKind {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Architecture => "architecture",
+            Self::Dependencies => "dependencies",
+            Self::BuildCommands => "build_commands",
+            Self::Security => "security",
+            Self::Onboarding => "onboarding",
+            Self::History => "history",
+            Self::Hotspots => "hotspots",
+            Self::Other => "other",
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TaskAssignment {
+    repository: String,
+    query: String,
+    task: TaskKind,
+}
+
+/// Aggregate reviewer agreement by independently curated question category.
+/// The manifest must cover exactly the questions in the paired review subset.
+fn task_agreement(
+    a: &[AnnotationExample],
+    b: &[AnnotationExample],
+    path: &Path,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let bytes = bounded_input::read_bounded_file(
+        path,
+        MAX_TASK_MANIFEST_BYTES,
+        "task manifest exceeds 2 MiB",
+    )?;
+    let entries: Vec<TaskAssignment> = serde_json::from_slice(&bytes)?;
+    if entries.is_empty() || entries.len() > MAX_EXAMPLES {
+        return Err("task manifest must contain 1..=100000 questions".into());
+    }
+    let mut assignments = BTreeMap::new();
+    for entry in entries {
+        if entry.repository.trim().is_empty()
+            || entry.repository.len() > 200
+            || entry.query.trim().is_empty()
+            || entry.query.len() > 4_000
+        {
+            return Err("task manifest has missing or oversized fields".into());
+        }
+        let key = (entry.repository.trim().to_lowercase(), entry.query);
+        if assignments.insert(key, entry.task).is_some() {
+            return Err("duplicate normalized task manifest question".into());
+        }
+    }
+
+    // Pairing is exact for all non-label metadata; do not normalize evidence
+    // identity or silently tolerate changed facts between reviewer copies.
+    let other = records(b)?;
+    let mut used = BTreeSet::new();
+    let mut grouped: BTreeMap<TaskKind, (Vec<AnnotationExample>, Vec<AnnotationExample>)> =
+        BTreeMap::new();
+    for example in a {
+        let key = (example.repository.trim().to_lowercase(), example.query.clone());
+        let task = *assignments
+            .get(&key)
+            .ok_or("task manifest is missing a reviewed question")?;
+        let identity = serde_json::to_vec(&(
+            &example.repository,
+            &example.query,
+            &example.evidence,
+        ))?;
+        let other_label = *other
+            .get(&identity)
+            .ok_or("review files contain different evidence records")?;
+        used.insert(key);
+        let pair = grouped.entry(task).or_default();
+        pair.0.push(example.clone());
+        let mut corresponding = example.clone();
+        corresponding.relevant = Some(other_label);
+        pair.1.push(corresponding);
+    }
+    if used.len() != assignments.len() {
+        return Err("task manifest contains questions absent from reviewed subset".into());
+    }
+    let mut summaries = serde_json::Map::new();
+    for (kind, (first, second)) in grouped {
+        let mut stats = agreement(&first, &second)?;
+        if let Some(object) = stats.as_object_mut() {
+            object.remove("schema");
+            object.remove("note");
+        }
+        summaries.insert(kind.name().to_owned(), stats);
+    }
+    Ok(serde_json::json!({
+        "schema": "repodna-reviewer-task-agreement/1",
+        "manifestQuestions": assignments.len(),
+        "summaries": summaries,
+        "note": "Tasks are human-curated; per-task aggregates measure reviewer consistency, not correctness or model accuracy. Tiny groups can yield unstable or undefined kappa. No questions, repositories, evidence, or identities are printed."
+    }))
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let mut args = std::env::args_os().skip(1);
-    let (Some(a), Some(b), final_path, None) = (args.next(), args.next(), args.next(), args.next())
-    else {
-        return Err(
-            "usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json]".into(),
-        );
+    let args: Vec<_> = std::env::args_os().skip(1).collect();
+    let usage = "usage: audit-repodna-reviewers REVIEW_A.json REVIEW_B.json [ADJUDICATED.json] [--tasks TASKS.json]";
+    let (final_path, tasks_path): (Option<&Path>, Option<&Path>) = match args.as_slice() {
+        [_, _] => (None, None),
+        [_, _, final_path] if final_path.to_str() != Some("--tasks") => {
+            (Some(Path::new(final_path)), None)
+        }
+        [_, _, flag, tasks_path] if flag.to_str() == Some("--tasks") => {
+            (None, Some(Path::new(tasks_path)))
+        }
+        [_, _, final_path, flag, tasks_path]
+            if flag.to_str() == Some("--tasks")
+                && final_path.to_str() != Some("--tasks") =>
+        {
+            (Some(Path::new(final_path)), Some(Path::new(tasks_path)))
+        }
+        _ => return Err(usage.into()),
     };
-    let first = load(Path::new(&a))?;
-    let second = load(Path::new(&b))?;
+    let first = load(Path::new(&args[0]))?;
+    let second = load(Path::new(&args[1]))?;
     let mut report = agreement(&first, &second)?;
     if let Some(path) = final_path {
         // Load and validate the entire finalized dataset before producing any
         // output. Missing judgments and changed evidence fail closed.
-        let finalized = load(Path::new(&path))?;
+        let finalized = load(path)?;
         report["adjudication"] = adjudication(&first, &second, &finalized)?;
+    }
+    if let Some(path) = tasks_path {
+        report["taskAgreement"] = task_agreement(&first, &second, path)?;
     }
     let mut stdout = io::stdout().lock();
     serde_json::to_writer_pretty(&mut stdout, &report)?;
