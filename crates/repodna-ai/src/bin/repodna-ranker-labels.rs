@@ -134,10 +134,10 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
     use repodna_ai::ranking::AnnotationExample;
     use repodna_core::model::identity::RepositoryIdentity;
     use repodna_core::model::metadata::AnalysisMetadata;
+    use std::fs;
 
     #[test]
     fn prepare_requires_explicit_review_before_finalize() {
