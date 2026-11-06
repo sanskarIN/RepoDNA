@@ -44,6 +44,20 @@ fn run(train: &Path, valid: &Path, test: &Path, manifest: &Path) -> Output {
 }
 
 #[test]
+fn rejects_nonregular_manifest_without_partial_aggregate_report() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let result = run(
+        &fixture("train.demo.json"),
+        &fixture("holdout.demo.json"),
+        &fixture("test.demo.json"),
+        dir.path(),
+    );
+    assert!(!result.status.success());
+    assert!(result.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("regular file"));
+}
+
+#[test]
 fn reports_curated_task_coverage_without_leaking_repository_or_questions() {
     let dir = tempfile::tempdir().expect("temp directory");
     let path = dir.path().join("tasks.json");
