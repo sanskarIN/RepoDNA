@@ -86,9 +86,7 @@ fn selects_objective_from_validation_and_exports_reproducible_checkpoint() {
         report["finalTestRepositoryStability"]["unanswerableRepositories"],
         1
     );
-    assert!(
-        report["finalTestRepositoryStability"]["leaveOneOutMinNdcgAtK"].is_null()
-    );
+    assert!(report["finalTestRepositoryStability"]["leaveOneOutMinNdcgAtK"].is_null());
     assert_eq!(
         report["finalTestRepositoryStability"]["minRepositoryNdcgAtK"],
         report["finalTestRepositoryBalancedRetrieval"]["ndcgAtK"]
