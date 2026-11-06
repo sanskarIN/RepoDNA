@@ -88,7 +88,7 @@ fn verifies_saved_model_and_all_label_splits_without_manifest() {
     let result: serde_json::Value =
         serde_json::from_slice(&verified.stdout).expect("valid verifier output");
     assert_eq!(result["verified"], true);
-    assert_eq!(result["schema"], "repodna-benchmark-provenance/1");
+    assert_eq!(result["schema"], "repodna-benchmark-provenance/2");
     assert_eq!(result["familyManifestChecked"], false);
     assert!(result["familyManifestSha256"].is_null());
     assert_eq!(
@@ -234,7 +234,109 @@ fn full_replay_verifies_all_ten_candidates_and_final_test_without_manifest() {
         serde_json::from_slice(&replayed.stdout).expect("valid replay JSON");
     assert_eq!(value["replayVerified"], true);
     assert_eq!(value["verified"], true);
+    assert_eq!(value["schema"], "repodna-benchmark-provenance/2");
     assert!(!String::from_utf8_lossy(&replayed.stdout).contains("synthetic-alpha"));
+}
+
+#[test]
+fn replay_validates_v2_repository_stability_and_balanced_metrics() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let (report, model) = prepare(dir.path(), None);
+    let mut payload: serde_json::Value =
+        serde_json::from_slice(&fs::read(&report).expect("read report")).expect("valid report");
+    assert_eq!(
+        payload["provenanceSchema"],
+        "repodna-benchmark-provenance/2"
+    );
+    let stability = &payload["finalTestRepositoryStability"];
+    assert_eq!(stability["repositories"], 2);
+    assert_eq!(stability["evaluatedRepositories"], 1);
+    assert_eq!(stability["unanswerableRepositories"], 1);
+    assert!(stability["leaveOneOutMinNdcgAtK"].is_null());
+    assert!(stability["minRepositoryNdcgAtK"].is_number());
+
+    let saved_ndcg = stability["minRepositoryNdcgAtK"]
+        .as_f64()
+        .expect("minimum score");
+    payload["finalTestRepositoryStability"]["minRepositoryNdcgAtK"] =
+        (if saved_ndcg > 0.5 { 0.25 } else { 0.75 }).into();
+    let altered = dir.path().join("tampered-stability.json");
+    fs::write(&altered, serde_json::to_vec(&payload).expect("serialize report"))
+        .expect("write altered report");
+    // Fast mode verifies fingerprints and required fields, not stored metrics.
+    assert!(
+        verify(&altered, &model, &fixture("holdout.demo.json"), None)
+            .status
+            .success()
+    );
+    let replay = verify_replay(&altered, &model, &fixture("holdout.demo.json"), None);
+    assert!(!replay.status.success());
+    assert!(replay.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&replay.stderr).contains("finalTestRepositoryStability"));
+
+    // Do not permit a v2 report to bypass replay by deleting a metric group.
+    payload["finalTestRepositoryStability"] = serde_json::Value::Null;
+    fs::write(&altered, serde_json::to_vec(&payload).expect("serialize report"))
+        .expect("write altered report");
+    let missing = verify(&altered, &model, &fixture("holdout.demo.json"), None);
+    assert!(!missing.status.success());
+    assert!(missing.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("missing repository-stability"));
+
+    let mut payload: serde_json::Value =
+        serde_json::from_slice(&fs::read(&report).expect("read original"))
+            .expect("original valid report");
+    let baseline = payload["finalTestRepositoryBalancedRetrieval"]["ndcgAtK"]
+        .as_f64()
+        .expect("balanced NDCG");
+    payload["finalTestRepositoryBalancedRetrieval"]["ndcgAtK"] =
+        (if baseline > 0.5 { 0.25 } else { 0.75 }).into();
+    fs::write(&altered, serde_json::to_vec(&payload).expect("serialize report"))
+        .expect("write altered report");
+    let replay = verify_replay(&altered, &model, &fixture("holdout.demo.json"), None);
+    assert!(!replay.status.success());
+    assert!(replay.stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&replay.stderr)
+            .contains("finalTestRepositoryBalancedRetrieval")
+    );
+}
+
+#[test]
+fn legacy_v1_report_remains_verifiable_without_v2_stability_metrics() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let (report, model) = prepare(dir.path(), None);
+    let mut payload: serde_json::Value =
+        serde_json::from_slice(&fs::read(&report).expect("read original"))
+            .expect("valid report");
+    payload["provenanceSchema"] = "repodna-benchmark-provenance/1".into();
+    payload
+        .as_object_mut()
+        .expect("report object")
+        .remove("finalTestRepositoryStability");
+    let legacy = dir.path().join("legacy-report.json");
+    fs::write(&legacy, serde_json::to_vec(&payload).expect("serialize legacy"))
+        .expect("write legacy report");
+
+    let checked = verify(&legacy, &model, &fixture("holdout.demo.json"), None);
+    assert!(
+        checked.status.success(),
+        "{}",
+        String::from_utf8_lossy(&checked.stderr)
+    );
+    let identity: serde_json::Value =
+        serde_json::from_slice(&checked.stdout).expect("valid result");
+    assert_eq!(identity["schema"], "repodna-benchmark-provenance/1");
+    let replay = verify_replay(&legacy, &model, &fixture("holdout.demo.json"), None);
+    assert!(
+        replay.status.success(),
+        "{}",
+        String::from_utf8_lossy(&replay.stderr)
+    );
+    let result: serde_json::Value =
+        serde_json::from_slice(&replay.stdout).expect("replay JSON");
+    assert_eq!(result["schema"], "repodna-benchmark-provenance/1");
+    assert_eq!(result["replayVerified"], true);
 }
 
 #[test]
