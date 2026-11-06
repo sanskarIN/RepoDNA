@@ -296,13 +296,15 @@ fn task_agreement(
     }))
 }
 
-
 /// Count evidence judgments by normalized repository and exact question.
 fn question_counts(reviews: &[AnnotationExample]) -> BTreeMap<(String, String), usize> {
     let mut counts = BTreeMap::new();
     for review in reviews {
         *counts
-            .entry((review.repository.trim().to_lowercase(), review.query.clone()))
+            .entry((
+                review.repository.trim().to_lowercase(),
+                review.query.clone(),
+            ))
             .or_insert(0) += 1;
     }
     counts
