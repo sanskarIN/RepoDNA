@@ -124,10 +124,10 @@ reason = "Intentional fake credentials used by tests"
 ```
 
 See the [example workflow](../examples/ci/repodna.yml). For a baseline-versus-PR
-comparison, including the structured impact JSON and the new per-file module
-mapping in the development tree, see [reviewing changes](reviewing-changes.md).
-The published stable CLI and action are currently v1.4.5; changes on `main`
-may not yet be included in the release downloads.
+comparison, including structured impact JSON and per-file module mapping
+shipped in v1.5.0, see [reviewing changes](reviewing-changes.md).
+The published stable CLI and action are **[v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)**;
+subsequent changes on `main` may not yet be included in release downloads.
 
 ## Next steps
 

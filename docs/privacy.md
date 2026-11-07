@@ -128,13 +128,13 @@ include_commit_messages = false
 
 ## Before you publish a report
 
-In the development-tree web interface, **Findings → Export filtered** opens
+In the v1.5.0 stable web and desktop interfaces, **Findings → Export filtered** opens
 a local preview showing up to three findings and 4,000 characters, plus
 selection counts. **Save full export** still writes every filtered finding,
 including content not shown in the sample. **This is not a secret scanner or
 privacy preset:** the preview does not anonymize or redact paths, summaries,
-commit context or evidence. The v1.4.5 desktop installer does not yet include
-this confirmation. A findings-only JSON export is not a complete RepositoryDNA
+commit context or evidence. The earlier v1.4.5 desktop installer did not
+include this confirmation. A findings-only JSON export is not a complete RepositoryDNA
 artifact and should not be used as a CI baseline.
 
 - Use `--privacy public` for anything that leaves your team.

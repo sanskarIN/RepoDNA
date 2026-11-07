@@ -91,9 +91,9 @@ changed.
 `repodna ci` prints a summary for continuous integration: text, Markdown for job summaries,
 JSON, or GitHub Actions annotations. With `--baseline`, the JSON includes changed
 file paths, introduced/resolved active findings, touched modules and observed
-module edges, when both snapshots have architecture results. The development
-branch for v1.5.0 also includes `changes.architecture.fileOwners`: each changed
-path's closest module in the baseline and head snapshots. Its Markdown version
+module edges, when both snapshots have architecture results. Stable v1.5.0
+also includes `changes.architecture.fileOwners`: each changed path's closest
+module in the baseline and head snapshots. Its Markdown version
 shows bounded, escaped samples, not the complete JSON.
 
 Use comparable analysis profiles and configuration. An absent content hash is

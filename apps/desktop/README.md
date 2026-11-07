@@ -43,8 +43,9 @@ tooltip and Properties > Details, instead of incorrectly inheriting
 the same publisher. This Windows metadata is **not a code signature**:
 the desktop executables and installers remain unsigned unless a trusted
 certificate is configured. Changing the publisher may affect installer
-registration, so test an upgrade from v1.4.5 and a clean install before
-publishing the next stable release.
+registration. For the published v1.5.0 stable release, Windows x64 clean
+installation and upgrading from v1.4.5 were tested during release qualification.
+This metadata change does not provide code signing.
 
 On macOS the app is signed ad hoc (`bundle.macOS.signingIdentity` is `-` in
 [tauri.conf.json](src-tauri/tauri.conf.json)): Macs with Apple silicon report a downloaded

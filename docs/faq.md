@@ -67,19 +67,21 @@ but Git history is not available. See the
 **What is the difference between a Findings export and a complete analysis?**
 The Findings page downloads the current *filtered findings* as CSV, JSON or
 Markdown, including matching results beyond the first displayed page. In the
-web interface built from the current development tree, it first displays a
-local, bounded sample and requires **Save full export**; the sample is not
-redaction or secret scanning. This confirmation is not included in the
-v1.4.5 desktop installer.
+v1.5.0 stable web and desktop interfaces, it first displays a local,
+bounded sample and requires **Save full export**; the sample is not redaction
+or secret scanning. The older v1.4.5 desktop installer did not include this
+confirmation.
 The JSON is an array of findings, **not** a RepositoryDNA artifact.
 Use **Reports & export** or `repodna analyze . --format json` for a
 complete artifact. See [sharing a review](workflows.md#share-a-review-without-sharing-source-code).
 
 **Why does the web interface show a feature that the latest installer does not?**
-The hosted web interface is deployed from the development branch and can be
-newer than the latest tagged desktop and CLI release. As of 2026-11-04, the
-latest published stable release is **v1.4.5**; the local Findings export
-review and CI per-file module ownership are v1.5.0 development changes.
+The hosted web interface is deployed from `main` and can be newer than
+published desktop and CLI builds. As of **November 6, 2026**, the latest
+published stable release is **[v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)**;
+local Findings export review and CI per-file module ownership ship in v1.5.0.
+New features merged to `main` after that release may still be web-only until
+a later tagged release.
 See the [version-aware review guide](reviewing-changes.md).
 
 **Can I analyze a repository I do not trust?**

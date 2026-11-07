@@ -192,8 +192,8 @@ published binaries and GitHub Action. Avoid presenting a development-tree
 feature as already included in a tagged release. The
 [reviewing changes guide](reviewing-changes.md) shows this distinction for
 CI `fileOwners` and Findings-export confirmation, and the
-[v1.5.0 release checklist](../packaging/release/v1.5.0-checklist.md) records
-remaining qualification gates. The public GitHub Pages deployment can be newer
+[v1.5.0 release record](../packaging/release/v1.5.0-checklist.md) documents
+the published stable release and outstanding post-release manual QA follow-ups. The public GitHub Pages deployment can be newer
 than the latest packaged CLI or desktop version.
 
 ## The desktop app
