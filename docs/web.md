@@ -91,10 +91,10 @@ selection as a readable review, escaping untrusted Markdown and HTML punctuation
 All three respect search, severity, category, confidence, and the **Show
 suppressed** selection, including matches beyond the visible page.
 
-**Version note:** This review-before-save interaction landed on `main` for
-v1.5.0 development. The hosted GitHub Pages web app may receive it before the
-next stable desktop installer; the published v1.4.5 desktop build does not
-have this confirmation. See [reviewing changes](reviewing-changes.md).
+**Version note:** Review-before-save shipped in the **v1.5.0 stable** desktop
+and web releases on November 6, 2026. Earlier v1.4.5 desktop builds did not
+include it. The hosted GitHub Pages app may receive later development updates
+before the next tagged installer. See [reviewing changes](reviewing-changes.md).
 
 Before saving, RepoDNA displays a **local review** with the selected finding count,
 distinct repository paths, evidence item count, suppressed finding count, and a

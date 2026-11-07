@@ -154,9 +154,9 @@ documented SARIF subset.
 
 With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
 `failed`, and `failing` fields and adds a structured `changes` object.
-**Availability:** `changes.architecture.fileOwners` is implemented on `main`
-for v1.5.0 development, not in the published v1.4.5 CLI or versioned GitHub
-Action. The other documented baseline-delta fields predate this addition. For
+**Availability:** `changes.architecture.fileOwners` ships in the published
+**v1.5.0 stable** CLI and versioned GitHub Action. The other documented
+baseline-delta fields predate this addition. For
 a step-by-step example and compatibility notes, see
 [reviewing changes](reviewing-changes.md):
 
@@ -169,8 +169,7 @@ a step-by-step example and compatibility notes, see
   appears as a removed path plus an added path, not as an inferred modification.
 - `changes.findings.introduced` and `resolved`: stable-ID, deduplicated
   records with `id`, `rule`, lower-case `severity`, `title`, and `paths`,
-  ordered by descending severity and then finding ID. In the v1.5.0 development
-  tree, duplicate IDs in imported artifacts use the highest-severity active
+  ordered by descending severity and then finding ID. Since v1.5.0, duplicate IDs in imported artifacts use the highest-severity active
   variant (then a deterministic rule/title/path tie-break), including for
   `--new-only --fail-on` and baseline-limited workflow annotations. This
   prevents input order from masking a higher-severity introduced finding.
@@ -208,7 +207,7 @@ use structured JSON for the complete path list. Each detail list includes at mos
 escaped, and individual entries are clipped to 180 characters. The ordinary
 summary remains unchanged when no baseline is provided. This output may still
 contain private paths and finding titles: do not post it publicly without
-reviewing its contents. In the v1.5.0 development tree, the Markdown baseline
+reviewing its contents. Since v1.5.0, the Markdown baseline
 impact also includes up to 10 per-file module-ownership entries.
 
 An active finding that was suppressed in the baseline counts as introduced if

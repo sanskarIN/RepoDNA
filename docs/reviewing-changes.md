@@ -4,14 +4,14 @@ RepoDNA has two complementary review workflows: **baseline impact in the CLI**
 and **filtered findings exports in the web interface**. Neither workflow is a
 security audit, proof of causality, or a substitute for reading the actual diff.
 
-> **Version boundary (2026-11-04):** The latest published stable binaries and
-> versioned GitHub Action are **v1.4.5**. The new `fileOwners` CI field and the
-> export-review confirmation introduced in PRs
+> **Stable release (2026-11-06):** RepoDNA **[v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)**
+> is published on GitHub as a stable release. Its binaries, installers and
+> versioned GitHub Action include the CI `fileOwners` field and local
+> Findings-export review introduced by PRs
 > [#198](https://github.com/sanskarIN/RepoDNA/pull/198) and
-> [#195](https://github.com/sanskarIN/RepoDNA/pull/195) are part of the
-> **development tree for v1.5.0**. The hosted web application may deploy
-> features from `main` independently of packaged desktop/CLI releases.
-> Do not expect those additions in the v1.4.5 binary, installer, or action.
+> [#195](https://github.com/sanskarIN/RepoDNA/pull/195).
+> The hosted web application may still deploy later changes from `main`
+> separately from tagged desktop/CLI releases.
 
 ## 1. Build a comparable baseline
 
@@ -47,7 +47,7 @@ The JSON object preserves `summary`, `failed` and `failing`, and adds
 | `changes.files.modified` | Same path with **different known hashes** in both artifacts |
 | `changes.findings.introduced` / `resolved` | Deduplicated active finding IDs entering or leaving the result |
 | `changes.architecture.touchedModules` | Modules owning changed files in either snapshot |
-| `changes.architecture.fileOwners` | For each changed path, its closest mapped baseline and current module IDs (**development tree for v1.5.0**) |
+| `changes.architecture.fileOwners` | For each changed path, its closest mapped baseline and current module IDs (**available in v1.5.0 and later**) |
 | `changes.architecture.directDependents` | Modules with a direct dependency on touched modules in either snapshot |
 | `changes.architecture.moduleEdges.added` / `removed` | Observed module-to-module relationships that appeared or disappeared |
 
@@ -100,16 +100,16 @@ now active count as introduced. With `--new-only`, GitHub annotations target
 the introduced findings; their limit is 50 after filtering.
 
 The published [GitHub Action](github-action.md) provides an easier route for
-automated CI. **Pin `sanskarIN/RepoDNA@v1.4.5` for the published stable
-behavior**; the action does not gain development-tree output merely because
-`main` contains newer documentation. See
+automated CI. **Pin `sanskarIN/RepoDNA@v1.5.0` for the published stable
+behavior**; the action does not automatically gain changes merged to `main`
+after the release. See
 [the practical CI workflow](workflows.md#review-new-findings-in-ci).
 
 ## 4. Review and save selected findings in the web interface
 
 In the Findings view, apply search, severity, category, confidence and
 **Show suppressed** filters, then choose **Export filtered CSV**, **JSON** or
-**Markdown**. In the development-tree web version, RepoDNA opens a **local
+**Markdown**. In v1.5.0 and the hosted web version, RepoDNA opens a **local
 review** showing the selection count, unique paths, evidence count,
 suppressed count and a sample of up to **three findings / 4,000 characters**.
 It then requires **Save full export** or **Cancel export**. Changing filters
@@ -129,8 +129,8 @@ For exporting and sharing see [web](web.md), [reports](reports.md), and
 
 ## 5. Release and research status
 
-The next planned stable version is **v1.5.0**, but its qualification gates
-remain open. See the [v1.5.0 checklist](../packaging/release/v1.5.0-checklist.md),
+**v1.5.0 is published as stable.** See its [GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0),
+the [release qualification record](../packaging/release/v1.5.0-checklist.md),
 the [roadmap](../ROADMAP.md) and [release history](../CHANGELOG.md).
 Local native explanations are extractive; the optional trained ranker is not a
 generative language model and benchmark quality claims require independently
