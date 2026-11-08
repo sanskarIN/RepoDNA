@@ -56,7 +56,7 @@ Other inputs:
 
 ```sh
 repodna analyze https://github.com/sanskarIN/RepoDNA    # cloned to a temporary directory
-repodna analyze https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development  # analyze this branch
+repodna analyze https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development  # development builds after v1.5.0
 repodna analyze project.zip                             # extracted to a temporary directory
 repodna analyze . --profile deep                        # also duplication, similarity, historical architecture
 repodna analyze . --profile quick                       # files only, no history
