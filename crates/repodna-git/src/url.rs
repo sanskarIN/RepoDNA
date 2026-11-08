@@ -232,7 +232,9 @@ fn valid_github_ref(reference: &str) -> bool {
 /// subdirectory begins. For a directory URL, use the branch-root page instead.
 pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarget, GitError> {
     let url = validate_clone_url(input, policy)?;
-    let parts = split(&url).expect("validated remote URL has a host and path");
+    let Some(parts) = split(&url) else {
+        return Err(GitError::InvalidUrl(sanitize_url(&url)));
+    };
     let ordinary = || CloneTarget {
         repository_url: url.clone(),
         branch: None,
