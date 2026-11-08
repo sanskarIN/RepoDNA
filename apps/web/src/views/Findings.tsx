@@ -236,8 +236,8 @@ export function Findings() {
               <>
                 The full file will contain {thousands(filtered.length)} findings,{" "}
                 {thousands(review.paths)} distinct repository paths,{" "}
-                {thousands(review.evidenceItems)} evidence items, and{" "}
-                {thousands(review.suppressed)} suppressed findings.
+                {thousands(review.evidenceItems)} evidence items, and {thousands(review.suppressed)}{" "}
+                suppressed findings.
               </>
             )}
           </p>
