@@ -399,6 +399,121 @@ mod tests {
     }
 
     #[test]
+    fn github_tree_links_select_exact_requested_branch() {
+        let cases = [
+            (
+                "https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development",
+                "https://github.com/sanskarIN/RepoDNA",
+                "release-v1.4.0-development",
+            ),
+            (
+                "https://github.com/org/project/tree/feature/branch-with-slashes",
+                "https://github.com/org/project",
+                "feature/branch-with-slashes",
+            ),
+            (
+                "https://github.com/org/project/tree/feature%2Fnew-ui",
+                "https://github.com/org/project",
+                "feature/new-ui",
+            ),
+            (
+                "https://github.com/org/project/tree/fix%2fparser?tab=readme",
+                "https://github.com/org/project",
+                "fix/parser",
+            ),
+            (
+                "https://www.github.com/org/project/tree/main#readme",
+                "https://www.github.com/org/project",
+                "main",
+            ),
+        ];
+        for (url, expected_repository, expected_branch) in cases {
+            let target = resolve_clone_target(url, PUBLIC).unwrap();
+            assert_eq!(target.repository_url, expected_repository, "{url}");
+            assert_eq!(target.branch.as_deref(), Some(expected_branch), "{url}");
+            let remote = parse_remote(&target.repository_url);
+            assert_eq!(remote.name.as_deref(), Some(if url.contains("RepoDNA") {
+                "RepoDNA"
+            } else {
+                "project"
+            }));
+        }
+    }
+
+    #[test]
+    fn github_tree_urls_reject_malformed_and_option_like_refs() {
+        for url in [
+            "https://github.com/org/repo/tree/",
+            "https://github.com/org/repo/tree",
+            "https://github.com/org/repo/tree/%00",
+            "https://github.com/org/repo/tree/%2D%2Dupload-pack%3Dcmd",
+            "https://github.com/org/repo/tree/main%0Aevil",
+            "https://github.com/org/repo/tree/a%2E%2Eb",
+            "https://github.com/org/repo/tree/a//b",
+            "https://github.com/org/repo/tree/a%GG",
+            "https://github.com/org/repo/tree/a.lock",
+            "https://github.com/org/repo/tree/.hidden",
+            "https://github.com/org/repo/blob/main/src/lib.rs",
+        ] {
+            assert!(
+                matches!(resolve_clone_target(url, PUBLIC), Err(GitError::InvalidUrl(_))),
+                "unexpectedly accepted {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn clone_url_policy_still_applies_to_browser_links() {
+        assert!(resolve_clone_target(
+            "http://github.com/org/repo/tree/main",
+            PUBLIC
+        ).is_err());
+        assert!(resolve_clone_target(
+            "https://127.0.0.1/org/repo/tree/main",
+            PUBLIC
+        ).is_err());
+        assert_eq!(
+            resolve_clone_target(
+                "http://github.com/org/repo/tree/main",
+                UrlPolicy {
+                    allow_insecure: true,
+                    ..PUBLIC
+                }
+            )
+            .unwrap()
+            .branch
+            .as_deref(),
+            Some("main")
+        );
+        let credentialed = resolve_clone_target(
+            "https://user:example-password@github.com/org/repo/tree/main",
+            PUBLIC,
+        )
+        .unwrap();
+        assert_eq!(
+            sanitize_url(&credentialed.repository_url),
+            "https://github.com/org/repo"
+        );
+        assert_eq!(credentialed.branch.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn plain_remotes_are_not_rewritten() {
+        for url in [
+            "https://github.com/org/repo",
+            "https://github.com/org/repo.git",
+            "git@github.com:org/repo.git",
+            "ssh://git@github.com/org/repo.git",
+            "https://gitlab.com/group/repo/tree/feature",
+            "https://example.com/org/repo/tree/main",
+        ] {
+            let target = resolve_clone_target(url, PUBLIC).unwrap();
+            assert_eq!(target.repository_url, url);
+            assert_eq!(target.branch, None);
+        }
+    }
+
+    #[test]
     fn rejects_dangerous_or_unsupported_urls() {
         for url in [
             "ext::sh -c touch% /tmp/pwned",
