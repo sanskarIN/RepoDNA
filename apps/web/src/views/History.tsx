@@ -67,6 +67,11 @@ export function History() {
         {git.activity.description}
       </PageHeader>
       <SectionStatus status={git.status} notes={git.notes} />
+      {git.currentBranch ? (
+        <p className="muted">
+          Analyzed checkout branch: <strong>{git.currentBranch}</strong>.
+        </p>
+      ) : null}
       {git.shallow ? (
         <Note caution>
           This is a shallow clone, so older history is missing and early dates may be wrong.
