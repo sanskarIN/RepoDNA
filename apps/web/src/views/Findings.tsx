@@ -260,7 +260,7 @@ export function Findings() {
           </Note>
           <p className="muted">
             {reviewFormat === "counts"
-              ? "Complete aggregate of the currently filtered findings, without per-finding records."
+              ? "Complete aggregate of the filtered findings, with no individual records."
               : `Local sample of the first ${review.sampled} findings (up to 4,000 characters).`}
             {review.shortened ? " The saved file contains additional content not shown here." : ""}
           </p>
