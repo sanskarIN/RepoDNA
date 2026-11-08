@@ -94,6 +94,7 @@ Analyzes a repository, stores the result, and prints a summary.
 repodna analyze                       # the current directory
 repodna analyze ~/src/project --profile deep
 repodna analyze https://github.com/sanskarIN/RepoDNA
+repodna analyze https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development  # development builds after v1.5.0
 repodna analyze . --output repodna-report   # also write a report bundle
 repodna analyze . --format json > repodna.json
 repodna analyze . --format markdown > REPORT.md
