@@ -118,7 +118,11 @@ const UNREACHABLE: &[&str] = &[
 /// A hint for a clone or fetch that failed because of the remote, when Git says why.
 fn remote_hint(stderr: &str) -> Option<&'static str> {
     let lower = stderr.to_ascii_lowercase();
-    if ACCESS_DENIED.iter().any(|text| lower.contains(text)) {
+    if lower.contains("remote branch") && lower.contains("not found") {
+        Some(
+            "The requested branch or tag was not found on the remote. Check the branch name, and paste its GitHub /tree/<branch> URL without an additional directory path.",
+        )
+    } else if ACCESS_DENIED.iter().any(|text| lower.contains(text)) {
         Some(
             "The repository may be private, or the address may be wrong. RepoDNA never prompts for credentials: set them up for Git itself (a credential helper or an SSH agent), or clone the repository yourself and pass its local path.",
         )
@@ -172,5 +176,13 @@ mod tests {
             "fatal: unable to access 'https://example.com/a.git/': CONNECT tunnel failed, response 403",
         );
         assert!(proxy.hint().unwrap().contains("could not reach"));
+        let missing_branch =
+            clone("fatal: Remote branch release-not-present not found in upstream origin");
+        assert!(
+            missing_branch
+                .hint()
+                .unwrap()
+                .contains("requested branch or tag")
+        );
     }
 }
