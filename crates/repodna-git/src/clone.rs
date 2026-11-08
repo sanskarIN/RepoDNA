@@ -85,8 +85,8 @@ mod tests {
         .unwrap();
         let args = clone_args(&target, Some("3"), "destination");
         assert_eq!(
-            args,
-            [
+            args.as_slice(),
+            &[
                 "-c",
                 "core.symlinks=false",
                 "clone",
