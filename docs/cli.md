@@ -396,8 +396,8 @@ repodna explain --format json -o explanation.json
 | Command | What it does |
 |---|---|
 | `repodna list` (alias `ls`) | Lists stored repositories (`--format text\|json`). |
-| `repodna clean TARGET` | Shows which stored analyses would be deleted; `--yes` deletes them. `--all` cleans every repository and `--keep N` keeps the newest N analyses of each. |
-| `repodna cache stats` | Shows storage and cache sizes. |
+| `repodna clean TARGET` | Shows which indexed stored analyses would be deleted; `--yes` deletes them. `--all` cleans every repository and `--keep N` keeps the newest N analyses of each. Refuses cleanup when saved artifacts are missing from the index. |
+| `repodna cache stats` | Shows storage and cache sizes, including `unindexedArtifacts` in JSON. |
 | `repodna cache clear` | Clears the per-file analysis cache and cached explanations. |
 | `repodna cache repair` | Checks the database, sets a damaged one aside, and rebuilds the index from stored artifacts. |
 | `repodna cache reset --yes` | Removes the SQLite index and analysis cache, and clears cached explanations. Saved analysis JSON files are kept; `repodna cache repair` restores their index. |
@@ -413,8 +413,11 @@ repodna clean --all --yes                # intentionally deletes saved analyses
 
 **Important:** A cache reset is not an analysis deletion operation. Previously
 saved analysis artifacts remain on disk even while `repodna list` reports no
-indexed scans. Use `clean` for deliberate removal of saved analyses; `cache
-clear` only clears caches.
+indexed scans. To avoid a false "Nothing to delete" result, `clean` refuses
+to proceed if any saved analysis JSON is unindexed. Run `repodna cache repair`
+to restore the index before using `clean --all --yes` for deliberate removal.
+If repair skips damaged artifacts, inspect them in the local storage directory
+rather than assuming they were deleted. `cache clear` only clears caches.
 
 Repositories themselves are never touched. Storage locations are described in
 [privacy](privacy.md#what-is-stored-and-where).

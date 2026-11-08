@@ -134,6 +134,26 @@ impl Store {
         })
     }
 
+    /// Count saved analysis JSON artifacts that are not present in the SQLite index.
+    ///
+    /// After `repodna cache reset`, this may be nonzero even when the store
+    /// reports zero indexed scans. Do not use the index alone to claim that
+    /// all saved analyses have been deleted. A repair can re-index valid files.
+    /// This method never reads or changes the artifact contents.
+    pub fn unindexed_artifact_count(&self) -> Result<usize, StoreError> {
+        let indexed: HashSet<String> = {
+            let connection = self.lock();
+            let mut statement = connection.prepare("SELECT artifact FROM scans")?;
+            statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<_, _>>()?
+        };
+        Ok(artifact_files(&self.paths)
+            .iter()
+            .filter(|(_, relative)| !indexed.contains(relative))
+            .count())
+    }
+
     /// Lists problems: database integrity errors, scans whose artifact is missing, and
     /// stored artifacts that are not indexed. An empty list means the store is healthy.
     pub fn check(&self) -> Result<Vec<String>, StoreError> {
@@ -334,6 +354,7 @@ mod tests {
         assert_eq!(repositories[0].name, "widget");
         assert_eq!(store.scans(&location().id(), 10).unwrap().len(), 2);
         assert!(store.check().unwrap().is_empty());
+        assert_eq!(store.unindexed_artifact_count().unwrap(), 0);
 
         // A healthy database is kept and simply re-indexed.
         drop(store);
@@ -375,6 +396,14 @@ mod tests {
 
         let store = Store::open(paths.clone()).unwrap();
         assert!(store.repositories().unwrap().is_empty());
+        assert_eq!(store.unindexed_artifact_count().unwrap(), 1);
+        assert!(
+            store
+                .check()
+                .unwrap()
+                .iter()
+                .any(|problem| { problem.contains("stored artifacts are not indexed") })
+        );
         drop(store);
         let repaired = repair(&paths).unwrap();
         assert_eq!(repaired.indexed, 1);

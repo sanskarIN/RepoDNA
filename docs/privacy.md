@@ -61,7 +61,11 @@ only cached per-file analysis results and cached AI explanations, run
 **but deliberately preserves the saved JSON artifacts**. The index appears empty
 until you run `repodna cache repair` to re-index those artifacts. It also
 clears cached AI explanations. Do not use cache reset to permanently erase
-stored analyses. To discard every kind of locally stored data, close RepoDNA
+stored analyses. `repodna clean` refuses to delete anything when unindexed
+saved artifacts remain, rather than misleadingly claiming the storage is empty.
+Check `repodna cache stats --json` for `unindexedArtifacts`, repair the
+index first, and then use `repodna clean --all --yes` if deletion is intended.
+Unreadable artifacts skipped during repair require separate inspection. To discard every kind of locally stored data, close RepoDNA
 and remove its data directory after reviewing any data and configuration
 stored there; deleting that directory cannot be undone. Use `--no-store` to
 analyze without creating saved analysis records.
