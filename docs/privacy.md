@@ -141,6 +141,14 @@ commit context or evidence. The earlier v1.4.5 desktop installer did not
 include this confirmation. A findings-only JSON export is not a complete RepositoryDNA
 artifact and should not be used as a CI baseline.
 
+On development `main` after v1.5.0, the Findings view additionally offers
+**Export counts-only CSV**. The complete CSV contains only fixed severity
+labels, active/suppressed counts and totals for the filtered selection. No
+individual paths, titles, rules, summaries or evidence are copied. It is
+reviewed locally before saving and does not change the existing detailed
+exports or the report privacy presets. Counts themselves may still be
+sensitive. **This option is not part of the published v1.5.0 desktop binaries.**
+
 - Use `--privacy public` for anything that leaves your team.
 - Read the report: file names and directory structure are visible in every preset.
 - Findings about possible secrets name the file and line but never the value. If a real
