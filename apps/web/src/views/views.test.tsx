@@ -285,7 +285,7 @@ describe("views", () => {
     expect(panel.textContent).toContain("It omits");
     expect(panel.textContent).toContain("individual paths, titles, rules and evidence");
     expect(screen.getByRole("button", { name: "Save counts-only CSV" })).toBeTruthy();
-    const preview = screen.getByLabelText("Filtered findings export sample").textContent ?? "";
+    const preview = screen.getByLabelText("Counts-only CSV preview").textContent ?? "";
     expect(preview).toContain("Severity,Active,Suppressed,Total");
     expect(preview).toContain("Total,");
     fireEvent.click(screen.getByRole("button", { name: "Cancel export" }));
