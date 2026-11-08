@@ -43,8 +43,8 @@ describe("views", () => {
 
   it("identifies the analyzed branch in the Overview without calling it the default", async () => {
     const data = demo();
-    data.git.currentBranch = "release-v1.4.0-development";
-    data.git.defaultBranch = "main";
+    data.dna.git.currentBranch = "release-v1.4.0-development";
+    data.dna.git.defaultBranch = "main";
     await renderAt("/overview", data);
     const meta = document.querySelector(".page-header .meta");
     expect(meta?.textContent).toContain("analyzed branch release-v1.4.0-development");
@@ -53,8 +53,8 @@ describe("views", () => {
 
   it("identifies the analyzed checkout branch on the History page", async () => {
     const data = demo();
-    data.git.currentBranch = "release-v1.4.0-development";
-    data.git.defaultBranch = "main";
+    data.dna.git.currentBranch = "release-v1.4.0-development";
+    data.dna.git.defaultBranch = "main";
     await renderAt("/history", data);
     const branch = await screen.findByText("release-v1.4.0-development");
     expect(branch.tagName).toBe("STRONG");
