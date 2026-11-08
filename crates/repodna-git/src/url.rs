@@ -173,6 +173,118 @@ pub fn parse_remote(url: &str) -> ParsedRemote {
     }
 }
 
+/// A cloneable remote and an optional selected GitHub branch or tag.
+///
+/// GitHub's `/tree/<ref>` pages are browser links, not Git clone URLs.
+/// A branch name can contain slashes, so the entire path after `/tree/`
+/// is interpreted as the ref (not as a directory inside it).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloneTarget {
+    /// Git repository URL, without a GitHub browser route.
+    pub repository_url: String,
+    /// Branch or tag to check out, when the input is a GitHub tree URL.
+    pub branch: Option<String>,
+}
+
+/// Decode percent escapes in the branch part of a GitHub browser URL once.
+fn decode_github_ref(input: &str) -> Option<String> {
+    let bytes = input.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut position = 0;
+    while position < bytes.len() {
+        if bytes[position] == b'%' {
+            let high = (*bytes.get(position + 1)? as char).to_digit(16)?;
+            let low = (*bytes.get(position + 2)? as char).to_digit(16)?;
+            decoded.push(((high << 4) | low) as u8);
+            position += 3;
+        } else {
+            decoded.push(bytes[position]);
+            position += 1;
+        }
+    }
+    String::from_utf8(decoded).ok()
+}
+
+/// Git ref-name rules needed to reject malformed and option-like selections
+/// before invoking Git. Git still performs its own authoritative validation.
+fn valid_github_ref(reference: &str) -> bool {
+    !reference.is_empty()
+        && reference != "@"
+        && !reference.starts_with('-')
+        && !reference.ends_with('/')
+        && !reference.ends_with('.')
+        && !reference.contains("..")
+        && !reference.contains("@{")
+        && !reference
+            .split('/')
+            .any(|part| part.is_empty() || part.starts_with('.') || part.ends_with(".lock"))
+        && !reference.chars().any(|ch| {
+            ch.is_control()
+                || ch.is_whitespace()
+                || matches!(ch, '\\' | '~' | '^' | ':' | '?' | '*' | '[')
+        })
+}
+
+/// Convert an allowed GitHub `/tree/<branch>` browser URL into a cloneable
+/// repository URL plus a requested checkout. Ordinary Git remotes are unchanged.
+///
+/// This does not try to guess where a slash-containing branch name ends and a
+/// subdirectory begins. For a directory URL, use the branch-root page instead.
+pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarget, GitError> {
+    let url = validate_clone_url(input, policy)?;
+    let parts = split(&url).expect("validated remote URL has a host and path");
+    let ordinary = || CloneTarget {
+        repository_url: url.clone(),
+        branch: None,
+    };
+
+    if !matches!(parts.scheme.as_deref(), Some("https" | "http"))
+        || !matches!(
+            parts.host.to_ascii_lowercase().as_str(),
+            "github.com" | "www.github.com"
+        )
+    {
+        return Ok(ordinary());
+    }
+
+    // Strip browser navigation parameters only for recognized GitHub tree URLs.
+    let browser_path = parts.path.split(['?', '#']).next().unwrap_or(parts.path);
+    let segments: Vec<&str> = browser_path.split('/').collect();
+    if segments.len() < 3 {
+        return Ok(ordinary());
+    }
+    let invalid = |reason: &str| {
+        GitError::InvalidUrl(format!("{} ({reason})", sanitize_url(&url)))
+    };
+    if segments[2] == "blob" {
+        return Err(invalid(
+            "GitHub file URL; supply a repository URL or a /tree/<branch> page",
+        ));
+    }
+    if segments[2] != "tree" {
+        return Ok(ordinary());
+    }
+    if segments.len() < 4
+        || segments[0].is_empty()
+        || segments[1].is_empty()
+        || segments[3].is_empty()
+    {
+        return Err(invalid("GitHub tree URL is missing a branch or tag"));
+    }
+    let raw_branch = segments[3..].join("/");
+    let branch = decode_github_ref(&raw_branch)
+        .filter(|reference| valid_github_ref(reference))
+        .ok_or_else(|| invalid("invalid GitHub branch or tag in tree URL"))?;
+
+    let prefix = url
+        .strip_suffix(parts.path)
+        .expect("parsed remote path is a suffix of its URL");
+    Ok(CloneTarget {
+        repository_url: format!("{prefix}{}/{}", segments[0], segments[1]),
+        branch: Some(branch),
+    })
+}
+
 fn is_private_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
