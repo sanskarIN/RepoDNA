@@ -278,9 +278,9 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
         .filter(|reference| valid_github_ref(reference))
         .ok_or_else(|| invalid("invalid GitHub branch or tag in tree URL"))?;
 
-    let prefix = url
-        .strip_suffix(parts.path)
-        .expect("parsed remote path is a suffix of its URL");
+    let Some(prefix) = url.strip_suffix(parts.path) else {
+        return Err(invalid("could not resolve GitHub repository URL"));
+    };
     Ok(CloneTarget {
         repository_url: format!("{prefix}{}/{}", segments[0], segments[1]),
         branch: Some(branch),
