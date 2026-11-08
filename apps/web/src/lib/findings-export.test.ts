@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Finding } from "@repodna/schema";
-import { findingsCsv, findingsExportReview, findingsJson } from "./findings-export";
+import { findingsCountsCsv, findingsCsv, findingsExportReview, findingsJson } from "./findings-export";
 import { findingsMarkdown } from "./findings-markdown";
 
 function sample(values: Record<string, unknown> = {}): Finding {
@@ -104,5 +104,51 @@ describe("filtered findings export review", () => {
     expect(markdown.preview).toBe(findingsMarkdown(findings));
     expect(csv.shortened).toBe(false);
     expect(markdown.shortened).toBe(false);
+  });
+});
+
+describe("counts-only findings export", () => {
+  it("includes every filtered record while omitting untrusted repository content", () => {
+    const findings = [
+      sample({
+        severity: "warning",
+        title: "internal-private-title",
+        rule: "private-rule",
+        summary: "internal-private-summary",
+        paths: ["internal-private-path"],
+        evidence: [{ kind: "observation", text: "internal-private-evidence" }],
+      }),
+      sample({
+        severity: "warning",
+        suppressed: { source: "private-config", reason: "private-reason" },
+      }),
+      sample({ severity: "critical" }),
+      sample({ severity: "nonstandard" }),
+    ];
+    const csv = findingsCountsCsv(findings);
+    expect(csv).toContain("Severity,Active,Suppressed,Total");
+    expect(csv).toContain("Critical,1,0,1");
+    expect(csv).toContain("Warning,1,1,2");
+    expect(csv).toContain("Unknown,1,0,1");
+    expect(csv).toContain("Total,3,1,4");
+    for (const secret of [
+      "internal-private-title",
+      "private-rule",
+      "internal-private-summary",
+      "internal-private-path",
+      "internal-private-evidence",
+      "private-config",
+      "private-reason",
+    ]) {
+      expect(csv).not.toContain(secret);
+    }
+    const review = findingsExportReview(findings, "counts");
+    expect(review.preview).toBe(csv);
+    expect(review.sampled).toBe(4);
+    expect(review.shortened).toBe(false);
+  });
+
+  it("counts an empty selection without inventing finding details", () => {
+    expect(findingsCountsCsv([])).toContain("Total,0,0,0");
   });
 });
