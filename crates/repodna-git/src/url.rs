@@ -255,9 +255,7 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
     if segments.len() < 3 {
         return Ok(ordinary());
     }
-    let invalid = |reason: &str| {
-        GitError::InvalidUrl(format!("{} ({reason})", sanitize_url(&url)))
-    };
+    let invalid = |reason: &str| GitError::InvalidUrl(format!("{} ({reason})", sanitize_url(&url)));
     if segments[2] == "blob" {
         return Err(invalid(
             "GitHub file URL; supply a repository URL or a /tree/<branch> page",
@@ -434,11 +432,14 @@ mod tests {
             assert_eq!(target.repository_url, expected_repository, "{url}");
             assert_eq!(target.branch.as_deref(), Some(expected_branch), "{url}");
             let remote = parse_remote(&target.repository_url);
-            assert_eq!(remote.name.as_deref(), Some(if url.contains("RepoDNA") {
-                "RepoDNA"
-            } else {
-                "project"
-            }));
+            assert_eq!(
+                remote.name.as_deref(),
+                Some(if url.contains("RepoDNA") {
+                    "RepoDNA"
+                } else {
+                    "project"
+                })
+            );
         }
     }
 
@@ -458,7 +459,10 @@ mod tests {
             "https://github.com/org/repo/blob/main/src/lib.rs",
         ] {
             assert!(
-                matches!(resolve_clone_target(url, PUBLIC), Err(GitError::InvalidUrl(_))),
+                matches!(
+                    resolve_clone_target(url, PUBLIC),
+                    Err(GitError::InvalidUrl(_))
+                ),
                 "unexpectedly accepted {url}"
             );
         }
@@ -466,14 +470,8 @@ mod tests {
 
     #[test]
     fn clone_url_policy_still_applies_to_browser_links() {
-        assert!(resolve_clone_target(
-            "http://github.com/org/repo/tree/main",
-            PUBLIC
-        ).is_err());
-        assert!(resolve_clone_target(
-            "https://127.0.0.1/org/repo/tree/main",
-            PUBLIC
-        ).is_err());
+        assert!(resolve_clone_target("http://github.com/org/repo/tree/main", PUBLIC).is_err());
+        assert!(resolve_clone_target("https://127.0.0.1/org/repo/tree/main", PUBLIC).is_err());
         assert_eq!(
             resolve_clone_target(
                 "http://github.com/org/repo/tree/main",
