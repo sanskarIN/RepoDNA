@@ -103,11 +103,9 @@ mod tests {
             ]
         );
 
-        let ordinary = resolve_clone_target(
-            "https://github.com/sanskarIN/RepoDNA",
-            UrlPolicy::default(),
-        )
-        .unwrap();
+        let ordinary =
+            resolve_clone_target("https://github.com/sanskarIN/RepoDNA", UrlPolicy::default())
+                .unwrap();
         let args = clone_args(&ordinary, None, "destination");
         assert!(!args.contains(&"--branch"));
         assert!(!args.contains(&"--single-branch"));
