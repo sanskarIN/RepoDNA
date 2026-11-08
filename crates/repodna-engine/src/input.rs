@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 use repodna_core::cancel::CancellationToken;
 use repodna_core::model::metadata::{InputInfo, InputKind};
 use repodna_discovery::{ArchiveLimits, ExtractedArchive, detect_archive, extract};
-use repodna_git::url::{UrlPolicy, looks_like_url, parse_remote, resolve_clone_target, sanitize_url};
+use repodna_git::url::{
+    UrlPolicy, looks_like_url, parse_remote, resolve_clone_target, sanitize_url,
+};
 use repodna_git::{CloneOptions, GitRunner, clone_repository, repository_root};
 use tempfile::TempDir;
 
