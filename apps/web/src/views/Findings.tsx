@@ -221,11 +221,9 @@ export function Findings() {
         <section className="panel" role="region" aria-label="Review findings export">
           <div className="panel-header">
             <h2>
-              Review{" "}
               {reviewFormat === "counts"
-                ? "counts-only CSV"
-                : `filtered ${reviewFormat.toUpperCase()}`}{" "}
-              export
+                ? "Review counts-only CSV export"
+                : `Review filtered ${reviewFormat.toUpperCase()} export`}
             </h2>
           </div>
           <p>
