@@ -89,10 +89,7 @@ jobs:
       - name: Verify official support links
         run: npm run links:check && npm run links:test
       - name: Check formatting
-        run: |
-          npx prettier apps/web/src/views/Findings.tsx --write
-          git --no-pager diff -- apps/web/src/views/Findings.tsx
-          npm run format:check
+        run: npm run format:check
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Check the third-party notices
