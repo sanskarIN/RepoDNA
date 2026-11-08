@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Finding } from "@repodna/schema";
-import { findingsCountsCsv, findingsCsv, findingsExportReview, findingsJson } from "./findings-export";
+import {
+  findingsCountsCsv,
+  findingsCsv,
+  findingsExportReview,
+  findingsJson,
+} from "./findings-export";
 import { findingsMarkdown } from "./findings-markdown";
 
 function sample(values: Record<string, unknown> = {}): Finding {
