@@ -84,7 +84,8 @@ export function Findings() {
 
   const saveReviewedExport = () => {
     if (!reviewFormat || filtered.length === 0) return;
-    const extension = reviewFormat === "markdown" ? "md" : reviewFormat === "counts" ? "csv" : reviewFormat;
+    const extension =
+      reviewFormat === "markdown" ? "md" : reviewFormat === "counts" ? "csv" : reviewFormat;
     const content =
       reviewFormat === "counts"
         ? findingsCountsCsv(filtered)
@@ -220,26 +221,40 @@ export function Findings() {
         <section className="panel" role="region" aria-label="Review findings export">
           <div className="panel-header">
             <h2>
-              Review {reviewFormat === "counts" ? "counts-only CSV" : `filtered ${reviewFormat.toUpperCase()}`} export
+              Review{" "}
+              {reviewFormat === "counts"
+                ? "counts-only CSV"
+                : `filtered ${reviewFormat.toUpperCase()}`}{" "}
+              export
             </h2>
           </div>
           <p>
-            The full file will contain {thousands(filtered.length)} findings,{" "}
-            {thousands(review.paths)} distinct repository paths, {thousands(review.evidenceItems)}{" "}
-            evidence items, and {thousands(review.suppressed)} suppressed findings.
+            {reviewFormat === "counts" ? (
+              <>
+                The aggregate will summarize {thousands(filtered.length)} filtered findings,
+                including {thousands(review.suppressed)} suppressed findings.
+              </>
+            ) : (
+              <>
+                The full file will contain {thousands(filtered.length)} findings,{" "}
+                {thousands(review.paths)} distinct repository paths,{" "}
+                {thousands(review.evidenceItems)} evidence items, and{" "}
+                {thousands(review.suppressed)} suppressed findings.
+              </>
+            )}
           </p>
           <Note caution>
             {reviewFormat === "counts" ? (
               <>
                 This export contains fixed severity labels and aggregate counts only. It omits
-                individual paths, titles, rules and evidence. Even aggregate counts may be
-                sensitive; review before sharing.
+                individual paths, titles, rules and evidence. Even aggregate counts may be sensitive;
+                review before sharing.
               </>
             ) : (
               <>
                 Repository paths, summaries, and evidence may contain sensitive information. This
-                preview does not detect secrets, anonymize content, or remove private data. Review the
-                saved file before sharing it.
+                preview does not detect secrets, anonymize content, or remove private data. Review
+                the saved file before sharing it.
               </>
             )}
           </Note>
@@ -249,7 +264,15 @@ export function Findings() {
               : `Local sample of the first ${review.sampled} findings (up to 4,000 characters).`}
             {review.shortened ? " The saved file contains additional content not shown here." : ""}
           </p>
-          <pre className="note mono" tabIndex={0} aria-label="Filtered findings export sample">
+          <pre
+            className="note mono"
+            tabIndex={0}
+            aria-label={
+              reviewFormat === "counts"
+                ? "Counts-only CSV preview"
+                : "Filtered findings export sample"
+            }
+          >
             {review.preview}
           </pre>
           <div className="actions">
