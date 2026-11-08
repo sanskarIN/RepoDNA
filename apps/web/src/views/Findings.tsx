@@ -15,6 +15,7 @@ import { ErrorBox, Note, PageHeader, SearchBox, Select, SeverityBadge } from "..
 import { FindingItem } from "../components/FindingItem";
 import { useDownload } from "../lib/download";
 import {
+  findingsCountsCsv,
   findingsCsv,
   findingsExportReview,
   findingsJson,
@@ -83,20 +84,24 @@ export function Findings() {
 
   const saveReviewedExport = () => {
     if (!reviewFormat || filtered.length === 0) return;
-    const extension = reviewFormat === "markdown" ? "md" : reviewFormat;
+    const extension = reviewFormat === "markdown" ? "md" : reviewFormat === "counts" ? "csv" : reviewFormat;
     const content =
-      reviewFormat === "csv"
-        ? findingsCsv(filtered)
-        : reviewFormat === "json"
-          ? findingsJson(filtered)
-          : findingsMarkdown(filtered);
+      reviewFormat === "counts"
+        ? findingsCountsCsv(filtered)
+        : reviewFormat === "csv"
+          ? findingsCsv(filtered)
+          : reviewFormat === "json"
+            ? findingsJson(filtered)
+            : findingsMarkdown(filtered);
     const mime =
-      reviewFormat === "csv"
+      reviewFormat === "counts" || reviewFormat === "csv"
         ? "text/csv;charset=utf-8"
         : reviewFormat === "json"
           ? "application/json;charset=utf-8"
           : "text/markdown;charset=utf-8";
-    download("repodna-findings." + extension, content, mime);
+    const filename =
+      reviewFormat === "counts" ? "repodna-findings-counts.csv" : "repodna-findings." + extension;
+    download(filename, content, mime);
     setReviewFormat(null);
   };
 
@@ -197,6 +202,14 @@ export function Findings() {
         >
           Export filtered Markdown
         </button>
+        <button
+          type="button"
+          className="ghost"
+          disabled={filtered.length === 0}
+          onClick={() => setReviewFormat("counts")}
+        >
+          Export counts-only CSV
+        </button>
         <span className="muted" aria-live="polite">
           {filtered.length > shown
             ? `Showing ${thousands(shown)} of ${thousands(filtered.length)} findings`
@@ -206,7 +219,9 @@ export function Findings() {
       {reviewFormat && review ? (
         <section className="panel" role="region" aria-label="Review findings export">
           <div className="panel-header">
-            <h2>Review filtered {reviewFormat.toUpperCase()} export</h2>
+            <h2>
+              Review {reviewFormat === "counts" ? "counts-only CSV" : `filtered ${reviewFormat.toUpperCase()}`} export
+            </h2>
           </div>
           <p>
             The full file will contain {thousands(filtered.length)} findings,{" "}
@@ -214,12 +229,24 @@ export function Findings() {
             evidence items, and {thousands(review.suppressed)} suppressed findings.
           </p>
           <Note caution>
-            Repository paths, summaries, and evidence may contain sensitive information. This
-            preview does not detect secrets, anonymize content, or remove private data. Review the
-            saved file before sharing it.
+            {reviewFormat === "counts" ? (
+              <>
+                This export contains fixed severity labels and aggregate counts only. It omits
+                individual paths, titles, rules and evidence. Even aggregate counts may be
+                sensitive; review before sharing.
+              </>
+            ) : (
+              <>
+                Repository paths, summaries, and evidence may contain sensitive information. This
+                preview does not detect secrets, anonymize content, or remove private data. Review the
+                saved file before sharing it.
+              </>
+            )}
           </Note>
           <p className="muted">
-            Local sample of the first {review.sampled} findings (up to 4,000 characters).
+            {reviewFormat === "counts"
+              ? "Complete aggregate of the currently filtered findings, without per-finding records."
+              : `Local sample of the first ${review.sampled} findings (up to 4,000 characters).`}
             {review.shortened ? " The saved file contains additional content not shown here." : ""}
           </p>
           <pre className="note mono" tabIndex={0} aria-label="Filtered findings export sample">
@@ -227,7 +254,9 @@ export function Findings() {
           </pre>
           <div className="actions">
             <button type="button" onClick={saveReviewedExport}>
-              Save full {reviewFormat.toUpperCase()} export
+              {reviewFormat === "counts"
+                ? "Save counts-only CSV"
+                : `Save full ${reviewFormat.toUpperCase()} export`}
             </button>{" "}
             <button type="button" className="ghost" onClick={() => setReviewFormat(null)}>
               Cancel export
