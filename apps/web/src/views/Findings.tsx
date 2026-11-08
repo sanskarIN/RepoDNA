@@ -247,8 +247,8 @@ export function Findings() {
             {reviewFormat === "counts" ? (
               <>
                 This export contains fixed severity labels and aggregate counts only. It omits
-                individual paths, titles, rules and evidence. Even aggregate counts may be sensitive;
-                review before sharing.
+                individual paths, titles, rules and evidence. Aggregate counts may still be
+                sensitive; review before sharing.
               </>
             ) : (
               <>
