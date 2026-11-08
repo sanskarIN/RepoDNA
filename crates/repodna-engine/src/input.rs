@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 use repodna_core::cancel::CancellationToken;
 use repodna_core::model::metadata::{InputInfo, InputKind};
 use repodna_discovery::{ArchiveLimits, ExtractedArchive, detect_archive, extract};
-use repodna_git::url::{UrlPolicy, looks_like_url, parse_remote, sanitize_url};
+use repodna_git::url::{
+    UrlPolicy, looks_like_url, parse_remote, resolve_clone_target, sanitize_url,
+};
 use repodna_git::{CloneOptions, GitRunner, clone_repository, repository_root};
 use tempfile::TempDir;
 
@@ -146,6 +148,7 @@ pub fn prepare_input(
             })
         }
         InputSpec::Url(url) => {
+            let target = resolve_clone_target(url, options.url_policy)?;
             let git = git.ok_or(EngineError::Git(repodna_git::GitError::NotInstalled))?;
             let directory = tempfile::Builder::new()
                 .prefix("repodna-clone-")
@@ -162,12 +165,19 @@ pub fn prepare_input(
                 },
                 cancel,
             )?;
-            let remote = parse_remote(url);
+            // Use the cloneable repository URL for identity. A GitHub /tree/
+            // browser URL otherwise mistakes the branch name for the repo name.
+            let remote = parse_remote(&target.repository_url);
             let name = remote
                 .name
                 .clone()
                 .unwrap_or_else(|| "repository".to_owned());
             let mut notes = Vec::new();
+            if let Some(branch) = &target.branch {
+                notes.push(format!(
+                    "Checked out GitHub branch or tag {branch} from the requested tree URL."
+                ));
+            }
             if let Some(depth) = options.clone_depth {
                 notes.push(format!(
                     "The repository was cloned with --depth {depth}; history analysis covers only those commits."
@@ -236,6 +246,14 @@ mod tests {
         assert_eq!(
             InputSpec::detect("https://github.com/o/r"),
             InputSpec::Url("https://github.com/o/r".into())
+        );
+        assert_eq!(
+            InputSpec::detect(
+                "https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development"
+            ),
+            InputSpec::Url(
+                "https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development".into()
+            )
         );
         assert!(matches!(InputSpec::detect("."), InputSpec::Directory(_)));
         let dir = tempfile::tempdir().unwrap();

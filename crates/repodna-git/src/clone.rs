@@ -6,7 +6,7 @@ use repodna_core::CancellationToken;
 
 use crate::error::GitError;
 use crate::runner::GitRunner;
-use crate::url::{UrlPolicy, validate_clone_url};
+use crate::url::{CloneTarget, UrlPolicy, resolve_clone_target};
 
 /// Options for [`clone_repository`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -15,6 +15,31 @@ pub struct CloneOptions {
     pub depth: Option<u32>,
     /// URL policy.
     pub policy: UrlPolicy,
+}
+
+/// Assemble Git's checkout options separately from the URL and destination.
+///
+/// The explicit `--` keeps a remote URL from being interpreted as a Git flag.
+fn clone_args<'a>(
+    target: &'a CloneTarget,
+    depth: Option<&'a str>,
+    destination: &'a str,
+) -> Vec<&'a str> {
+    let mut args = vec![
+        "-c",
+        "core.symlinks=false",
+        "clone",
+        "--quiet",
+        "--no-recurse-submodules",
+    ];
+    if let Some(branch) = &target.branch {
+        args.extend(["--single-branch", "--branch", branch.as_str()]);
+    }
+    if let Some(depth) = depth {
+        args.extend(["--depth", depth]);
+    }
+    args.extend(["--", &target.repository_url, destination]);
+    args
 }
 
 /// Clones `url` into `destination` (which must not exist or be empty).
@@ -30,23 +55,10 @@ pub fn clone_repository(
     options: CloneOptions,
     cancel: &CancellationToken,
 ) -> Result<(), GitError> {
-    let url = validate_clone_url(url, options.policy)?;
+    let target = resolve_clone_target(url, options.policy)?;
     let destination = destination.to_string_lossy().into_owned();
     let depth = options.depth.map(|depth| depth.max(1).to_string());
-    let mut args = vec![
-        "-c",
-        "core.symlinks=false",
-        "clone",
-        "--quiet",
-        "--no-recurse-submodules",
-    ];
-    if let Some(depth) = &depth {
-        args.push("--depth");
-        args.push(depth);
-    }
-    args.push("--");
-    args.push(&url);
-    args.push(&destination);
+    let args = clone_args(&target, depth.as_deref(), &destination);
     // Name the failure after what the user asked for, not after the options it ran with.
     runner
         .run_global(&args, cancel)
@@ -63,6 +75,41 @@ pub fn clone_repository(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn git_clone_selects_github_tree_branch_without_cloning_browser_url() {
+        let target = resolve_clone_target(
+            "https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development",
+            UrlPolicy::default(),
+        )
+        .unwrap();
+        let args = clone_args(&target, Some("3"), "destination");
+        assert_eq!(
+            args.as_slice(),
+            &[
+                "-c",
+                "core.symlinks=false",
+                "clone",
+                "--quiet",
+                "--no-recurse-submodules",
+                "--single-branch",
+                "--branch",
+                "release-v1.4.0-development",
+                "--depth",
+                "3",
+                "--",
+                "https://github.com/sanskarIN/RepoDNA",
+                "destination",
+            ]
+        );
+
+        let ordinary =
+            resolve_clone_target("https://github.com/sanskarIN/RepoDNA", UrlPolicy::default())
+                .unwrap();
+        let args = clone_args(&ordinary, None, "destination");
+        assert!(!args.contains(&"--branch"));
+        assert!(!args.contains(&"--single-branch"));
+    }
 
     #[test]
     fn invalid_urls_are_rejected_before_git_runs() {
