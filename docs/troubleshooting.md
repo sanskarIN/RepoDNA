@@ -23,6 +23,15 @@ CI, checkouts are often shallow (`fetch-depth: 1`); fetch the full history
 `--allow-insecure-urls`, and hosts on private networks need `--allow-private-hosts`.
 `ext::` and local transports are always refused.
 
+**GitHub branch URL fails with Git exit code 128.** Stable v1.5.0 only accepts
+clone URLs, not GitHub browser `/tree/<branch>` links. In development builds
+after v1.5.0, branch-root links are recognized and the selected branch is
+checked out. An invalid or missing branch still fails with a helpful hint.
+Avoid pasting a branch link with an extra subdirectory path: a branch
+itself may contain slashes, so that form is ambiguous. On v1.5.0, clone
+the repository yourself, switch to the branch, then analyze its local
+directory as a workaround.
+
 **A private repository cannot be cloned.** RepoDNA never lets Git prompt for credentials.
 Use a URL your Git can access without prompting (for example an SSH URL with a key in your
 agent, or a credential helper), or clone the repository yourself and analyze the directory.
