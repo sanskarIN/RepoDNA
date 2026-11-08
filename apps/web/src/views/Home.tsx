@@ -83,10 +83,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
       <div className="panel-header">
         <div>
           <h2 id="scan-title">Analyze a repository</h2>
-          <p>
-            A local directory, an archive, or a Git URL (including GitHub branch links).
-            Nothing is uploaded.
-          </p>
+          <p>Analyze a directory, archive, Git URL, or GitHub branch URL. Nothing is uploaded.</p>
         </div>
       </div>
       <form
