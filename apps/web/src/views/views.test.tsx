@@ -41,6 +41,26 @@ describe("views", () => {
     });
   }
 
+  it("identifies the analyzed branch in the Overview without calling it the default", async () => {
+    const data = demo();
+    data.dna.git.currentBranch = "release-v1.4.0-development";
+    data.dna.git.defaultBranch = "main";
+    await renderAt("/overview", data);
+    const meta = document.querySelector(".page-header .meta");
+    expect(meta?.textContent).toContain("analyzed branch release-v1.4.0-development");
+    expect(meta?.textContent).not.toContain("analyzed branch main");
+  });
+
+  it("identifies the analyzed checkout branch on the History page", async () => {
+    const data = demo();
+    data.dna.git.currentBranch = "release-v1.4.0-development";
+    data.dna.git.defaultBranch = "main";
+    await renderAt("/history", data);
+    const branch = await screen.findByText("release-v1.4.0-development");
+    expect(branch.tagName).toBe("STRONG");
+    expect(branch.parentElement?.textContent).toContain("Analyzed checkout branch:");
+  });
+
   it("charts a young repository's commits per day", async () => {
     await renderAt("/history", dataset);
     expect(await screen.findByRole("group", { name: "Commits per day" })).toBeTruthy();

@@ -44,8 +44,9 @@ export function Overview() {
         meta={
           <>
             {originLabel({ dna, origin, warnings })}
-            {revision ? ` · revision ${revision}` : ""} · {dna.analysisMetadata.profile} profile ·
-            RepoDNA {dna.tool.version}
+            {revision ? ` · revision ${revision}` : ""}
+            {git.currentBranch ? ` · analyzed branch ${git.currentBranch}` : ""} ·{" "}
+            {dna.analysisMetadata.profile} profile · RepoDNA {dna.tool.version}
           </>
         }
       >

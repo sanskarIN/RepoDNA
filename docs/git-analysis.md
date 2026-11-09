@@ -29,6 +29,10 @@ the history sections are marked *unavailable* and the rest of the analysis still
   use the branch-root link. The static hosted web version cannot clone
   remote Git repositories; use the CLI, desktop app, or `repodna serve`.
   This is not available in the already-published v1.5.0 installers.
+- **Which checkout**: the Overview and History views identify the branch checked out
+  when the analysis ran, if Git supplies it. This is different from the
+  repository's default branch and does not imply that any newer remote commits
+  have been fetched. Detached HEAD checkouts may not have a branch name.
 - **Which commits**: those reachable from `HEAD`, newest first, up to `analysis.max_commits`
   (50,000 by default; `--max-commits` for one run). If the limit is reached,
   `git.historyTruncated` is set and reports say so.
