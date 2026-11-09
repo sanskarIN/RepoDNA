@@ -35,6 +35,10 @@ directory as a workaround.
 **A private repository cannot be cloned.** RepoDNA never lets Git prompt for credentials.
 Use a URL your Git can access without prompting (for example an SSH URL with a key in your
 agent, or a credential helper), or clone the repository yourself and analyze the directory.
+Avoid putting passwords or access tokens directly in Git URLs: your shell history or
+operating system's process list may expose them. Development builds after v1.5.0 redact
+HTTP(S) URL userinfo echoed in Git errors, but that does not protect credentials entered
+elsewhere. Prefer a Git credential helper or SSH agent.
 
 **The analysis is slow.** Try `--profile quick` (no history) or `--profile standard`
 instead of `deep`, limit history with `--max-commits`, and exclude large generated or
