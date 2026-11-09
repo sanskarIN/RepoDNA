@@ -46,9 +46,17 @@ struct Parts<'a> {
     path: &'a str,
 }
 
+// The authority ends at the first path, query, or fragment delimiter.
+// Looking only for '/' can mistake a '@' in the query for URL userinfo.
+fn authority_and_suffix(rest: &str) -> (&str, &str) {
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    rest.split_at(end)
+}
+
 fn split(url: &str) -> Option<Parts<'_>> {
     if let Some((scheme, rest)) = url.split_once("://") {
-        let (authority, path) = rest.split_once('/').map_or((rest, ""), |(a, p)| (a, p));
+        let (authority, suffix) = authority_and_suffix(rest);
+        let path = suffix.strip_prefix('/').unwrap_or("");
         let (userinfo, host_port) = match authority.rsplit_once('@') {
             Some((userinfo, host)) => (Some(userinfo), host),
             None => (None, authority),
@@ -105,9 +113,7 @@ pub fn sanitize_url(url: &str) -> String {
         return trimmed.to_owned();
     };
     let scheme_lower = scheme.to_ascii_lowercase();
-    let (authority, path) = rest
-        .split_once('/')
-        .map_or((rest, None), |(a, p)| (a, Some(p)));
+    let (authority, suffix) = authority_and_suffix(rest);
     let keep_user = !matches!(scheme_lower.as_str(), "http" | "https");
     let authority = match authority.rsplit_once('@') {
         Some((userinfo, host)) => {
@@ -119,10 +125,7 @@ pub fn sanitize_url(url: &str) -> String {
         }
         None => authority.to_owned(),
     };
-    match path {
-        Some(path) => format!("{scheme}://{authority}/{path}"),
-        None => format!("{scheme}://{authority}"),
-    }
+    format!("{scheme}://{authority}{suffix}")
 }
 
 fn provider_for(host: &str) -> &'static str {
@@ -577,6 +580,39 @@ mod tests {
         assert!(validate_clone_url("https://10.0.0.5/r.git", private).is_ok());
         assert!(validate_clone_url("https://0177.0x0.0.1/r.git", private).is_ok());
         assert!(validate_clone_url("https://git123.example.com/r.git", PUBLIC).is_ok());
+    }
+
+    #[test]
+    fn query_or_fragment_cannot_disguise_the_actual_url_host() {
+        for url in [
+            "https://127.0.0.1?@public.example/repo.git",
+            "https://127.0.0.1#@public.example/repo.git",
+            "https://public.example?@127.0.0.1/repo.git",
+        ] {
+            assert!(
+                matches!(
+                    validate_clone_url(url, PUBLIC),
+                    Err(GitError::InvalidUrl(_))
+                ),
+                "{url}"
+            );
+        }
+
+        assert_eq!(
+            sanitize_url("https://127.0.0.1?@public.example/repo.git"),
+            "https://127.0.0.1?@public.example/repo.git"
+        );
+        assert_eq!(
+            sanitize_url("https://alice:placeholder@github.com/org/repo?tab=docs"),
+            "https://github.com/org/repo?tab=docs"
+        );
+        assert_eq!(
+            resolve_clone_target("https://github.com/org/repo/tree/main?tab=readme", PUBLIC)
+                .unwrap()
+                .branch
+                .as_deref(),
+            Some("main")
+        );
     }
 
     #[test]
