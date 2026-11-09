@@ -449,19 +449,27 @@ fn timeline(
 
 fn activity(history: &History, reference: Timestamp) -> ActivitySummary {
     let reference_unix = reference.unix();
+    // Commit author clocks can be ahead of the analysis time. They still belong
+    // to the repository's history, but they must not inflate current activity.
+    let latest_at_reference = history
+        .commits
+        .iter()
+        .filter(|commit| commit.timestamp <= reference_unix)
+        .map(|commit| commit.timestamp)
+        .max();
+    let future_dated = history
+        .commits
+        .iter()
+        .filter(|commit| commit.timestamp > reference_unix)
+        .count() as u64;
     let count_since = |days: i64| {
+        let cutoff = reference_unix.saturating_sub(days * SECONDS_PER_DAY);
         history
             .commits
             .iter()
-            .filter(|commit| commit.timestamp >= reference_unix - days * SECONDS_PER_DAY)
+            .filter(|commit| commit.timestamp >= cutoff && commit.timestamp <= reference_unix)
             .count() as u64
     };
-    let latest = history
-        .commits
-        .iter()
-        .map(|c| c.timestamp)
-        .max()
-        .unwrap_or(0);
     let (last_30, last_90, last_365) = (count_since(30), count_since(90), count_since(365));
     let level = if history.commits.is_empty() {
         ActivityLevel::None
@@ -476,7 +484,9 @@ fn activity(history: &History, reference: Timestamp) -> ActivitySummary {
     } else {
         ActivityLevel::Dormant
     };
-    let latest_date = Timestamp::from_unix(latest).date_string();
+    let latest_date = latest_at_reference
+        .map(|timestamp| Timestamp::from_unix(timestamp).date_string())
+        .unwrap_or_default();
     let commits = |n: u64| count(n, "commit", "commits");
     let description = match level {
         ActivityLevel::VeryActive | ActivityLevel::Active => format!(
@@ -491,10 +501,21 @@ fn activity(history: &History, reference: Timestamp) -> ActivitySummary {
             "{} in the last 12 months; the latest commit is from {latest_date}.",
             commits(last_365)
         ),
+        ActivityLevel::Dormant if latest_at_reference.is_none() => {
+            "No analyzed commits were dated on or before the analysis time.".to_owned()
+        }
         ActivityLevel::Dormant => format!(
             "No commits detected in the last 12 months. No activity detected after {latest_date}."
         ),
         ActivityLevel::None => "No commits found.".to_owned(),
+    };
+    let description = if future_dated > 0 {
+        format!(
+            "{description} {} dated after the analysis time were excluded from activity windows.",
+            commits(future_dated)
+        )
+    } else {
+        description
     };
     ActivitySummary {
         level,
@@ -502,7 +523,8 @@ fn activity(history: &History, reference: Timestamp) -> ActivitySummary {
         commits_last_30_days: last_30,
         commits_last_90_days: last_90,
         commits_last_365_days: last_365,
-        days_since_last_commit: Some(((reference_unix - latest) / SECONDS_PER_DAY).max(0)),
+        days_since_last_commit: latest_at_reference
+            .map(|timestamp| reference_unix.saturating_sub(timestamp) / SECONDS_PER_DAY),
         description,
     }
 }
@@ -793,6 +815,44 @@ mod tests {
                 .activity
                 .description
                 .contains("No activity detected after 2024-06-10")
+        );
+    }
+
+    #[test]
+    fn future_dated_commits_do_not_inflate_activity() {
+        let mut history = sample_history();
+        for index in 0..35 {
+            let mut future = commit('f', "Future", "2025-01-01T00:00:00Z", vec![]);
+            future.hash = format!("{index:040x}");
+            history.commits.push(future);
+        }
+
+        let report = aggregate(&history, &BTreeSet::new(), &options());
+        assert_eq!(report.activity.level, ActivityLevel::Moderate);
+        assert_eq!(report.activity.commits_last_30_days, 2);
+        assert_eq!(report.activity.commits_last_90_days, 2);
+        assert_eq!(report.activity.days_since_last_commit, Some(9));
+        assert!(report.activity.description.contains("35 commits"));
+        assert!(
+            report
+                .activity
+                .description
+                .contains("excluded from activity windows")
+        );
+
+        let future_only = History {
+            commits: history.commits[4..].to_vec(),
+            truncated: false,
+        };
+        let activity = activity(&future_only, options().reference_time);
+        assert_eq!(activity.level, ActivityLevel::Dormant);
+        assert_eq!(activity.commits_last_30_days, 0);
+        assert_eq!(activity.commits_last_365_days, 0);
+        assert_eq!(activity.days_since_last_commit, None);
+        assert!(
+            activity
+                .description
+                .contains("No analyzed commits were dated on or before")
         );
     }
 

@@ -48,7 +48,12 @@ the history sections are marked *unavailable* and the rest of the analysis still
 Everything that should not depend on when you run the analysis (recent churn, "recent"
 windows) is measured backwards from the **latest commit**, so the same revision always
 gives the same numbers. Only the activity level, which answers "is it active now?", is
-measured against the analysis time, and the artifact records that time.
+measured against the analysis time, and the artifact records that time. In development
+builds after v1.5.0, commits with timestamps **later than the analysis time** are
+excluded from the 30-, 90-, and 365-day activity windows to avoid false activity
+from misconfigured author clocks. They remain in history and are mentioned in
+the activity description; days since last commit uses the latest non-future date,
+or is unknown when every analyzed commit is future-dated.
 
 ## What it reports
 
