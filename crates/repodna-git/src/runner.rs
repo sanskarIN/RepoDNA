@@ -70,6 +70,27 @@ const MAX_STDERR: usize = 16 * 1024;
 /// How often a running command's deadline and cancellation are checked.
 const WATCH_INTERVAL: Duration = Duration::from_millis(20);
 
+/// Keep at most MAX_STDERR diagnostic bytes while reading to EOF.
+///
+/// Stopping reads after the capture budget would leave Git's stderr pipe full,
+/// potentially blocking an otherwise completed command until the timeout.
+fn capture_stderr(mut input: impl Read) -> Vec<u8> {
+    let mut captured = Vec::new();
+    let mut buffer = [0_u8; 8 * 1024];
+    loop {
+        match input.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(read) => {
+                let available = MAX_STDERR.saturating_sub(captured.len()).min(read);
+                captured.extend_from_slice(&buffer[..available]);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        }
+    }
+    captured
+}
+
 /// Runs Git commands safely.
 #[derive(Debug, Clone)]
 pub struct GitRunner {
@@ -225,10 +246,7 @@ impl GitRunner {
             _ => None,
         };
         let stderr_reader = thread::spawn(move || {
-            let mut captured = Vec::new();
-            if let Some(stderr) = stderr {
-                let _ = stderr.take(MAX_STDERR as u64).read_to_end(&mut captured);
-            }
+            let captured = stderr.map(capture_stderr).unwrap_or_default();
             String::from_utf8_lossy(&captured).into_owned()
         });
 
@@ -445,6 +463,16 @@ mod tests {
         assert!(validate_revision("--output=/tmp/x").is_err());
         assert!(validate_revision("a b").is_err());
         assert!(validate_revision("").is_err());
+    }
+
+    #[test]
+    fn captures_only_bounded_stderr_but_drains_the_entire_stream() {
+        let size = MAX_STDERR * 32;
+        let mut reader = std::io::Cursor::new(vec![b'X'; size]);
+        let result = capture_stderr(&mut reader);
+        assert_eq!(result.len(), MAX_STDERR);
+        assert!(result.iter().all(|byte| *byte == b'X'));
+        assert_eq!(reader.position(), size as u64);
     }
 
     #[test]
