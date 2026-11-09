@@ -411,9 +411,7 @@ mod tests {
             "\0\0\x1e{hash}\x1f\x1fAda\x1fada@example.invalid\x1f1700000000\x1f2023-11-14 22:13:20 +0000\x1fsubject\x1ewith marker\0\n"
         )
         .into_bytes();
-        stream.extend_from_slice(
-            b":000000 100644 0000000 1111111 A\0odd\x1ename.txt\0",
-        );
+        stream.extend_from_slice(b":000000 100644 0000000 1111111 A\0odd\x1ename.txt\0");
         stream.extend_from_slice(b"1\t0\todd\x1ename.txt\0");
 
         let commits = parse(&stream);
