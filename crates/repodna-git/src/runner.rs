@@ -280,9 +280,28 @@ impl GitRunner {
         };
 
         let consumed = match stdout {
-            Some(stdout) => consume(&mut BufReader::new(stdout)),
+            Some(stdout) => {
+                let mut reader = BufReader::new(stdout);
+                let result = consume(&mut reader);
+                if result.is_ok() {
+                    // A consumer may intentionally read only a prefix. Drain what remains
+                    // so the child cannot block writing to an unread stdout pipe.
+                    std::io::copy(&mut reader, &mut std::io::sink())
+                        .map(|_| ())
+                        .map_err(GitError::Io)
+                } else {
+                    result
+                }
+            }
             None => Ok(()),
         };
+        if consumed.is_err() {
+            // A parser failure means the remaining output should not be consumed.
+            // Stop Git before waiting, otherwise a full stdout pipe can deadlock.
+            if let Ok(mut process) = child.lock() {
+                let _ = process.kill();
+            }
+        }
         let status = wait(&child);
         drop(done);
         let _ = watchdog.join();
@@ -300,6 +319,8 @@ impl GitRunner {
             });
         }
         let status = status?;
+        // Preserve the parser's error when Git was stopped because its consumer failed.
+        consumed?;
         if !status.success() {
             return Err(GitError::from_failure(
                 &description,
@@ -308,7 +329,7 @@ impl GitRunner {
                 repo,
             ));
         }
-        consumed
+        Ok(())
     }
 }
 
@@ -463,6 +484,48 @@ mod tests {
         assert!(validate_revision("--output=/tmp/x").is_err());
         assert!(validate_revision("a b").is_err());
         assert!(validate_revision("").is_err());
+    }
+
+    #[test]
+    fn early_stdout_consumers_do_not_block_git_or_hide_parser_errors() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("large.txt", "x".repeat(512 * 1024));
+        repo.commit(
+            "large file",
+            "Ada",
+            "ada@example.invalid",
+            "2024-01-01T00:00:00Z",
+        );
+        let runner = GitRunner::detect()
+            .unwrap()
+            .with_timeout(Duration::from_secs(5));
+        let cancel = CancellationToken::new();
+        let args = ["show", "HEAD:large.txt"];
+
+        // A callback that reads nothing must also allow Git to exit normally.
+        runner
+            .stream(Some(repo.path()), &args, &cancel, |_reader| Ok(()))
+            .unwrap();
+
+        runner
+            .stream(Some(repo.path()), &args, &cancel, |reader| {
+                let mut prefix = [0_u8; 8];
+                reader.read_exact(&mut prefix).map_err(GitError::Io)?;
+                assert_eq!(&prefix, b"xxxxxxxx");
+                Ok(())
+            })
+            .unwrap();
+
+        let failure = runner.stream(Some(repo.path()), &args, &cancel, |_reader| {
+            Err(GitError::Parse("parser stopped early".to_owned()))
+        });
+        assert!(
+            matches!(failure, Err(GitError::Parse(message)) if message == "parser stopped early"),
+            "original parser error should be preserved"
+        );
     }
 
     #[test]
