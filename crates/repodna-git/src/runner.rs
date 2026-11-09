@@ -351,15 +351,63 @@ fn wait(child: &Arc<Mutex<Child>>) -> Result<std::process::ExitStatus, GitError>
     }
 }
 
-/// A short description of a command for error messages (subcommand and flags only).
+/// A privacy-safe command name for diagnostics.
+///
+/// Git arguments can contain remote URLs, local paths, configuration secrets,
+/// or user-selected revisions. Never copy any of them into error messages.
+/// Recognize only a fixed set of literal Git subcommand names.
 fn describe(args: &[&str]) -> String {
-    let shown: Vec<&str> = args
-        .iter()
-        .copied()
-        .filter(|arg| arg.starts_with('-') || !arg.contains("://"))
-        .take(6)
-        .collect();
-    format!("git {}", shown.join(" "))
+    const COMMANDS: &[&str] = &[
+        "archive",
+        "blame",
+        "branch",
+        "cat-file",
+        "check-attr",
+        "check-ignore",
+        "check-ref-format",
+        "clone",
+        "config",
+        "describe",
+        "diff",
+        "diff-tree",
+        "fetch",
+        "for-each-ref",
+        "init",
+        "log",
+        "ls-files",
+        "ls-remote",
+        "ls-tree",
+        "merge-base",
+        "name-rev",
+        "remote",
+        "rev-list",
+        "rev-parse",
+        "shortlog",
+        "show",
+        "show-ref",
+        "status",
+        "symbolic-ref",
+        "tag",
+        "update-ref",
+        "version",
+    ];
+    let mut index = 0;
+    while let Some(&argument) = args.get(index) {
+        match argument {
+            "-c" | "-C" | "--git-dir" | "--work-tree" => index += 2,
+            "--no-pager" | "--bare" | "--literal-pathspecs" => index += 1,
+            arg if arg.starts_with("--git-dir=")
+                || arg.starts_with("--work-tree=")
+                || arg.starts_with("--config-env=") =>
+            {
+                index += 1;
+            }
+            arg if COMMANDS.contains(&arg) => return format!("git {arg}"),
+            arg if arg.starts_with('-') => index += 1,
+            _ => break,
+        }
+    }
+    "git command".to_owned()
 }
 
 /// Rejects values that Git could interpret as options when passed as revisions.
@@ -539,7 +587,7 @@ mod tests {
     }
 
     #[test]
-    fn descriptions_omit_urls() {
+    fn descriptions_never_include_user_supplied_git_arguments() {
         assert_eq!(
             describe(&[
                 "clone",
@@ -548,7 +596,33 @@ mod tests {
                 "https://token@example.com/r.git",
                 "dest"
             ]),
-            "git clone --depth 1 dest"
+            "git clone"
         );
+        assert_eq!(
+            describe(&[
+                "-c",
+                "http.extraHeader=Authorization:Bearer confidential-token",
+                "clone",
+                "--",
+                "alice:password@github.example:private/repo",
+                "/private/checkout"
+            ]),
+            "git clone"
+        );
+        assert_eq!(
+            describe(&["show", "HEAD:private/path", "--format=secret-value"]),
+            "git show"
+        );
+        assert_eq!(
+            describe(&[
+                "-c",
+                "alias.secret=!do-something",
+                "unknown-command",
+                "secret"
+            ]),
+            "git command"
+        );
+        assert_eq!(describe(&["-c", "secret"]), "git command");
+        assert_eq!(describe(&[]), "git command");
     }
 }
