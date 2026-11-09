@@ -104,8 +104,12 @@ pub fn read_state(
     )?
     .as_deref()
         == Some("true");
-    let dirty = match runner.output(
-        repo,
+    // We only need to know if Git reported any tracked changes. Do not
+    // allocate the full porcelain output; the runner drains the remainder
+    // after the consumer returns, so Git cannot block on a full stdout pipe.
+    let mut has_tracked_changes = false;
+    let dirty = match runner.stream(
+        Some(repo),
         &[
             "status",
             "--porcelain=v1",
@@ -114,8 +118,12 @@ pub fn read_state(
             "-z",
         ],
         cancel,
+        |reader| {
+            has_tracked_changes = !reader.fill_buf().map_err(GitError::Io)?.is_empty();
+            Ok(())
+        },
     ) {
-        Ok(output) => Some(!output.is_empty()),
+        Ok(()) => Some(has_tracked_changes),
         Err(GitError::Cancelled) => return Err(GitError::Cancelled),
         Err(_) => None,
     };
@@ -299,6 +307,35 @@ mod tests {
 
         let root = repository_root(&runner, &repo.path().join("."), &cancel).unwrap();
         assert!(root.is_some());
+    }
+
+    #[test]
+    fn dirty_status_ignores_untracked_files_and_handles_many_tracked_changes() {
+        if !git_available() {
+            return;
+        }
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        let repo = GitRepo::new();
+        for index in 0..96 {
+            repo.write(&format!("tracked/file-{index:03}.txt"), "clean");
+        }
+        repo.commit(
+            "tracked files",
+            "Ada",
+            "ada@example.invalid",
+            "2024-01-01T00:00:00Z",
+        );
+
+        repo.write("not-tracked.txt", "untracked");
+        let clean = read_state(&runner, repo.path(), &cancel).unwrap();
+        assert_eq!(clean.dirty, Some(false));
+
+        for index in 0..96 {
+            repo.write(&format!("tracked/file-{index:03}.txt"), "modified");
+        }
+        let dirty = read_state(&runner, repo.path(), &cancel).unwrap();
+        assert_eq!(dirty.dirty, Some(true));
     }
 
     #[test]
