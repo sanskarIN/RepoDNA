@@ -43,6 +43,10 @@ No next stable version or release date has been announced.
   raw `ls-tree` output before constructing file metadata (#237).
 - Read the first available tracked Git status output to determine dirty state
   without retaining the complete porcelain output (#238).
+- Stream branch and tag listings one record at a time instead of buffering all
+  `for-each-ref` text, while preserving branch sorting and annotated tags (#239).
+- Redact password-bearing SSH URL userinfo when Git errors echo a remote URL,
+  without obscuring normal passwordless SSH usernames (#240).
 
 ## [1.5.0] - 2026-11-06
 
