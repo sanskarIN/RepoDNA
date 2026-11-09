@@ -153,13 +153,71 @@ pub fn read_state(
     })
 }
 
+/// Visit the lines emitted by a Git ref-listing command without retaining all
+/// of its raw text. Lossy UTF-8 decoding matches the previous GitRunner::text
+/// behavior, and Git's newline-terminated record format is preserved.
+fn stream_ref_lines(
+    runner: &GitRunner,
+    repo: &Path,
+    args: &[&str],
+    cancel: &CancellationToken,
+    mut consume: impl FnMut(&str),
+) -> Result<(), GitError> {
+    runner.stream(Some(repo), args, cancel, |reader| {
+        let mut line = Vec::new();
+        loop {
+            line.clear();
+            if reader.read_until(b'\n', &mut line).map_err(GitError::Io)? == 0 {
+                break;
+            }
+            if line.last() == Some(&b'\n') {
+                line.pop();
+            }
+            if line.last() == Some(&b'\r') {
+                line.pop();
+            }
+            consume(String::from_utf8_lossy(&line).as_ref());
+        }
+        Ok(())
+    })
+}
+
+fn parse_branch_line(line: &str) -> Option<BranchInfo> {
+    let mut fields = line.split(FIELD);
+    let reference = fields.next()?;
+    let head = fields.next()?.to_owned();
+    let updated = Timestamp::from_unix(fields.next()?.trim().parse().ok()?);
+    if reference.ends_with("/HEAD") {
+        return None;
+    }
+    if let Some(name) = reference.strip_prefix("refs/heads/") {
+        Some(BranchInfo {
+            name: name.to_owned(),
+            remote: false,
+            head,
+            updated,
+        })
+    } else {
+        reference
+            .strip_prefix("refs/remotes/")
+            .map(|name| BranchInfo {
+                name: name.to_owned(),
+                remote: true,
+                head,
+                updated,
+            })
+    }
+}
+
 /// Reads local and remote-tracking branches.
 pub fn read_branches(
     runner: &GitRunner,
     repo: &Path,
     cancel: &CancellationToken,
 ) -> Result<Vec<BranchInfo>, GitError> {
-    let text = runner.text(
+    let mut branches = Vec::new();
+    stream_ref_lines(
+        runner,
         repo,
         &[
             "for-each-ref",
@@ -168,38 +226,33 @@ pub fn read_branches(
             "refs/remotes",
         ],
         cancel,
+        |line| {
+            if let Some(branch) = parse_branch_line(line) {
+                branches.push(branch);
+            }
+        },
     )?;
-    let mut branches: Vec<BranchInfo> = text
-        .lines()
-        .filter_map(|line| {
-            let mut fields = line.split(FIELD);
-            let reference = fields.next()?;
-            let head = fields.next()?.to_owned();
-            let updated = Timestamp::from_unix(fields.next()?.trim().parse().ok()?);
-            if reference.ends_with("/HEAD") {
-                return None;
-            }
-            if let Some(name) = reference.strip_prefix("refs/heads/") {
-                Some(BranchInfo {
-                    name: name.to_owned(),
-                    remote: false,
-                    head,
-                    updated,
-                })
-            } else {
-                reference
-                    .strip_prefix("refs/remotes/")
-                    .map(|name| BranchInfo {
-                        name: name.to_owned(),
-                        remote: true,
-                        head,
-                        updated,
-                    })
-            }
-        })
-        .collect();
     branches.sort_by(|a, b| a.remote.cmp(&b.remote).then_with(|| a.name.cmp(&b.name)));
     Ok(branches)
+}
+
+fn parse_tag_line(line: &str) -> Option<TagInfo> {
+    let fields: Vec<&str> = line.split(FIELD).collect();
+    if fields.len() < 5 {
+        return None;
+    }
+    let annotated = fields[1] == "tag";
+    let commit = if annotated && !fields[3].is_empty() {
+        fields[3]
+    } else {
+        fields[2]
+    };
+    Some(TagInfo {
+        name: fields[0].to_owned(),
+        commit: commit.to_owned(),
+        date: Timestamp::from_unix(fields[4].trim().parse().unwrap_or(0)),
+        annotated,
+    })
 }
 
 /// Reads tags, peeling annotated tags to the commit they point to.
@@ -208,7 +261,9 @@ pub fn read_tags(
     repo: &Path,
     cancel: &CancellationToken,
 ) -> Result<Vec<TagInfo>, GitError> {
-    let text = runner.text(
+    let mut tags = Vec::new();
+    stream_ref_lines(
+        runner,
         repo,
         &[
             "for-each-ref",
@@ -216,28 +271,12 @@ pub fn read_tags(
             "refs/tags",
         ],
         cancel,
-    )?;
-    let mut tags: Vec<TagInfo> = text
-        .lines()
-        .filter_map(|line| {
-            let fields: Vec<&str> = line.split(FIELD).collect();
-            if fields.len() < 5 {
-                return None;
+        |line| {
+            if let Some(tag) = parse_tag_line(line) {
+                tags.push(tag);
             }
-            let annotated = fields[1] == "tag";
-            let commit = if annotated && !fields[3].is_empty() {
-                fields[3]
-            } else {
-                fields[2]
-            };
-            Some(TagInfo {
-                name: fields[0].to_owned(),
-                commit: commit.to_owned(),
-                date: Timestamp::from_unix(fields[4].trim().parse().unwrap_or(0)),
-                annotated,
-            })
-        })
-        .collect();
+        },
+    )?;
     tags.sort_by(|a, b| a.date.cmp(&b.date).then_with(|| a.name.cmp(&b.name)));
     Ok(tags)
 }
@@ -246,6 +285,34 @@ pub fn read_tags(
 mod tests {
     use super::*;
     use repodna_testkit::{GitRepo, git_available};
+
+    #[test]
+    fn ref_line_parsers_ignore_malformed_records() {
+        assert!(parse_branch_line("").is_none());
+        assert!(parse_branch_line("refs/heads/main").is_none());
+        assert!(parse_branch_line("refs/remotes/origin/HEAD\u{1f}123\u{1f}0").is_none());
+        let branch = parse_branch_line("refs/heads/feature/long\u{1f}abc123\u{1f}1710000000")
+            .expect("valid branch");
+        assert_eq!(branch.name, "feature/long");
+        assert!(!branch.remote);
+        assert_eq!(branch.head, "abc123");
+        let remote = parse_branch_line("refs/remotes/origin/topic\u{1f}deadbeef\u{1f}1710000000")
+            .expect("valid remote branch");
+        assert_eq!(remote.name, "origin/topic");
+        assert!(remote.remote);
+
+        assert!(parse_tag_line("").is_none());
+        assert!(parse_tag_line("v1.0.0\u{1f}tag").is_none());
+        let tag = parse_tag_line("v1.0.0\u{1f}tag\u{1f}tagobj\u{1f}commitobj\u{1f}1710000000")
+            .expect("valid annotated tag");
+        assert_eq!(tag.commit, "commitobj");
+        assert!(tag.annotated);
+        let lightweight =
+            parse_tag_line("v1.0.1\u{1f}commit\u{1f}commit2\u{1f}\u{1f}1710000000")
+                .expect("valid lightweight tag");
+        assert_eq!(lightweight.commit, "commit2");
+        assert!(!lightweight.annotated);
+    }
 
     #[test]
     fn reads_state_branches_and_tags() {
