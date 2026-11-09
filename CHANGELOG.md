@@ -37,6 +37,8 @@ No next stable version or release date has been announced.
   repository servers (#233).
 - Apply overflow-safe cumulative byte budgets when reading historical blobs,
   with tests for extremely large configured limits and skipped files (#234).
+- Parse remote URL authority before query and fragment separators so an `@`
+  outside the authority cannot obscure the validated host (#236).
 
 ## [1.5.0] - 2026-11-06
 
