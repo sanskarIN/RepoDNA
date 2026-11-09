@@ -24,7 +24,35 @@ pub struct TreeEntry {
     pub object: String,
 }
 
+/// Parse a single NUL-delimited `git ls-tree -l -z` record.
+fn parse_tree_entry(record: &[u8]) -> Option<TreeEntry> {
+    if record.is_empty() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(record);
+    let (header, path) = text.split_once('\t')?;
+    let mut fields = header.split_whitespace();
+    let (Some(mode), Some(kind), Some(object), Some(size)) =
+        (fields.next(), fields.next(), fields.next(), fields.next())
+    else {
+        return None;
+    };
+    if kind != "blob" {
+        return None;
+    }
+    Some(TreeEntry {
+        path: path.to_owned(),
+        size: size.parse().unwrap_or(0),
+        mode: mode.to_owned(),
+        object: object.to_owned(),
+    })
+}
+
 /// Lists every file (blob) in `revision`.
+///
+/// Parse the NUL-delimited stream incrementally instead of buffering the
+/// entire raw tree listing. Memory used for decoding is proportional to the
+/// largest single entry, plus the final list of file metadata.
 pub fn list_tree(
     runner: &GitRunner,
     repo: &Path,
@@ -32,36 +60,33 @@ pub fn list_tree(
     cancel: &CancellationToken,
 ) -> Result<Vec<TreeEntry>, GitError> {
     validate_revision(revision)?;
-    let output = runner.output(
-        repo,
+    let mut entries = Vec::new();
+    runner.stream(
+        Some(repo),
         &["ls-tree", "-r", "-l", "-z", "--full-tree", revision],
         cancel,
+        |reader| {
+            let mut record = Vec::new();
+            let mut seen = 0usize;
+            loop {
+                record.clear();
+                if reader.read_until(0, &mut record).map_err(GitError::Io)? == 0 {
+                    break;
+                }
+                if record.last() == Some(&0) {
+                    record.pop();
+                }
+                if let Some(entry) = parse_tree_entry(&record) {
+                    entries.push(entry);
+                }
+                seen += 1;
+                if seen.is_multiple_of(256) && cancel.is_cancelled() {
+                    return Err(GitError::Cancelled);
+                }
+            }
+            Ok(())
+        },
     )?;
-    let mut entries = Vec::new();
-    for record in output.split(|&byte| byte == 0) {
-        if record.is_empty() {
-            continue;
-        }
-        let text = String::from_utf8_lossy(record);
-        let Some((header, path)) = text.split_once('\t') else {
-            continue;
-        };
-        let mut fields = header.split_whitespace();
-        let (Some(mode), Some(kind), Some(object), Some(size)) =
-            (fields.next(), fields.next(), fields.next(), fields.next())
-        else {
-            continue;
-        };
-        if kind != "blob" {
-            continue;
-        }
-        entries.push(TreeEntry {
-            path: path.to_owned(),
-            size: size.parse().unwrap_or(0),
-            mode: mode.to_owned(),
-            object: object.to_owned(),
-        });
-    }
     Ok(entries)
 }
 
@@ -171,6 +196,41 @@ pub fn read_blobs(
 mod tests {
     use super::*;
     use repodna_testkit::{GitRepo, git_available};
+
+    #[test]
+    fn tree_entry_parser_ignores_invalid_records_and_keeps_special_paths() {
+        assert!(parse_tree_entry(b"").is_none());
+        assert!(parse_tree_entry(b"invalid").is_none());
+        assert!(parse_tree_entry(b"040000 tree deadbeef -\troot").is_none());
+        let entry = parse_tree_entry(b"100644 blob abc123 7\tdocs/name with space.md")
+            .expect("valid ls-tree record");
+        assert_eq!(entry.path, "docs/name with space.md");
+        assert_eq!(entry.size, 7);
+        assert_eq!(entry.object, "abc123");
+    }
+
+    #[test]
+    fn streams_large_tree_listing_without_losing_entries() {
+        if !git_available() {
+            return;
+        }
+        let runner = GitRunner::detect().unwrap();
+        let repo = GitRepo::new();
+        for index in 0..300 {
+            repo.write(&format!("files/file-{index:03}.txt"), "x");
+        }
+        repo.commit(
+            "many files",
+            "Ada",
+            "ada@example.invalid",
+            "2024-01-01T00:00:00Z",
+        );
+        let entries = list_tree(&runner, repo.path(), "HEAD", &CancellationToken::new()).unwrap();
+        assert_eq!(entries.len(), 300);
+        assert_eq!(entries.first().unwrap().path, "files/file-000.txt");
+        assert_eq!(entries.last().unwrap().path, "files/file-299.txt");
+        assert!(entries.iter().all(|entry| entry.size == 1));
+    }
 
     #[test]
     fn blob_budget_checked_without_overflow() {
