@@ -83,6 +83,13 @@ impl Default for BlobLimits {
     }
 }
 
+fn within_blob_budget(kind: &str, size: u64, total: u64, limits: BlobLimits) -> bool {
+    kind == "blob"
+        && size <= limits.max_blob_bytes
+        && total <= limits.max_total_bytes
+        && size <= limits.max_total_bytes - total
+}
+
 /// Reads the contents of `paths` at `revision`. Paths that do not exist, contain line
 /// breaks, or exceed the limits are omitted from the result.
 pub fn read_blobs(
@@ -136,9 +143,7 @@ pub fn read_blobs(
                 let size: u64 = size
                     .parse()
                     .map_err(|_| GitError::Parse(format!("invalid blob size in {header:?}")))?;
-                let keep = kind == "blob"
-                    && size <= limits.max_blob_bytes
-                    && total + size <= limits.max_total_bytes;
+                let keep = within_blob_budget(kind, size, total, limits);
                 if keep {
                     let mut content = Vec::with_capacity(usize::try_from(size).unwrap_or(0));
                     reader
@@ -166,6 +171,27 @@ pub fn read_blobs(
 mod tests {
     use super::*;
     use repodna_testkit::{GitRepo, git_available};
+
+    #[test]
+    fn blob_budget_checked_without_overflow() {
+        let limits = BlobLimits {
+            max_blob_bytes: u64::MAX,
+            max_total_bytes: u64::MAX,
+        };
+        assert!(within_blob_budget("blob", 2, u64::MAX - 2, limits));
+        assert!(!within_blob_budget("blob", 3, u64::MAX - 2, limits));
+        assert!(!within_blob_budget("blob", 1, u64::MAX, limits));
+        assert!(!within_blob_budget("tree", 1, 0, limits));
+        assert!(!within_blob_budget(
+            "blob",
+            1,
+            11,
+            BlobLimits {
+                max_blob_bytes: 10,
+                max_total_bytes: 10,
+            }
+        ));
+    }
 
     #[test]
     fn lists_and_reads_historical_files() {
@@ -253,6 +279,24 @@ mod tests {
             "oversized blobs are skipped but the stream stays in sync"
         );
         assert_eq!(head[0].1, b"pub fn b() {}\n".to_vec());
+
+        // A total budget can skip a later file without losing stream alignment.
+        let bounded = read_blobs(
+            &runner,
+            repo.path(),
+            "HEAD",
+            &["docs/with space.md".to_owned(), "src/lib.rs".to_owned()],
+            BlobLimits {
+                max_blob_bytes: 100,
+                max_total_bytes: 7,
+            },
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            bounded,
+            vec![("docs/with space.md".to_owned(), b"# Docs\n".to_vec())]
+        );
     }
 
     #[test]
