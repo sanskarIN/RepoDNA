@@ -131,7 +131,11 @@ stopped when you cancel.
 (`ext::`), local transports, option-like values, and control characters are rejected;
 unencrypted `http://` and `git://` and private or loopback hosts need an explicit opt-in.
 Host names are checked literally, so a public DNS name that resolves to a private address
-is not detected. Credentials in URLs are never stored or displayed.
+is not detected. RepoDNA sanitizes credentials in displayed remote metadata and common
+Git error messages (including HTTP(S) userinfo and password-bearing SSH URL userinfo
+in development builds after v1.5.0). This is not comprehensive secret detection:
+embedding credentials in clone URLs can still expose them in shell history, operating-system
+process arguments, or external Git tools. Use a credential helper or SSH agent instead.
 
 **Safe archives.** ZIP and TAR extraction rejects absolute paths and `..` traversal, skips
 symbolic links, hard links, and device entries, and enforces limits (200,000 entries, 512
