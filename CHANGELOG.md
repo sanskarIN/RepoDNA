@@ -6,7 +6,43 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-No additional changes are recorded since the v1.5.0 stable release.
+These changes are merged into `main` **after** the v1.5.0 stable release;
+they are **not included** in the published v1.5.0 installers or packages.
+No next stable version or release date has been announced.
+
+### Added
+
+- Show the checked-out Git branch in the Overview and History views when
+  available, distinguishing the analyzed checkout from the remote default (#228).
+- Export a reviewed, counts-only Findings CSV grouped by severity and
+  active/suppressed state without exporting private paths or evidence (#226).
+
+### Fixed
+
+- Accept GitHub branch-root `/tree/<ref>` links in CLI/desktop/server cloning,
+  checking out the requested branch instead of treating a browser URL as a
+  Git remote (#227). The static hosted browser build does not clone Git URLs.
+- Redact HTTP(S) URL userinfo in Git failure diagnostics while keeping useful
+  troubleshooting context; use a credential helper or SSH agent rather than
+  embedding secrets in URLs (#229).
+- Continue draining Git's stderr pipe after the bounded 16 KiB diagnostic
+  capture limit so noisy commands do not block on a full pipe (#230).
+- Drain remaining stdout when a consumer finishes early, and terminate Git
+  promptly on parser errors while retaining the original error (#231).
+- Avoid overflowing history's `max_commits + 1` sentinel or passing numbers
+  above Git's signed max-count range; retain correct truncation semantics
+  for ordinary and extremely large requested limits (#232).
+- Reject mixed hexadecimal/octal IPv4 host aliases under the default
+  private-host policy, while retaining the explicit opt-in for private
+  repository servers (#233).
+- Apply overflow-safe cumulative byte budgets when reading historical blobs,
+  with tests for extremely large configured limits and skipped files (#234).
+- Parse remote URL authority before query and fragment separators so an `@`
+  outside the authority cannot obscure the validated host (#236).
+- Stream historical Git tree listing records instead of buffering the complete
+  raw `ls-tree` output before constructing file metadata (#237).
+- Read the first available tracked Git status output to determine dirty state
+  without retaining the complete porcelain output (#238).
 
 ## [1.5.0] - 2026-11-06
 
