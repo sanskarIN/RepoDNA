@@ -241,7 +241,10 @@ mod tests {
             None,
         );
         let ssh_message = ssh_error.to_string();
-        assert!(!ssh_message.contains("password-placeholder"), "{ssh_message}");
+        assert!(
+            !ssh_message.contains("password-placeholder"),
+            "{ssh_message}"
+        );
         assert!(ssh_message.contains("ssh://[REDACTED]@host.example/repo.git"));
         assert!(ssh_message.contains("permission denied"));
         assert_eq!(
