@@ -285,10 +285,7 @@ mod tests {
             &runner,
             repo.path(),
             "HEAD",
-            &[
-                "docs/with space.md".to_owned(),
-                "src/lib.rs".to_owned(),
-            ],
+            &["docs/with space.md".to_owned(), "src/lib.rs".to_owned()],
             BlobLimits {
                 max_blob_bytes: 100,
                 max_total_bytes: 7,
@@ -296,7 +293,10 @@ mod tests {
             &cancel,
         )
         .unwrap();
-        assert_eq!(bounded, vec![("docs/with space.md".to_owned(), b"# Docs\n".to_vec())]);
+        assert_eq!(
+            bounded,
+            vec![("docs/with space.md".to_owned(), b"# Docs\n".to_vec())]
+        );
     }
 
     #[test]
