@@ -51,6 +51,8 @@ No next stable version or release date has been announced.
   local paths out of timeout and failure command labels (#242).
 - Exclude future-dated commits from activity windows so clock skew cannot
   inflate current repository activity, while keeping historical data (#243).
+- Frame Git history commit boundaries so record-separator bytes in valid
+  filenames or commit subjects do not break historical analysis (#244).
 
 ## [1.5.0] - 2026-11-06
 
