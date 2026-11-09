@@ -277,6 +277,24 @@ describe("views", () => {
     expect(screen.queryByRole("region", { name: "Review findings export" })).toBeNull();
   });
 
+  it("reviews an aggregate-only CSV without displaying finding details", async () => {
+    await renderAt("/findings", dataset);
+    const counts = screen.getByRole("button", { name: "Export counts-only CSV" });
+    fireEvent.click(counts);
+    const panel = screen.getByRole("region", { name: "Review findings export" });
+    expect(panel.textContent).toContain("It omits");
+    expect(panel.textContent).toContain("individual paths, titles, rules and evidence");
+    expect(screen.getByRole("button", { name: "Save counts-only CSV" })).toBeTruthy();
+    const preview = screen.getByLabelText("Counts-only CSV preview").textContent ?? "";
+    expect(preview).toContain("Severity,Active,Suppressed,Total");
+    expect(preview).toContain("Total,");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel export" }));
+    fireEvent.change(screen.getByLabelText("Search findings"), {
+      target: { value: "no matching finding counts-only 1992" },
+    });
+    expect(counts).toHaveProperty("disabled", true);
+  });
+
   it("clears a previous findings review after changing filters", async () => {
     await renderAt("/findings", dataset);
     fireEvent.click(screen.getByRole("button", { name: "Export filtered CSV" }));

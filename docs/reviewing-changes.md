@@ -120,6 +120,16 @@ This sample is **not** redaction or secret detection. It cannot demonstrate
 that unseen entries are safe. The full export may reveal paths, titles, evidence
 and context. It stays local unless you choose to share it.
 
+**On `main` after v1.5.0 (not in the stable v1.5.0 downloads):** the
+Findings view also offers **Export counts-only CSV**. It aggregates the current
+filtered selection by severity and active/suppressed status, includes totals,
+and uses fixed labels and integers instead of individual paths, titles, rules,
+summaries, or evidence. Unknown imported severity values are grouped as
+`Unknown`, not copied verbatim. Review the entire aggregate in the same
+local confirmation panel before saving. Totals can still disclose sensitive
+information about a project; this is a lower-disclosure export, not guaranteed
+anonymization or a secret scanner. It is also not a full analysis artifact.
+
 A findings-only JSON file is an array of findings, **not** a complete analysis
 artifact. Use **Reports & export** (or `repodna analyze --format json`) to
 create a complete artifact; those are separate export paths.

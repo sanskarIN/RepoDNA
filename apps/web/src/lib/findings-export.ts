@@ -1,4 +1,5 @@
 import {
+  SEVERITIES,
   categoryLabel,
   confidenceLabel,
   isSuppressed,
@@ -42,8 +43,50 @@ export function findingsJson(findings: readonly Finding[]): string {
   return `${JSON.stringify(findings, null, 2)}\n`;
 }
 
+/**
+ * Aggregate findings without copying repository-controlled text into the CSV.
+ * Only fixed severity labels and numeric counts are emitted. Imported artifacts
+ * with an unfamiliar severity are counted under Unknown instead of discarded.
+ * The result is lower-disclosure, not a guarantee that counts are shareable.
+ */
+export function findingsCountsCsv(findings: readonly Finding[]): string {
+  type CountRow = { severity: string; active: number; suppressed: number; total: number };
+  const rows: CountRow[] = SEVERITIES.map((severity) => ({
+    severity: severityLabel(severity),
+    active: 0,
+    suppressed: 0,
+    total: 0,
+  }));
+  const unknown: CountRow = { severity: "Unknown", active: 0, suppressed: 0, total: 0 };
+  let active = 0;
+  let suppressed = 0;
+
+  for (const finding of findings) {
+    const index = SEVERITIES.indexOf(finding.severity);
+    const row = index < 0 ? unknown : rows[index]!;
+    row.total += 1;
+    if (isSuppressed(finding)) {
+      row.suppressed += 1;
+      suppressed += 1;
+    } else {
+      row.active += 1;
+      active += 1;
+    }
+  }
+
+  if (unknown.total > 0) rows.push(unknown);
+  rows.push({ severity: "Total", active, suppressed, total: findings.length });
+  const summaryColumns: Column<CountRow>[] = [
+    { key: "severity", header: "Severity", cell: (row) => row.severity },
+    { key: "active", header: "Active", cell: (row) => row.active },
+    { key: "suppressed", header: "Suppressed", cell: (row) => row.suppressed },
+    { key: "total", header: "Total", cell: (row) => row.total },
+  ];
+  return toCsv(rows, summaryColumns);
+}
+
 /** Available formats for a local, user-reviewed findings export. */
-export type FindingsExportFormat = "csv" | "json" | "markdown";
+export type FindingsExportFormat = "csv" | "json" | "markdown" | "counts";
 
 /** A bounded sample; not a privacy or secret-detection scan. */
 export interface FindingsExportReview {
@@ -68,16 +111,18 @@ export function findingsExportReview(
 ): FindingsExportReview {
   const sample = findings.slice(0, PREVIEW_FINDINGS);
   const text =
-    format === "csv"
-      ? findingsCsv(sample)
-      : format === "json"
-        ? findingsJson(sample)
-        : findingsMarkdown(sample);
+    format === "counts"
+      ? findingsCountsCsv(findings)
+      : format === "csv"
+        ? findingsCsv(sample)
+        : format === "json"
+          ? findingsJson(sample)
+          : findingsMarkdown(sample);
   const clipped = text.length > PREVIEW_CHARACTERS;
   return {
     preview: clipped ? text.slice(0, PREVIEW_CHARACTERS) + "\n[Sample shortened]" : text,
-    sampled: sample.length,
-    shortened: clipped || sample.length !== findings.length,
+    sampled: format === "counts" ? findings.length : sample.length,
+    shortened: clipped || (format !== "counts" && sample.length !== findings.length),
     paths: new Set(findings.flatMap((finding) => finding.paths ?? [])).size,
     evidenceItems: findings.reduce((count, finding) => count + (finding.evidence?.length ?? 0), 0),
     suppressed: findings.filter(isSuppressed).length,
