@@ -132,8 +132,16 @@ pub fn read_history(
     cancel: &CancellationToken,
 ) -> Result<History, GitError> {
     let format = "--format=%x1e%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%ai%x1f%s";
-    let limit =
-        (options.max_commits > 0).then(|| format!("--max-count={}", options.max_commits + 1));
+    // Request one extra commit to identify truncation. The maximum u64 bound
+    // cannot be incremented, so leave Git uncapped rather than overflowing.
+    let limit = if options.max_commits == 0 {
+        None
+    } else {
+        options
+            .max_commits
+            .checked_add(1)
+            .map(|count| format!("--max-count={count}"))
+    };
     let mut args = vec![
         "log",
         "--no-color",
@@ -455,5 +463,20 @@ mod tests {
         .unwrap();
         assert!(limited.truncated);
         assert_eq!(limited.commits.len(), 2);
+
+        // A theoretical maximum must not overflow while computing the extra
+        // sentinel commit used to detect history truncation.
+        let max_limit = read_history(
+            &runner,
+            repo.path(),
+            LogOptions {
+                max_commits: u64::MAX,
+                ..LogOptions::default()
+            },
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert!(!max_limit.truncated);
+        assert_eq!(max_limit.commits.len(), 3);
     }
 }
