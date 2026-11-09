@@ -47,6 +47,10 @@ No next stable version or release date has been announced.
   `for-each-ref` text, while preserving branch sorting and annotated tags (#239).
 - Redact password-bearing SSH URL userinfo when Git errors echo a remote URL,
   without obscuring normal passwordless SSH usernames (#240).
+- Keep caller-supplied Git arguments, configuration values, remote URLs, and
+  local paths out of timeout and failure command labels (#242).
+- Exclude future-dated commits from activity windows so clock skew cannot
+  inflate current repository activity, while keeping historical data (#243).
 
 ## [1.5.0] - 2026-11-06
 
