@@ -132,16 +132,15 @@ pub fn read_history(
     cancel: &CancellationToken,
 ) -> Result<History, GitError> {
     let format = "--format=%x1e%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%ai%x1f%s";
-    // Request one extra commit to identify truncation. The maximum u64 bound
-    // cannot be incremented, so leave Git uncapped rather than overflowing.
-    let limit = if options.max_commits == 0 {
-        None
-    } else {
-        options
-            .max_commits
-            .checked_add(1)
-            .map(|count| format!("--max-count={count}"))
-    };
+    // Request one extra commit to detect truncation, but Git --max-count
+    // accepts only a signed 32-bit integer. Leave Git uncapped if the requested
+    // limit plus its sentinel cannot be represented, and apply the limit after
+    // reading history. Never overflow a caller-supplied u64 bound.
+    let limit = options
+        .max_commits
+        .checked_add(1)
+        .filter(|count| options.max_commits > 0 && *count <= i32::MAX as u64)
+        .map(|count| format!("--max-count={count}"));
     let mut args = vec![
         "log",
         "--no-color",
@@ -464,19 +463,21 @@ mod tests {
         assert!(limited.truncated);
         assert_eq!(limited.commits.len(), 2);
 
-        // A theoretical maximum must not overflow while computing the extra
-        // sentinel commit used to detect history truncation.
-        let max_limit = read_history(
-            &runner,
-            repo.path(),
-            LogOptions {
-                max_commits: u64::MAX,
-                ..LogOptions::default()
-            },
-            &CancellationToken::new(),
-        )
-        .unwrap();
-        assert!(!max_limit.truncated);
-        assert_eq!(max_limit.commits.len(), 3);
+        // Very large u64 limits cannot be passed to Git's signed --max-count
+        // argument. They must behave as an effectively unlimited request here.
+        for max_commits in [i32::MAX as u64, u64::MAX - 1, u64::MAX] {
+            let oversized = read_history(
+                &runner,
+                repo.path(),
+                LogOptions {
+                    max_commits,
+                    ..LogOptions::default()
+                },
+                &CancellationToken::new(),
+            )
+            .unwrap();
+            assert!(!oversized.truncated);
+            assert_eq!(oversized.commits.len(), 3);
+        }
     }
 }
