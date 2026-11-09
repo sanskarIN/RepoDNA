@@ -505,6 +505,11 @@ mod tests {
         let cancel = CancellationToken::new();
         let args = ["show", "HEAD:large.txt"];
 
+        // A callback that reads nothing must also allow Git to exit normally.
+        runner
+            .stream(Some(repo.path()), &args, &cancel, |_reader| Ok(()))
+            .unwrap();
+
         runner
             .stream(Some(repo.path()), &args, &cancel, |reader| {
                 let mut prefix = [0_u8; 8];
