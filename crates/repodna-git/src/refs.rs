@@ -307,9 +307,8 @@ mod tests {
             .expect("valid annotated tag");
         assert_eq!(tag.commit, "commitobj");
         assert!(tag.annotated);
-        let lightweight =
-            parse_tag_line("v1.0.1\u{1f}commit\u{1f}commit2\u{1f}\u{1f}1710000000")
-                .expect("valid lightweight tag");
+        let lightweight = parse_tag_line("v1.0.1\u{1f}commit\u{1f}commit2\u{1f}\u{1f}1710000000")
+            .expect("valid lightweight tag");
         assert_eq!(lightweight.commit, "commit2");
         assert!(!lightweight.annotated);
     }
