@@ -39,6 +39,10 @@ No next stable version or release date has been announced.
   with tests for extremely large configured limits and skipped files (#234).
 - Parse remote URL authority before query and fragment separators so an `@`
   outside the authority cannot obscure the validated host (#236).
+- Stream historical Git tree listing records instead of buffering the complete
+  raw `ls-tree` output before constructing file metadata (#237).
+- Read the first available tracked Git status output to determine dirty state
+  without retaining the complete porcelain output (#238).
 
 ## [1.5.0] - 2026-11-06
 
