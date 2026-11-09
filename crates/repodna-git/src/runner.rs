@@ -358,13 +358,38 @@ fn wait(child: &Arc<Mutex<Child>>) -> Result<std::process::ExitStatus, GitError>
 /// Recognize only a fixed set of literal Git subcommand names.
 fn describe(args: &[&str]) -> String {
     const COMMANDS: &[&str] = &[
-        "archive", "blame", "branch", "cat-file", "check-attr",
-        "check-ignore", "check-ref-format", "clone", "config",
-        "describe", "diff", "diff-tree", "fetch", "for-each-ref",
-        "init", "log", "ls-files", "ls-remote", "ls-tree",
-        "merge-base", "name-rev", "remote", "rev-list", "rev-parse",
-        "shortlog", "show", "show-ref", "status", "symbolic-ref",
-        "tag", "update-ref", "version",
+        "archive",
+        "blame",
+        "branch",
+        "cat-file",
+        "check-attr",
+        "check-ignore",
+        "check-ref-format",
+        "clone",
+        "config",
+        "describe",
+        "diff",
+        "diff-tree",
+        "fetch",
+        "for-each-ref",
+        "init",
+        "log",
+        "ls-files",
+        "ls-remote",
+        "ls-tree",
+        "merge-base",
+        "name-rev",
+        "remote",
+        "rev-list",
+        "rev-parse",
+        "shortlog",
+        "show",
+        "show-ref",
+        "status",
+        "symbolic-ref",
+        "tag",
+        "update-ref",
+        "version",
     ];
     let mut index = 0;
     while let Some(&argument) = args.get(index) {
@@ -589,7 +614,12 @@ mod tests {
             "git show"
         );
         assert_eq!(
-            describe(&["-c", "alias.secret=!do-something", "unknown-command", "secret"]),
+            describe(&[
+                "-c",
+                "alias.secret=!do-something",
+                "unknown-command",
+                "secret"
+            ]),
             "git command"
         );
         assert_eq!(describe(&["-c", "secret"]), "git command");
