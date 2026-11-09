@@ -833,7 +833,12 @@ mod tests {
         assert_eq!(report.activity.commits_last_90_days, 2);
         assert_eq!(report.activity.days_since_last_commit, Some(9));
         assert!(report.activity.description.contains("35 commits"));
-        assert!(report.activity.description.contains("excluded from activity windows"));
+        assert!(
+            report
+                .activity
+                .description
+                .contains("excluded from activity windows")
+        );
 
         let future_only = History {
             commits: history.commits[4..].to_vec(),
