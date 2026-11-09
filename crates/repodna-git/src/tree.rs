@@ -225,8 +225,7 @@ mod tests {
             "ada@example.invalid",
             "2024-01-01T00:00:00Z",
         );
-        let entries = list_tree(&runner, repo.path(), "HEAD", &CancellationToken::new())
-            .unwrap();
+        let entries = list_tree(&runner, repo.path(), "HEAD", &CancellationToken::new()).unwrap();
         assert_eq!(entries.len(), 300);
         assert_eq!(entries.first().unwrap().path, "files/file-000.txt");
         assert_eq!(entries.last().unwrap().path, "files/file-299.txt");
