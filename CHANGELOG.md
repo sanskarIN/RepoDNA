@@ -32,6 +32,11 @@ No next stable version or release date has been announced.
 - Avoid overflowing history's `max_commits + 1` sentinel or passing numbers
   above Git's signed max-count range; retain correct truncation semantics
   for ordinary and extremely large requested limits (#232).
+- Reject mixed hexadecimal/octal IPv4 host aliases under the default
+  private-host policy, while retaining the explicit opt-in for private
+  repository servers (#233).
+- Apply overflow-safe cumulative byte budgets when reading historical blobs,
+  with tests for extremely large configured limits and skipped files (#234).
 
 ## [1.5.0] - 2026-11-06
 
