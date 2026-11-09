@@ -320,9 +320,21 @@ fn is_private_host(host: &str) -> bool {
     if let Ok(ip) = host.parse::<IpAddr>() {
         return is_private_ip(ip);
     }
-    // Integer, octal, or hexadecimal IPv4 spellings such as 2130706433 or 0x7f000001 are
-    // only used to disguise addresses, so they are treated as private.
-    host.bytes().all(|b| b.is_ascii_digit() || b == b'.') || host.starts_with("0x")
+    // Legacy IPv4 parsers accept each dotted component in decimal, octal,
+    // or hexadecimal, including mixed forms such as 0177.0x0.0.1 (127.0.0.1).
+    // Treat numeric-looking hosts as private even when Rust's strict IpAddr
+    // parser does not recognize their syntax.
+    let numeric_component = |part: &str| {
+        if let Some(hex) = part.strip_prefix("0x").or_else(|| part.strip_prefix("0X")) {
+            !hex.is_empty() && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+        } else {
+            !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit())
+        }
+    };
+    host.bytes().all(|b| b.is_ascii_digit() || b == b'.')
+        || host.starts_with("0x")
+        || host.starts_with("0X")
+        || host.split('.').all(numeric_component)
 }
 
 /// Validates a URL for cloning and returns it unchanged (including any credentials the user
@@ -548,6 +560,11 @@ mod tests {
             "https://169.254.169.254/latest",
             "https://[::1]/r.git",
             "https://2130706433/r.git",
+            "https://0X7f000001/r.git",
+            "https://0177.0x0.0.1/r.git",
+            "https://0177.0X0.0.1/r.git",
+            "https://0x7f.0.0.1/r.git",
+            "https://0x0a.0.0.1/r.git",
             "https://git.corp.internal/r.git",
             "git@printer.local:r.git",
         ] {
@@ -558,6 +575,8 @@ mod tests {
             ..PUBLIC
         };
         assert!(validate_clone_url("https://10.0.0.5/r.git", private).is_ok());
+        assert!(validate_clone_url("https://0177.0x0.0.1/r.git", private).is_ok());
+        assert!(validate_clone_url("https://git123.example.com/r.git", PUBLIC).is_ok());
     }
 
     #[test]
