@@ -57,6 +57,8 @@ No next stable version or release date has been announced.
   each emitted commit, rather than waiting for a batch of 256 commits (#246).
 - Preserve valid Git branch names ending in `/HEAD`; identify symbolic refs
   using Git metadata instead of guessing from a branch's name (#247).
+- Omit URL queries and fragments from displayed and stored remote URLs and Git
+  failure messages so query-based credentials are not published (#249).
 
 ## [1.5.0] - 2026-11-06
 

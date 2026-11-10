@@ -133,7 +133,9 @@ unencrypted `http://` and `git://` and private or loopback hosts need an explici
 Host names are checked literally, so a public DNS name that resolves to a private address
 is not detected. RepoDNA sanitizes credentials in displayed remote metadata and common
 Git error messages (including HTTP(S) userinfo and password-bearing SSH URL userinfo
-in development builds after v1.5.0). This is not comprehensive secret detection:
+in development builds after v1.5.0). Development builds also omit URL queries and
+fragments in displays and common Git diagnostics because they can contain secrets.
+This is not comprehensive secret detection:
 embedding credentials in clone URLs can still expose them in shell history, operating-system
 process arguments, or external Git tools. Use a credential helper or SSH agent instead.
 

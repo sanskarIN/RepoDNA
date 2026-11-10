@@ -72,16 +72,16 @@ fn redact_url_credentials(stderr: &str) -> String {
         };
         let authority_start = scheme_start + scheme.len();
         redacted.push_str(&stderr[cursor..authority_start]);
-        let authority_end = stderr[authority_start..]
+        // Treat the URL as one span so credential-bearing query parameters and
+        // fragments cannot leak through Git's diagnostic text.
+        let url_end = stderr[authority_start..]
             .find(|character: char| {
-                character == '/'
-                    || character == '?'
-                    || character == '#'
-                    || character.is_whitespace()
-                    || matches!(character, '\'' | '"' | '<' | '>')
+                character.is_whitespace() || matches!(character, '\'' | '"' | '<' | '>')
             })
             .map_or(stderr.len(), |offset| authority_start + offset);
-        let authority = &stderr[authority_start..authority_end];
+        let url = &stderr[authority_start..url_end];
+        let authority_end = url.find(['/', '?', '#']).unwrap_or(url.len());
+        let authority = &url[..authority_end];
         if let Some((userinfo, host)) = authority.rsplit_once('@') {
             if matches!(scheme, "http://" | "https://") || userinfo.contains(':') {
                 redacted.push_str("[REDACTED]@");
@@ -92,7 +92,11 @@ fn redact_url_credentials(stderr: &str) -> String {
         } else {
             redacted.push_str(authority);
         }
-        cursor = authority_end;
+        // Keep the diagnostic's host and repository path, but not arbitrary
+        // query keys or fragments (which may be signed or bearer credentials).
+        let suffix = &url[authority_end..];
+        redacted.push_str(suffix.split(['?', '#']).next().unwrap_or_default());
+        cursor = url_end;
     }
 
     redacted.push_str(&stderr[cursor..]);
@@ -233,6 +237,26 @@ mod tests {
         assert_eq!(
             redact_url_credentials("fatal: unable to access 'https://example.com/a.git'"),
             "fatal: unable to access 'https://example.com/a.git'"
+        );
+        let query_secret = "fatal: unable to access 'https://user:password@github.com/org/repo.git?token=top-secret#oauth'";
+        let scrubbed = redact_url_credentials(query_secret);
+        assert_eq!(
+            scrubbed,
+            "fatal: unable to access 'https://[REDACTED]@github.com/org/repo.git'"
+        );
+        assert!(!scrubbed.contains("top-secret"));
+        assert!(!scrubbed.contains("password"));
+        assert_eq!(
+            redact_url_credentials(
+                "fatal: https://example.com/repo.git?access_token=private-value returned 403"
+            ),
+            "fatal: https://example.com/repo.git returned 403"
+        );
+        assert_eq!(
+            redact_url_credentials(
+                "fatal: https://example.com/repo.git#secret-fragment http://example.com/next?key=value"
+            ),
+            "fatal: https://example.com/repo.git http://example.com/next"
         );
         let ssh_error = GitError::from_failure(
             "git clone",
