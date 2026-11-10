@@ -222,7 +222,7 @@ mod tests {
     fn tree_stream_stops_after_the_first_cancelled_entry() {
         let cancel = CancellationToken::new();
         let mut reader = std::io::Cursor::new(
-            b"100644 blob abc123 1\tfirst.txt\0100644 blob def456 1\tsecond.txt\0",
+            b"100644 blob abc123 1\tfirst.txt\x00100644 blob def456 1\tsecond.txt\0",
         );
         let mut visited = Vec::new();
         let outcome = visit_tree_entries(&mut reader, &cancel, |entry| {
