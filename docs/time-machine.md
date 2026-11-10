@@ -86,3 +86,6 @@ new modules (`evolution.new-module`), and quiet periods (`evolution.dormant-peri
 - Rewritten history (squashes, rebases, imports from other version control systems) shows
   the history as it is recorded now, not as it happened.
 - Shallow clones have little or no history; analyze a full clone for a complete picture.
+- In development builds after v1.5.0, cancellation is checked before each
+  historical blob request and between streamed blob replies, so stopping a deep
+  snapshot analysis does not require processing the rest of the batch.
