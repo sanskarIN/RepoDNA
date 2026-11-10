@@ -105,12 +105,15 @@ pub fn looks_like_url(input: &str) -> bool {
     split(input).is_some_and(|parts| parts.userinfo.is_some() && parts.host.contains('.'))
 }
 
-/// Removes credentials from an HTTP(S) URL. Other URL forms are returned unchanged
-/// (their user names, such as `git@`, are not secrets).
+/// Returns a display-safe remote URL, never the URL passed to Git.
+/// Removes HTTP(S) authority credentials and password-bearing SSH userinfo.
+/// Query parameters and fragments are omitted entirely: they can contain
+/// access tokens even when their names are not known to RepoDNA.
 pub fn sanitize_url(url: &str) -> String {
     let trimmed = url.trim();
+    let without_query = |value: &str| value.split(['?', '#']).next().unwrap_or(value);
     let Some((scheme, rest)) = trimmed.split_once("://") else {
-        return trimmed.to_owned();
+        return without_query(trimmed).to_owned();
     };
     let scheme_lower = scheme.to_ascii_lowercase();
     let (authority, suffix) = authority_and_suffix(rest);
@@ -125,7 +128,7 @@ pub fn sanitize_url(url: &str) -> String {
         }
         None => authority.to_owned(),
     };
-    format!("{scheme}://{authority}{suffix}")
+    format!("{scheme}://{authority}{}", without_query(suffix))
 }
 
 fn provider_for(host: &str) -> &'static str {
@@ -600,11 +603,11 @@ mod tests {
 
         assert_eq!(
             sanitize_url("https://127.0.0.1?@public.example/repo.git"),
-            "https://127.0.0.1?@public.example/repo.git"
+            "https://127.0.0.1"
         );
         assert_eq!(
             sanitize_url("https://alice:placeholder@github.com/org/repo?tab=docs"),
-            "https://github.com/org/repo?tab=docs"
+            "https://github.com/org/repo"
         );
         assert_eq!(
             resolve_clone_target("https://github.com/org/repo/tree/main?tab=readme", PUBLIC)
@@ -630,6 +633,18 @@ mod tests {
         assert_eq!(
             sanitize_url("git@github.com:o/r.git"),
             "git@github.com:o/r.git"
+        );
+        assert_eq!(
+            sanitize_url("https://user:secret@github.com/org/repo.git?token=another-secret#session"),
+            "https://github.com/org/repo.git"
+        );
+        assert_eq!(
+            sanitize_url("git@github.com:org/repo.git?access_token=secret#session"),
+            "git@github.com:org/repo.git"
+        );
+        assert_eq!(
+            parse_remote("https://example.com/org/repo.git?token=secret").name.as_deref(),
+            Some("repo")
         );
     }
 
