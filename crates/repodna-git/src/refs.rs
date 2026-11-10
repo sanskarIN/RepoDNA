@@ -187,7 +187,9 @@ fn parse_branch_line(line: &str) -> Option<BranchInfo> {
     let reference = fields.next()?;
     let head = fields.next()?.to_owned();
     let updated = Timestamp::from_unix(fields.next()?.trim().parse().ok()?);
-    if reference.ends_with("/HEAD") {
+    // A branch such as "feature/HEAD" is legal. Only ignore real symbolic
+    // references (for example, origin/HEAD -> origin/main).
+    if !fields.next()?.is_empty() {
         return None;
     }
     if let Some(name) = reference.strip_prefix("refs/heads/") {
@@ -221,7 +223,7 @@ pub fn read_branches(
         repo,
         &[
             "for-each-ref",
-            "--format=%(refname)%1f%(objectname)%1f%(committerdate:unix)",
+            "--format=%(refname)%1f%(objectname)%1f%(committerdate:unix)%1f%(symref)",
             "refs/heads",
             "refs/remotes",
         ],
@@ -290,13 +292,19 @@ mod tests {
     fn ref_line_parsers_ignore_malformed_records() {
         assert!(parse_branch_line("").is_none());
         assert!(parse_branch_line("refs/heads/main").is_none());
-        assert!(parse_branch_line("refs/remotes/origin/HEAD\u{1f}123\u{1f}0").is_none());
-        let branch = parse_branch_line("refs/heads/feature/long\u{1f}abc123\u{1f}1710000000")
+        assert!(parse_branch_line("refs/remotes/origin/HEAD\u{1f}123\u{1f}0\u{1f}refs/remotes/origin/main").is_none());
+        let branch = parse_branch_line("refs/heads/feature/long\u{1f}abc123\u{1f}1710000000\u{1f}")
             .expect("valid branch");
         assert_eq!(branch.name, "feature/long");
         assert!(!branch.remote);
+        // "HEAD" inside a branch name does not make it a symbolic ref.
+        let legal_head_suffix =
+            parse_branch_line("refs/heads/feature/HEAD\u{1f}abc123\u{1f}1710000000\u{1f}")
+                .expect("legal branch ending in HEAD");
+        assert_eq!(legal_head_suffix.name, "feature/HEAD");
+        assert!(!legal_head_suffix.remote);
         assert_eq!(branch.head, "abc123");
-        let remote = parse_branch_line("refs/remotes/origin/topic\u{1f}deadbeef\u{1f}1710000000")
+        let remote = parse_branch_line("refs/remotes/origin/topic\u{1f}deadbeef\u{1f}1710000000\u{1f}")
             .expect("valid remote branch");
         assert_eq!(remote.name, "origin/topic");
         assert!(remote.remote);
@@ -338,6 +346,8 @@ mod tests {
         );
         repo.tag("v1.0.0", Some("2024-02-02T00:00:00Z"));
         repo.git(&["branch", "feature"]);
+        repo.git(&["branch", "feature/HEAD"]);
+        repo.git(&["symbolic-ref", "refs/remotes/origin/HEAD", "refs/heads/main"]);
         repo.git(&[
             "remote",
             "add",
@@ -360,7 +370,8 @@ mod tests {
 
         let branches = read_branches(&runner, repo.path(), &cancel).unwrap();
         let names: Vec<_> = branches.iter().map(|b| b.name.as_str()).collect();
-        assert_eq!(names, vec!["feature", "main"]);
+        assert_eq!(names, vec!["feature", "feature/HEAD", "main"]);
+        assert!(branches.iter().all(|branch| !branch.remote));
 
         let tags = read_tags(&runner, repo.path(), &cancel).unwrap();
         assert_eq!(tags.len(), 2);
