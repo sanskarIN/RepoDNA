@@ -147,7 +147,10 @@ fn warns_on_opposing_judgments_of_identical_evidence_without_disclosing_text() {
     );
     let report: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("aggregate report");
-    assert_eq!(report["training"]["conflictingRelevanceJudgmentsWithinSplit"], 1);
+    assert_eq!(
+        report["training"]["conflictingRelevanceJudgmentsWithinSplit"],
+        1
+    );
     assert_eq!(
         report["training"]["normalizedConflictingRelevanceJudgmentsWithinSplit"],
         1
@@ -157,7 +160,10 @@ fn warns_on_opposing_judgments_of_identical_evidence_without_disclosing_text() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|warning| warning.as_str().unwrap().contains("contradictory relevance"))
+            .any(|warning| warning
+                .as_str()
+                .unwrap()
+                .contains("contradictory relevance"))
     );
     let public = String::from_utf8(output.stdout).expect("UTF-8 report");
     for secret in [
@@ -280,7 +286,10 @@ fn warns_on_cosmetically_repeated_training_labels() {
         report["training"]["normalizedRepeatedEvidenceSignaturesWithinSplit"],
         1
     );
-    assert_eq!(report["training"]["conflictingRelevanceJudgmentsWithinSplit"], 0);
+    assert_eq!(
+        report["training"]["conflictingRelevanceJudgmentsWithinSplit"],
+        0
+    );
     assert_eq!(
         report["training"]["normalizedConflictingRelevanceJudgmentsWithinSplit"],
         1
