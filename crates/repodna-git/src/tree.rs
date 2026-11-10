@@ -147,10 +147,11 @@ fn visit_blob_records(
             continue;
         }
         let mut fields = header.split(' ');
-        let (Some(_object), Some(kind), Some(size)) =
-            (fields.next(), fields.next(), fields.next())
+        let (Some(_object), Some(kind), Some(size)) = (fields.next(), fields.next(), fields.next())
         else {
-            return Err(GitError::Parse(format!("unexpected cat-file header {header:?}")));
+            return Err(GitError::Parse(format!(
+                "unexpected cat-file header {header:?}"
+            )));
         };
         let size: u64 = size
             .parse()
@@ -165,8 +166,7 @@ fn visit_blob_records(
                 .map_err(GitError::Io)?;
             total += size;
         } else {
-            std::io::copy(&mut reader.take(size), &mut std::io::sink())
-                .map_err(GitError::Io)?;
+            std::io::copy(&mut reader.take(size), &mut std::io::sink()).map_err(GitError::Io)?;
         }
         // Each object is followed by a newline.
         let mut newline = [0u8; 1];
@@ -221,9 +221,11 @@ pub fn read_blobs(
         &["cat-file", "--batch"],
         Some(input),
         cancel,
-        |reader| visit_blob_records(reader, &requested, limits, cancel, |path, content| {
-            results.push((path, content));
-        }),
+        |reader| {
+            visit_blob_records(reader, &requested, limits, cancel, |path, content| {
+                results.push((path, content));
+            })
+        },
     )?;
     Ok(results)
 }
