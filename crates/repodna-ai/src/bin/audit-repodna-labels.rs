@@ -4,7 +4,7 @@
 //! Reports structural readiness, coverage and possible copied-evidence
 //! contamination. It cannot verify reviewer expertise or license compliance.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -80,6 +80,24 @@ fn normalized_signatures(
     samples.iter().map(normalized_evidence_signature).collect()
 }
 
+/// Count unique question/evidence signatures with contradictory relevance
+/// judgments *within one canonical repository*. Cross-repository matches are
+/// deliberately excluded: the same evidence can be relevant to different
+/// questions in different repositories without indicating an error.
+fn contradictory_judgments(
+    samples: &[LabeledEvidence],
+    signature: fn(&LabeledEvidence) -> Result<Vec<u8>, Box<dyn std::error::Error>>,
+) -> Result<usize, Box<dyn std::error::Error>> {
+    let mut judgments: HashMap<(String, Vec<u8>), u8> = HashMap::new();
+    for sample in samples {
+        let repository = sample.repository.trim().to_lowercase();
+        let key = (repository, signature(sample)?);
+        let mask = judgments.entry(key).or_default();
+        *mask |= if sample.relevant { 1 } else { 2 };
+    }
+    Ok(judgments.values().filter(|&&mask| mask == 3).count())
+}
+
 fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let mut per_repo: BTreeMap<String, usize> = BTreeMap::new();
     let mut per_query: BTreeMap<(String, String), (usize, usize)> = BTreeMap::new();
@@ -113,6 +131,8 @@ fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std
     let largest_repo_share = largest_repo as f64 / samples.len().max(1) as f64;
     let unique_evidence = signatures(samples)?.len();
     let normalized_unique_evidence = normalized_signatures(samples)?.len();
+    let conflicting_exact = contradictory_judgments(samples, evidence_signature)?;
+    let conflicting_normalized = contradictory_judgments(samples, normalized_evidence_signature)?;
     Ok(serde_json::json!({
         "examples": samples.len(),
         "repositories": per_repo.len(),
@@ -128,6 +148,8 @@ fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std
         "repeatedEvidenceSignaturesWithinSplit": samples.len() - unique_evidence,
         "normalizedRepeatedEvidenceSignaturesWithinSplit": samples.len()
             - normalized_unique_evidence,
+        "conflictingRelevanceJudgmentsWithinSplit": conflicting_exact,
+        "normalizedConflictingRelevanceJudgmentsWithinSplit": conflicting_normalized,
         "labelFingerprintSha256": training_data_fingerprint(samples)?,
     }))
 }
@@ -247,6 +269,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         {
             warnings.push(format!(
                 "{name}: case/whitespace-normalized question/evidence text repeats within the split; inspect possible duplicate annotation"
+            ));
+        }
+        if record["conflictingRelevanceJudgmentsWithinSplit"]
+            .as_u64()
+            .unwrap_or(0)
+            > 0
+        {
+            warnings.push(format!(
+                "{name}: identical question/evidence content has contradictory relevance judgments within a repository; review inconsistent labels"
+            ));
+        }
+        if record["normalizedConflictingRelevanceJudgmentsWithinSplit"]
+            .as_u64()
+            .unwrap_or(0)
+            > record["conflictingRelevanceJudgmentsWithinSplit"]
+                .as_u64()
+                .unwrap_or(0)
+        {
+            warnings.push(format!(
+                "{name}: cosmetically equivalent question/evidence content has contradictory relevance judgments within a repository"
             ));
         }
     }
