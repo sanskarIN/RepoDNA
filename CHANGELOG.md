@@ -53,6 +53,8 @@ No next stable version or release date has been announced.
   inflate current repository activity, while keeping historical data (#243).
 - Frame Git history commit boundaries so record-separator bytes in valid
   filenames or commit subjects do not break historical analysis (#244).
+- Honor Git history parsing cancellation between records and immediately after
+  each emitted commit, rather than waiting for a batch of 256 commits (#246).
 
 ## [1.5.0] - 2026-11-06
 
