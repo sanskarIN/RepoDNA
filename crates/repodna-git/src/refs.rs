@@ -292,7 +292,12 @@ mod tests {
     fn ref_line_parsers_ignore_malformed_records() {
         assert!(parse_branch_line("").is_none());
         assert!(parse_branch_line("refs/heads/main").is_none());
-        assert!(parse_branch_line("refs/remotes/origin/HEAD\u{1f}123\u{1f}0\u{1f}refs/remotes/origin/main").is_none());
+        assert!(
+            parse_branch_line(
+                "refs/remotes/origin/HEAD\u{1f}123\u{1f}0\u{1f}refs/remotes/origin/main"
+            )
+            .is_none()
+        );
         let branch = parse_branch_line("refs/heads/feature/long\u{1f}abc123\u{1f}1710000000\u{1f}")
             .expect("valid branch");
         assert_eq!(branch.name, "feature/long");
@@ -304,8 +309,9 @@ mod tests {
         assert_eq!(legal_head_suffix.name, "feature/HEAD");
         assert!(!legal_head_suffix.remote);
         assert_eq!(branch.head, "abc123");
-        let remote = parse_branch_line("refs/remotes/origin/topic\u{1f}deadbeef\u{1f}1710000000\u{1f}")
-            .expect("valid remote branch");
+        let remote =
+            parse_branch_line("refs/remotes/origin/topic\u{1f}deadbeef\u{1f}1710000000\u{1f}")
+                .expect("valid remote branch");
         assert_eq!(remote.name, "origin/topic");
         assert!(remote.remote);
 
@@ -347,7 +353,11 @@ mod tests {
         repo.tag("v1.0.0", Some("2024-02-02T00:00:00Z"));
         repo.git(&["branch", "feature"]);
         repo.git(&["branch", "feature/HEAD"]);
-        repo.git(&["symbolic-ref", "refs/remotes/origin/HEAD", "refs/heads/main"]);
+        repo.git(&[
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/heads/main",
+        ]);
         repo.git(&[
             "remote",
             "add",
