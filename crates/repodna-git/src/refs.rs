@@ -95,7 +95,15 @@ pub fn read_state(
                 .find(|n| has_branch(n))
                 .map(str::to_owned)
         })
-        .or_else(|| current_branch.clone());
+        .or_else(|| {
+            // A single-branch remote clone can have no origin/HEAD. Its checked-out
+            // feature branch is not evidence that the remote uses it as default.
+            if branches.iter().any(|branch| branch.remote) {
+                None
+            } else {
+                current_branch.clone()
+            }
+        });
     let shallow = optional_text(
         runner,
         repo,
@@ -373,6 +381,32 @@ mod tests {
 
         let root = repository_root(&runner, &repo.path().join("."), &cancel).unwrap();
         assert!(root.is_some());
+    }
+
+    #[test]
+    fn remote_single_branch_without_origin_head_does_not_guess_default() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("readme.txt", "hello");
+        repo.commit("initial", "Ada", "ada@example.invalid", "2024-01-01T00:00:00Z");
+        repo.git(&["checkout", "-q", "-b", "feature/only"]);
+        repo.git(&["branch", "-D", "main"]);
+        // Model the refs left by git clone --single-branch --branch feature/only:
+        // a fetched remote-tracking branch, but no symbolic origin/HEAD.
+        repo.git(&["update-ref", "refs/remotes/origin/feature/only", "HEAD"]);
+
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        let state = read_state(&runner, repo.path(), &cancel).unwrap();
+        assert_eq!(state.current_branch.as_deref(), Some("feature/only"));
+        assert!(state.default_branch.is_none());
+
+        // A local-only repository may still treat its sole branch as the default.
+        repo.git(&["update-ref", "-d", "refs/remotes/origin/feature/only"]);
+        let local = read_state(&runner, repo.path(), &cancel).unwrap();
+        assert_eq!(local.default_branch.as_deref(), Some("feature/only"));
     }
 
     #[test]
