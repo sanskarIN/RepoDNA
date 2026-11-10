@@ -55,8 +55,6 @@ No next stable version or release date has been announced.
   filenames or commit subjects do not break historical analysis (#244).
 - Honor Git history parsing cancellation between records and immediately after
   each emitted commit, rather than waiting for a batch of 256 commits (#246).
-- Do not label a feature checkout as the remote default branch when a
-  single-branch clone lacks remote default-branch metadata (#248).
 
 ## [1.5.0] - 2026-11-06
 
