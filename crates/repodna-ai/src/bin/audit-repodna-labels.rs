@@ -86,13 +86,17 @@ fn normalized_signatures(
 /// questions in different repositories without indicating an error.
 fn contradictory_judgments(
     samples: &[LabeledEvidence],
-    signature: fn(&LabeledEvidence) -> Result<Vec<u8>, Box<dyn std::error::Error>>,
+    normalized: bool,
 ) -> Result<usize, Box<dyn std::error::Error>> {
     let mut judgments: HashMap<(String, Vec<u8>), u8> = HashMap::new();
     for sample in samples {
         let repository = sample.repository.trim().to_lowercase();
-        let key = (repository, signature(sample)?);
-        let mask = judgments.entry(key).or_default();
+        let signature = if normalized {
+            normalized_evidence_signature(sample)?
+        } else {
+            evidence_signature(sample)?
+        };
+        let mask = judgments.entry((repository, signature)).or_default();
         *mask |= if sample.relevant { 1 } else { 2 };
     }
     Ok(judgments.values().filter(|&&mask| mask == 3).count())
@@ -131,8 +135,8 @@ fn summary(samples: &[LabeledEvidence]) -> Result<serde_json::Value, Box<dyn std
     let largest_repo_share = largest_repo as f64 / samples.len().max(1) as f64;
     let unique_evidence = signatures(samples)?.len();
     let normalized_unique_evidence = normalized_signatures(samples)?.len();
-    let conflicting_exact = contradictory_judgments(samples, evidence_signature)?;
-    let conflicting_normalized = contradictory_judgments(samples, normalized_evidence_signature)?;
+    let conflicting_exact = contradictory_judgments(samples, false)?;
+    let conflicting_normalized = contradictory_judgments(samples, true)?;
     Ok(serde_json::json!({
         "examples": samples.len(),
         "repositories": per_repo.len(),
