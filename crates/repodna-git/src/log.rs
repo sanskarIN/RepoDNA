@@ -185,8 +185,11 @@ pub fn parse_stream(
     emit: &mut dyn FnMut(ParsedCommit),
 ) -> Result<(), GitError> {
     let mut record = Vec::new();
-    let mut count = 0usize;
     loop {
+        // Check even before the first commit and while buffering embedded separators.
+        if cancel.is_cancelled() {
+            return Err(GitError::Cancelled);
+        }
         let read = reader
             .read_until(RECORD, &mut record)
             .map_err(GitError::Io)?;
@@ -200,8 +203,8 @@ pub fn parse_stream(
         }
         if !record.iter().all(u8::is_ascii_whitespace) {
             emit(parse_record(&record)?);
-            count += 1;
-            if count.is_multiple_of(256) && cancel.is_cancelled() {
+            // Stop promptly when a consumer cancels after processing a commit.
+            if cancel.is_cancelled() {
                 return Err(GitError::Cancelled);
             }
         }
@@ -455,6 +458,34 @@ mod tests {
         assert_eq!(history.commits.len(), 2);
         assert_eq!(history.commits[0].changes[0].path, path);
         assert_eq!(history.commits[1].changes[0].path, path);
+    }
+
+    #[test]
+    fn cancelled_history_does_not_emit_commits() {
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+        let mut reader = std::io::Cursor::new(Vec::<u8>::new());
+        let mut emitted = 0;
+        let result = parse_stream(&mut reader, &cancel, &mut |_| emitted += 1);
+        assert!(matches!(result, Err(GitError::Cancelled)));
+        assert_eq!(emitted, 0);
+    }
+
+    #[test]
+    fn stops_after_the_first_commit_when_consumer_cancels() {
+        let hash = "a".repeat(40);
+        let header = format!(
+            "\0\0\x1e{hash}\x1f\x1fAda\x1fada@example.invalid\x1f1700000000\x1f2023-11-14 22:13:20 +0000\x1ffirst\0\n"
+        );
+        let mut reader = std::io::Cursor::new(header.repeat(2).into_bytes());
+        let cancel = CancellationToken::new();
+        let mut emitted = 0;
+        let result = parse_stream(&mut reader, &cancel, &mut |_| {
+            emitted += 1;
+            cancel.cancel();
+        });
+        assert!(matches!(result, Err(GitError::Cancelled)));
+        assert_eq!(emitted, 1);
     }
 
     #[test]
