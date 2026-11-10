@@ -238,8 +238,7 @@ mod tests {
             redact_url_credentials("fatal: unable to access 'https://example.com/a.git'"),
             "fatal: unable to access 'https://example.com/a.git'"
         );
-        let query_secret =
-            "fatal: unable to access 'https://user:password@github.com/org/repo.git?token=top-secret#oauth'";
+        let query_secret = "fatal: unable to access 'https://user:password@github.com/org/repo.git?token=top-secret#oauth'";
         let scrubbed = redact_url_credentials(query_secret);
         assert_eq!(
             scrubbed,
