@@ -105,13 +105,17 @@ pub fn looks_like_url(input: &str) -> bool {
     split(input).is_some_and(|parts| parts.userinfo.is_some() && parts.host.contains('.'))
 }
 
+/// Remove query and fragment text from a display-only URL component.
+fn without_query(value: &str) -> &str {
+    value.split(['?', '#']).next().unwrap_or(value)
+}
+
 /// Returns a display-safe remote URL, never the URL passed to Git.
 /// Removes HTTP(S) authority credentials and password-bearing SSH userinfo.
 /// Query parameters and fragments are omitted entirely: they can contain
 /// access tokens even when their names are not known to RepoDNA.
 pub fn sanitize_url(url: &str) -> String {
     let trimmed = url.trim();
-    let without_query = |value: &str| value.split(['?', '#']).next().unwrap_or(value);
     let Some((scheme, rest)) = trimmed.split_once("://") else {
         return without_query(trimmed).to_owned();
     };
