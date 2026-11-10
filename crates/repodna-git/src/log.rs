@@ -1,7 +1,10 @@
 //! Streaming parser for `git log --raw --numstat -z`.
 //!
-//! Each commit starts with an ASCII record separator (0x1E) produced by the format string;
-//! header fields are separated by the unit separator (0x1F) and terminated by NUL. The
+//! Each commit starts with a framed delimiter (two NUL bytes followed by ASCII
+//! record separator 0x1E) produced by the format string. A bare record separator
+//! can occur inside Git filenames or commit subjects, but Git filenames cannot
+//! contain NUL. Header fields are separated by unit separator (0x1F) and
+//! terminated by NUL. The
 //! diff section then lists raw entries (`:modes shas STATUS\0path\0`, with two paths for
 //! renames and copies) followed by numstat entries (`added\tdeleted\tpath\0`, or an empty
 //! path followed by `old\0new\0` for renames). Merge commits have no diff section.
@@ -15,6 +18,7 @@ use crate::error::GitError;
 use crate::runner::GitRunner;
 
 const RECORD: u8 = 0x1e;
+const RECORD_PREFIX: &[u8] = b"\0\0\x1e";
 const FIELD: char = '\u{1f}';
 
 /// How a file changed in a commit.
@@ -131,7 +135,7 @@ pub fn read_history(
     options: LogOptions,
     cancel: &CancellationToken,
 ) -> Result<History, GitError> {
-    let format = "--format=%x1e%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%ai%x1f%s";
+    let format = "--format=%x00%x00%x1e%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%ai%x1f%s";
     // Request one extra commit to detect truncation, but Git --max-count
     // accepts only a signed 32-bit integer. Leave Git uncapped if the requested
     // limit plus its sentinel cannot be represented, and apply the limit after
@@ -183,23 +187,27 @@ pub fn parse_stream(
     let mut record = Vec::new();
     let mut count = 0usize;
     loop {
-        record.clear();
         let read = reader
             .read_until(RECORD, &mut record)
             .map_err(GitError::Io)?;
-        if read == 0 {
-            break;
-        }
-        if record.last() == Some(&RECORD) {
-            record.pop();
-        }
-        if record.iter().all(u8::is_ascii_whitespace) {
+        let framed_boundary = record.ends_with(RECORD_PREFIX);
+        if framed_boundary {
+            record.truncate(record.len() - RECORD_PREFIX.len());
+        } else if read > 0 {
+            // A lone 0x1E is part of a filename, author name, or subject,
+            // not the start of another commit. Keep buffering this record.
             continue;
         }
-        emit(parse_record(&record)?);
-        count += 1;
-        if count.is_multiple_of(256) && cancel.is_cancelled() {
-            return Err(GitError::Cancelled);
+        if !record.iter().all(u8::is_ascii_whitespace) {
+            emit(parse_record(&record)?);
+            count += 1;
+            if count.is_multiple_of(256) && cancel.is_cancelled() {
+                return Err(GitError::Cancelled);
+            }
+        }
+        record.clear();
+        if read == 0 {
+            break;
         }
     }
     Ok(())
@@ -371,10 +379,10 @@ mod tests {
         let hash_a = "a".repeat(40);
         let hash_b = "b".repeat(40);
         let mut stream = Vec::new();
-        stream.extend_from_slice(format!("\x1e{hash_b}\x1f{hash_a}\x1fAda\x1fada@example.invalid\x1f1700000000\x1f2023-11-14 22:13:20 +0530\x1frename and binary\0\n").as_bytes());
+        stream.extend_from_slice(format!("\0\0\x1e{hash_b}\x1f{hash_a}\x1fAda\x1fada@example.invalid\x1f1700000000\x1f2023-11-14 22:13:20 +0530\x1frename and binary\0\n").as_bytes());
         stream.extend_from_slice(b":100644 100644 1111111 2222222 R070\0a.txt\0b.txt\0:000000 100644 0000000 3333333 A\0bin.dat\0");
         stream.extend_from_slice(b"1\t0\t\0a.txt\0b.txt\0-\t-\tbin.dat\0");
-        stream.extend_from_slice(format!("\x1e{hash_a}\x1f\x1fAda\x1fada@example.invalid\x1f1699999000\x1f2023-11-14 21:56:40 -0800\x1ffirst\0\n").as_bytes());
+        stream.extend_from_slice(format!("\0\0\x1e{hash_a}\x1f\x1fAda\x1fada@example.invalid\x1f1699999000\x1f2023-11-14 21:56:40 -0800\x1ffirst\0\n").as_bytes());
         stream.extend_from_slice(b":000000 100644 0000000 1111111 A\0a.txt\0:000000 100644 0000000 4444444 A\0d/sp ace.txt\0");
         stream.extend_from_slice(b"2\t0\ta.txt\x001\t0\td/sp ace.txt\x00");
         let commits = parse(&stream);
@@ -397,8 +405,61 @@ mod tests {
     }
 
     #[test]
+    fn record_separator_inside_path_or_subject_does_not_split_commits() {
+        let hash = "a".repeat(40);
+        let mut stream = format!(
+            "\0\0\x1e{hash}\x1f\x1fAda\x1fada@example.invalid\x1f1700000000\x1f2023-11-14 22:13:20 +0000\x1fsubject\x1ewith marker\0\n"
+        )
+        .into_bytes();
+        stream.extend_from_slice(b":000000 100644 0000000 1111111 A\0odd\x1ename.txt\0");
+        stream.extend_from_slice(b"1\t0\todd\x1ename.txt\0");
+
+        let commits = parse(&stream);
+        assert_eq!(commits.len(), 1);
+        assert_eq!(commits[0].subject, "subject\u{1e}with marker");
+        assert_eq!(commits[0].changes.len(), 1);
+        assert_eq!(commits[0].changes[0].path, "odd\u{1e}name.txt");
+        assert_eq!(commits[0].changes[0].insertions, 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reads_real_git_history_with_record_separators_in_paths() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        let path = "src/odd\u{1e}name.txt";
+        repo.write(path, "first\n");
+        repo.commit(
+            "first",
+            "Ada",
+            "ada@example.invalid",
+            "2024-01-01T00:00:00Z",
+        );
+        repo.write(path, "first\nsecond\n");
+        repo.commit(
+            "second",
+            "Ada",
+            "ada@example.invalid",
+            "2024-02-01T00:00:00Z",
+        );
+
+        let history = read_history(
+            &GitRunner::detect().unwrap(),
+            repo.path(),
+            LogOptions::default(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert_eq!(history.commits.len(), 2);
+        assert_eq!(history.commits[0].changes[0].path, path);
+        assert_eq!(history.commits[1].changes[0].path, path);
+    }
+
+    #[test]
     fn rejects_malformed_headers() {
-        let mut reader = std::io::Cursor::new(b"\x1enot a header\0".to_vec());
+        let mut reader = std::io::Cursor::new(b"\0\0\x1enot a header\0".to_vec());
         let result = parse_stream(&mut reader, &CancellationToken::new(), &mut |_| {});
         assert!(matches!(result, Err(GitError::Parse(_))));
     }
