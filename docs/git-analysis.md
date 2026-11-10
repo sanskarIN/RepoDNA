@@ -23,8 +23,8 @@ the history sections are marked *unavailable* and the rest of the analysis still
 - **GitHub branch links**: in development builds after v1.5.0, paste a
   `https://github.com/owner/repo/tree/branch-name` URL to clone the
   underlying repository and check out that branch before analysis. Slashes
-  in branch names are supported (including `%2F`). The path after `/tree/`
-  is treated as the complete ref: a URL pointing to a subdirectory inside
+  in branch names are supported (including `%2F`), and one trailing URL
+  slash is accepted. The path after `/tree/` is treated as the complete ref: a URL pointing to a subdirectory inside
   a branch cannot be distinguished from a branch containing slashes, so
   use the branch-root link. The static hosted web version cannot clone
   remote Git repositories; use the CLI, desktop app, or `repodna serve`.
