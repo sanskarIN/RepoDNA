@@ -639,7 +639,9 @@ mod tests {
             "git@github.com:o/r.git"
         );
         assert_eq!(
-            sanitize_url("https://user:secret@github.com/org/repo.git?token=another-secret#session"),
+            sanitize_url(
+                "https://user:secret@github.com/org/repo.git?token=another-secret#session"
+            ),
             "https://github.com/org/repo.git"
         );
         assert_eq!(
@@ -647,7 +649,9 @@ mod tests {
             "git@github.com:org/repo.git"
         );
         assert_eq!(
-            parse_remote("https://example.com/org/repo.git?token=secret").name.as_deref(),
+            parse_remote("https://example.com/org/repo.git?token=secret")
+                .name
+                .as_deref(),
             Some("repo")
         );
     }
