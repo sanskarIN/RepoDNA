@@ -161,6 +161,36 @@ pub fn read_state(
     })
 }
 
+/// Consume a streamed ref listing one line at a time, observing cancellation
+/// before each read and immediately after invoking the consumer.
+fn visit_ref_lines(
+    reader: &mut dyn std::io::BufRead,
+    cancel: &CancellationToken,
+    mut consume: impl FnMut(&str),
+) -> Result<(), GitError> {
+    let mut line = Vec::new();
+    loop {
+        if cancel.is_cancelled() {
+            return Err(GitError::Cancelled);
+        }
+        line.clear();
+        if reader.read_until(b'\n', &mut line).map_err(GitError::Io)? == 0 {
+            break;
+        }
+        if line.last() == Some(&b'\n') {
+            line.pop();
+        }
+        if line.last() == Some(&b'\r') {
+            line.pop();
+        }
+        consume(String::from_utf8_lossy(&line).as_ref());
+        if cancel.is_cancelled() {
+            return Err(GitError::Cancelled);
+        }
+    }
+    Ok(())
+}
+
 /// Visit the lines emitted by a Git ref-listing command without retaining all
 /// of its raw text. Lossy UTF-8 decoding matches the previous GitRunner::text
 /// behavior, and Git's newline-terminated record format is preserved.
@@ -172,21 +202,7 @@ fn stream_ref_lines(
     mut consume: impl FnMut(&str),
 ) -> Result<(), GitError> {
     runner.stream(Some(repo), args, cancel, |reader| {
-        let mut line = Vec::new();
-        loop {
-            line.clear();
-            if reader.read_until(b'\n', &mut line).map_err(GitError::Io)? == 0 {
-                break;
-            }
-            if line.last() == Some(&b'\n') {
-                line.pop();
-            }
-            if line.last() == Some(&b'\r') {
-                line.pop();
-            }
-            consume(String::from_utf8_lossy(&line).as_ref());
-        }
-        Ok(())
+        visit_ref_lines(reader, cancel, &mut consume)
     })
 }
 
@@ -295,6 +311,19 @@ pub fn read_tags(
 mod tests {
     use super::*;
     use repodna_testkit::{GitRepo, git_available};
+
+    #[test]
+    fn streamed_refs_stop_immediately_after_cancellation() {
+        let cancel = CancellationToken::new();
+        let mut reader = std::io::Cursor::new(b"first\nsecond\nthird\n");
+        let mut visited = Vec::new();
+        let result = visit_ref_lines(&mut reader, &cancel, |line| {
+            visited.push(line.to_owned());
+            cancel.cancel();
+        });
+        assert!(matches!(result, Err(GitError::Cancelled)));
+        assert_eq!(visited, vec!["first"]);
+    }
 
     #[test]
     fn ref_line_parsers_ignore_malformed_records() {
