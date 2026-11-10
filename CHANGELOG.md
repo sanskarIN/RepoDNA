@@ -16,6 +16,9 @@ No next stable version or release date has been announced.
   available, distinguishing the analyzed checkout from the remote default (#228).
 - Export a reviewed, counts-only Findings CSV grouped by severity and
   active/suppressed state without exporting private paths or evidence (#226).
+- Detect contradictory relevance judgments for identical and cosmetically
+  equivalent question/evidence labels in local AI dataset audits, reporting
+  aggregate counts without publishing reviewer annotations (#251).
 
 ### Fixed
 
@@ -62,6 +65,8 @@ No next stable version or release date has been announced.
   is the remote default (#248).
 - Omit URL queries and fragments from displayed and stored remote URLs and Git
   failure messages so query-based credentials are not published (#249).
+- Accept one trailing slash in GitHub branch-root `/tree/<ref>/` URLs while
+  rejecting malformed refs and repeated trailing separators (#250).
 
 ## [1.5.0] - 2026-11-06
 
