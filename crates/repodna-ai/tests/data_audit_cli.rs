@@ -121,6 +121,56 @@ fn detects_exact_question_evidence_reuse_with_different_repository_and_id() {
 }
 
 #[test]
+fn warns_on_opposing_judgments_of_identical_evidence_without_disclosing_text() {
+    let dir = tempfile::tempdir().expect("temporary files");
+    let mut train: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(fixture("train.demo.json")).unwrap()).unwrap();
+    // Different evidence IDs but the same question and evidence within one
+    // repository must not silently count as consistent review judgments.
+    let original = train[0].clone();
+    train[1]["evidence"]["kind"] = original["evidence"]["kind"].clone();
+    train[1]["evidence"]["reference"] = original["evidence"]["reference"].clone();
+    train[1]["evidence"]["detail"] = original["evidence"]["detail"].clone();
+    assert_ne!(train[0]["relevant"], train[1]["relevant"]);
+    let altered = dir.path().join("contradictory.json");
+    fs::write(&altered, serde_json::to_vec(&train).unwrap()).unwrap();
+
+    let output = audit(
+        &altered,
+        &fixture("holdout.demo.json"),
+        &fixture("test.demo.json"),
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("aggregate report");
+    assert_eq!(report["training"]["conflictingRelevanceJudgmentsWithinSplit"], 1);
+    assert_eq!(
+        report["training"]["normalizedConflictingRelevanceJudgmentsWithinSplit"],
+        1
+    );
+    assert!(
+        report["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|warning| warning.as_str().unwrap().contains("contradictory relevance"))
+    );
+    let public = String::from_utf8(output.stdout).expect("UTF-8 report");
+    for secret in [
+        original["query"].as_str().unwrap(),
+        original["evidence"]["reference"].as_str().unwrap(),
+        original["evidence"]["detail"].as_str().unwrap(),
+        original["repository"].as_str().unwrap(),
+    ] {
+        assert!(!public.contains(secret), "label text leaked");
+    }
+}
+
+#[test]
 fn warns_on_cosmetically_changed_copied_evidence_without_disclosing_labels() {
     let dir = tempfile::tempdir().expect("temporary files");
     let mut test: Vec<serde_json::Value> =
@@ -228,6 +278,11 @@ fn warns_on_cosmetically_repeated_training_labels() {
     );
     assert_eq!(
         report["training"]["normalizedRepeatedEvidenceSignaturesWithinSplit"],
+        1
+    );
+    assert_eq!(report["training"]["conflictingRelevanceJudgmentsWithinSplit"], 0);
+    assert_eq!(
+        report["training"]["normalizedConflictingRelevanceJudgmentsWithinSplit"],
         1
     );
     assert!(
