@@ -43,6 +43,17 @@ split pair, plus normalized repetition within each split. Neither check
 changes training data, human labels or the full-fidelity SHA-256 label
 fingerprints; both produce warnings rather than rejecting valid input.
 
+The audit also counts **contradictory relevance judgments** for the same
+question and evidence within one canonical repository. Both exact and
+case/whitespace-normalized matches are counted, with separate aggregate
+`conflictingRelevanceJudgmentsWithinSplit` and
+`normalizedConflictingRelevanceJudgmentsWithinSplit` fields. The counts
+are for distinct conflicting signatures, not individual annotations.
+They do not contain repository IDs, raw questions or evidence.
+These contradictions generate warnings for manual adjudication; a
+cross-repository match alone is not a contradiction because relevance
+may legitimately vary with context.
+
 A matching signature is **not proof of leakage**. Independent repositories
 can share familiar file and dependency metadata. Conversely, these checks
 still miss synonyms, changed punctuation, reordered words, renamed paths,
