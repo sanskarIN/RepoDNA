@@ -352,7 +352,7 @@ mod tests {
         );
         repo.tag("v1.0.0", Some("2024-02-02T00:00:00Z"));
         repo.git(&["branch", "feature"]);
-        repo.git(&["branch", "feature/HEAD"]);
+        repo.git(&["branch", "topic/HEAD"]);
         repo.git(&[
             "symbolic-ref",
             "refs/remotes/origin/HEAD",
@@ -380,7 +380,7 @@ mod tests {
 
         let branches = read_branches(&runner, repo.path(), &cancel).unwrap();
         let names: Vec<_> = branches.iter().map(|b| b.name.as_str()).collect();
-        assert_eq!(names, vec!["feature", "feature/HEAD", "main"]);
+        assert_eq!(names, vec!["feature", "main", "topic/HEAD"]);
         assert!(branches.iter().all(|branch| !branch.remote));
 
         let tags = read_tags(&runner, repo.path(), &cancel).unwrap();
