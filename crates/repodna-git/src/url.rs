@@ -274,8 +274,12 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
     {
         return Err(invalid("GitHub tree URL is missing a branch or tag"));
     }
+    // GitHub browser URLs can have a single trailing slash. Remove only
+    // that route separator before decoding; encoded trailing slashes still
+    // belong to the ref and must pass Git's normal ref-name validation.
     let raw_branch = segments[3..].join("/");
-    let branch = decode_github_ref(&raw_branch)
+    let raw_branch = raw_branch.strip_suffix('/').unwrap_or(&raw_branch);
+    let branch = decode_github_ref(raw_branch)
         .filter(|reference| valid_github_ref(reference))
         .ok_or_else(|| invalid("invalid GitHub branch or tag in tree URL"))?;
 
@@ -432,6 +436,16 @@ mod tests {
                 "feature/new-ui",
             ),
             (
+                "https://github.com/org/project/tree/main/",
+                "https://github.com/org/project",
+                "main",
+            ),
+            (
+                "https://github.com/org/project/tree/feature/new-ui/",
+                "https://github.com/org/project",
+                "feature/new-ui",
+            ),
+            (
                 "https://github.com/org/project/tree/fix%2fparser?tab=readme",
                 "https://github.com/org/project",
                 "fix/parser",
@@ -468,6 +482,8 @@ mod tests {
             "https://github.com/org/repo/tree/main%0Aevil",
             "https://github.com/org/repo/tree/a%2E%2Eb",
             "https://github.com/org/repo/tree/a//b",
+            "https://github.com/org/repo/tree/main//",
+            "https://github.com/org/repo/tree/main%2F",
             "https://github.com/org/repo/tree/a%GG",
             "https://github.com/org/repo/tree/a.lock",
             "https://github.com/org/repo/tree/.hidden",
