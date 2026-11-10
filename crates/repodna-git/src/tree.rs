@@ -3,7 +3,7 @@
 //! The Time Machine inspects past revisions through `git ls-tree` and
 //! `git cat-file --batch`, so historical analysis never touches the working tree.
 
-use std::io::Read;
+use std::io::{BufRead, Read};
 use std::path::Path;
 
 use repodna_core::CancellationToken;
@@ -48,6 +48,35 @@ fn parse_tree_entry(record: &[u8]) -> Option<TreeEntry> {
     })
 }
 
+/// Visit NUL-delimited Git tree records while checking cancellation before
+/// the next read and after each emitted entry.
+fn visit_tree_entries(
+    reader: &mut dyn BufRead,
+    cancel: &CancellationToken,
+    mut consume: impl FnMut(TreeEntry),
+) -> Result<(), GitError> {
+    let mut record = Vec::new();
+    loop {
+        if cancel.is_cancelled() {
+            return Err(GitError::Cancelled);
+        }
+        record.clear();
+        if reader.read_until(0, &mut record).map_err(GitError::Io)? == 0 {
+            break;
+        }
+        if record.last() == Some(&0) {
+            record.pop();
+        }
+        if let Some(entry) = parse_tree_entry(&record) {
+            consume(entry);
+        }
+        if cancel.is_cancelled() {
+            return Err(GitError::Cancelled);
+        }
+    }
+    Ok(())
+}
+
 /// Lists every file (blob) in `revision`.
 ///
 /// Parse the NUL-delimited stream incrementally instead of buffering the
@@ -65,27 +94,7 @@ pub fn list_tree(
         Some(repo),
         &["ls-tree", "-r", "-l", "-z", "--full-tree", revision],
         cancel,
-        |reader| {
-            let mut record = Vec::new();
-            let mut seen = 0usize;
-            loop {
-                record.clear();
-                if reader.read_until(0, &mut record).map_err(GitError::Io)? == 0 {
-                    break;
-                }
-                if record.last() == Some(&0) {
-                    record.pop();
-                }
-                if let Some(entry) = parse_tree_entry(&record) {
-                    entries.push(entry);
-                }
-                seen += 1;
-                if seen.is_multiple_of(256) && cancel.is_cancelled() {
-                    return Err(GitError::Cancelled);
-                }
-            }
-            Ok(())
-        },
+        |reader| visit_tree_entries(reader, cancel, |entry| entries.push(entry)),
     )?;
     Ok(entries)
 }
@@ -207,6 +216,21 @@ mod tests {
         assert_eq!(entry.path, "docs/name with space.md");
         assert_eq!(entry.size, 7);
         assert_eq!(entry.object, "abc123");
+    }
+
+    #[test]
+    fn tree_stream_stops_after_the_first_cancelled_entry() {
+        let cancel = CancellationToken::new();
+        let mut reader = std::io::Cursor::new(
+            b"100644 blob abc123 1\tfirst.txt\0100644 blob def456 1\tsecond.txt\0",
+        );
+        let mut visited = Vec::new();
+        let outcome = visit_tree_entries(&mut reader, &cancel, |entry| {
+            visited.push(entry.path);
+            cancel.cancel();
+        });
+        assert!(matches!(outcome, Err(GitError::Cancelled)));
+        assert_eq!(visited, vec!["first.txt"]);
     }
 
     #[test]
