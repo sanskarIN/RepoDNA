@@ -390,7 +390,12 @@ mod tests {
         }
         let repo = GitRepo::new();
         repo.write("readme.txt", "hello");
-        repo.commit("initial", "Ada", "ada@example.invalid", "2024-01-01T00:00:00Z");
+        repo.commit(
+            "initial",
+            "Ada",
+            "ada@example.invalid",
+            "2024-01-01T00:00:00Z",
+        );
         repo.git(&["checkout", "-q", "-b", "feature/only"]);
         repo.git(&["branch", "-D", "main"]);
         // Model the refs left by git clone --single-branch --branch feature/only:
