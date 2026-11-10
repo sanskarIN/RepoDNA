@@ -24,8 +24,9 @@ the history sections are marked *unavailable* and the rest of the analysis still
   `https://github.com/owner/repo/tree/branch-name` URL to clone the
   underlying repository and check out that branch before analysis. Slashes
   in branch names are supported (including `%2F`), and one trailing URL
-  slash is accepted. The path after `/tree/` is treated as the complete ref: a URL pointing to a subdirectory inside
-  a branch cannot be distinguished from a branch containing slashes, so
+  slash is accepted. The path after `/tree/` is treated as the complete ref:
+  a URL pointing to a subdirectory inside a branch cannot be distinguished
+  from a branch containing slashes, so
   use the branch-root link. The static hosted web version cannot clone
   remote Git repositories; use the CLI, desktop app, or `repodna serve`.
   This is not available in the already-published v1.5.0 installers.
@@ -42,6 +43,9 @@ the history sections are marked *unavailable* and the rest of the analysis still
 - **Shallow clones** (for example CI checkouts with `fetch-depth: 1`) are detected and
   flagged with `git.shallow`; history-based results then describe only the fetched
   commits. For a full picture, analyze a full clone.
+- **Cancellation**: in development builds after v1.5.0, Git history,
+  tree listings, and branch/tag listings check for cancellation between
+  individual records, rather than waiting for a fixed-size batch.
 - **Merge commits** are counted but carry no file changes of their own.
 - **Renames** are followed, so a file's history continues across moves.
 - **Identities** are grouped by e-mail address after applying the repository's `.mailmap`.
