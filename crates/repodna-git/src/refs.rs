@@ -56,6 +56,35 @@ fn optional_text(
     }
 }
 
+/// Infer a default only from verified ref information. If branch enumeration
+/// failed, absence of observed remote-tracking refs is not evidence that this
+/// is a local-only repository.
+fn infer_default_branch(
+    origin_head: Option<&str>,
+    current_branch: Option<&str>,
+    branches: Option<&[BranchInfo]>,
+) -> Option<String> {
+    if let Some(origin_head) = origin_head {
+        return Some(
+            origin_head
+                .strip_prefix("origin/")
+                .unwrap_or(origin_head)
+                .to_owned(),
+        );
+    }
+    let branches = branches?;
+    // Without origin/HEAD, a selected branch (even main) cannot establish
+    // the remote's default when any remote-tracking ref exists.
+    if branches.iter().any(|branch| branch.remote) {
+        return None;
+    }
+    ["main", "master", "trunk", "develop"]
+        .into_iter()
+        .find(|name| branches.iter().any(|branch| !branch.remote && branch.name == *name))
+        .map(str::to_owned)
+        .or_else(|| current_branch.map(str::to_owned))
+}
+
 /// Reads HEAD, branch, shallow, dirty, and remote information.
 pub fn read_state(
     runner: &GitRunner,
@@ -85,25 +114,18 @@ pub fn read_state(
         ],
         cancel,
     )?;
-    let branches = read_branches(runner, repo, cancel).unwrap_or_default();
-    let has_branch = |name: &str| branches.iter().any(|b| !b.remote && b.name == name);
-    let has_remote_tracking_branches = branches.iter().any(|branch| branch.remote);
-    let default_branch = origin_head
-        .map(|name| name.strip_prefix("origin/").unwrap_or(&name).to_owned())
-        .or_else(|| {
-            // When origin/HEAD is missing, a remote-tracking branch named main,
-            // master, trunk, or develop does not prove what the remote's default
-            // is. The selected branch in a single-branch clone may be any of
-            // these names, even if another branch is the actual default.
-            if has_remote_tracking_branches {
-                return None;
-            }
-            ["main", "master", "trunk", "develop"]
-                .into_iter()
-                .find(|n| has_branch(n))
-                .map(str::to_owned)
-                .or_else(|| current_branch.clone())
-        });
+    let branches = match read_branches(runner, repo, cancel) {
+        Ok(branches) => Some(branches),
+        Err(GitError::Cancelled) => return Err(GitError::Cancelled),
+        // The rest of the state can still be useful, but we cannot assume
+        // "no remote tracking branches" when their enumeration failed.
+        Err(_) => None,
+    };
+    let default_branch = infer_default_branch(
+        origin_head.as_deref(),
+        current_branch.as_deref(),
+        branches.as_deref(),
+    );
     let shallow = optional_text(
         runner,
         repo,
@@ -462,6 +484,32 @@ mod tests {
         repo.git(&["update-ref", "-d", "refs/remotes/origin/feature/only"]);
         let local = read_state(&runner, repo.path(), &cancel).unwrap();
         assert_eq!(local.default_branch.as_deref(), Some("feature/only"));
+    }
+
+    #[test]
+    fn failed_branch_enumeration_does_not_guess_a_remote_default() {
+        let local_main =
+            parse_branch_line("refs/heads/main\u{1f}abc123\u{1f}1710000000\u{1f}").unwrap();
+        let remote_main =
+            parse_branch_line("refs/remotes/origin/main\u{1f}abc123\u{1f}1710000000\u{1f}").unwrap();
+
+        // Missing refs from a failed command are NOT equivalent to a successful
+        // listing of a local-only repository.
+        assert_eq!(infer_default_branch(None, Some("main"), None), None);
+        assert_eq!(
+            infer_default_branch(None, Some("main"), Some(&[local_main])),
+            Some("main".to_owned())
+        );
+        assert_eq!(
+            infer_default_branch(None, Some("main"), Some(&[remote_main])),
+            None
+        );
+        // An actual symbolic origin/HEAD remains authoritative, even if a
+        // separate branch enumeration fails.
+        assert_eq!(
+            infer_default_branch(Some("origin/develop"), Some("main"), None),
+            Some("develop".to_owned())
+        );
     }
 
     #[test]
