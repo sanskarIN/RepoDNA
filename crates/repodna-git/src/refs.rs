@@ -519,7 +519,10 @@ mod tests {
 
         // Missing refs from a failed command are NOT equivalent to a successful
         // listing of a local-only repository.
-        assert_eq!(infer_default_branch(None, Some("main"), None, Some(false)), None);
+        assert_eq!(
+            infer_default_branch(None, Some("main"), None, Some(false)),
+            None
+        );
         assert_eq!(
             infer_default_branch(None, Some("main"), Some(&[local_main]), Some(false)),
             Some("main".to_owned())
@@ -587,7 +590,12 @@ mod tests {
             Some("main")
         );
 
-        repo.git(&["remote", "add", "origin", "https://example.invalid/org/repo.git"]);
+        repo.git(&[
+            "remote",
+            "add",
+            "origin",
+            "https://example.invalid/org/repo.git",
+        ]);
         let remote = read_state(&runner, repo.path(), &cancel).unwrap();
         assert_eq!(remote.current_branch.as_deref(), Some("main"));
         assert!(remote.default_branch.is_none());
