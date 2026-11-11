@@ -65,7 +65,12 @@ fn infer_default_branch(
     branches: Option<&[BranchInfo]>,
 ) -> Option<String> {
     if let Some(origin_head) = origin_head {
-        return Some(origin_head.strip_prefix("origin/").unwrap_or(origin_head).to_owned());
+        return Some(
+            origin_head
+                .strip_prefix("origin/")
+                .unwrap_or(origin_head)
+                .to_owned(),
+        );
     }
     let branches = branches?;
     // Without origin/HEAD, a selected branch (even main) cannot establish
@@ -75,7 +80,11 @@ fn infer_default_branch(
     }
     ["main", "master", "trunk", "develop"]
         .into_iter()
-        .find(|name| branches.iter().any(|branch| !branch.remote && branch.name == *name))
+        .find(|name| {
+            branches
+                .iter()
+                .any(|branch| !branch.remote && branch.name == *name)
+        })
         .map(str::to_owned)
         .or_else(|| current_branch.map(str::to_owned))
 }
