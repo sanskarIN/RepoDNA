@@ -87,22 +87,22 @@ pub fn read_state(
     )?;
     let branches = read_branches(runner, repo, cancel).unwrap_or_default();
     let has_branch = |name: &str| branches.iter().any(|b| !b.remote && b.name == name);
+    let has_remote_tracking_branches = branches.iter().any(|branch| branch.remote);
     let default_branch = origin_head
         .map(|name| name.strip_prefix("origin/").unwrap_or(&name).to_owned())
         .or_else(|| {
+            // When origin/HEAD is missing, a remote-tracking branch named main,
+            // master, trunk, or develop does not prove what the remote's default
+            // is. The selected branch in a single-branch clone may be any of
+            // these names, even if another branch is the actual default.
+            if has_remote_tracking_branches {
+                return None;
+            }
             ["main", "master", "trunk", "develop"]
                 .into_iter()
                 .find(|n| has_branch(n))
                 .map(str::to_owned)
-        })
-        .or_else(|| {
-            // A single-branch remote clone can have no origin/HEAD. Its checked-out
-            // feature branch is not evidence that the remote uses it as default.
-            if branches.iter().any(|branch| branch.remote) {
-                None
-            } else {
-                current_branch.clone()
-            }
+                .or_else(|| current_branch.clone())
         });
     let shallow = optional_text(
         runner,
@@ -462,6 +462,34 @@ mod tests {
         repo.git(&["update-ref", "-d", "refs/remotes/origin/feature/only"]);
         let local = read_state(&runner, repo.path(), &cancel).unwrap();
         assert_eq!(local.default_branch.as_deref(), Some("feature/only"));
+    }
+
+    #[test]
+    fn remote_main_without_origin_head_does_not_assume_default_branch() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("readme.txt", "hello");
+        repo.commit(
+            "initial",
+            "Ada",
+            "ada@example.invalid",
+            "2024-01-01T00:00:00Z",
+        );
+        // Simulate a remote that exposes a main branch but whose default is
+        // unknown to the local clone. It may actually use develop as default.
+        repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        let remote = read_state(&runner, repo.path(), &cancel).unwrap();
+        assert_eq!(remote.current_branch.as_deref(), Some("main"));
+        assert!(remote.default_branch.is_none());
+
+        // Without remote-tracking refs, local-only fallback stays unchanged.
+        repo.git(&["update-ref", "-d", "refs/remotes/origin/main"]);
+        let local = read_state(&runner, repo.path(), &cancel).unwrap();
+        assert_eq!(local.default_branch.as_deref(), Some("main"));
     }
 
     #[test]

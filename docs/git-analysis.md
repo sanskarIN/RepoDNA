@@ -34,9 +34,10 @@ the history sections are marked *unavailable* and the rest of the analysis still
   when the analysis ran, if Git supplies it. This is different from the
   repository's default branch and does not imply that any newer remote commits
   have been fetched. Detached HEAD checkouts may not have a branch name.
-  When a single-branch clone has no remote default-branch reference, RepoDNA
-  may show the default as unknown rather than treating that selected feature
-  branch as the remote default.
+  When remote-tracking branches exist but `origin/HEAD` is missing,
+  RepoDNA leaves the remote default unknown. This applies even when the
+  selected local branch is named `main`: its name does not prove the remote
+  uses it as its default. Local-only repositories retain their fallback.
 - **Which commits**: those reachable from `HEAD`, newest first, up to `analysis.max_commits`
   (50,000 by default; `--max-commits` for one run). If the limit is reached,
   `git.historyTruncated` is set and reports say so.
