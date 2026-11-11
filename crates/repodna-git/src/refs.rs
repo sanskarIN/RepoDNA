@@ -65,12 +65,7 @@ fn infer_default_branch(
     branches: Option<&[BranchInfo]>,
 ) -> Option<String> {
     if let Some(origin_head) = origin_head {
-        return Some(
-            origin_head
-                .strip_prefix("origin/")
-                .unwrap_or(origin_head)
-                .to_owned(),
-        );
+        return Some(origin_head.strip_prefix("origin/").unwrap_or(origin_head).to_owned());
     }
     let branches = branches?;
     // Without origin/HEAD, a selected branch (even main) cannot establish
@@ -491,7 +486,8 @@ mod tests {
         let local_main =
             parse_branch_line("refs/heads/main\u{1f}abc123\u{1f}1710000000\u{1f}").unwrap();
         let remote_main =
-            parse_branch_line("refs/remotes/origin/main\u{1f}abc123\u{1f}1710000000\u{1f}").unwrap();
+            parse_branch_line("refs/remotes/origin/main\u{1f}abc123\u{1f}1710000000\u{1f}")
+                .unwrap();
 
         // Missing refs from a failed command are NOT equivalent to a successful
         // listing of a local-only repository.
