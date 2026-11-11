@@ -131,21 +131,22 @@ pub fn read_state(
         // "no remote tracking branches" when their enumeration failed.
         Err(_) => None,
     };
-    let remotes = match runner.text(
+    let remotes: Option<Vec<(String, String)>> = match runner.text(
         repo,
         &["config", "--get-regexp", r"^remote\..*\.url$"],
         cancel,
     ) {
-        Ok(text) => Some(
-            text
-            .lines()
-            .filter_map(|line| {
-                let (key, url) = line.split_once(' ')?;
-                let name = key.strip_prefix("remote.")?.strip_suffix(".url")?;
-                Some((name.to_owned(), url.trim().to_owned()))
-            })
-            .collect(),
-        ),
+        Ok(text) => {
+            let urls = text
+                .lines()
+                .filter_map(|line| {
+                    let (key, url) = line.split_once(' ')?;
+                    let name = key.strip_prefix("remote.")?.strip_suffix(".url")?;
+                    Some((name.to_owned(), url.trim().to_owned()))
+                })
+                .collect();
+            Some(urls)
+        }
         // No matching remote.*.url keys is the normal empty-repository case.
         Err(GitError::CommandFailed {
             status: Some(1),
@@ -157,7 +158,7 @@ pub fn read_state(
     };
     let origin_configured = remotes
         .as_ref()
-        .map(|remotes: &Vec<(String, String)>| remotes.iter().any(|(name, _)| name == "origin"));
+        .map(|remotes| remotes.iter().any(|(name, _)| name == "origin"));
     let default_branch = infer_default_branch(
         origin_head.as_deref(),
         current_branch.as_deref(),
