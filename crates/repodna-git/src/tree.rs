@@ -124,6 +124,68 @@ fn within_blob_budget(kind: &str, size: u64, total: u64, limits: BlobLimits) -> 
         && size <= limits.max_total_bytes - total
 }
 
+/// Interpret one `git cat-file --batch` reply at a time, giving the caller a
+/// cancellation checkpoint before each record and after each emitted blob.
+fn visit_blob_records(
+    reader: &mut dyn BufRead,
+    requested: &[&String],
+    limits: BlobLimits,
+    cancel: &CancellationToken,
+    mut consume: impl FnMut(String, Vec<u8>),
+) -> Result<(), GitError> {
+    let mut total = 0u64;
+    for path in requested {
+        if cancel.is_cancelled() {
+            return Err(GitError::Cancelled);
+        }
+        let mut header = String::new();
+        if reader.read_line(&mut header).map_err(GitError::Io)? == 0 {
+            break;
+        }
+        let header = header.trim_end();
+        if header.ends_with(" missing") || header.ends_with(" ambiguous") {
+            continue;
+        }
+        let mut fields = header.split(' ');
+        let (Some(_object), Some(kind), Some(size)) = (fields.next(), fields.next(), fields.next())
+        else {
+            return Err(GitError::Parse(format!(
+                "unexpected cat-file header {header:?}"
+            )));
+        };
+        let size: u64 = size
+            .parse()
+            .map_err(|_| GitError::Parse(format!("invalid blob size in {header:?}")))?;
+        let keep = within_blob_budget(kind, size, total, limits);
+        let mut content = Vec::new();
+        if keep {
+            content = Vec::with_capacity(usize::try_from(size).unwrap_or(0));
+            reader
+                .take(size)
+                .read_to_end(&mut content)
+                .map_err(GitError::Io)?;
+            total += size;
+        } else {
+            std::io::copy(&mut reader.take(size), &mut std::io::sink()).map_err(GitError::Io)?;
+        }
+        // Each object is followed by a newline.
+        let mut newline = [0u8; 1];
+        reader.read_exact(&mut newline).map_err(GitError::Io)?;
+        if keep {
+            consume((**path).clone(), content);
+        }
+        if cancel.is_cancelled() {
+            return Err(GitError::Cancelled);
+        }
+    }
+    // A batch may produce extra output; drain to avoid blocking Git.
+    if cancel.is_cancelled() {
+        return Err(GitError::Cancelled);
+    }
+    std::io::copy(reader, &mut std::io::sink()).map_err(GitError::Io)?;
+    Ok(())
+}
+
 /// Reads the contents of `paths` at `revision`. Paths that do not exist, contain line
 /// breaks, or exceed the limits are omitted from the result.
 pub fn read_blobs(
@@ -135,6 +197,7 @@ pub fn read_blobs(
     cancel: &CancellationToken,
 ) -> Result<Vec<(String, Vec<u8>)>, GitError> {
     validate_revision(revision)?;
+    cancel.check().map_err(|_| GitError::Cancelled)?;
     let requested: Vec<&String> = paths
         .iter()
         .filter(|path| !path.contains(['\n', '\r']))
@@ -144,6 +207,9 @@ pub fn read_blobs(
     }
     let mut input = Vec::new();
     for path in &requested {
+        if cancel.is_cancelled() {
+            return Err(GitError::Cancelled);
+        }
         input.extend_from_slice(revision.as_bytes());
         input.push(b':');
         input.extend_from_slice(path.as_bytes());
@@ -156,46 +222,9 @@ pub fn read_blobs(
         Some(input),
         cancel,
         |reader| {
-            let mut total = 0u64;
-            for path in &requested {
-                let mut header = String::new();
-                if reader.read_line(&mut header).map_err(GitError::Io)? == 0 {
-                    break;
-                }
-                let header = header.trim_end();
-                if header.ends_with(" missing") || header.ends_with(" ambiguous") {
-                    continue;
-                }
-                let mut fields = header.split(' ');
-                let (Some(_object), Some(kind), Some(size)) =
-                    (fields.next(), fields.next(), fields.next())
-                else {
-                    return Err(GitError::Parse(format!(
-                        "unexpected cat-file header {header:?}"
-                    )));
-                };
-                let size: u64 = size
-                    .parse()
-                    .map_err(|_| GitError::Parse(format!("invalid blob size in {header:?}")))?;
-                let keep = within_blob_budget(kind, size, total, limits);
-                if keep {
-                    let mut content = Vec::with_capacity(usize::try_from(size).unwrap_or(0));
-                    reader
-                        .take(size)
-                        .read_to_end(&mut content)
-                        .map_err(GitError::Io)?;
-                    total += size;
-                    results.push(((*path).clone(), content));
-                } else {
-                    std::io::copy(&mut reader.take(size), &mut std::io::sink())
-                        .map_err(GitError::Io)?;
-                }
-                // Each object is followed by a newline.
-                let mut newline = [0u8; 1];
-                reader.read_exact(&mut newline).map_err(GitError::Io)?;
-            }
-            std::io::copy(reader, &mut std::io::sink()).map_err(GitError::Io)?;
-            Ok(())
+            visit_blob_records(reader, &requested, limits, cancel, |path, content| {
+                results.push((path, content));
+            })
         },
     )?;
     Ok(results)
@@ -254,6 +283,27 @@ mod tests {
         assert_eq!(entries.first().unwrap().path, "files/file-000.txt");
         assert_eq!(entries.last().unwrap().path, "files/file-299.txt");
         assert!(entries.iter().all(|entry| entry.size == 1));
+    }
+
+    #[test]
+    fn blob_stream_stops_after_first_cancelled_record() {
+        let cancel = CancellationToken::new();
+        let names = ["first.txt".to_owned(), "second.txt".to_owned()];
+        let requested: Vec<&String> = names.iter().collect();
+        let mut reader = std::io::Cursor::new(b"abc blob 1\nX\ndef blob 1\nY\n");
+        let mut visited = Vec::new();
+        let result = visit_blob_records(
+            &mut reader,
+            &requested,
+            BlobLimits::default(),
+            &cancel,
+            |path, content| {
+                visited.push((path, content));
+                cancel.cancel();
+            },
+        );
+        assert!(matches!(result, Err(GitError::Cancelled)));
+        assert_eq!(visited, vec![("first.txt".to_owned(), b"X".to_vec())]);
     }
 
     #[test]
