@@ -118,9 +118,10 @@ mod tests {
             UrlPolicy::default(),
         )
         .unwrap();
+        let args = clone_args(&target, None, "destination");
         assert_eq!(
-            clone_args(&target, None, "destination"),
-            [
+            args.as_slice(),
+            &[
                 "-c",
                 "core.symlinks=false",
                 "clone",
