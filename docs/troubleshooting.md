@@ -38,6 +38,12 @@ v1.5.0, RepoDNA rejects these inputs before running Git and asks for the
 repository-root URL or a supported `/tree/<branch>` link. For stable v1.5.0,
 use the repository-root clone URL or an already checked-out local directory.
 
+**A copied GitHub repository-root URL contains browser navigation.** Links from a
+browser can include `?tab=...` or `#readme`, which are not part of the Git remote.
+Development builds after v1.5.0 remove those suffixes for recognized GitHub
+repository-root URLs before cloning; other hosts remain unchanged. With stable
+v1.5.0, remove the suffix manually or copy the repository's clone URL.
+
 **A private repository cannot be cloned.** RepoDNA never lets Git prompt for credentials.
 Use a URL your Git can access without prompting (for example an SSH URL with a key in your
 agent, or a credential helper), or clone the repository yourself and analyze the directory.
