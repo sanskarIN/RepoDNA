@@ -40,9 +40,9 @@ the history sections are marked *unavailable* and the rest of the analysis still
   uses it as its default. Local-only repositories retain their fallback.
   If listing branches fails and `origin/HEAD` is unavailable, RepoDNA also
   reports the default as unknown instead of treating missing branch data as
-  proof of a local-only checkout. The same applies if `origin` is configured
-  but has not fetched any remote-tracking refs: local `main` is not proof
-  of a remote default branch.
+  proof of a local-only checkout. The same applies if any remote (including
+  a nonstandard name such as `upstream`) is configured but has not fetched
+  remote-tracking refs: local `main` is not proof of a remote default branch.
 - **Which commits**: those reachable from `HEAD`, newest first, up to `analysis.max_commits`
   (50,000 by default; `--max-commits` for one run). If the limit is reached,
   `git.historyTruncated` is set and reports say so.
