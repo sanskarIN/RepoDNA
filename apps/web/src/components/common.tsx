@@ -379,7 +379,8 @@ export function EvidenceList({ evidence }: { evidence: readonly Evidence[] }) {
         const path = evidencePath(item);
         // The artifact can omit ignored or truncated files. Never promise a
         // destination that the Files explorer does not actually contain.
-        const hasFile = path !== undefined && path !== "" && files?.some((file) => file.path === path);
+        const hasFile =
+          path !== undefined && path !== "" && files?.some((file) => file.path === path);
         return (
           <li key={index} className="path">
             {describeEvidence(item)}
