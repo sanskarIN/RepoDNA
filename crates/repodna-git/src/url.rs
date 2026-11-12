@@ -454,10 +454,7 @@ mod tests {
                 "https://www.github.com/org/repo?tab=actions#summary",
                 "https://www.github.com/org/repo",
             ),
-            (
-                "https://github.com/org/repo",
-                "https://github.com/org/repo",
-            ),
+            ("https://github.com/org/repo", "https://github.com/org/repo"),
             (
                 "https://github.com/org/repo/",
                 "https://github.com/org/repo/",
@@ -483,8 +480,7 @@ mod tests {
 
         // Browser subpages remain invalid rather than being mistaken for roots.
         assert!(
-            resolve_clone_target("https://github.com/org/repo/issues?tab=readme", PUBLIC)
-                .is_err()
+            resolve_clone_target("https://github.com/org/repo/issues?tab=readme", PUBLIC).is_err()
         );
     }
 
