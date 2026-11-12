@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { confidenceLabel, type FileCategory, type FileRecord } from "@repodna/schema";
 import { bytes, compact, thousands } from "@repodna/visualization";
 import { BarList } from "../charts/BarList";
@@ -62,6 +62,9 @@ export function Files() {
   const route = useRoute();
   const structure = dna.structure;
   const [query, setQuery] = useState(() => route.params.get("q") ?? "");
+  // A link from evidence can update the Files query while this view is mounted.
+  // Keep the search field in sync with an explicit hash-route change.
+  useEffect(() => setQuery(route.params.get("q") ?? ""), [route.params]);
   const [category, setCategory] = useState<"all" | FileCategory>("all");
   const [language, setLanguage] = useState("all");
   const [fileState, setFileState] = useState<FileStateFilter>("all");
