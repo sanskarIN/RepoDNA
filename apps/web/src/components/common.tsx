@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   describeEvidence,
+  evidencePath,
   severityLabel,
   type Evidence,
   type Severity,
   type StoryStatement,
 } from "@repodna/schema";
 import { NAV } from "../lib/nav";
+import { href } from "../lib/router";
 import { useRoute } from "../lib/router";
 import { useApp } from "../state";
 import { PanelTitle } from "./panelTitle";
@@ -364,18 +366,34 @@ export function Select<T extends string>({
   );
 }
 
-/** Evidence items as a list of plain-text descriptions. */
+/** Evidence descriptions with a local file-metadata link when that file is in the artifact. */
 export function EvidenceList({ evidence }: { evidence: readonly Evidence[] }) {
+  const { dataset } = useApp();
+  const files = dataset?.dna.structure.files;
   if (evidence.length === 0) {
     return null;
   }
   return (
     <ul className="evidence">
-      {evidence.map((item, index) => (
-        <li key={index} className="path">
-          {describeEvidence(item)}
-        </li>
-      ))}
+      {evidence.map((item, index) => {
+        const path = evidencePath(item);
+        // The artifact can omit ignored or truncated files. Never promise a
+        // destination that the Files explorer does not actually contain.
+        const hasFile = path !== undefined && path !== "" && files?.some((file) => file.path === path);
+        return (
+          <li key={index} className="path">
+            {describeEvidence(item)}
+            {hasFile ? (
+              <>
+                {" · "}
+                <a href={href("/files", { q: path })} aria-label={`Find ${path} in Files metadata`}>
+                  Find in Files
+                </a>
+              </>
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
