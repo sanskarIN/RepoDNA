@@ -1,11 +1,10 @@
 import {
   categoryLabel,
   confidenceLabel,
-  describeEvidence,
   isSuppressed,
   type Finding,
 } from "@repodna/schema";
-import { Chip, SeverityBadge } from "./common";
+import { Chip, EvidenceList, SeverityBadge } from "./common";
 
 /**
  * One finding with its reasoning, method, evidence, limitations, and next steps. Its title
@@ -32,13 +31,7 @@ export function FindingItem({ finding, level = 3 }: { finding: Finding; level?: 
         <summary>Evidence and method</summary>
         {finding.rationale ? <p>{finding.rationale}</p> : null}
         {finding.evidence.length > 0 ? (
-          <ul className="evidence">
-            {finding.evidence.map((evidence, index) => (
-              <li key={index} className="path">
-                {describeEvidence(evidence)}
-              </li>
-            ))}
-          </ul>
+          <EvidenceList evidence={finding.evidence} />
         ) : null}
         {finding.method ? (
           <p>
