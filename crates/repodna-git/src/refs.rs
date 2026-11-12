@@ -63,6 +63,7 @@ fn infer_default_branch(
     origin_head: Option<&str>,
     current_branch: Option<&str>,
     branches: Option<&[BranchInfo]>,
+    origin_configured: Option<bool>,
 ) -> Option<String> {
     if let Some(origin_head) = origin_head {
         return Some(
@@ -71,6 +72,11 @@ fn infer_default_branch(
                 .unwrap_or(origin_head)
                 .to_owned(),
         );
+    }
+    // We cannot infer a local-only default if remote configuration is
+    // unreadable or if origin is configured but nothing has been fetched.
+    if origin_configured? {
+        return None;
     }
     let branches = branches?;
     // Without origin/HEAD, a selected branch (even main) cannot establish
@@ -125,10 +131,39 @@ pub fn read_state(
         // "no remote tracking branches" when their enumeration failed.
         Err(_) => None,
     };
+    let remotes: Option<Vec<(String, String)>> = match runner.text(
+        repo,
+        &["config", "--get-regexp", r"^remote\..*\.url$"],
+        cancel,
+    ) {
+        Ok(text) => {
+            let urls = text
+                .lines()
+                .filter_map(|line| {
+                    let (key, url) = line.split_once(' ')?;
+                    let name = key.strip_prefix("remote.")?.strip_suffix(".url")?;
+                    Some((name.to_owned(), url.trim().to_owned()))
+                })
+                .collect();
+            Some(urls)
+        }
+        // No matching remote.*.url keys is the normal empty-repository case.
+        Err(GitError::CommandFailed {
+            status: Some(1),
+            stderr,
+            ..
+        }) if stderr.is_empty() => Some(Vec::new()),
+        Err(GitError::Cancelled) => return Err(GitError::Cancelled),
+        Err(_) => None,
+    };
+    let origin_configured = remotes
+        .as_ref()
+        .map(|remotes| remotes.iter().any(|(name, _)| name == "origin"));
     let default_branch = infer_default_branch(
         origin_head.as_deref(),
         current_branch.as_deref(),
         branches.as_deref(),
+        origin_configured,
     );
     let shallow = optional_text(
         runner,
@@ -161,29 +196,13 @@ pub fn read_state(
         Err(GitError::Cancelled) => return Err(GitError::Cancelled),
         Err(_) => None,
     };
-    let remotes = match runner.text(
-        repo,
-        &["config", "--get-regexp", r"^remote\..*\.url$"],
-        cancel,
-    ) {
-        Ok(text) => text
-            .lines()
-            .filter_map(|line| {
-                let (key, url) = line.split_once(' ')?;
-                let name = key.strip_prefix("remote.")?.strip_suffix(".url")?;
-                Some((name.to_owned(), url.trim().to_owned()))
-            })
-            .collect(),
-        Err(GitError::Cancelled) => return Err(GitError::Cancelled),
-        Err(_) => Vec::new(),
-    };
     Ok(RepositoryState {
         head,
         current_branch,
         default_branch,
         shallow,
         dirty,
-        remotes,
+        remotes: remotes.unwrap_or_default(),
     })
 }
 
@@ -500,19 +519,22 @@ mod tests {
 
         // Missing refs from a failed command are NOT equivalent to a successful
         // listing of a local-only repository.
-        assert_eq!(infer_default_branch(None, Some("main"), None), None);
         assert_eq!(
-            infer_default_branch(None, Some("main"), Some(&[local_main])),
+            infer_default_branch(None, Some("main"), None, Some(false)),
+            None
+        );
+        assert_eq!(
+            infer_default_branch(None, Some("main"), Some(&[local_main]), Some(false)),
             Some("main".to_owned())
         );
         assert_eq!(
-            infer_default_branch(None, Some("main"), Some(&[remote_main])),
+            infer_default_branch(None, Some("main"), Some(&[remote_main]), Some(false)),
             None
         );
         // An actual symbolic origin/HEAD remains authoritative, even if a
         // separate branch enumeration fails.
         assert_eq!(
-            infer_default_branch(Some("origin/develop"), Some("main"), None),
+            infer_default_branch(Some("origin/develop"), Some("main"), None, Some(true)),
             Some("develop".to_owned())
         );
     }
@@ -541,6 +563,45 @@ mod tests {
 
         // Without remote-tracking refs, local-only fallback stays unchanged.
         repo.git(&["update-ref", "-d", "refs/remotes/origin/main"]);
+        let local = read_state(&runner, repo.path(), &cancel).unwrap();
+        assert_eq!(local.default_branch.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn configured_origin_without_tracking_refs_does_not_imply_main_is_remote_default() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("readme.txt", "hello");
+        repo.commit(
+            "initial",
+            "Ada",
+            "ada@example.invalid",
+            "2024-01-01T00:00:00Z",
+        );
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        assert_eq!(
+            read_state(&runner, repo.path(), &cancel)
+                .unwrap()
+                .default_branch
+                .as_deref(),
+            Some("main")
+        );
+
+        repo.git(&[
+            "remote",
+            "add",
+            "origin",
+            "https://example.invalid/org/repo.git",
+        ]);
+        let remote = read_state(&runner, repo.path(), &cancel).unwrap();
+        assert_eq!(remote.current_branch.as_deref(), Some("main"));
+        assert!(remote.default_branch.is_none());
+        assert_eq!(remote.remotes.len(), 1);
+
+        repo.git(&["remote", "remove", "origin"]);
         let local = read_state(&runner, repo.path(), &cancel).unwrap();
         assert_eq!(local.default_branch.as_deref(), Some("main"));
     }
