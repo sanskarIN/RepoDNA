@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   describeEvidence,
-  evidencePath,
   severityLabel,
   type Evidence,
   type Severity,
   type StoryStatement,
 } from "@repodna/schema";
+import { evidenceFilePath } from "../lib/evidence-navigation";
 import { NAV } from "../lib/nav";
 import { href, useRoute } from "../lib/router";
 import { useApp } from "../state";
@@ -375,15 +375,13 @@ export function EvidenceList({ evidence }: { evidence: readonly Evidence[] }) {
   return (
     <ul className="evidence">
       {evidence.map((item, index) => {
-        const path = evidencePath(item);
-        // The artifact can omit ignored or truncated files. Never promise a
-        // destination that the Files explorer does not actually contain.
-        const hasFile =
-          path !== undefined && path !== "" && files?.some((file) => file.path === path);
+        // The indexed match prevents repeated whole-repository scans for each
+        // evidence item and never links to a file missing from the artifact.
+        const path = evidenceFilePath(item, files);
         return (
           <li key={index} className="path">
             {describeEvidence(item)}
-            {hasFile ? (
+            {path ? (
               <>
                 {" · "}
                 <a href={href("/files", { q: path })} aria-label={`Find ${path} in Files metadata`}>
