@@ -54,8 +54,9 @@ export function checkArtifact(value: unknown): LoadedArtifact {
     );
   }
   for (const section of REQUIRED_SECTIONS) {
-    if (typeof record[section] !== "object" || record[section] === null) {
-      throw new ArtifactError(`The artifact has no ${section} section.`);
+    const value = record[section];
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new ArtifactError(`The artifact has no valid ${section} section.`);
     }
   }
   const warnings: string[] = [];
