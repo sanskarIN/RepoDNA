@@ -654,6 +654,7 @@ its contributors.
 RepoDNA is free, and every feature works without paying for anything. If it helps you,
 you can support its development:
 
+- [GitHub Sponsors](https://github.com/sponsors/sanskarIN) (monthly or one-time)
 - [Buy Me a Coffee](https://buymeacoffee.com/sanskarIN)
 - [Razorpay](https://razorpay.me/@SanskarCodes)
 - [PayPal](https://paypal.me/SanskarCodes)
