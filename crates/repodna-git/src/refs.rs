@@ -63,7 +63,7 @@ fn infer_default_branch(
     origin_head: Option<&str>,
     current_branch: Option<&str>,
     branches: Option<&[BranchInfo]>,
-    origin_configured: Option<bool>,
+    remotes_configured: Option<bool>,
 ) -> Option<String> {
     if let Some(origin_head) = origin_head {
         return Some(
@@ -74,8 +74,8 @@ fn infer_default_branch(
         );
     }
     // We cannot infer a local-only default if remote configuration is
-    // unreadable or if origin is configured but nothing has been fetched.
-    if origin_configured? {
+    // unreadable or if any remote is configured but nothing has been fetched.
+    if remotes_configured? {
         return None;
     }
     let branches = branches?;
@@ -156,14 +156,12 @@ pub fn read_state(
         Err(GitError::Cancelled) => return Err(GitError::Cancelled),
         Err(_) => None,
     };
-    let origin_configured = remotes
-        .as_ref()
-        .map(|remotes| remotes.iter().any(|(name, _)| name == "origin"));
+    let remotes_configured = remotes.as_ref().map(|remotes| !remotes.is_empty());
     let default_branch = infer_default_branch(
         origin_head.as_deref(),
         current_branch.as_deref(),
         branches.as_deref(),
-        origin_configured,
+        remotes_configured,
     );
     let shallow = optional_text(
         runner,
@@ -568,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    fn configured_origin_without_tracking_refs_does_not_imply_main_is_remote_default() {
+    fn configured_unfetched_remote_does_not_imply_main_is_remote_default() {
         if !git_available() {
             return;
         }
@@ -590,20 +588,26 @@ mod tests {
             Some("main")
         );
 
-        repo.git(&[
-            "remote",
-            "add",
-            "origin",
-            "https://example.invalid/org/repo.git",
-        ]);
-        let remote = read_state(&runner, repo.path(), &cancel).unwrap();
-        assert_eq!(remote.current_branch.as_deref(), Some("main"));
-        assert!(remote.default_branch.is_none());
-        assert_eq!(remote.remotes.len(), 1);
+        // A non-standard remote name is no more evidence of a local-only
+        // repository than origin. Neither one identifies a default without
+        // its remote HEAD or fetched branch information.
+        for name in ["upstream", "origin", "mirror"] {
+            repo.git(&[
+                "remote",
+                "add",
+                name,
+                "https://example.invalid/org/repo.git",
+            ]);
+            let remote = read_state(&runner, repo.path(), &cancel).unwrap();
+            assert_eq!(remote.current_branch.as_deref(), Some("main"));
+            assert!(remote.default_branch.is_none(), "{name}");
+            assert_eq!(remote.remotes.len(), 1);
+            assert_eq!(remote.remotes[0].0.as_str(), name);
 
-        repo.git(&["remote", "remove", "origin"]);
-        let local = read_state(&runner, repo.path(), &cancel).unwrap();
-        assert_eq!(local.default_branch.as_deref(), Some("main"));
+            repo.git(&["remote", "remove", name]);
+            let local = read_state(&runner, repo.path(), &cancel).unwrap();
+            assert_eq!(local.default_branch.as_deref(), Some("main"), "{name}");
+        }
     }
 
     #[test]
