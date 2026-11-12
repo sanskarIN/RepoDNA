@@ -89,6 +89,48 @@ describe("navigation", () => {
     expect(window.location.hash).toBe("#/files");
   });
 
+  it("links a finding's recorded file evidence to its local Files metadata", async () => {
+    const data = demo();
+    const path = data.dna.structure.files[0]?.path;
+    const finding = data.dna.findings.find((item) => !item.suppressed);
+    if (!path || !finding) throw new Error("the demo has recorded files and findings");
+    data.dna.findings = [
+      {
+        ...finding,
+        evidence: [
+          { kind: "file", path, line: 3 },
+          { kind: "file", path: "missing-from-artifact.rs" },
+        ],
+      },
+    ];
+    await renderAt("/findings", data);
+    const article = await screen.findByRole("article", { name: finding.title });
+    await act(async () => {
+      fireEvent.click(within(article).getByText("Evidence and method"));
+    });
+    const link = within(article).getByRole("link", {
+      name: `Find ${path} in Files metadata`,
+    });
+    expect(link.getAttribute("href")).toBe(`#/files?${new URLSearchParams({ q: path })}`);
+    expect(within(article).queryByRole("link", { name: /missing-from-artifact/ })).toBeNull();
+    await act(async () => {
+      fireEvent.click(link);
+    });
+    const search = (await screen.findByLabelText("Search files and symbols")) as HTMLInputElement;
+    expect(search.value).toBe(path);
+  });
+
+  it("responds when a Files search deep link changes without remounting", async () => {
+    await renderAt("/files?q=first");
+    const search = (await screen.findByLabelText("Search files and symbols")) as HTMLInputElement;
+    expect(search.value).toBe("first");
+    await act(async () => {
+      window.location.hash = "#/files?q=" + encodeURIComponent("src/other file.rs");
+      window.dispatchEvent(new Event("hashchange"));
+    });
+    expect(search.value).toBe("src/other file.rs");
+  });
+
   it("counts the findings beside their view in the navigation", async () => {
     const dataset = demo();
     const active = dataset.dna.findings.filter((f) => !f.suppressed).length;
