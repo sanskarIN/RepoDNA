@@ -1,9 +1,4 @@
-import {
-  categoryLabel,
-  confidenceLabel,
-  isSuppressed,
-  type Finding,
-} from "@repodna/schema";
+import { categoryLabel, confidenceLabel, isSuppressed, type Finding } from "@repodna/schema";
 import { Chip, EvidenceList, SeverityBadge } from "./common";
 
 /**
@@ -30,9 +25,7 @@ export function FindingItem({ finding, level = 3 }: { finding: Finding; level?: 
       <details>
         <summary>Evidence and method</summary>
         {finding.rationale ? <p>{finding.rationale}</p> : null}
-        {finding.evidence.length > 0 ? (
-          <EvidenceList evidence={finding.evidence} />
-        ) : null}
+        {finding.evidence.length > 0 ? <EvidenceList evidence={finding.evidence} /> : null}
         {finding.method ? (
           <p>
             <strong>Method:</strong> {finding.method}
