@@ -259,12 +259,19 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
         return Ok(ordinary());
     }
 
-    // Strip browser navigation parameters only for recognized GitHub tree URLs.
+    // Treat browser navigation on GitHub repository roots as decoration, not
+    // as part of a Git remote. Keep other hosts and transports unchanged.
     let browser_path = parts.path.split(['?', '#']).next().unwrap_or(parts.path);
     let segments: Vec<&str> = browser_path.split('/').collect();
     // A repository-root link may end with one slash. Paths beneath the
     // repository, however, are GitHub browser routes, not cloneable remotes.
     if segments.len() < 3 || (segments.len() == 3 && segments[2].is_empty()) {
+        if segments.len() >= 2 && !segments[0].is_empty() && !segments[1].is_empty() {
+            return Ok(CloneTarget {
+                repository_url: url.split(['?', '#']).next().unwrap_or(&url).to_owned(),
+                branch: None,
+            });
+        }
         return Ok(ordinary());
     }
     let invalid = |reason: &str| GitError::InvalidUrl(format!("{} ({reason})", sanitize_url(&url)));
@@ -426,6 +433,59 @@ mod tests {
         ] {
             assert!(validate_clone_url(url, PUBLIC).is_ok(), "{url}");
         }
+    }
+
+    #[test]
+    fn github_root_browser_links_strip_navigation_suffixes() {
+        for (input, expected) in [
+            (
+                "https://github.com/org/repo?tab=readme",
+                "https://github.com/org/repo",
+            ),
+            (
+                "https://github.com/org/repo/#readme",
+                "https://github.com/org/repo/",
+            ),
+            (
+                "https://github.com/org/repo.git?tab=code#readme",
+                "https://github.com/org/repo.git",
+            ),
+            (
+                "https://www.github.com/org/repo?tab=actions#summary",
+                "https://www.github.com/org/repo",
+            ),
+            (
+                "https://github.com/org/repo",
+                "https://github.com/org/repo",
+            ),
+            (
+                "https://github.com/org/repo/",
+                "https://github.com/org/repo/",
+            ),
+        ] {
+            let target = resolve_clone_target(input, PUBLIC).unwrap();
+            assert_eq!(target.repository_url, expected, "{input}");
+            assert!(target.branch.is_none(), "{input}");
+        }
+
+        // Other providers and non-browser transports are Git remotes, not
+        // GitHub browser navigation. Never rewrite their input.
+        for input in [
+            "https://gitlab.com/org/repo?tab=readme",
+            "git@github.com:org/repo.git",
+            "ssh://git@github.com/org/repo.git",
+        ] {
+            assert_eq!(
+                resolve_clone_target(input, PUBLIC).unwrap().repository_url,
+                input
+            );
+        }
+
+        // Browser subpages remain invalid rather than being mistaken for roots.
+        assert!(
+            resolve_clone_target("https://github.com/org/repo/issues?tab=readme", PUBLIC)
+                .is_err()
+        );
     }
 
     #[test]
