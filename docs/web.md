@@ -88,6 +88,13 @@ alone. **Download CSV** under a table saves all of its rows, in the order shown,
 spreadsheet: numbers stay numbers, and text that a spreadsheet would run as a formula is
 written so that it does not run.
 
+In development builds after v1.5.0, evidence lists also offer **Find in Files** when
+the referenced file is present in the loaded analysis artifact. The link opens
+the local Files explorer filtered to the file path. This is navigation to
+**recorded file metadata**, not a remote source-code viewer and not a line-level
+checkout. If a file was ignored, omitted, or truncated from the artifact, no
+such link is offered. It does not upload files or contact a Git hosting site.
+
 On the **Findings** page, **Export filtered CSV** prepares the current matching
 findings as spreadsheet-safe text. **Export filtered JSON** prepares the same full
 matching set as a JSON array, including each finding's structured evidence,
