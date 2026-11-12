@@ -262,7 +262,9 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
     // Strip browser navigation parameters only for recognized GitHub tree URLs.
     let browser_path = parts.path.split(['?', '#']).next().unwrap_or(parts.path);
     let segments: Vec<&str> = browser_path.split('/').collect();
-    if segments.len() < 3 {
+    // A repository-root link may end with one slash. Paths beneath the
+    // repository, however, are GitHub browser routes, not cloneable remotes.
+    if segments.len() < 3 || (segments.len() == 3 && segments[2].is_empty()) {
         return Ok(ordinary());
     }
     let invalid = |reason: &str| GitError::InvalidUrl(format!("{} ({reason})", sanitize_url(&url)));
@@ -272,7 +274,9 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
         ));
     }
     if segments[2] != "tree" {
-        return Ok(ordinary());
+        return Err(invalid(
+            "GitHub browser page URL; supply the repository root or a /tree/<branch> page",
+        ));
     }
     if segments.len() < 4
         || segments[0].is_empty()
@@ -549,6 +553,36 @@ mod tests {
             assert_eq!(target.repository_url, url);
             assert_eq!(target.branch, None);
         }
+    }
+
+    #[test]
+    fn github_browser_routes_cannot_be_used_as_clone_targets() {
+        for url in [
+            "https://github.com/org/project/pull/123",
+            "https://github.com/org/project/issues/456",
+            "https://github.com/org/project/commit/abc123",
+            "https://github.com/org/project/actions/runs/123",
+            "https://github.com/org/project/releases/tag/v1.0.0",
+            "https://github.com/org/project/compare/main...feature",
+        ] {
+            let error = resolve_clone_target(url, PUBLIC).unwrap_err();
+            assert!(
+                error.to_string().contains("GitHub browser page URL"),
+                "{url}: {error}"
+            );
+        }
+        // A single trailing slash is normal on repository-root links.
+        for url in [
+            "https://github.com/org/project",
+            "https://github.com/org/project/",
+            "https://github.com/org/project.git/",
+        ] {
+            let target = resolve_clone_target(url, PUBLIC).unwrap();
+            assert_eq!(target.repository_url, url);
+            assert!(target.branch.is_none());
+        }
+        // Double slashes do not make an otherwise unsupported route a root.
+        assert!(resolve_clone_target("https://github.com/org/project//", PUBLIC).is_err());
     }
 
     #[test]
