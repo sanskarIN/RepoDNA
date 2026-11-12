@@ -8,8 +8,7 @@ import {
   type StoryStatement,
 } from "@repodna/schema";
 import { NAV } from "../lib/nav";
-import { href } from "../lib/router";
-import { useRoute } from "../lib/router";
+import { href, useRoute } from "../lib/router";
 import { useApp } from "../state";
 import { PanelTitle } from "./panelTitle";
 
