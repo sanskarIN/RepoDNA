@@ -592,12 +592,7 @@ mod tests {
         // repository than origin. Neither one identifies a default without
         // its remote HEAD or fetched branch information.
         for name in ["upstream", "origin", "mirror"] {
-            repo.git(&[
-                "remote",
-                "add",
-                name,
-                "https://example.invalid/org/repo.git",
-            ]);
+            repo.git(&["remote", "add", name, "https://example.invalid/org/repo.git"]);
             let remote = read_state(&runner, repo.path(), &cancel).unwrap();
             assert_eq!(remote.current_branch.as_deref(), Some("main"));
             assert!(remote.default_branch.is_none(), "{name}");
