@@ -2,29 +2,23 @@ import { describe, expect, it } from "vitest";
 import type { FileRecord } from "@repodna/schema";
 import { evidenceFilePath } from "./evidence-navigation";
 
-const files = [
-  { path: "src/a.ts" },
-  { path: "config/package.json" },
-] as FileRecord[];
+const files = [{ path: "src/a.ts" }, { path: "config/package.json" }] as FileRecord[];
 
 describe("file-backed evidence navigation", () => {
   it("links only evidence with an exact path in the artifact", () => {
-    expect(evidenceFilePath({ kind: "file", path: "src/a.ts", line: 42 }, files)).toBe("src/a.ts");
-    expect(evidenceFilePath({ kind: "symbol", path: "src/a.ts", name: "f" }, files)).toBe(
-      "src/a.ts",
-    );
-    expect(
-      evidenceFilePath(
-        { kind: "dependency-edge", from: "a", to: "b", path: "src/a.ts" },
-        files,
-      ),
-    ).toBe("src/a.ts");
-    expect(
-      evidenceFilePath(
-        { kind: "package", ecosystem: "npm", name: "foo", manifest: "config/package.json" },
-        files,
-      ),
-    ).toBe("config/package.json");
+    const file = { kind: "file" as const, path: "src/a.ts", line: 42 };
+    const symbol = { kind: "symbol" as const, path: "src/a.ts", name: "f" };
+    const edge = { kind: "dependency-edge" as const, from: "a", to: "b", path: "src/a.ts" };
+    const pkg = {
+      kind: "package" as const,
+      ecosystem: "npm",
+      name: "foo",
+      manifest: "config/package.json",
+    };
+    expect(evidenceFilePath(file, files)).toBe("src/a.ts");
+    expect(evidenceFilePath(symbol, files)).toBe("src/a.ts");
+    expect(evidenceFilePath(edge, files)).toBe("src/a.ts");
+    expect(evidenceFilePath(pkg, files)).toBe("config/package.json");
 
     expect(evidenceFilePath({ kind: "file", path: "src/missing.ts" }, files)).toBeUndefined();
     expect(evidenceFilePath({ kind: "directory", path: "src/a.ts" }, files)).toBeUndefined();
@@ -47,6 +41,7 @@ describe("file-backed evidence navigation", () => {
     expect(evidenceFilePath(target, records)).toBe("src/a.ts");
     expect(evidenceFilePath(target, records)).toBe("src/a.ts");
     expect(reads).toBe(1);
-    expect(evidenceFilePath(target, [{ path: "src/other.ts" }] as FileRecord[])).toBeUndefined();
+    const other = [{ path: "src/other.ts" }] as FileRecord[];
+    expect(evidenceFilePath(target, other)).toBeUndefined();
   });
 });
