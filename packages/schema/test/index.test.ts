@@ -44,6 +44,18 @@ describe("loading artifacts", () => {
     expect(() => checkArtifact(minimal("0.9"))).toThrow("cannot read");
     expect(() => checkArtifact({ ...minimal(), identity: null })).toThrow("identity");
   });
+  it("rejects array placeholders for required artifact objects", () => {
+    for (const section of ["tool", "identity", "analysisMetadata"] as const) {
+      expect(() => checkArtifact({ ...minimal(), [section]: [] })).toThrow(
+        `valid ${section} section`,
+      );
+    }
+  });
+
+  it("continues to accept an object for each required section", () => {
+    const loaded = checkArtifact(minimal());
+    expect(loaded.artifact.identity.name).toBe("widget");
+  });
 });
 
 describe("helpers", () => {
