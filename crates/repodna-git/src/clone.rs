@@ -112,6 +112,28 @@ mod tests {
     }
 
     #[test]
+    fn git_clone_does_not_forward_github_root_browser_navigation() {
+        let target = resolve_clone_target(
+            "https://github.com/org/project?tab=readme#overview",
+            UrlPolicy::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            clone_args(&target, None, "destination"),
+            [
+                "-c",
+                "core.symlinks=false",
+                "clone",
+                "--quiet",
+                "--no-recurse-submodules",
+                "--",
+                "https://github.com/org/project",
+                "destination",
+            ]
+        );
+    }
+
+    #[test]
     fn invalid_urls_are_rejected_before_git_runs() {
         let Ok(runner) = GitRunner::detect() else {
             return;
