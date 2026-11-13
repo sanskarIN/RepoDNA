@@ -3,8 +3,8 @@
 //! RepoDNA only clones URLs it can reason about. Transport-helper syntax such as
 //! `ext::<command>` (which asks Git to run a program), `file://` and other local transports,
 //! option-like values, and control characters are rejected. Plain `http://` and `git://`
-//! require an explicit opt-in, and private, loopback, or special-use IP hosts are refused unless allowed,
-//! which prevents a hosted deployment from being used to probe internal networks (SSRF).
+//! require an explicit opt-in, and private, loopback, or special-use IP hosts
+//! are refused unless allowed. This limits SSRF via literal IP addresses.
 //! Host names are checked literally; DNS names that resolve to private addresses are a
 //! documented limitation.
 //!
@@ -702,7 +702,6 @@ mod tests {
         assert!(validate_clone_url("https://0177.0x0.0.1/r.git", private).is_ok());
         assert!(validate_clone_url("https://git123.example.com/r.git", PUBLIC).is_ok());
     }
-
 
     #[test]
     fn special_use_ip_literals_require_explicit_private_host_opt_in() {
