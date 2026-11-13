@@ -3,7 +3,7 @@
 //! RepoDNA only clones URLs it can reason about. Transport-helper syntax such as
 //! `ext::<command>` (which asks Git to run a program), `file://` and other local transports,
 //! option-like values, and control characters are rejected. Plain `http://` and `git://`
-//! require an explicit opt-in, and private or loopback hosts are refused unless allowed,
+//! require an explicit opt-in, and private, loopback, or special-use IP hosts are refused unless allowed,
 //! which prevents a hosted deployment from being used to probe internal networks (SSRF).
 //! Host names are checked literally; DNS names that resolve to private addresses are a
 //! documented limitation.
@@ -20,7 +20,7 @@ use crate::error::GitError;
 pub struct UrlPolicy {
     /// Accept unencrypted `http://` and `git://` URLs.
     pub allow_insecure: bool,
-    /// Accept loopback, private, link-local, and `.local`/`.internal` hosts.
+    /// Accept loopback, private, special-use IP, and `.local`/`.internal` hosts.
     pub allow_private_hosts: bool,
 }
 
@@ -313,16 +313,24 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
 fn is_private_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
+            let octets = v4.octets();
             v4.is_loopback()
                 || v4.is_private()
                 || v4.is_link_local()
                 || v4.is_unspecified()
                 || v4.is_broadcast()
-                || (v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1]))
+                // RFC 6890 special-use ranges: this-network (0/8),
+                // shared address space (100.64/10), benchmarking (198.18/15),
+                // multicast (224/4), and reserved/future-use (240/4).
+                || octets[0] == 0
+                || octets[0] >= 224
+                || (octets[0] == 100 && (64..128).contains(&octets[1]))
+                || (octets[0] == 198 && (18..=19).contains(&octets[1]))
         }
         IpAddr::V6(v6) => {
             v6.is_loopback()
                 || v6.is_unspecified()
+                || v6.is_multicast()
                 || (v6.segments()[0] & 0xfe00) == 0xfc00
                 || (v6.segments()[0] & 0xffc0) == 0xfe80
                 || v6
@@ -405,7 +413,7 @@ pub fn validate_clone_url(input: &str, policy: UrlPolicy) -> Result<String, GitE
         return reject("host looks like a command-line option");
     }
     if !policy.allow_private_hosts && is_private_host(parts.host) {
-        return reject("private, loopback, or local host");
+        return reject("private, local, or special-use host");
     }
     if parts.path.trim_matches('/').is_empty() {
         return reject("missing repository path");
@@ -693,6 +701,34 @@ mod tests {
         assert!(validate_clone_url("https://10.0.0.5/r.git", private).is_ok());
         assert!(validate_clone_url("https://0177.0x0.0.1/r.git", private).is_ok());
         assert!(validate_clone_url("https://git123.example.com/r.git", PUBLIC).is_ok());
+    }
+
+
+    #[test]
+    fn special_use_ip_literals_require_explicit_private_host_opt_in() {
+        let override_policy = UrlPolicy {
+            allow_private_hosts: true,
+            ..PUBLIC
+        };
+        for host in [
+            "0.1.2.3",
+            "198.18.0.1",
+            "198.19.255.254",
+            "224.0.0.1",
+            "239.255.255.250",
+            "240.0.0.1",
+            "255.255.255.254",
+            "[ff02::1]",
+        ] {
+            let url = format!("https://{host}/repo.git");
+            assert!(validate_clone_url(&url, PUBLIC).is_err(), "{url}");
+            assert!(validate_clone_url(&url, override_policy).is_ok(), "{url}");
+        }
+        // Ordinary public address literals must remain cloneable.
+        for host in ["8.8.8.8", "1.1.1.1", "[2606:4700:4700::1111]"] {
+            let url = format!("https://{host}/repo.git");
+            assert!(validate_clone_url(&url, PUBLIC).is_ok(), "{url}");
+        }
     }
 
     #[test]
