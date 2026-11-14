@@ -176,16 +176,31 @@ pub fn parse_remote(url: &str) -> ParsedRemote {
 fn is_private_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
+            let octets = v4.octets();
             v4.is_loopback()
                 || v4.is_private()
                 || v4.is_link_local()
                 || v4.is_unspecified()
                 || v4.is_broadcast()
-                || (v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1]))
+                // Reject additional RFC 6890 special-use destinations, including
+                // documentation and deprecated 6to4 relay ranges. Keep explicit
+                // examples instead of treating every 192/8 or 198/8 IP as private.
+                || octets[0] == 0
+                || octets[0] >= 224
+                || (octets[0] == 100 && (64..128).contains(&octets[1]))
+                || (octets[0] == 198 && (18..=19).contains(&octets[1]))
+                || (octets[0] == 192 && octets[1] == 0 && octets[2] == 2)
+                || (octets[0] == 192 && octets[1] == 88 && octets[2] == 99)
+                || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100)
+                || (octets[0] == 203 && octets[1] == 0 && octets[2] == 113)
         }
         IpAddr::V6(v6) => {
             v6.is_loopback()
                 || v6.is_unspecified()
+                || v6.is_multicast()
+                // 2001:db8::/32 is reserved for documentation, not a public
+                // Git service endpoint.
+                || (v6.segments()[0] == 0x2001 && v6.segments()[1] == 0x0db8)
                 || (v6.segments()[0] & 0xfe00) == 0xfc00
                 || (v6.segments()[0] & 0xffc0) == 0xfe80
                 || v6
@@ -208,9 +223,21 @@ fn is_private_host(host: &str) -> bool {
     if let Ok(ip) = host.parse::<IpAddr>() {
         return is_private_ip(ip);
     }
-    // Integer, octal, or hexadecimal IPv4 spellings such as 2130706433 or 0x7f000001 are
-    // only used to disguise addresses, so they are treated as private.
-    host.bytes().all(|b| b.is_ascii_digit() || b == b'.') || host.starts_with("0x")
+    // Legacy IPv4 parsers accept each dotted component in decimal, octal,
+    // or hexadecimal, including mixed forms such as 0177.0x0.0.1 (127.0.0.1).
+    // Treat numeric-looking hosts as private even when Rust's strict IpAddr
+    // parser does not recognize their syntax.
+    let numeric_component = |part: &str| {
+        if let Some(hex) = part.strip_prefix("0x").or_else(|| part.strip_prefix("0X")) {
+            !hex.is_empty() && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+        } else {
+            !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit())
+        }
+    };
+    host.bytes().all(|b| b.is_ascii_digit() || b == b'.')
+        || host.starts_with("0x")
+        || host.starts_with("0X")
+        || host.split('.').all(numeric_component)
 }
 
 /// Validates a URL for cloning and returns it unchanged (including any credentials the user
@@ -331,6 +358,51 @@ mod tests {
             ..PUBLIC
         };
         assert!(validate_clone_url("https://10.0.0.5/r.git", private).is_ok());
+    }
+
+    #[test]
+    fn special_use_ip_literals_require_explicit_private_host_opt_in() {
+        let override_policy = UrlPolicy {
+            allow_private_hosts: true,
+            ..PUBLIC
+        };
+        for host in [
+            "0.1.2.3",
+            "198.18.0.1",
+            "198.19.255.254",
+            "192.0.2.1",
+            "192.88.99.1",
+            "198.51.100.42",
+            "203.0.113.254",
+            "224.0.0.1",
+            "239.255.255.250",
+            "240.0.0.1",
+            "255.255.255.254",
+            "[ff02::1]",
+            "[2001:db8::1234]",
+        ] {
+            let url = format!("https://{host}/repo.git");
+            assert!(validate_clone_url(&url, PUBLIC).is_err(), "{url}");
+            assert!(validate_clone_url(&url, override_policy).is_ok(), "{url}");
+        }
+        // Ordinary public address literals must remain cloneable.
+        for host in ["8.8.8.8", "1.1.1.1", "[2606:4700:4700::1111]"] {
+            let url = format!("https://{host}/repo.git");
+            assert!(validate_clone_url(&url, PUBLIC).is_ok(), "{url}");
+        }
+    }
+
+    #[test]
+    fn rejects_mixed_radix_private_ipv4_aliases() {
+        let private = UrlPolicy {
+            allow_private_hosts: true,
+            ..PUBLIC
+        };
+        for host in ["0X7f000001", "0177.0x0.0.1", "0177.0X0.0.1", "0x7f.0.0.1", "0x0a.0.0.1"] {
+            let url = format!("https://{host}/repo.git");
+            assert!(validate_clone_url(&url, PUBLIC).is_err(), "{url}");
+            assert!(validate_clone_url(&url, private).is_ok(), "{url}");
+        }
     }
 
     #[test]
