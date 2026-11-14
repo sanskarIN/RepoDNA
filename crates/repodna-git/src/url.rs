@@ -319,18 +319,25 @@ fn is_private_ip(ip: IpAddr) -> bool {
                 || v4.is_link_local()
                 || v4.is_unspecified()
                 || v4.is_broadcast()
-                // RFC 6890 special-use ranges: this-network (0/8),
-                // shared address space (100.64/10), benchmarking (198.18/15),
-                // multicast (224/4), and reserved/future-use (240/4).
+                // Reject additional RFC 6890 special-use destinations, including
+                // documentation and deprecated 6to4 relay ranges. Keep explicit
+                // examples instead of treating every 192/8 or 198/8 IP as private.
                 || octets[0] == 0
                 || octets[0] >= 224
                 || (octets[0] == 100 && (64..128).contains(&octets[1]))
                 || (octets[0] == 198 && (18..=19).contains(&octets[1]))
+                || (octets[0] == 192 && octets[1] == 0 && octets[2] == 2)
+                || (octets[0] == 192 && octets[1] == 88 && octets[2] == 99)
+                || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100)
+                || (octets[0] == 203 && octets[1] == 0 && octets[2] == 113)
         }
         IpAddr::V6(v6) => {
             v6.is_loopback()
                 || v6.is_unspecified()
                 || v6.is_multicast()
+                // 2001:db8::/32 is reserved for documentation, not a public
+                // Git service endpoint.
+                || (v6.segments()[0] == 0x2001 && v6.segments()[1] == 0x0db8)
                 || (v6.segments()[0] & 0xfe00) == 0xfc00
                 || (v6.segments()[0] & 0xffc0) == 0xfe80
                 || v6
@@ -713,11 +720,16 @@ mod tests {
             "0.1.2.3",
             "198.18.0.1",
             "198.19.255.254",
+            "192.0.2.1",
+            "192.88.99.1",
+            "198.51.100.42",
+            "203.0.113.254",
             "224.0.0.1",
             "239.255.255.250",
             "240.0.0.1",
             "255.255.255.254",
             "[ff02::1]",
+            "[2001:db8::1234]",
         ] {
             let url = format!("https://{host}/repo.git");
             assert!(validate_clone_url(&url, PUBLIC).is_err(), "{url}");
