@@ -66,20 +66,18 @@ but Git history is not available. See the
 
 **What is the difference between a Findings export and a complete analysis?**
 The Findings page downloads the current *filtered findings* as CSV, JSON or
-Markdown, including matching results beyond the first displayed page. In the
-web interface built from the current development tree, it first displays a
-local, bounded sample and requires **Save full export**; the sample is not
-redaction or secret scanning. This confirmation is not included in the
-v1.4.5 desktop installer.
+Markdown, including matching results beyond the first displayed page. Since v1.5.0, the web and desktop interfaces first display a
+local, bounded sample and require **Save full export**; the sample is not
+redaction or secret scanning. This behavior remains in v1.5.1.
 The JSON is an array of findings, **not** a RepositoryDNA artifact.
 Use **Reports & export** or `repodna analyze . --format json` for a
 complete artifact. See [sharing a review](workflows.md#share-a-review-without-sharing-source-code).
 
 **Why does the web interface show a feature that the latest installer does not?**
-The hosted web interface is deployed from the development branch and can be
-newer than the latest tagged desktop and CLI release. As of 2026-11-04, the
-latest published stable release is **v1.4.5**; the local Findings export
-review and CI per-file module ownership are v1.5.0 development changes.
+The hosted web app is deployed from `main` and may contain work that is newer
+than the published desktop and CLI releases. v1.5.1 remains a maintenance
+release and does not include unrelated development features such as native
+GitHub branch-root analysis or counts-only Findings exports.
 See the [version-aware review guide](reviewing-changes.md).
 
 **Can I analyze a repository I do not trust?**

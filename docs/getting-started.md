@@ -124,10 +124,10 @@ reason = "Intentional fake credentials used by tests"
 ```
 
 See the [example workflow](../examples/ci/repodna.yml). For a baseline-versus-PR
-comparison, including the structured impact JSON and the new per-file module
-mapping in the development tree, see [reviewing changes](reviewing-changes.md).
-The published stable CLI and action are currently v1.4.5; changes on `main`
-may not yet be included in the release downloads.
+comparison, including structured impact JSON and per-file module ownership
+available in v1.5.0 and later, see [reviewing changes](reviewing-changes.md).
+The v1.5.1 CLI and action preserve the v1.5.0 review features; additional
+changes on `main` may not be included in tagged release downloads.
 
 ## Next steps
 

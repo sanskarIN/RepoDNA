@@ -12,6 +12,10 @@ repository.
 
 ## Start here
 
+**v1.5.1 is a maintenance release candidate until tagged and published.**
+See its [qualification checklist](../packaging/release/v1.5.1-checklist.md);
+the latest publicly downloadable stable remains v1.5.0 until then.
+
 - [Getting started](getting-started.md): analyze your first repository in five minutes
 - [Practical workflows](workflows.md): browser exploration, CLI history, CI baselines, and safe sharing
 - [Reviewing changes](reviewing-changes.md): baseline impact, module ownership, safe Findings exports, and version availability
@@ -29,7 +33,7 @@ repository.
 - [The web interface](web.md) and its local API
 - [The desktop app](desktop.md)
 - [The GitHub Action](github-action.md)
-- [Current stable vs v1.5.0 development](reviewing-changes.md#5-release-and-research-status)
+- [v1.5.1 patch release and version compatibility](reviewing-changes.md#5-release-and-research-status)
 - [Reports](reports.md) and [Project DNA cards](dna-cards.md)
 - [Configuration](configuration.md)
 - [Privacy](privacy.md)

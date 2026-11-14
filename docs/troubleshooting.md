@@ -27,6 +27,11 @@ CI, checkouts are often shallow (`fetch-depth: 1`); fetch the full history
 Use a URL your Git can access without prompting (for example an SSH URL with a key in your
 agent, or a credential helper), or clone the repository yourself and analyze the directory.
 
+**Credential-bearing Git URLs are unsafe.** Avoid embedding passwords or
+access tokens in a remote URL: shell history and process listings can expose
+them. v1.5.1 redacts HTTP(S) userinfo echoed in Git failure messages, but
+the protection is not a substitute for an SSH agent or Git credential helper.
+
 **The analysis is slow.** Try `--profile quick` (no history) or `--profile standard`
 instead of `deep`, limit history with `--max-commits`, and exclude large generated or
 vendored directories with `[ignore] patterns`. Repeat analyses reuse the per-file cache
