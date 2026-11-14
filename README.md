@@ -33,13 +33,14 @@ sends nothing anywhere unless you ask it to.
 
 ## Release status
 
-**Latest stable:** [v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0), published on GitHub **November 6, 2026** (not a pre-release).
-The release includes local review before downloading filtered Findings exports
-and CI baseline-impact analysis with before/after module ownership for changed
-files. Download the tagged installers or CLI archives from the [GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0).
+**Latest stable:** [v1.6.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.6.0) (not a pre-release).
+The release adds native GitHub branch-root URL support, a checked-out branch
+indicator, a reviewed counts-only Findings CSV, and stronger Git remote and
+history safeguards. Download tagged installers or CLI archives from the
+[GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.6.0).
 The hosted GitHub Pages interface can update independently of tagged binaries.
 See the [review workflow](docs/reviewing-changes.md) and
-[release qualification record](packaging/release/v1.5.0-checklist.md).
+[release qualification record](packaging/release/next-stable-checklist.md).
 
 ## Contents
 
@@ -161,7 +162,7 @@ right in your browser and works offline, all built on the same analysis.
 
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
-(`uses: sanskarIN/RepoDNA@v1.5.0`) does all of this in one step.
+(`uses: sanskarIN/RepoDNA@v1.6.0`) does all of this in one step.
 
 **Optional AI explanations.** Built-in offline evidence digests need no API key or
 external runtime; richer language-model explanations remain available through optional
@@ -262,7 +263,7 @@ WebAssembly for Node.js and browsers on any system (`@sanskarin/repodna-wasm`:
 artifact (`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on npm too.
 See [the npm packages](docs/installation.md#npm-packages).
 
-**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.5.0` analyzes the repository in a workflow,
+**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.6.0` analyzes the repository in a workflow,
 annotates findings, and keeps the report. See [the GitHub Action](docs/github-action.md).
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
@@ -624,9 +625,10 @@ public issues.
 
 ## Roadmap
 
-**v1.5.0 is stable** and ships review-ready CI impact, safer Findings exports,
-correctness improvements, and native-model evidence work, including per-file
-module ownership in baseline impact. See the [v1.5.0 release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0).
+**v1.6.0 is stable** and builds on v1.5.0's CI impact and export-review
+features with GitHub branch-root analysis, a checked-out branch indicator,
+counts-only export and hardened Git history/remote handling. See the
+[v1.6.0 release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.6.0).
 Longer-term work includes lexical analysis for more languages, deeper import
 resolution, package-manager distribution such as Homebrew and Scoop, and editor
 integrations. See the [review guide](docs/reviewing-changes.md). The [roadmap](ROADMAP.md) lists what is planned

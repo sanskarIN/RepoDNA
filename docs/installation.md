@@ -23,9 +23,9 @@ reports no history). Nothing else: the binaries have no runtime dependencies.
 
 ## Prebuilt binaries
 
-The command examples below use the published **v1.5.0 stable** assets (released
-November 6, 2026). Download and verify the exact asset filenames from the
-[v1.5.0 GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0).
+The command examples below use the published **v1.6.0 stable** assets.
+Download and verify the exact asset filenames from the
+[v1.6.0 GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.6.0).
 The hosted GitHub Pages interface may update independently of tagged desktop
 and CLI releases. See [reviewing changes and version compatibility](reviewing-changes.md).
 
@@ -46,10 +46,10 @@ The Linux binaries are statically linked and run on any distribution.
 ### Linux and macOS
 
 ```sh
-tar -xzf repodna-1.5.0-x86_64-unknown-linux-musl.tar.gz
-sudo install -m 0755 repodna-1.5.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
+tar -xzf repodna-1.6.0-x86_64-unknown-linux-musl.tar.gz
+sudo install -m 0755 repodna-1.6.0-x86_64-unknown-linux-musl/repodna /usr/local/bin/repodna
 # or, without sudo:
-mkdir -p ~/.local/bin && install -m 0755 repodna-1.5.0-x86_64-unknown-linux-musl/repodna ~/.local/bin/
+mkdir -p ~/.local/bin && install -m 0755 repodna-1.6.0-x86_64-unknown-linux-musl/repodna ~/.local/bin/
 ```
 
 ### Windows
@@ -87,7 +87,7 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt       # macOS
 ```
 
 ```powershell
-Get-FileHash .\repodna-1.5.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # compare with SHA256SUMS.txt
+Get-FileHash .\repodna-1.6.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256   # compare with SHA256SUMS.txt
 ```
 
 Confirm the calculated hash matches the entry for the exact ZIP filename in
@@ -114,17 +114,17 @@ Installers for Linux (`.deb`, `.rpm`), macOS (`.dmg`), and Windows (`.msi`, `.ex
 attached to each release, and from 1.3.1 on for Windows on Arm (`_arm64_en-US.msi`,
 `_arm64-setup.exe`). See [the desktop app](desktop.md).
 
-For the published v1.5.0 release, choose the installer matching your system:
+For the published v1.6.0 release, choose the installer matching your system:
 
 | Operating system | Published installer asset |
 |---|---|
-| Windows x64, setup | `RepoDNA_1.5.0_x64-setup.exe` |
-| Windows x64, MSI | `RepoDNA_1.5.0_x64_en-US.msi` |
-| Windows ARM64, setup | `RepoDNA_1.5.0_arm64-setup.exe` |
-| Windows ARM64, MSI | `RepoDNA_1.5.0_arm64_en-US.msi` |
-| macOS (Intel or Apple silicon) | `RepoDNA_1.5.0_universal.dmg` |
-| Debian/Ubuntu, x64 | `RepoDNA_1.5.0_amd64.deb` |
-| RPM-based Linux, x64 | `RepoDNA-1.5.0-1.x86_64.rpm` |
+| Windows x64, setup | `RepoDNA_1.6.0_x64-setup.exe` |
+| Windows x64, MSI | `RepoDNA_1.6.0_x64_en-US.msi` |
+| Windows ARM64, setup | `RepoDNA_1.6.0_arm64-setup.exe` |
+| Windows ARM64, MSI | `RepoDNA_1.6.0_arm64_en-US.msi` |
+| macOS (Intel or Apple silicon) | `RepoDNA_1.6.0_universal.dmg` |
+| Debian/Ubuntu, x64 | `RepoDNA_1.6.0_amd64.deb` |
+| RPM-based Linux, x64 | `RepoDNA-1.6.0-1.x86_64.rpm` |
 
 Windows ARM64 installers are for Arm-based computers, not standard Intel or
 AMD x64 systems. Linux ARM64 and macOS-specific **CLI** archives are also
@@ -253,7 +253,7 @@ interface of `repodna serve`, which then shows a basic page that lists stored an
 their reports. You can also install directly from Git this way:
 
 ```sh
-cargo install --git https://github.com/sanskarIN/RepoDNA --tag v1.5.0 --locked repodna-cli
+cargo install --git https://github.com/sanskarIN/RepoDNA --tag v1.6.0 --locked repodna-cli
 ```
 
 To build the desktop app, see [apps/desktop/README.md](../apps/desktop/README.md). For

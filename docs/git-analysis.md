@@ -20,7 +20,7 @@ line counts in one pass, and reads branches, tags, and remotes separately. It do
 link a Git library, so it supports every repository format your Git supports. Without Git,
 the history sections are marked *unavailable* and the rest of the analysis still runs.
 
-- **GitHub branch links**: in development builds after v1.5.0, paste a
+- **GitHub branch links**: in v1.6.0 native builds and newer, paste a
   `https://github.com/owner/repo/tree/branch-name` URL to clone the
   underlying repository and check out that branch before analysis. Slashes
   in branch names are supported (including `%2F`), and one trailing URL
@@ -29,7 +29,7 @@ the history sections are marked *unavailable* and the rest of the analysis still
   from a branch containing slashes, so
   use the branch-root link. The static hosted web version cannot clone
   remote Git repositories; use the CLI, desktop app, or `repodna serve`.
-  This is not available in the already-published v1.5.0 installers.
+  This is not available in the older v1.5.0 installers.
 - **Which checkout**: the Overview and History views identify the branch checked out
   when the analysis ran, if Git supplies it. This is different from the
   repository's default branch and does not imply that any newer remote commits
@@ -49,7 +49,7 @@ the history sections are marked *unavailable* and the rest of the analysis still
 - **Shallow clones** (for example CI checkouts with `fetch-depth: 1`) are detected and
   flagged with `git.shallow`; history-based results then describe only the fetched
   commits. For a full picture, analyze a full clone.
-- **Cancellation**: in development builds after v1.5.0, Git history,
+- **Cancellation**: in v1.6.0 native builds and newer, Git history,
   tree listings, and branch/tag listings check for cancellation between
   individual records, rather than waiting for a fixed-size batch.
 - **Merge commits** are counted but carry no file changes of their own.
@@ -62,7 +62,7 @@ Everything that should not depend on when you run the analysis (recent churn, "r
 windows) is measured backwards from the **latest commit**, so the same revision always
 gives the same numbers. Only the activity level, which answers "is it active now?", is
 measured against the analysis time, and the artifact records that time. In development
-builds after v1.5.0, commits with timestamps **later than the analysis time** are
+v1.6.0 builds and newer, commits with timestamps **later than the analysis time** are
 excluded from the 30-, 90-, and 365-day activity windows to avoid false activity
 from misconfigured author clocks. They remain in history and are mentioned in
 the activity description; days since last commit uses the latest non-future date,

@@ -67,7 +67,7 @@ but Git history is not available. See the
 **What is the difference between a Findings export and a complete analysis?**
 The Findings page downloads the current *filtered findings* as CSV, JSON or
 Markdown, including matching results beyond the first displayed page. In the
-v1.5.0 stable web and desktop interfaces, it first displays a local,
+v1.5.0 and later web and desktop interfaces, it first displays a local,
 bounded sample and requires **Save full export**; the sample is not redaction
 or secret scanning. The older v1.4.5 desktop installer did not include this
 confirmation.
@@ -78,7 +78,7 @@ complete artifact. See [sharing a review](workflows.md#share-a-review-without-sh
 **Why does the web interface show a feature that the latest installer does not?**
 The hosted web interface is deployed from `main` and can be newer than
 published desktop and CLI builds. As of **November 6, 2026**, the latest
-published stable release is **[v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)**;
+published stable release is **[v1.6.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.6.0)**;
 local Findings export review and CI per-file module ownership ship in v1.5.0.
 New features merged to `main` after that release may still be web-only until
 a later tagged release.

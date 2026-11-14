@@ -4,7 +4,7 @@ RepoDNA has two complementary review workflows: **baseline impact in the CLI**
 and **filtered findings exports in the web interface**. Neither workflow is a
 security audit, proof of causality, or a substitute for reading the actual diff.
 
-> **Stable release (2026-11-06):** RepoDNA **[v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)**
+> **Stable release:** RepoDNA **[v1.6.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.6.0)**
 > is published on GitHub as a stable release. Its binaries, installers and
 > versioned GitHub Action include the CI `fileOwners` field and local
 > Findings-export review introduced by PRs
@@ -100,7 +100,7 @@ now active count as introduced. With `--new-only`, GitHub annotations target
 the introduced findings; their limit is 50 after filtering.
 
 The published [GitHub Action](github-action.md) provides an easier route for
-automated CI. **Pin `sanskarIN/RepoDNA@v1.5.0` for the published stable
+automated CI. **Pin `sanskarIN/RepoDNA@v1.6.0` for the published stable
 behavior**; the action does not automatically gain changes merged to `main`
 after the release. See
 [the practical CI workflow](workflows.md#review-new-findings-in-ci).
@@ -120,7 +120,7 @@ This sample is **not** redaction or secret detection. It cannot demonstrate
 that unseen entries are safe. The full export may reveal paths, titles, evidence
 and context. It stays local unless you choose to share it.
 
-**On `main` after v1.5.0 (not in the stable v1.5.0 downloads):** the
+**Since v1.6.0:** the
 Findings view also offers **Export counts-only CSV**. It aggregates the current
 filtered selection by severity and active/suppressed status, includes totals,
 and uses fixed labels and integers instead of individual paths, titles, rules,
@@ -139,8 +139,8 @@ For exporting and sharing see [web](web.md), [reports](reports.md), and
 
 ## 5. Release and research status
 
-**v1.5.0 is published as stable.** See its [GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0),
-the [release qualification record](../packaging/release/v1.5.0-checklist.md),
+**v1.6.0 is published as stable.** See its [GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.6.0),
+the [release qualification record](../packaging/release/next-stable-checklist.md),
 the [roadmap](../ROADMAP.md) and [release history](../CHANGELOG.md).
 Local native explanations are extractive; the optional trained ranker is not a
 generative language model and benchmark quality claims require independently

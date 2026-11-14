@@ -10,7 +10,7 @@ This documentation is published at
 and is in the [`docs` folder](https://github.com/sanskarIN/RepoDNA/tree/main/docs) of the
 repository.
 
-**Latest stable release:** [RepoDNA v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0), published on GitHub on **November 6, 2026**. Download binaries and installers from the release page or follow the [installation guide](installation.md).
+**Latest stable release:** [RepoDNA v1.6.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.6.0). Download binaries and installers from the release page or follow the [installation guide](installation.md).
 
 ## Start here
 
@@ -31,7 +31,7 @@ repository.
 - [The web interface](web.md) and its local API
 - [The desktop app](desktop.md)
 - [The GitHub Action](github-action.md)
-- [v1.5.0 stable: reviewing changes and release compatibility](reviewing-changes.md#5-release-and-research-status)
+- [v1.6.0 stable: reviewing changes and release compatibility](reviewing-changes.md#5-release-and-research-status)
 - [Reports](reports.md) and [Project DNA cards](dna-cards.md)
 - [Configuration](configuration.md)
 - [Privacy](privacy.md)
