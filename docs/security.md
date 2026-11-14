@@ -131,8 +131,9 @@ stopped when you cancel.
 (`ext::`), local transports, option-like values, and control characters are rejected;
 unencrypted `http://` and `git://` and private or loopback hosts need an explicit opt-in.
 Development builds after v1.5.0 also reject additional special-use literal IP
-addresses, such as benchmarking, multicast, and reserved ranges, by default.
-Trusted environments can explicitly allow private hosts.
+addresses, such as documentation, benchmarking, deprecated 6to4 relay,
+multicast, and reserved ranges, by default. Trusted environments can explicitly
+allow private hosts.
 Host names are checked literally, so a public DNS name that resolves to a private address
 is not detected. RepoDNA sanitizes credentials in displayed remote metadata and common
 Git error messages (including HTTP(S) userinfo and password-bearing SSH URL userinfo
