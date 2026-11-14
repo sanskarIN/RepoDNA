@@ -22,6 +22,9 @@ No next stable version or release date has been announced.
 
 ### Fixed
 
+- Reject special-use literal Git remote IP addresses (including 0/8,
+  benchmarking, documentation, deprecated 6to4 relay, multicast, and reserved
+  ranges) by default, with explicit private-host opt-in for trusted infrastructure.
 - Accept GitHub branch-root `/tree/<ref>` links in CLI/desktop/server cloning,
   checking out the requested branch instead of treating a browser URL as a
   Git remote (#227). The static hosted browser build does not clone Git URLs.
