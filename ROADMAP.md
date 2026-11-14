@@ -25,8 +25,9 @@ CI baseline comparisons, and stronger release inventory checks. The Windows
 desktop publisher is `RepoDNA`.
 
 Development after this release continues in separately tested PRs; changes
-on `main` are not automatically part of an existing stable binary. No next
-version number or release date is promised. The
+on `main` are not automatically part of an existing stable binary. A
+versioned **v1.6.0 release candidate** is under qualification, but no new stable
+version or release date is approved. The
 [next stable qualification checklist](packaging/release/next-stable-checklist.md)
 records the release gates, trial-build checks and required maintainer approval
 without implying a future version has already been released.

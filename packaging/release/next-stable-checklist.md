@@ -10,6 +10,19 @@ This is a living, evidence-based checklist, not a declaration that anything belo
 passed. Check a box only after verifying the **exact frozen commit**. Keep historical
 [v1.5.0 qualification](v1.5.0-checklist.md) intact.
 
+## Candidate decision (November 14, 2026)
+
+- **Proposed version:** `1.6.0` because new branch-analysis and counts-only export
+  functionality extends v1.5.0; the version is not yet a published release.
+- **Freeze source:** `f93403bfe1d8d751d9700a1479138f7f74909b3c` on `main` after merging PRs #266, #269, #270 and #273.
+- **Candidate branch:** `chore/v1.6.0-release-candidate-20261114` (review and trial only).
+- **Open Rust dependency PRs:** #267, #268, #271 and #272 are deliberately **not
+  included** while their lockfiles and third-party notices remain inconsistent.
+  They are not a release gate if the frozen dependencies pass the full advisory,
+  license, source and supply-chain checks, but remain follow-up maintenance.
+- **Approval:** publication requires an explicit maintainer go-ahead on a final
+  tested commit and asset inventory. Neither this branch nor the trial is approval.
+
 ## Audit snapshot (November 14, 2026)
 
 - Stable tag: `v1.5.0`; main head at initial audit:

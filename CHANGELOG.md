@@ -6,9 +6,27 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-These changes are merged into `main` **after** the v1.5.0 stable release;
-they are **not included** in the published v1.5.0 installers or packages.
-No next stable version or release date has been announced.
+No changes have been recorded since the v1.6.0 candidate freeze. The v1.6.0
+candidate has **not** been published as a GitHub stable release.
+
+## [1.6.0] - 2026-11-14
+
+> Release-candidate changelog dated November 14, 2026; not a publication
+> announcement. Confirm the final release date before tagging stable.
+
+RepoDNA 1.6.0 prepares improved GitHub branch-link analysis, checked-out branch
+visibility, a privacy-conscious counts-only Findings export, and numerous Git
+history, URL validation, cancellation and diagnostics reliability fixes.
+
+### Highlights
+
+- Analyze GitHub repository branch-root `/tree/<ref>` links in native CLI,
+  desktop and local-server workflows, including slash-containing branch names.
+- Show which Git branch was checked out in Overview and History views.
+- Export privacy-reviewed counts-only Findings CSV without paths or evidence.
+- Reject more special-use literal Git remote IP addresses by default.
+- Redact credentials more reliably from Git remote diagnostics and artifacts.
+- Improve memory-bounded Git history streaming, cancellation and parsing.
 
 ### Added
 
