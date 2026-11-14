@@ -498,6 +498,7 @@ fn manages_configuration_cache_and_plugins() {
     let stats = env.run(&["cache", "stats", "--json"]);
     let value: serde_json::Value = serde_json::from_str(&stdout(&stats)).unwrap();
     assert_eq!(value["repositories"], 1);
+    assert_eq!(value["unindexedArtifacts"], 0);
     assert_eq!(code(&env.run(&["cache", "clear"])), 0);
     let doctor = env.run(&["doctor"]);
     assert_eq!(code(&doctor), 0, "{}\n{}", stdout(&doctor), stderr(&doctor));
@@ -507,6 +508,107 @@ fn manages_configuration_cache_and_plugins() {
     assert!(stdout(&dry).contains("Run again with --yes"));
     assert_eq!(code(&env.run(&["clean", "--all", "--yes"])), 0);
     assert!(stdout(&env.run(&["list"])).contains("No stored analyses"));
+}
+
+#[test]
+fn cache_reset_preserves_analysis_files_and_repair_restores_history() {
+    let env = Env::new();
+    let repo = env.work("saved/widget");
+    sample_repo(&repo, true);
+    let analysis = env.run(&["analyze", &path(&repo), "-q"]);
+    assert_eq!(code(&analysis), 0, "{}", stderr(&analysis));
+    assert!(stdout(&env.run(&["list"])).contains("widget"));
+
+    let artifacts = env.home.path().join("artifacts");
+    let stored_files: Vec<PathBuf> = std::fs::read_dir(&artifacts)
+        .unwrap()
+        .flat_map(|entry| std::fs::read_dir(entry.unwrap().path()).unwrap())
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    let files: Vec<_> = stored_files
+        .iter()
+        .filter(|file| file.extension().is_some_and(|ext| ext == "json"))
+        .map(|file| (file.clone(), std::fs::read(file).unwrap()))
+        .collect();
+    assert!(
+        files.len() >= 2,
+        "scan JSON and repository descriptor expected"
+    );
+
+    let config = env.home.path().join("config.toml");
+    std::fs::write(&config, "[performance]\ncache = true\n").unwrap();
+    let explanations = env.home.path().join("explanations");
+    std::fs::create_dir_all(&explanations).unwrap();
+    let old_explanation = explanations.join("old.json");
+    std::fs::write(&old_explanation, r#"{"cached":true}"#).unwrap();
+
+    let refused = env.run(&["cache", "reset"]);
+    assert_eq!(code(&refused), 2);
+    assert!(stderr(&refused).contains("pass --yes"));
+    let reset = env.run(&["cache", "reset", "--yes"]);
+    assert_eq!(code(&reset), 0, "{}", stderr(&reset));
+    assert!(!env.home.path().join("repodna.db").exists());
+    assert!(!old_explanation.exists());
+    assert_eq!(
+        std::fs::read_to_string(&config).unwrap(),
+        "[performance]\ncache = true\n"
+    );
+    for (file, content) in &files {
+        assert_eq!(std::fs::read(file).unwrap(), *content);
+    }
+
+    // A cache reset leaves JSON on disk but no matching SQLite rows. Never
+    // report "Nothing to delete" or silently skip the remaining private data.
+    let stats = env.run(&["cache", "stats", "--json"]);
+    assert_eq!(code(&stats), 0, "{}", stderr(&stats));
+    let stats: serde_json::Value = serde_json::from_str(&stdout(&stats)).unwrap();
+    assert_eq!(stats["repositories"], 0);
+    assert_eq!(stats["scans"], 0);
+    assert_eq!(stats["artifacts"], 1);
+    assert_eq!(stats["unindexedArtifacts"], 1);
+
+    for args in [
+        vec!["clean", "--all"],
+        vec!["clean", "--all", "--yes"],
+        vec!["clean", "widget", "--yes"],
+    ] {
+        let blocked = env.run(&args);
+        assert_eq!(code(&blocked), 3, "{}", stderr(&blocked));
+        assert!(stdout(&blocked).is_empty());
+        assert!(stderr(&blocked).contains("1 saved artifact"));
+        assert!(stderr(&blocked).contains("cache repair"));
+        for (file, content) in &files {
+            assert_eq!(std::fs::read(file).unwrap(), *content);
+        }
+    }
+
+    // The SQLite index was reset, but the original saved scans are recoverable.
+    assert!(stdout(&env.run(&["list"])).contains("No stored analyses"));
+    let repaired = env.run(&["cache", "repair"]);
+    assert_eq!(code(&repaired), 0, "{}", stderr(&repaired));
+    assert!(stdout(&repaired).contains("Re-indexed 1 stored analyses"));
+    assert!(stdout(&env.run(&["list"])).contains("widget"));
+    let stored = env.run(&["show", "widget", "--section", "summary", "-q"]);
+    assert_eq!(code(&stored), 0, "{}", stderr(&stored));
+    for (file, content) in &files {
+        assert_eq!(std::fs::read(file).unwrap(), *content);
+    }
+
+    // With a rebuilt index, the explicit deletion command can now report
+    // and actually delete every stored analysis rather than leaving orphans.
+    let dry = env.run(&["clean", "--all"]);
+    assert_eq!(code(&dry), 0, "{}", stderr(&dry));
+    assert!(stdout(&dry).contains("Would delete 1 stored analyses"));
+    let cleaned = env.run(&["clean", "--all", "--yes"]);
+    assert_eq!(code(&cleaned), 0, "{}", stderr(&cleaned));
+    assert!(stdout(&cleaned).contains("Deleted 1 stored analyses"));
+    for (file, _) in &files {
+        assert!(!file.exists());
+    }
+    let stats: serde_json::Value =
+        serde_json::from_str(&stdout(&env.run(&["cache", "stats", "--json"]))).unwrap();
+    assert_eq!(stats["artifacts"], 0);
+    assert_eq!(stats["unindexedArtifacts"], 0);
 }
 
 #[cfg(unix)]

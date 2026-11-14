@@ -4,14 +4,11 @@ RepoDNA has two complementary review workflows: **baseline impact in the CLI**
 and **filtered findings exports in the web interface**. Neither workflow is a
 security audit, proof of causality, or a substitute for reading the actual diff.
 
-> **Version boundary (2026-11-04):** The latest published stable binaries and
-> versioned GitHub Action are **v1.4.5**. The new `fileOwners` CI field and the
-> export-review confirmation introduced in PRs
-> [#198](https://github.com/sanskarIN/RepoDNA/pull/198) and
-> [#195](https://github.com/sanskarIN/RepoDNA/pull/195) are part of the
-> **development tree for v1.5.0**. The hosted web application may deploy
-> features from `main` independently of packaged desktop/CLI releases.
-> Do not expect those additions in the v1.4.5 binary, installer, or action.
+> **Release boundary:** RepoDNA v1.5.1 is a maintenance release
+> built from v1.5.0. The per-file `fileOwners` CI field and export-preview
+> workflow shipped in v1.5.0 and remain available. Later development-tree
+> features are not automatically included in the v1.5.1 package.
+> The hosted web interface may deploy independently of tagged binaries.
 
 ## 1. Build a comparable baseline
 
@@ -100,7 +97,7 @@ now active count as introduced. With `--new-only`, GitHub annotations target
 the introduced findings; their limit is 50 after filtering.
 
 The published [GitHub Action](github-action.md) provides an easier route for
-automated CI. **Pin `sanskarIN/RepoDNA@v1.4.5` for the published stable
+automated CI. **Pin `sanskarIN/RepoDNA@v1.5.1` for the published stable
 behavior**; the action does not gain development-tree output merely because
 `main` contains newer documentation. See
 [the practical CI workflow](workflows.md#review-new-findings-in-ci).
@@ -109,7 +106,7 @@ behavior**; the action does not gain development-tree output merely because
 
 In the Findings view, apply search, severity, category, confidence and
 **Show suppressed** filters, then choose **Export filtered CSV**, **JSON** or
-**Markdown**. In the development-tree web version, RepoDNA opens a **local
+**Markdown**. In v1.5.0 and later web/desktop versions, RepoDNA opens a **local
 review** showing the selection count, unique paths, evidence count,
 suppressed count and a sample of up to **three findings / 4,000 characters**.
 It then requires **Save full export** or **Cancel export**. Changing filters
@@ -129,9 +126,11 @@ For exporting and sharing see [web](web.md), [reports](reports.md), and
 
 ## 5. Release and research status
 
-The next planned stable version is **v1.5.0**, but its qualification gates
-remain open. See the [v1.5.0 checklist](../packaging/release/v1.5.0-checklist.md),
-the [roadmap](../ROADMAP.md) and [release history](../CHANGELOG.md).
+**v1.5.1 patch scope:** saved scan recovery/cleanup, malformed artifact
+validation and Git remote/diagnostic security. See the
+[release qualification record](../packaging/release/v1.5.1-checklist.md),
+[roadmap](../ROADMAP.md), and [release history](../CHANGELOG.md).
+Do not assume new branch-root analysis or counts-only export ships in this patch.
 Local native explanations are extractive; the optional trained ranker is not a
 generative language model and benchmark quality claims require independently
 reviewed evidence. See [native-model](native-model.md).

@@ -13,9 +13,11 @@ name: "CodeQL Advanced"
 
 on:
   push:
-    branches: [ "main" ]
+    # Scan release-candidate branches as well as the default development branch.
+    branches: [ "main", "release/v*" ]
   pull_request:
-    branches: [ "main" ]
+    # Maintenance patch PRs may target an isolated stable base rather than main.
+    # Scan all PR heads so patch-only fixes receive the same CodeQL gate.
   schedule:
     - cron: '21 16 * * 3'
 

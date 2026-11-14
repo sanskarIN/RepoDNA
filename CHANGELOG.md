@@ -6,7 +6,37 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-No additional changes are recorded beyond the current v1.5.0 candidate.
+No additional changes are recorded since the v1.5.1 maintenance candidate.
+The v1.5.1 tag and public stable release have not been published.
+
+## [1.5.1] - 2026-11-14
+
+> Release-candidate notes, not a claim of public availability. The exact
+> published release date must be confirmed at the final approval gate.
+
+RepoDNA 1.5.1 is a focused maintenance update built from the published
+v1.5.0 source. It excludes new branch-root analysis and counts-only exports
+intended for later minor-version development.
+
+### Highlights
+
+- Keep saved analysis JSON artifacts when resetting the SQLite analysis cache;
+  restore indexing with `repodna cache repair`.
+- Refuse misleading deletion results when saved artifacts remain unindexed;
+  show unindexed artifact counts for accurate local storage management.
+- Reject malformed analysis artifacts that substitute arrays for required objects.
+- Redact HTTP(S) credentials echoed in Git failure messages before display.
+- Reject mixed-radix private IPv4 aliases and special-use literal IP Git remotes
+  by default, retaining explicit trusted-host opt-in.
+
+### Fixed
+
+- Preserve saved scans, prevent misleading cleanup after cache reset and add
+  regression tests for recovery and deliberate deletion (#221, #222).
+- Validate required artifact object shapes before loading (#264).
+- Redact credential-bearing HTTPS Git diagnostics with regression tests (#229).
+- Block disguised private hosts and reserved/documentation/multicast IP literals
+  without changing the explicit allow-private-host option (#233, #266).
 
 ## [1.5.0] - 2026-11-05
 

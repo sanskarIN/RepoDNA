@@ -15,27 +15,17 @@ the browser, and an official GitHub Action runs RepoDNA in workflows.
 - Measure and improve performance on large repositories and long histories, and publish the
   results with the [benchmarks](benchmarks/README.md).
 
-## After v1.4.5 — v1.5.0 development
+## After v1.5.0 — v1.5.1 maintenance
 
-RepoDNA v1.4.5 is the current published stable release. The next milestone is
-**v1.5.0 development**, not an immediate version change or a release promise.
-Work should be reviewed in separately tested PRs with compatibility, privacy,
-offline behavior, and performance checks.
+RepoDNA v1.5.0 was published November 6, 2026. A focused **v1.5.1 patch**
+is being qualified from that exact stable tag. It addresses saved-analysis
+recovery/deletion correctness, malformed artifact validation and Git remote
+security without adding the newer features already on `main`.
 
-The development tree already includes typed baseline CI deltas for introduced
-and resolved findings, repository-relative file paths, touched modules,
-immediate dependents and module edges. It also reports before-and-after
-module ownership for changed files (#198) and prevents incorrect root-module
-attribution (#197). Filtered Findings exports now require a bounded local
-review and an explicit save action (#195). **These changes on `main` do not
-mean that v1.5.0 has been released.**
-
-Next steps include verified evidence navigation, handling renames and unknown
-coverage explicitly, a genuinely share-safe export policy, and real-world
-performance and correctness measurements. An export preview is not redaction;
-one-hop dependencies do not prove causation. See the
-[review guide](docs/reviewing-changes.md) and
-[release checklist](packaging/release/v1.5.0-checklist.md).
+The `main` branch continues broader post-v1.5.0 feature development
+independently. No future minor-version scope is promised by this patch. See
+the [v1.5.1 qualification record](packaging/release/v1.5.1-checklist.md).
+The release remains unpublished until full trial and explicit maintainer approval.
 
 ## Candidate feature milestones
 

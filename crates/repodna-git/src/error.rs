@@ -47,6 +47,54 @@ pub enum GitError {
     Io(#[from] std::io::Error),
 }
 
+/// Redact HTTP(S) userinfo echoed by Git before an error reaches logs or the UI.
+///
+/// Git can include the original URL in a failed clone's stderr, even though
+/// command descriptions avoid URLs. Only the authority's userinfo is removed;
+/// host, path and Git's actionable diagnostics remain available. The scan is
+/// ASCII case-insensitive so URLs such as HTTPS:// also receive protection.
+fn redact_http_url_credentials(stderr: &str) -> String {
+    let lowercase = stderr.to_ascii_lowercase();
+    let mut redacted = String::with_capacity(stderr.len());
+    let mut cursor = 0;
+
+    while cursor < stderr.len() {
+        let next = ["https://", "http://"]
+            .iter()
+            .filter_map(|scheme| {
+                lowercase[cursor..]
+                    .find(scheme)
+                    .map(|offset| (cursor + offset, scheme.len()))
+            })
+            .min_by_key(|(position, _)| *position);
+        let Some((scheme_start, scheme_len)) = next else {
+            break;
+        };
+        let authority_start = scheme_start + scheme_len;
+        redacted.push_str(&stderr[cursor..authority_start]);
+        let authority_end = stderr[authority_start..]
+            .find(|character: char| {
+                character == '/'
+                    || character == '?'
+                    || character == '#'
+                    || character.is_whitespace()
+                    || matches!(character, '\'' | '"' | '<' | '>')
+            })
+            .map_or(stderr.len(), |offset| authority_start + offset);
+        let authority = &stderr[authority_start..authority_end];
+        if let Some((_, host)) = authority.rsplit_once('@') {
+            redacted.push_str("[REDACTED]@");
+            redacted.push_str(host);
+        } else {
+            redacted.push_str(authority);
+        }
+        cursor = authority_end;
+    }
+
+    redacted.push_str(&stderr[cursor..]);
+    redacted
+}
+
 impl GitError {
     pub(crate) fn from_failure(
         command: &str,
@@ -65,7 +113,11 @@ impl GitError {
         GitError::CommandFailed {
             command: command.to_owned(),
             status,
-            stderr: stderr.trim().chars().take(2_000).collect(),
+            stderr: redact_http_url_credentials(stderr)
+                .trim()
+                .chars()
+                .take(2_000)
+                .collect(),
         }
     }
 
@@ -151,6 +203,29 @@ mod tests {
         let other = GitError::from_failure("git log", Some(1), "boom", None);
         assert_eq!(other.to_string(), "git log failed with exit code 1: boom");
         assert!(other.hint().is_none());
+    }
+
+    #[test]
+    fn redacts_credentials_echoed_by_git_without_losing_diagnostics() {
+        let stderr = "fatal: unable to access 'https://user:example-secret@github.com/org/repo.git/': The requested URL returned error: 403";
+        let failed = GitError::from_failure("git clone", Some(128), stderr, None);
+        let message = failed.to_string();
+        assert!(!message.contains("example-secret"), "{message}");
+        assert!(!message.contains("user:"), "{message}");
+        assert!(message.contains("https://[REDACTED]@github.com/org/repo.git/"));
+        assert!(message.contains("error: 403"));
+        assert!(failed.hint().unwrap().contains("may be private"));
+
+        let mixed = "first HTTPS://login:another-secret@github.com/a then http://a:b@host.test/b";
+        let scrubbed = redact_http_url_credentials(mixed);
+        assert_eq!(
+            scrubbed,
+            "first HTTPS://[REDACTED]@github.com/a then http://[REDACTED]@host.test/b"
+        );
+        assert_eq!(
+            redact_http_url_credentials("fatal: unable to access 'https://example.com/a.git'"),
+            "fatal: unable to access 'https://example.com/a.git'"
+        );
     }
 
     #[test]

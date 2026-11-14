@@ -154,9 +154,9 @@ documented SARIF subset.
 
 With `--baseline` and `--format json`, RepoDNA retains the existing `summary`,
 `failed`, and `failing` fields and adds a structured `changes` object.
-**Availability:** `changes.architecture.fileOwners` is implemented on `main`
-for v1.5.0 development, not in the published v1.4.5 CLI or versioned GitHub
-Action. The other documented baseline-delta fields predate this addition. For
+**Availability:** `changes.architecture.fileOwners` ships in the published
+**v1.5.0 stable** CLI and versioned GitHub Action. The other documented
+baseline-delta fields predate this addition. For
 a step-by-step example and compatibility notes, see
 [reviewing changes](reviewing-changes.md):
 
@@ -169,8 +169,7 @@ a step-by-step example and compatibility notes, see
   appears as a removed path plus an added path, not as an inferred modification.
 - `changes.findings.introduced` and `resolved`: stable-ID, deduplicated
   records with `id`, `rule`, lower-case `severity`, `title`, and `paths`,
-  ordered by descending severity and then finding ID. In the v1.5.0 development
-  tree, duplicate IDs in imported artifacts use the highest-severity active
+  ordered by descending severity and then finding ID. Since v1.5.0, duplicate IDs in imported artifacts use the highest-severity active
   variant (then a deterministic rule/title/path tie-break), including for
   `--new-only --fail-on` and baseline-limited workflow annotations. This
   prevents input order from masking a higher-severity introduced finding.
@@ -208,7 +207,7 @@ use structured JSON for the complete path list. Each detail list includes at mos
 escaped, and individual entries are clipped to 180 characters. The ordinary
 summary remains unchanged when no baseline is provided. This output may still
 contain private paths and finding titles: do not post it publicly without
-reviewing its contents. In the v1.5.0 development tree, the Markdown baseline
+reviewing its contents. Since v1.5.0, the Markdown baseline
 impact also includes up to 10 per-file module-ownership entries.
 
 An active finding that was suppressed in the baseline counts as introduced if
@@ -397,16 +396,28 @@ repodna explain --format json -o explanation.json
 | Command | What it does |
 |---|---|
 | `repodna list` (alias `ls`) | Lists stored repositories (`--format text\|json`). |
-| `repodna clean TARGET` | Shows which stored analyses would be deleted; `--yes` deletes them. `--all` cleans every repository and `--keep N` keeps the newest N analyses of each. |
-| `repodna cache stats` | Shows storage and cache sizes. |
+| `repodna clean TARGET` | Shows which indexed stored analyses would be deleted; `--yes` deletes them. `--all` cleans every repository and `--keep N` keeps the newest N analyses of each. Refuses cleanup when saved artifacts are missing from the index. |
+| `repodna cache stats` | Shows storage and cache sizes, including `unindexedArtifacts` in JSON. |
 | `repodna cache clear` | Clears the per-file analysis cache and cached explanations. |
 | `repodna cache repair` | Checks the database, sets a damaged one aside, and rebuilds the index from stored artifacts. |
-| `repodna cache reset` | Deletes the database and cache; stored artifacts are kept and can be re-indexed. |
+| `repodna cache reset --yes` | Removes the SQLite index and analysis cache, and clears cached explanations. Saved analysis JSON files are kept; `repodna cache repair` restores their index. |
 
 ```sh
 repodna clean polyglot --keep 3          # dry run
 repodna clean polyglot --keep 3 --yes
+
+repodna cache reset --yes                # resets index, retains saved JSON
+repodna cache repair                     # re-indexes saved JSON analyses
+repodna clean --all --yes                # intentionally deletes saved analyses
 ```
+
+**Important:** A cache reset is not an analysis deletion operation. Previously
+saved analysis artifacts remain on disk even while `repodna list` reports no
+indexed scans. To avoid a false "Nothing to delete" result, `clean` refuses
+to proceed if any saved analysis JSON is unindexed. Run `repodna cache repair`
+to restore the index before using `clean --all --yes` for deliberate removal.
+If repair skips damaged artifacts, inspect them in the local storage directory
+rather than assuming they were deleted. `cache clear` only clears caches.
 
 Repositories themselves are never touched. Storage locations are described in
 [privacy](privacy.md#what-is-stored-and-where).

@@ -7,12 +7,11 @@ the severity you choose. It runs on the runner: the code is never uploaded. It d
 the RepoDNA release it runs from this repository's releases, and checks it against the
 release's `SHA256SUMS.txt`.
 
-**Version compatibility:** The examples below use the published stable tag
-`v1.4.5`. New developments in the repository's `main` branch (including the
-`changes.architecture.fileOwners` CI JSON field planned for v1.5.0) do not
-appear in a workflow pinned to `@v1.4.5`. See the
-[review guide](reviewing-changes.md) before interpreting output fields or
-moving an action pin.
+**Version compatibility:** The examples below target the v1.5.1
+maintenance tag **after it is published**. Until then, the released action
+remains v1.5.0. This patch retains the CI `fileOwners` field and Findings
+review first shipped in v1.5.0. Untagged `main` features do not become part
+of the v1.5.1 release.
 
 ```yaml
 name: RepoDNA
@@ -33,7 +32,7 @@ jobs:
         with:
           # The whole history, for the history, hotspot, and evolution analyses.
           fetch-depth: 0
-      - uses: sanskarIN/RepoDNA@v1.4.5
+      - uses: sanskarIN/RepoDNA@v1.5.1
         with:
           fail-on: warning
 ```
@@ -46,7 +45,7 @@ reason in your `repodna.toml` (`[[suppress]]`, see [configuration](configuration
 | Input | Default | What it does |
 | --- | --- | --- |
 | `path` | `.` | The directory to analyze. |
-| `version` | the release of the action's tag | The RepoDNA release to run, such as `1.4.5`, or `latest`. Used at a branch or a commit, the action runs the latest release. |
+| `version` | the release of the action's tag | The RepoDNA release to run, such as `1.5.1`, or `latest`. Used at a branch or a commit, the action runs the latest release. |
 | `profile` | the repository's `repodna.toml`, or `standard` | The analysis profile: `quick`, `standard`, `deep`, `history-only`, `architecture-only`, `dependencies-only`, or `security-only`. |
 | `fail-on` | `never` | Fail the step when findings at or above this severity exist: `never`, `info`, `attention`, `warning`, or `critical`. |
 | `baseline` | none | An earlier analysis (`.repodna` or JSON) to compare with, such as the base branch's. |
@@ -65,7 +64,7 @@ reason in your `repodna.toml` (`[[suppress]]`, see [configuration](configuration
 
 ```yaml
       - id: repodna
-        uses: sanskarIN/RepoDNA@v1.4.5
+        uses: sanskarIN/RepoDNA@v1.5.1
         with:
           report: ${{ runner.temp }}/repodna-report
       - uses: actions/upload-artifact@v7
@@ -93,11 +92,11 @@ out in a folder of its own, so that neither analysis includes the other:
           path: base
           fetch-depth: 0
       - id: base
-        uses: sanskarIN/RepoDNA@v1.4.5
+        uses: sanskarIN/RepoDNA@v1.5.1
         with:
           path: base
           annotate: false
-      - uses: sanskarIN/RepoDNA@v1.4.5
+      - uses: sanskarIN/RepoDNA@v1.5.1
         with:
           path: head
           baseline: ${{ steps.base.outputs.analysis }}
