@@ -26,7 +26,10 @@ desktop publisher is `RepoDNA`.
 
 Development after this release continues in separately tested PRs; changes
 on `main` are not automatically part of an existing stable binary. No next
-version number or release date is promised.
+version number or release date is promised. The
+[next stable qualification checklist](packaging/release/next-stable-checklist.md)
+records the release gates, trial-build checks and required maintainer approval
+without implying a future version has already been released.
 
 The next priorities are privacy-safe full exports, reliable source-evidence
 navigation, explicit rename/unknown semantics in CI change comparisons,
