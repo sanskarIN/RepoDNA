@@ -398,7 +398,13 @@ mod tests {
             allow_private_hosts: true,
             ..PUBLIC
         };
-        for host in ["0X7f000001", "0177.0x0.0.1", "0177.0X0.0.1", "0x7f.0.0.1", "0x0a.0.0.1"] {
+        for host in [
+            "0X7f000001",
+            "0177.0x0.0.1",
+            "0177.0X0.0.1",
+            "0x7f.0.0.1",
+            "0x0a.0.0.1",
+        ] {
             let url = format!("https://{host}/repo.git");
             assert!(validate_clone_url(&url, PUBLIC).is_err(), "{url}");
             assert!(validate_clone_url(&url, private).is_ok(), "{url}");
