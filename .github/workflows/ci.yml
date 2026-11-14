@@ -92,6 +92,14 @@ jobs:
         run: npm run format:check
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Verify both Rust lockfiles before checking notices
+        # Detect stale desktop Cargo.lock on Dependabot updates explicitly,
+        # rather than reporting a misleading third-party-notices failure.
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --locked --format-version 1 > /dev/null
+          cargo metadata --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --format-version 1 > /dev/null
       - name: Check the third-party notices
         # The licenses of the crates and npm packages that downloads include.
         run: cargo xtask notices --check
