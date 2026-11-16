@@ -219,7 +219,9 @@ impl RequestedRevision {
         if valid {
             Ok(())
         } else {
-            Err(GitError::InvalidUrl("invalid branch, tag, or full commit SHA selection".to_owned()))
+            Err(GitError::InvalidUrl(
+                "invalid branch, tag, or full commit SHA selection".to_owned(),
+            ))
         }
     }
 }
@@ -486,7 +488,6 @@ mod tests {
         allow_private_hosts: false,
     };
 
-
     #[test]
     fn parses_real_sonumio_branch_and_full_commit_urls() {
         let target = resolve_clone_target(
@@ -494,8 +495,14 @@ mod tests {
             PUBLIC,
         )
         .unwrap();
-        assert_eq!(target.repository_url, "https://github.com/sanskarIN/sonumio");
-        assert_eq!(target.branch.as_deref(), Some("feat/initial-audio-platform"));
+        assert_eq!(
+            target.repository_url,
+            "https://github.com/sanskarIN/sonumio"
+        );
+        assert_eq!(
+            target.branch.as_deref(),
+            Some("feat/initial-audio-platform")
+        );
         assert_eq!(target.commit, None);
 
         let sha = "0123456789abcdef0123456789abcdef01234567";
