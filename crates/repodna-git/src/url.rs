@@ -733,7 +733,6 @@ mod tests {
         for url in [
             "https://github.com/org/project/pull/123",
             "https://github.com/org/project/issues/456",
-            "https://github.com/org/project/commit/abc123",
             "https://github.com/org/project/actions/runs/123",
             "https://github.com/org/project/releases/tag/v1.0.0",
             "https://github.com/org/project/compare/main...feature",
@@ -744,6 +743,13 @@ mod tests {
                 "{url}: {error}"
             );
         }
+        let error = resolve_clone_target(
+            "https://github.com/org/project/commit/abc123",
+            PUBLIC,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("full commit SHA"));
+
         // A single trailing slash is normal on repository-root links.
         for url in [
             "https://github.com/org/project",
