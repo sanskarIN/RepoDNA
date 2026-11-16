@@ -1,0 +1,107 @@
+name: Bootstrap approved RepoDNA v1.5.1 stable release
+
+# One-time, narrowly scoped publication bootstrap. The GitHub connector can
+# create files/branches but not tags; this workflow creates exactly the approved
+# lightweight tag, then dispatches the existing release.yml publisher.
+# Keep this workflow on the separate operations branch, not in v1.5.1 source.
+on:
+  push:
+    branches:
+      - ops/publish-v1.5.1-approved-20261116
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: repodna-v1.5.1-approved-publication
+  cancel-in-progress: false
+
+jobs:
+  authorize-and-dispatch:
+    name: Verify frozen commit, tag it, dispatch existing publisher
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.repository == 'sanskarIN/RepoDNA' && github.ref == 'refs/heads/ops/publish-v1.5.1-approved-20261116'
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APPROVED_SHA: bbccf812148984ab45830c2c579729926cabf4f5
+      APPROVED_TAG: v1.5.1
+      EXPECTED_INVENTORY: 15
+    steps:
+      - name: Verify exact approved source and workflow evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for branch in \
+            chore/v1.5.1-release-candidate-20261114 \
+            release/v1.5.1-candidate-20261114; do
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha')"
+            if [ "$actual" != "$APPROVED_SHA" ]; then
+              echo "::error::Release branch $branch changed to $actual, expected $APPROVED_SHA."
+              exit 1
+            fi
+          done
+          pr_sha="$(gh api "repos/$GITHUB_REPOSITORY/pulls/276" --jq '.head.sha')"
+          if [ "$pr_sha" != "$APPROVED_SHA" ]; then
+            echo "::error::PR #276 moved to $pr_sha; refusing publication."
+            exit 1
+          fi
+
+          for run in 43819850096 43819850068 43819872979 43819873028 43821612954; do
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq '.conclusion')"
+            if [ "$conclusion" != success ]; then
+              echo "::error::Required exact-SHA qualification run $run is $conclusion."
+              exit 1
+            fi
+          done
+          mkdir -p sums
+          gh run download 43819873028 --repo "$GITHUB_REPOSITORY" \
+            --name trial-sha256sums --dir sums
+          test -f sums/SHA256SUMS.txt
+          test "$(wc -l < sums/SHA256SUMS.txt)" -eq "$EXPECTED_INVENTORY"
+          for asset in \
+            RepoDNA_1.5.1_x64_en-US.msi RepoDNA_1.5.1_arm64_en-US.msi \
+            RepoDNA_1.5.1_x64-setup.exe RepoDNA_1.5.1_arm64-setup.exe \
+            repodna-1.5.1-x86_64-pc-windows-msvc.zip \
+            repodna-1.5.1-aarch64-pc-windows-msvc.zip; do
+            grep -qF "  $asset" sums/SHA256SUMS.txt
+          done
+          echo "All five qualification runs succeeded; 15 approved asset names and hashes are recorded."
+
+      - name: Create only the authorized release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$APPROVED_TAG" \
+              --jq '.object.sha' > existing-tag.txt 2>/dev/null; then
+            actual="$(cat existing-tag.txt)"
+            if [ "$actual" != "$APPROVED_SHA" ]; then
+              echo "::error::Existing release tag points to unexpected commit $actual."
+              exit 1
+            fi
+            echo "Approved tag already points to the exact source; no new tag needed."
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$APPROVED_TAG" -f sha="$APPROVED_SHA" \
+              --jq '.ref'
+            echo "Created lightweight $APPROVED_TAG tag at exact approved $APPROVED_SHA."
+          fi
+
+      - name: Dispatch existing full release publishing workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          # GITHUB_TOKEN-created tag pushes do not recursively trigger push workflows.
+          # workflow_dispatch explicitly does, as supported by GitHub Actions.
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" \
+            --ref "$APPROVED_TAG" --field "tag=$APPROVED_TAG"
+          echo "Dispatched release.yml to publish the approved tag and build all 15 files."
+
+      - name: Verify immutable publishing target
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$APPROVED_TAG" --jq '.object.sha')"
+          test "$actual" = "$APPROVED_SHA"
+          echo "$APPROVED_TAG -> $APPROVED_SHA confirmed. Publication workflow dispatched."
