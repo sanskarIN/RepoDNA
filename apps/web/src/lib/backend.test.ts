@@ -268,7 +268,7 @@ describe("explicit native Git revision requests", () => {
       "standard",
       { kind: "branch", value: "feat/initial-audio-platform" },
     );
-    const [, init] = spy.mock.calls[0];
+    const init = spy.mock.calls[0]?.[1];
     expect(JSON.parse(init?.body as string)).toEqual({
       input: "https://github.com/sanskarIN/sonumio/tree/main",
       profile: "standard",
@@ -289,8 +289,8 @@ describe("explicit native Git revision requests", () => {
       kind: "commit",
       value: "0123456789abcdef0123456789abcdef01234567",
     });
-    expect(JSON.parse(spy.mock.calls[0][1]?.body as string).tag).toBe("v1.5.0");
-    expect(JSON.parse(spy.mock.calls[1][1]?.body as string).commit).toBe(
+    expect(JSON.parse(spy.mock.calls[0]?.[1]?.body as string).tag).toBe("v1.5.0");
+    expect(JSON.parse(spy.mock.calls[1]?.[1]?.body as string).commit).toBe(
       "0123456789abcdef0123456789abcdef01234567",
     );
   });
