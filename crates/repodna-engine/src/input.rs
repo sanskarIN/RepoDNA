@@ -6,7 +6,7 @@ use repodna_core::cancel::CancellationToken;
 use repodna_core::model::metadata::{InputInfo, InputKind};
 use repodna_discovery::{ArchiveLimits, ExtractedArchive, detect_archive, extract};
 use repodna_git::url::{
-    UrlPolicy, looks_like_url, parse_remote, resolve_clone_target, sanitize_url,
+    RequestedRevision, UrlPolicy, looks_like_url, parse_remote, resolve_clone_target, sanitize_url,
 };
 use repodna_git::{CloneOptions, GitRunner, clone_repository, repository_root};
 use tempfile::TempDir;
@@ -40,12 +40,14 @@ impl InputSpec {
 }
 
 /// How remote inputs are fetched.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FetchOptions {
     /// Which otherwise-rejected URLs are acceptable.
     pub url_policy: UrlPolicy,
     /// Clone only this many commits.
     pub clone_depth: Option<u32>,
+    /// Explicit branch, tag, or exact commit selected by the user.
+    pub revision: Option<RequestedRevision>,
 }
 
 /// An input ready for analysis. Temporary directories are removed when it is dropped.
@@ -162,6 +164,7 @@ pub fn prepare_input(
                 CloneOptions {
                     depth: options.clone_depth,
                     policy: options.url_policy,
+                    revision: options.revision.clone(),
                 },
                 cancel,
             )?;
@@ -173,11 +176,19 @@ pub fn prepare_input(
                 .clone()
                 .unwrap_or_else(|| "repository".to_owned());
             let mut notes = Vec::new();
-            if let Some(branch) = &target.branch {
+            if let Some(revision) = &options.revision {
+                notes.push(format!(
+                    "Explicit revision selection: {revision:?}; this overrides a GitHub browser URL reference."
+                ));
+            } else if let Some(branch) = &target.branch {
                 notes.push(format!(
                     "Checked out GitHub branch or tag {branch} from the requested tree URL."
                 ));
+            } else if target.commit.is_some() {
+                notes.push("Checked out the exact commit requested by the GitHub commit URL (detached HEAD).".to_owned());
             }
+            let checked_out = git.text(&destination, &["rev-parse", "--verify", "HEAD^{commit}"], cancel)?;
+            notes.push(format!("Verified remote checkout: {checked_out}."));
             if let Some(depth) = options.clone_depth {
                 notes.push(format!(
                     "The repository was cloned with --depth {depth}; history analysis covers only those commits."
