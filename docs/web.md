@@ -43,6 +43,12 @@ Open the printed link. The start page lets you:
   before analysis. GitHub branch links are not yet supported by the
   published v1.5.0 installers. This needs the native Git backend;
   the static hosted web version cannot clone remote repositories.
+  In subsequent development builds, choose **Source revision** to select
+  a branch, tag, or full commit SHA separately from the URL; manual selection
+  wins over the URL's candidate. The form previews GitHub branch links
+  without contacting GitHub. Actual checkout verification occurs only when
+  an analysis starts. These additional controls are not in published
+  v1.5.1 maintenance installers.
 - **Open a stored analysis** from this machine. With more than eight, the newest are
   listed first, and a filter finds the others by name or location.
 - **Open an analysis file** (`repodna.json` or `.repodna`), by choosing it or dropping it
@@ -191,7 +197,7 @@ curl -s -H "X-RepoDNA-Token: $TOKEN" http://127.0.0.1:7878/api/repositories
 | `GET /api/repositories/{id}/card.svg` | The DNA card (`?dark=1` for the dark palette) |
 | `GET /api/compare?repositories={id},{id}` | A comparison |
 | `GET /api/scans` | Analyses started from the interface |
-| `POST /api/scans` | Start an analysis: `{"input": "path, archive, or URL", "profile": "standard"}` |
+| `POST /api/scans` | Start an analysis: `{"input": "path, archive, or URL", "profile": "standard"}`. Development builds also accept **one** of `"branch"`, `"tag"`, or `"commit"` for remote Git URLs. |
 | `GET /api/scans/{id}` | Progress of one analysis |
 | `DELETE /api/scans/{id}` | Cancel it |
 
