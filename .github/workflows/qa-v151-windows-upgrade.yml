@@ -202,3 +202,27 @@ jobs:
             Start-Sleep -Seconds 1
           }
           throw 'NSIS uninstall left RepoDNA registered.'
+
+  metadata-notices:
+    name: Verify locked Cargo metadata, release metadata and notices
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Verify root Rust workspace metadata
+        run: cargo metadata --locked --format-version 1 > "$RUNNER_TEMP/root-metadata.json"
+      - name: Verify desktop Rust workspace metadata
+        run: cargo metadata --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --format-version 1 > "$RUNNER_TEMP/desktop-metadata.json"
+      - name: Verify third-party notices
+        run: cargo xtask notices --check
+      - name: Install locked npm workspaces
+        run: npm ci
+      - name: Verify release versions and package metadata
+        run: npm run release:check
+      - name: Verify official support links
+        run: npm run links:check
+      - name: Test release link checks
+        run: npm run links:test
