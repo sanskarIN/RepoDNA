@@ -5,6 +5,7 @@ use repodna_core::confidence::Confidence;
 use repodna_core::finding::highlights;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::{ReportOptions, json_report, markdown_report};
+use repodna_git::url::RequestedRevision;
 
 use super::{Ctx, print};
 use crate::cli::{AnalyzeCmd, AnalyzeFormat};
@@ -209,7 +210,16 @@ pub fn summary(
 
 /// Runs `repodna analyze`.
 pub fn run(ctx: &Ctx, cmd: &AnalyzeCmd) -> Result<(), AppError> {
-    let options = ctx.analyze_options(&cmd.input, &cmd.analysis);
+    let mut options = ctx.analyze_options(&cmd.input, &cmd.analysis);
+    options.fetch.revision = cmd
+        .branch
+        .as_ref()
+        .map(|value| RequestedRevision::Branch(value.clone()))
+        .or_else(|| cmd.tag.as_ref().map(|value| RequestedRevision::Tag(value.clone())))
+        .or_else(|| cmd.commit.as_ref().map(|value| RequestedRevision::Commit(value.clone())));
+    if let Some(revision) = &options.fetch.revision {
+        revision.validate().map_err(AppError::from)?;
+    }
     ctx.note(&format!(
         "{} {} · analyzing {}",
         ctx.err.bold("RepoDNA"),
