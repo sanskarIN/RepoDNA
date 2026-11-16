@@ -32,11 +32,20 @@ itself may contain slashes, so that form is ambiguous. On v1.5.0, clone
 the repository yourself, switch to the branch, then analyze its local
 directory as a workaround.
 
-**A GitHub pull request, issue, release, or commit link cannot be cloned.**
-Those are browser pages, not Git repository URLs. In development builds after
-v1.5.0, RepoDNA rejects these inputs before running Git and asks for the
-repository-root URL or a supported `/tree/<branch>` link. For stable v1.5.0,
-use the repository-root clone URL or an already checked-out local directory.
+**A GitHub pull request, issue, or release page cannot be cloned.**
+These are browser pages rather than Git repository URLs. Development builds
+support `/tree/<branch-or-tag>` and, with the newer revision-selection work,
+`/commit/<full-SHA>`; other unsupported routes are rejected before invoking
+Git. Published v1.5.0 and v1.5.1 maintenance installers do not include the
+branch-link feature or the new explicit revision selectors. Use a repository
+clone URL or an already checked-out local directory.
+
+**An exact commit is unavailable.** A full commit SHA may not be present in
+the objects fetched by `git clone`; shallow clones especially limit the
+available history. Try a branch containing the commit, or retry without
+`--clone-depth`. RepoDNA does not silently analyze another revision.
+If a branch is missing, check that your Git credentials can access it and
+that you did not paste a directory URL in place of a branch-root URL.
 
 **A copied GitHub repository-root URL contains browser navigation.** Links from a
 browser can include `?tab=...` or `#readme`, which are not part of the Git remote.
