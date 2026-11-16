@@ -3,7 +3,7 @@
 
 use std::io::Read;
 
-use repodna_app::{AnalyzeOptions, AppPaths};
+use repodna_app::{AnalyzeOptions, AppPaths, requested_revision};
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::text::count;
@@ -202,6 +202,19 @@ fn start_scan(state: &State, request: &mut Request) -> Reply {
     };
     let mut options = state.template.clone();
     options.input = input.trim().to_owned();
+    for field in ["branch", "tag", "commit"] {
+        if value.get(field).is_some_and(|item| !item.is_string()) {
+            return error(400, &format!("\u0060{field}\u0060 must be a string"));
+        }
+    }
+    options.fetch.revision = match requested_revision(
+        value.get("branch").and_then(Value::as_str),
+        value.get("tag").and_then(Value::as_str),
+        value.get("commit").and_then(Value::as_str),
+    ) {
+        Ok(revision) => revision,
+        Err(error) => return error(400, &error.message),
+    };
     if let Some(profile) = value.get("profile").and_then(Value::as_str) {
         match profile.parse::<AnalysisProfile>() {
             Ok(profile) => options.config.overrides.profile = Some(profile),
