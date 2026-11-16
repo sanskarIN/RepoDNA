@@ -194,6 +194,36 @@ pub struct CloneTarget {
     pub repository_url: String,
     /// Branch or tag to check out, when the input is a GitHub tree URL.
     pub branch: Option<String>,
+    /// Exact commit selected by a GitHub /commit/<sha> browser URL.
+    pub commit: Option<String>,
+}
+
+/// A user-selected remote revision, independent of the browser URL.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RequestedRevision {
+    Branch(String),
+    Tag(String),
+    Commit(String),
+}
+
+impl RequestedRevision {
+    /// Reject malformed and option-like Git references before starting Git.
+    pub fn validate(&self) -> Result<(), GitError> {
+        let valid = match self {
+            Self::Branch(name) | Self::Tag(name) => valid_github_ref(name),
+            Self::Commit(sha) => valid_commit_sha(sha),
+        };
+        if valid {
+            Ok(())
+        } else {
+            Err(GitError::InvalidUrl("invalid branch, tag, or full commit SHA selection".to_owned()))
+        }
+    }
+}
+
+/// Accept full SHA-1 and SHA-256 commit identifiers, not ambiguous short hashes.
+fn valid_commit_sha(sha: &str) -> bool {
+    matches!(sha.len(), 40 | 64) && sha.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 /// Decode percent escapes in the branch part of a GitHub browser URL once.
@@ -248,6 +278,7 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
     let ordinary = || CloneTarget {
         repository_url: url.clone(),
         branch: None,
+        commit: None,
     };
 
     if !matches!(parts.scheme.as_deref(), Some("https" | "http"))
@@ -270,11 +301,25 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
             return Ok(CloneTarget {
                 repository_url: url.split(['?', '#']).next().unwrap_or(&url).to_owned(),
                 branch: None,
+                commit: None,
             });
         }
         return Ok(ordinary());
     }
     let invalid = |reason: &str| GitError::InvalidUrl(format!("{} ({reason})", sanitize_url(&url)));
+    if segments[2] == "commit" {
+        if segments.len() != 4 || !valid_commit_sha(segments[3]) {
+            return Err(invalid("GitHub commit URL must contain a full commit SHA"));
+        }
+        let Some(prefix) = url.strip_suffix(parts.path) else {
+            return Err(invalid("could not resolve GitHub repository URL"));
+        };
+        return Ok(CloneTarget {
+            repository_url: format!("{prefix}{}/{}", segments[0], segments[1]),
+            branch: None,
+            commit: Some(segments[3].to_ascii_lowercase()),
+        });
+    }
     if segments[2] == "blob" {
         return Err(invalid(
             "GitHub file URL; supply a repository URL or a /tree/<branch> page",
@@ -307,6 +352,7 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
     Ok(CloneTarget {
         repository_url: format!("{prefix}{}/{}", segments[0], segments[1]),
         branch: Some(branch),
+        commit: None,
     })
 }
 
@@ -436,6 +482,52 @@ mod tests {
         allow_insecure: false,
         allow_private_hosts: false,
     };
+
+
+    #[test]
+    fn parses_real_sonumio_branch_and_full_commit_urls() {
+        let target = resolve_clone_target(
+            "https://github.com/sanskarIN/sonumio/tree/feat/initial-audio-platform",
+            PUBLIC,
+        )
+        .unwrap();
+        assert_eq!(target.repository_url, "https://github.com/sanskarIN/sonumio");
+        assert_eq!(target.branch.as_deref(), Some("feat/initial-audio-platform"));
+        assert_eq!(target.commit, None);
+
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        let target = resolve_clone_target(
+            &format!("https://github.com/org/repo/commit/{sha}?diff=split#files"),
+            PUBLIC,
+        )
+        .unwrap();
+        assert_eq!(target.repository_url, "https://github.com/org/repo");
+        assert_eq!(target.commit.as_deref(), Some(sha));
+        for bad in [
+            "https://github.com/org/repo/commit/main",
+            "https://github.com/org/repo/commit/1234/extra",
+        ] {
+            assert!(resolve_clone_target(bad, PUBLIC).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn explicit_revision_validation_rejects_options_and_ambiguous_shas() {
+        for valid in [
+            RequestedRevision::Branch("feat/initial-audio-platform".into()),
+            RequestedRevision::Tag("v1.5.0".into()),
+            RequestedRevision::Commit("0123456789abcdef0123456789abcdef01234567".into()),
+        ] {
+            valid.validate().unwrap();
+        }
+        for invalid in [
+            RequestedRevision::Branch("--upload-pack=sh".into()),
+            RequestedRevision::Tag("a..b".into()),
+            RequestedRevision::Commit("0123456".into()),
+        ] {
+            assert!(invalid.validate().is_err());
+        }
+    }
 
     #[test]
     fn accepts_common_remote_forms() {
