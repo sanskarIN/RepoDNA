@@ -47,9 +47,7 @@ pub fn requested_revision(
     .flatten();
     let selection = selections.next();
     if selections.next().is_some() {
-        return Err(AppError::input(
-            "select only one of branch, tag, or commit",
-        ));
+        return Err(AppError::input("select only one of branch, tag, or commit"));
     }
     if let Some(revision) = &selection {
         revision
@@ -70,7 +68,9 @@ mod source_revision_tests {
         assert!(requested_revision(None, None, Some("short-sha")).is_err());
         assert_eq!(
             requested_revision(Some("feat/initial-audio-platform"), None, None).unwrap(),
-            Some(RequestedRevision::Branch("feat/initial-audio-platform".into())),
+            Some(RequestedRevision::Branch(
+                "feat/initial-audio-platform".into()
+            )),
         );
         assert_eq!(requested_revision(None, None, None).unwrap(), None);
     }
