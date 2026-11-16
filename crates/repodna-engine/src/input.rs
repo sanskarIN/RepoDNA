@@ -187,7 +187,11 @@ pub fn prepare_input(
             } else if target.commit.is_some() {
                 notes.push("Checked out the exact commit requested by the GitHub commit URL (detached HEAD).".to_owned());
             }
-            let checked_out = git.text(&destination, &["rev-parse", "--verify", "HEAD^{commit}"], cancel)?;
+            let checked_out = git.text(
+                &destination,
+                &["rev-parse", "--verify", "HEAD^{commit}"],
+                cancel,
+            )?;
             notes.push(format!("Verified remote checkout: {checked_out}."));
             if let Some(depth) = options.clone_depth {
                 notes.push(format!(
