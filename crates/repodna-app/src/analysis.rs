@@ -133,7 +133,7 @@ pub fn run_analysis(
         config: loaded.config,
         config_sources: loaded.sources,
         config_warnings,
-        fetch: options.fetch,
+        fetch: options.fetch.clone(),
         languages: plugins.languages,
         extensions: plugins.extensions,
         cache: store.clone().map(|store| store as Arc<dyn AnalysisCache>),
