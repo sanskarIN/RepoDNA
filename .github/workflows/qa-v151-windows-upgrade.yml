@@ -212,14 +212,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      - name: Install locked npm workspaces
+        run: npm ci
       - name: Verify root Rust workspace metadata
         run: cargo metadata --locked --format-version 1 > "$RUNNER_TEMP/root-metadata.json"
       - name: Verify desktop Rust workspace metadata
         run: cargo metadata --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --format-version 1 > "$RUNNER_TEMP/desktop-metadata.json"
       - name: Verify third-party notices
         run: cargo xtask notices --check
-      - name: Install locked npm workspaces
-        run: npm ci
       - name: Verify release versions and package metadata
         run: npm run release:check
       - name: Verify official support links
