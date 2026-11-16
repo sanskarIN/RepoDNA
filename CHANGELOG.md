@@ -15,6 +15,11 @@ notes below. No later stable version or date has been announced.
 
 ### Added
 
+- Accept explicit remote branch, tag, and full commit SHA selections in the
+  CLI, local server, and desktop form; verify checked-out revisions, support
+  GitHub `/commit/<full-SHA>` links, and preview `/tree/` candidates without
+  uploading repository data. Development-only; not in v1.5.1 maintenance installers.
+
 - Show the checked-out Git branch in the Overview and History views when
   available, distinguishing the analyzed checkout from the remote default (#228).
 - Export a reviewed, counts-only Findings CSV grouped by severity and
