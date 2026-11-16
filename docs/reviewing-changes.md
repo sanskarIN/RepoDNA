@@ -4,14 +4,13 @@ RepoDNA has two complementary review workflows: **baseline impact in the CLI**
 and **filtered findings exports in the web interface**. Neither workflow is a
 security audit, proof of causality, or a substitute for reading the actual diff.
 
-> **Stable release (2026-11-06):** RepoDNA **[v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)**
-> is published on GitHub as a stable release. Its binaries, installers and
-> versioned GitHub Action include the CI `fileOwners` field and local
-> Findings-export review introduced by PRs
+> **Latest stable (2026-11-16):** [RepoDNA v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1)
+> is a maintenance patch retaining the CI `fileOwners` field and local
+> Findings-export review first shipped in v1.5.0 (PRs
 > [#198](https://github.com/sanskarIN/RepoDNA/pull/198) and
-> [#195](https://github.com/sanskarIN/RepoDNA/pull/195).
-> The hosted web application may still deploy later changes from `main`
-> separately from tagged desktop/CLI releases.
+> [#195](https://github.com/sanskarIN/RepoDNA/pull/195)).
+> The hosted application may deploy newer `main` features independently;
+> those features are **not** in the v1.5.1 desktop/CLI packages.
 
 ## 1. Build a comparable baseline
 
@@ -100,7 +99,7 @@ now active count as introduced. With `--new-only`, GitHub annotations target
 the introduced findings; their limit is 50 after filtering.
 
 The published [GitHub Action](github-action.md) provides an easier route for
-automated CI. **Pin `sanskarIN/RepoDNA@v1.5.0` for the published stable
+automated CI. **Pin `sanskarIN/RepoDNA@v1.5.1` for the published stable
 behavior**; the action does not automatically gain changes merged to `main`
 after the release. See
 [the practical CI workflow](workflows.md#review-new-findings-in-ci).
@@ -139,9 +138,12 @@ For exporting and sharing see [web](web.md), [reports](reports.md), and
 
 ## 5. Release and research status
 
-**v1.5.0 is published as stable.** See its [GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0),
-the [release qualification record](../packaging/release/v1.5.0-checklist.md),
-the [roadmap](../ROADMAP.md) and [release history](../CHANGELOG.md).
+**v1.5.1 is the latest published stable patch.** See its
+[GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1),
+[verified release record](release-v1.5.1.md), the
+[roadmap](../ROADMAP.md) and [release history](../CHANGELOG.md).
+The v1.5.0 feature release remains documented in the
+[historical qualification record](../packaging/release/v1.5.0-checklist.md).
 Local native explanations are extractive; the optional trained ranker is not a
 generative language model and benchmark quality claims require independently
 reviewed evidence. See [native-model](native-model.md).

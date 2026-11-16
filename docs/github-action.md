@@ -8,11 +8,10 @@ the RepoDNA release it runs from this repository's releases, and checks it again
 release's `SHA256SUMS.txt`.
 
 **Version compatibility:** These examples use the published stable tag
-`v1.5.0`, released November 6, 2026. This tag includes the
-`changes.architecture.fileOwners` CI JSON field. Later changes on `main` do
-not automatically appear in an action pinned to `@v1.5.0`. See the
-[review guide](reviewing-changes.md) when interpreting output fields or
-updating the action pin.
+`v1.5.1`, released November 16, 2026. It retains the
+`changes.architecture.fileOwners` CI JSON field first shipped in v1.5.0.
+Later features on `main` do not automatically appear when pinned to
+`@v1.5.1`. See the [review guide](reviewing-changes.md) before upgrading.
 
 ```yaml
 name: RepoDNA
@@ -33,7 +32,7 @@ jobs:
         with:
           # The whole history, for the history, hotspot, and evolution analyses.
           fetch-depth: 0
-      - uses: sanskarIN/RepoDNA@v1.5.0
+      - uses: sanskarIN/RepoDNA@v1.5.1
         with:
           fail-on: warning
 ```
@@ -46,7 +45,7 @@ reason in your `repodna.toml` (`[[suppress]]`, see [configuration](configuration
 | Input | Default | What it does |
 | --- | --- | --- |
 | `path` | `.` | The directory to analyze. |
-| `version` | the release of the action's tag | The RepoDNA release to run, such as `1.5.0`, or `latest`. Used at a branch or a commit, the action runs the latest release. |
+| `version` | the release of the action's tag | The RepoDNA release to run, such as `1.5.1`, or `latest`. Used at a branch or a commit, the action runs the latest release. |
 | `profile` | the repository's `repodna.toml`, or `standard` | The analysis profile: `quick`, `standard`, `deep`, `history-only`, `architecture-only`, `dependencies-only`, or `security-only`. |
 | `fail-on` | `never` | Fail the step when findings at or above this severity exist: `never`, `info`, `attention`, `warning`, or `critical`. |
 | `baseline` | none | An earlier analysis (`.repodna` or JSON) to compare with, such as the base branch's. |
@@ -65,7 +64,7 @@ reason in your `repodna.toml` (`[[suppress]]`, see [configuration](configuration
 
 ```yaml
       - id: repodna
-        uses: sanskarIN/RepoDNA@v1.5.0
+        uses: sanskarIN/RepoDNA@v1.5.1
         with:
           report: ${{ runner.temp }}/repodna-report
       - uses: actions/upload-artifact@v7
@@ -93,11 +92,11 @@ out in a folder of its own, so that neither analysis includes the other:
           path: base
           fetch-depth: 0
       - id: base
-        uses: sanskarIN/RepoDNA@v1.5.0
+        uses: sanskarIN/RepoDNA@v1.5.1
         with:
           path: base
           annotate: false
-      - uses: sanskarIN/RepoDNA@v1.5.0
+      - uses: sanskarIN/RepoDNA@v1.5.1
         with:
           path: head
           baseline: ${{ steps.base.outputs.analysis }}

@@ -47,7 +47,7 @@ on a feature branch is **not** a public Pages deployment.
 
 The deployment action's logs confirm the published commit and resulting URL.
 The site does not automatically reflect unmerged feature-branch changes.
-RepoDNA v1.5.0 is already published as stable; the hosted site may show
+RepoDNA v1.5.1 is already published as the latest stable patch; the hosted site may show
 **later** features merged to `main` before they appear in a future tagged
 desktop installer or CLI release. Compare against the
 [review and release status guide](reviewing-changes.md), not only the package

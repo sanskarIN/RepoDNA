@@ -56,7 +56,7 @@ Other inputs:
 
 ```sh
 repodna analyze https://github.com/sanskarIN/RepoDNA    # cloned to a temporary directory
-repodna analyze https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development  # development builds after v1.5.0
+repodna analyze https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development  # main development only, NOT v1.5.1
 repodna analyze project.zip                             # extracted to a temporary directory
 repodna analyze . --profile deep                        # also duplication, similarity, historical architecture
 repodna analyze . --profile quick                       # files only, no history
@@ -126,8 +126,8 @@ reason = "Intentional fake credentials used by tests"
 
 See the [example workflow](../examples/ci/repodna.yml). For a baseline-versus-PR
 comparison, including structured impact JSON and per-file module mapping
-shipped in v1.5.0, see [reviewing changes](reviewing-changes.md).
-The published stable CLI and action are **[v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)**;
+first shipped in v1.5.0, see [reviewing changes](reviewing-changes.md).
+The published stable CLI and action are **[v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1)**;
 subsequent changes on `main` may not yet be included in release downloads.
 
 ## Next steps
