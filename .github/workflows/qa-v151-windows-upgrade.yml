@@ -16,6 +16,27 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Wait for the exact candidate trial to finish successfully
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          for ($attempt = 1; $attempt -le 90; $attempt++) {
+            $trial = gh run view 43819873028 --repo sanskarIN/RepoDNA --json headSha,status,conclusion | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the unpublished release trial.' }
+            if ($trial.headSha -cne 'bbccf812148984ab45830c2c579729926cabf4f5') {
+              throw "Trial source SHA mismatch: $($trial.headSha)"
+            }
+            if ($trial.status -eq 'completed') {
+              if ($trial.conclusion -ne 'success') { throw "Release trial finished with $($trial.conclusion)." }
+              Write-Host 'Verified the exact candidate release trial is successful.'
+              exit 0
+            }
+            Start-Sleep -Seconds 15
+          }
+          throw 'Release trial did not finish within the qualification wait window.'
+
       - name: Download the published baseline and exact unpublished candidate installers
         shell: pwsh
         env:
@@ -27,13 +48,13 @@ jobs:
           gh release download v1.5.0 --repo sanskarIN/RepoDNA --pattern 'RepoDNA_1.5.0_x64_en-US.msi' --dir baseline
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the published v1.5.0 x64 MSI.' }
 
-          gh run download 43805700070 --repo sanskarIN/RepoDNA --name desktop-Windows --dir candidate
+          gh run download 43819873028 --repo sanskarIN/RepoDNA --name desktop-Windows --dir candidate
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen v1.5.1 Windows x64 artifacts.' }
 
-          gh run download 43805700070 --repo sanskarIN/RepoDNA --name desktop-Windows-arm64 --dir candidate-arm64
+          gh run download 43819873028 --repo sanskarIN/RepoDNA --name desktop-Windows-arm64 --dir candidate-arm64
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen v1.5.1 Windows ARM64 artifacts.' }
 
-          gh run download 43805700070 --repo sanskarIN/RepoDNA --name trial-sha256sums --dir sums
+          gh run download 43819873028 --repo sanskarIN/RepoDNA --name trial-sha256sums --dir sums
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen trial SHA-256 manifest.' }
 
           $baselineMsi = 'baseline/RepoDNA_1.5.0_x64_en-US.msi'
@@ -46,13 +67,21 @@ jobs:
             if ((Get-Item -LiteralPath $path).Length -lt 1000000) { throw "Installer is unexpectedly small: $path" }
           }
 
-          $manifestLine = Get-Content -LiteralPath 'sums/SHA256SUMS.txt' |
-            Where-Object { $_ -match '  RepoDNA_1\.5\.1_x64_en-US\.msi$' }
-          if (-not $manifestLine) { throw 'The candidate x64 MSI is absent from SHA256SUMS.txt.' }
-          $expectedHash = ($manifestLine -split '\s+')[0].ToLowerInvariant()
-          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $candidateMsi).Hash.ToLowerInvariant()
-          if ($actualHash -cne $expectedHash) { throw 'The downloaded x64 MSI does not match the frozen trial checksum.' }
-          Write-Host "Downloaded exact baseline and candidate installers; candidate MSI SHA-256 $actualHash verified."
+          $manifest = @(Get-Content -LiteralPath 'sums/SHA256SUMS.txt')
+          foreach ($item in @(
+            @{ Path = $candidateMsi; Name = 'RepoDNA_1.5.1_x64_en-US.msi' },
+            @{ Path = $candidateNsis; Name = 'RepoDNA_1.5.1_x64-setup.exe' },
+            @{ Path = $arm64Msi; Name = 'RepoDNA_1.5.1_arm64_en-US.msi' },
+            @{ Path = $arm64Nsis; Name = 'RepoDNA_1.5.1_arm64-setup.exe' }
+          )) {
+            $matches = @($manifest | Where-Object { $_.EndsWith("  $($item.Name)", [System.StringComparison]::Ordinal) })
+            if ($matches.Count -ne 1) { throw "Expected exactly one manifest hash for $($item.Name); found $($matches.Count)." }
+            $expectedHash = ($matches[0] -split '\s+')[0].ToLowerInvariant()
+            $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $item.Path).Hash.ToLowerInvariant()
+            if ($actualHash -cne $expectedHash) { throw "Installer SHA-256 mismatch: $($item.Name)" }
+            Write-Host "Verified trial SHA-256 for $($item.Name): $actualHash"
+          }
+          Write-Host 'Downloaded exact baseline and four candidate Windows installers and verified all four checksums.'
 
       - name: Verify MSI upgrade, clean install, uninstall and user-data preservation
         shell: pwsh
