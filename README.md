@@ -33,14 +33,11 @@ sends nothing anywhere unless you ask it to.
 
 ## Release status
 
-**Latest stable (after v1.5.1 publication):** [v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1).
-This maintenance release fixes saved-analysis recovery and cleanup behavior,
-rejects malformed JSON artifacts and strengthens Git URL/error protections.
-The release keeps v1.5.0's local Findings export review, analysis deletion,
-CI baseline-impact fields and offline-first operation. No new branch-root
-analysis or counts-only export is claimed for this patch.
-See the [release gate](packaging/release/v1.5.1-checklist.md) and
-[review guide](docs/reviewing-changes.md).
+**Latest stable:** [RepoDNA v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0).
+**Next patch:** v1.5.1 is still undergoing release qualification and has not been published.
+It focuses on saved-analysis recovery, artifact validation and Git remote protections;
+no post-v1.5.0 product features are included. See the
+[v1.5.1 release gate](packaging/release/v1.5.1-checklist.md) for current qualification status.
 
 ## Contents
 
@@ -162,7 +159,7 @@ right in your browser and works offline, all built on the same analysis.
 
 **CI.** `repodna ci` fails a job on findings at the severity you choose, compares against a
 baseline, and writes GitHub Actions annotations. The [GitHub Action](docs/github-action.md)
-(`uses: sanskarIN/RepoDNA@v1.5.1`) does all of this in one step.
+(`uses: sanskarIN/RepoDNA@v1.5.0`) does all of this in one step.
 
 **Optional AI explanations.** Built-in offline evidence digests need no API key or
 external runtime; richer language-model explanations remain available through optional
@@ -263,7 +260,7 @@ WebAssembly for Node.js and browsers on any system (`@sanskarin/repodna-wasm`:
 artifact (`@sanskarin/repodna-schema`, `@sanskarin/repodna-visualization`) are on npm too.
 See [the npm packages](docs/installation.md#npm-packages).
 
-**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.5.1` analyzes the repository in a workflow,
+**GitHub Actions.** `uses: sanskarIN/RepoDNA@v1.5.0` analyzes the repository in a workflow,
 annotates findings, and keeps the report. See [the GitHub Action](docs/github-action.md).
 
 **From source**, with Git, a stable [Rust](https://www.rust-lang.org/tools/install)
