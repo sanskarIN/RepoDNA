@@ -72,9 +72,8 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   const start = async () => {
     setError(null);
     try {
-      const revision = revisionKind === "auto"
-        ? undefined
-        : { kind: revisionKind, value: revisionValue.trim() };
+      const revision =
+        revisionKind === "auto" ? undefined : { kind: revisionKind, value: revisionValue.trim() };
       const started = await backend.startScan(input.trim(), profile, revision);
       setJob(started);
       poll(started.id);
@@ -133,7 +132,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         {revisionKind !== "auto" ? (
           <>
             <label htmlFor="scan-revision-value">
-              {revisionKind === "commit" ? "Full commit SHA" : revisionKind === "tag" ? "Tag name" : "Branch name"}
+              {revisionKind === "commit"
+                ? "Full commit SHA"
+                : revisionKind === "tag"
+                  ? "Tag name"
+                  : "Branch name"}
             </label>
             <input
               id="scan-revision-value"
@@ -180,7 +183,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             </option>
           ))}
         </select>
-        <button type="submit" className="primary" disabled={!input.trim() || !revisionReady || running}>
+        <button
+          type="submit"
+          className="primary"
+          disabled={!input.trim() || !revisionReady || running}
+        >
           {running ? "Analyzing…" : "Analyze"}
         </button>
         {running && job ? (
