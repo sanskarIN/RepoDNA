@@ -191,6 +191,7 @@ fn finish_detached_checkout(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use repodna_testkit::{GitRepo, git_available};
 
     #[test]
     fn git_clone_selects_github_tree_branch_without_cloning_browser_url() {
@@ -272,6 +273,63 @@ mod tests {
         let args = clone_args(&target, Some(&tag), Some("2"), "destination");
         assert!(args.contains(&"--no-checkout"));
         assert!(args.windows(2).any(|pair| pair == ["--branch", "v1.5.0"]));
+    }
+
+    #[test]
+    fn detached_tag_and_commit_checkout_verify_real_git_head() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("state.txt", "first");
+        let first = repo.commit(
+            "first",
+            "Test",
+            "test@example.invalid",
+            "2025-01-01T00:00:00Z",
+        );
+        repo.tag("v0.1.0", None);
+        repo.write("state.txt", "second");
+        let second = repo.commit(
+            "second",
+            "Test",
+            "test@example.invalid",
+            "2025-01-02T00:00:00Z",
+        );
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        finish_detached_checkout(
+            &runner,
+            repo.path(),
+            &RequestedRevision::Tag("v0.1.0".to_owned()),
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            runner.text(repo.path(), &["rev-parse", "HEAD"], &cancel).unwrap(),
+            first
+        );
+        assert!(runner.text(repo.path(), &["symbolic-ref", "HEAD"], &cancel).is_err());
+        finish_detached_checkout(
+            &runner,
+            repo.path(),
+            &RequestedRevision::Commit(second.clone()),
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            runner.text(repo.path(), &["rev-parse", "HEAD"], &cancel).unwrap(),
+            second
+        );
+        assert!(
+            finish_detached_checkout(
+                &runner,
+                repo.path(),
+                &RequestedRevision::Commit("0123456789abcdef0123456789abcdef01234567".into()),
+                &cancel,
+            )
+            .is_err()
+        );
     }
 
     #[test]
