@@ -15,7 +15,9 @@ describe("GitHub browser URL preview", () => {
   });
 
   it("decodes encoded slashes and ignores URL navigation suffixes", () => {
-    expect(githubSourceHint("https://github.com/org/repo/tree/feature%2Flogin/?tab=readme")).toEqual({
+    expect(
+      githubSourceHint("https://github.com/org/repo/tree/feature%2Flogin/?tab=readme"),
+    ).toEqual({
       repository: "org/repo",
       reference: "feature/login",
       kind: "tree",
