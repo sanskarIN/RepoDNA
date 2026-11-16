@@ -743,11 +743,8 @@ mod tests {
                 "{url}: {error}"
             );
         }
-        let error = resolve_clone_target(
-            "https://github.com/org/project/commit/abc123",
-            PUBLIC,
-        )
-        .unwrap_err();
+        let error = resolve_clone_target("https://github.com/org/project/commit/abc123", PUBLIC)
+            .unwrap_err();
         assert!(error.to_string().contains("full commit SHA"));
 
         // A single trailing slash is normal on repository-root links.
