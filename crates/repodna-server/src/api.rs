@@ -204,7 +204,7 @@ fn start_scan(state: &State, request: &mut Request) -> Reply {
     options.input = input.trim().to_owned();
     for field in ["branch", "tag", "commit"] {
         if value.get(field).is_some_and(|item| !item.is_string()) {
-            return error(400, &format!("\u0060{field}\u0060 must be a string"));
+            return error(400, &format!("`{field}` must be a string"));
         }
     }
     options.fetch.revision = match requested_revision(
@@ -213,7 +213,7 @@ fn start_scan(state: &State, request: &mut Request) -> Reply {
         value.get("commit").and_then(Value::as_str),
     ) {
         Ok(revision) => revision,
-        Err(error) => return error(400, &error.message),
+        Err(problem) => return error(400, &problem.message),
     };
     if let Some(profile) = value.get("profile").and_then(Value::as_str) {
         match profile.parse::<AnalysisProfile>() {
