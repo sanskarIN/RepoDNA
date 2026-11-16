@@ -1,16 +1,19 @@
 # Next RepoDNA stable release — qualification record
 
-> **Preparation only.** Latest published stable: [v1.5.0](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0) (November 6, 2026).
-> The next version, date, tag and feature set are **not yet approved**.
-> Use **v1.5.1** for a compatible maintenance/security-only patch; consider
-> **v1.6.0** only if reviewed, user-visible new features justify a minor release.
-> Never re-publish v1.5.0 with post-release code.
+> **Preparation for a future release only.** Latest published stable:
+> [v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1), November 16, 2026.
+> This version is already published; its [verified release record](../../docs/release-v1.5.1.md)
+> is separate from the future-release checklist below. No later version, date,
+> tag or feature set has been approved. Use an appropriate new version after
+> reviewing scope and compatibility; never reuse the existing v1.5.1 tag.
 
-This is a living, evidence-based checklist, not a declaration that anything below
-passed. Check a box only after verifying the **exact frozen commit**. Keep historical
-[v1.5.0 qualification](v1.5.0-checklist.md) intact.
+This is a living, evidence-based checklist **for the next release after v1.5.1**,
+not a declaration that anything below passed. Check a box only after verifying
+the exact frozen commit. Keep the historical
+[v1.5.0 qualification](v1.5.0-checklist.md) and
+[v1.5.1 publication record](../../docs/release-v1.5.1.md) intact.
 
-## Audit snapshot (November 14, 2026)
+## Historical pre-v1.5.1 audit snapshot (November 14, 2026)
 
 - Stable tag: `v1.5.0`; main head at initial audit:
   `21320619e8f8156cfcca83718004a23729139002`.
@@ -142,5 +145,5 @@ Record the immutable candidate commit SHA here **after feature freeze**:
 | Maintainer publication approval | **Not granted** |
 | Public stable release | **Not published** |
 
-Review this checklist against `main` again before release freeze; the audit
-snapshot is not a promise that the same PRs, failures or versions remain current.
+Review this checklist against `main` again before a future release freeze; the
+November 14 audit is historical and does not supersede the published v1.5.1 record.

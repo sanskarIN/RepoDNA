@@ -6,9 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-These changes are merged into `main` **after** the v1.5.0 stable release;
-they are **not included** in the published v1.5.0 installers or packages.
-No next stable version or release date has been announced.
+These entries describe work on `main` after the v1.5.0 stable release.
+They are **not automatically included** in the separate
+[v1.5.1 maintenance release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1), which was published
+November 16, 2026 from its own isolated patch branch. Some overlapping
+security fixes were also backported into v1.5.1; consult the scoped patch
+notes below. No later stable version or date has been announced.
 
 ### Added
 
@@ -70,6 +73,32 @@ No next stable version or release date has been announced.
   failure messages so query-based credentials are not published (#249).
 - Accept one trailing slash in GitHub branch-root `/tree/<ref>/` URLs while
   rejecting malformed refs and repeated trailing separators (#250).
+
+## [1.5.1] - 2026-11-16
+
+RepoDNA 1.5.1 is a focused maintenance update built from the published
+v1.5.0 source. It excludes new branch-root analysis and counts-only exports
+intended for later minor-version development.
+
+### Highlights
+
+- Keep saved analysis JSON artifacts when resetting the SQLite analysis cache;
+  restore indexing with `repodna cache repair`.
+- Refuse misleading deletion results when saved artifacts remain unindexed;
+  show unindexed artifact counts for accurate local storage management.
+- Reject malformed analysis artifacts that substitute arrays for required objects.
+- Redact HTTP(S) credentials echoed in Git failure messages before display.
+- Reject mixed-radix private IPv4 aliases and special-use literal IP Git remotes
+  by default, retaining explicit trusted-host opt-in.
+
+### Fixed
+
+- Preserve saved scans, prevent misleading cleanup after cache reset and add
+  regression tests for recovery and deliberate deletion (#221, #222).
+- Validate required artifact object shapes before loading (#264).
+- Redact credential-bearing HTTPS Git diagnostics with regression tests (#229).
+- Block disguised private hosts and reserved/documentation/multicast IP literals
+  without changing the explicit allow-private-host option (#233, #266).
 
 ## [1.5.0] - 2026-11-06
 
@@ -1083,7 +1112,9 @@ every conclusion backed by evidence.
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.
 
-[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1
+[1.5.0]: https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0
 [1.4.2]: https://github.com/sanskarIN/RepoDNA/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/sanskarIN/RepoDNA/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/sanskarIN/RepoDNA/compare/v1.3.3...v1.4.0
