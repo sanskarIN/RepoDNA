@@ -1,0 +1,204 @@
+name: RepoDNA v1.5.1 Windows installer upgrade qualification
+
+on:
+  push:
+    branches:
+      - qa/v1.5.1-windows-upgrade-20261116
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  windows-installer-upgrade:
+    name: Verify v1.5.0 to v1.5.1 MSI upgrade, data preservation and NSIS
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download the published baseline and exact unpublished candidate installers
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force baseline, candidate, candidate-arm64, sums | Out-Null
+
+          gh release download v1.5.0 --repo sanskarIN/RepoDNA --pattern 'RepoDNA_1.5.0_x64_en-US.msi' --dir baseline
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download the published v1.5.0 x64 MSI.' }
+
+          gh run download 43569346000 --repo sanskarIN/RepoDNA --name desktop-Windows --dir candidate
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen v1.5.1 Windows x64 artifacts.' }
+
+          gh run download 43569346000 --repo sanskarIN/RepoDNA --name desktop-Windows-arm64 --dir candidate-arm64
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen v1.5.1 Windows ARM64 artifacts.' }
+
+          gh run download 43569346000 --repo sanskarIN/RepoDNA --name trial-sha256sums --dir sums
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen trial SHA-256 manifest.' }
+
+          $baselineMsi = 'baseline/RepoDNA_1.5.0_x64_en-US.msi'
+          $candidateMsi = 'candidate/RepoDNA_1.5.1_x64_en-US.msi'
+          $candidateNsis = 'candidate/RepoDNA_1.5.1_x64-setup.exe'
+          $arm64Msi = 'candidate-arm64/RepoDNA_1.5.1_arm64_en-US.msi'
+          $arm64Nsis = 'candidate-arm64/RepoDNA_1.5.1_arm64-setup.exe'
+          foreach ($path in @($baselineMsi, $candidateMsi, $candidateNsis, $arm64Msi, $arm64Nsis)) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing installer: $path" }
+            if ((Get-Item -LiteralPath $path).Length -lt 1000000) { throw "Installer is unexpectedly small: $path" }
+          }
+
+          $manifestLine = Get-Content -LiteralPath 'sums/SHA256SUMS.txt' |
+            Where-Object { $_ -match '  RepoDNA_1\.5\.1_x64_en-US\.msi$' }
+          if (-not $manifestLine) { throw 'The candidate x64 MSI is absent from SHA256SUMS.txt.' }
+          $expectedHash = ($manifestLine -split '\s+')[0].ToLowerInvariant()
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $candidateMsi).Hash.ToLowerInvariant()
+          if ($actualHash -cne $expectedHash) { throw 'The downloaded x64 MSI does not match the frozen trial checksum.' }
+          Write-Host "Downloaded exact baseline and candidate installers; candidate MSI SHA-256 $actualHash verified."
+
+      - name: Verify MSI upgrade, clean install, uninstall and user-data preservation
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $baselineMsi = (Resolve-Path 'baseline/RepoDNA_1.5.0_x64_en-US.msi').Path
+          $candidateMsi = (Resolve-Path 'candidate/RepoDNA_1.5.1_x64_en-US.msi').Path
+
+          function Get-RepoDNAInstallations {
+            $paths = @(
+              'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+              'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+              'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+            )
+            @(Get-ItemProperty -Path $paths -ErrorAction SilentlyContinue |
+              Where-Object { $_.PSObject.Properties['DisplayName'] -and $_.DisplayName -ceq 'RepoDNA' })
+          }
+
+          function Assert-OneInstallation([string] $version) {
+            $entries = @(Get-RepoDNAInstallations)
+            if ($entries.Count -ne 1) { throw "Expected one RepoDNA installation; found $($entries.Count)." }
+            if ($entries[0].DisplayVersion -cne $version) {
+              throw "Expected RepoDNA $version; found '$($entries[0].DisplayVersion)'."
+            }
+            if ($entries[0].Publisher -cne 'RepoDNA') {
+              throw "Expected installer publisher RepoDNA; found '$($entries[0].Publisher)'."
+            }
+            return $entries[0]
+          }
+
+          function Invoke-Msi([string] $verb, [string] $msi, [string] $phase) {
+            $log = Join-Path $env:RUNNER_TEMP "repodna-$phase.log"
+            $arguments = "/$verb $msi /qn /norestart /l*v $log"
+            $process = Start-Process -FilePath msiexec.exe -ArgumentList $arguments -Wait -PassThru
+            if ($process.ExitCode -notin @(0, 3010)) {
+              Get-Content -LiteralPath $log -Tail 80 -ErrorAction SilentlyContinue | Write-Host
+              throw "MSI $phase failed with exit code $($process.ExitCode)."
+            }
+          }
+
+          $dataHome = Join-Path $env:LOCALAPPDATA 'RepoDNA'
+          $configHome = Join-Path $env:APPDATA 'RepoDNA'
+          $artifactMarker = Join-Path $dataHome 'artifacts\v151-upgrade-qa-marker.json'
+          $configMarker = Join-Path $configHome 'config.toml'
+          function Seed-UserData {
+            New-Item -ItemType Directory -Force (Split-Path -Parent $artifactMarker), $configHome | Out-Null
+            Set-Content -LiteralPath $artifactMarker -Value '{"qualification":"v1.5.0-to-v1.5.1","preserve":true}' -NoNewline
+            $configContent = @'
+          # RepoDNA installer preservation marker
+          [qualification]
+          version = "v1.5.0"
+          '@
+            Set-Content -LiteralPath $configMarker -Value $configContent -NoNewline
+          }
+          function Assert-UserDataPreserved {
+            if (-not (Test-Path -LiteralPath $artifactMarker -PathType Leaf)) {
+              throw "Saved analysis artifact marker was removed: $artifactMarker"
+            }
+            if (-not (Test-Path -LiteralPath $configMarker -PathType Leaf)) {
+              throw "User configuration marker was removed: $configMarker"
+            }
+            $payload = Get-Content -Raw -LiteralPath $artifactMarker | ConvertFrom-Json
+            if ($payload.preserve -ne $true) { throw 'Saved analysis artifact marker content changed.' }
+            if ((Get-Content -Raw -LiteralPath $configMarker) -notmatch 'version = "v1.5.0"') {
+              throw 'User configuration marker content changed.'
+            }
+          }
+
+          if (@(Get-RepoDNAInstallations).Count -ne 0) { throw 'The Windows runner unexpectedly has RepoDNA installed before the test.' }
+          Invoke-Msi 'i' $baselineMsi 'baseline-v150-install'
+          [void](Assert-OneInstallation '1.5.0')
+          Seed-UserData
+
+          Invoke-Msi 'i' $candidateMsi 'upgrade-to-v151'
+          [void](Assert-OneInstallation '1.5.1')
+          Assert-UserDataPreserved
+          Write-Host 'Verified in-place MSI upgrade v1.5.0 -> v1.5.1, exactly one registered installation, and preservation of the RepoDNA data/artifact and configuration paths.'
+
+          Invoke-Msi 'x' $candidateMsi 'upgrade-uninstall'
+          if (@(Get-RepoDNAInstallations).Count -ne 0) { throw 'RepoDNA remained registered after upgraded MSI uninstall.' }
+          Assert-UserDataPreserved
+          Write-Host 'Verified upgraded MSI uninstall removes the app registration without deleting saved data or configuration.'
+
+          Invoke-Msi 'i' $candidateMsi 'clean-v151-install'
+          [void](Assert-OneInstallation '1.5.1')
+          Assert-UserDataPreserved
+          Invoke-Msi 'x' $candidateMsi 'clean-v151-uninstall'
+          if (@(Get-RepoDNAInstallations).Count -ne 0) { throw 'RepoDNA remained registered after clean-install uninstall.' }
+          Assert-UserDataPreserved
+          Write-Host 'Verified clean v1.5.1 MSI install/uninstall and continued user-data preservation.'
+
+      - name: Verify NSIS install, branding and uninstall
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $installer = (Resolve-Path 'candidate/RepoDNA_1.5.1_x64-setup.exe').Path
+
+          function Get-RepoDNAInstallations {
+            $paths = @(
+              'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+              'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+              'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+            )
+            @(Get-ItemProperty -Path $paths -ErrorAction SilentlyContinue |
+              Where-Object { $_.PSObject.Properties['DisplayName'] -and $_.DisplayName -ceq 'RepoDNA' })
+          }
+
+          if (@(Get-RepoDNAInstallations).Count -ne 0) { throw 'MSI qualification left a RepoDNA registration before NSIS testing.' }
+          $install = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+          if ($install.ExitCode -notin @(0, 3010)) { throw "NSIS install failed with exit code $($install.ExitCode)." }
+
+          $entries = @(Get-RepoDNAInstallations)
+          if ($entries.Count -ne 1) { throw "Expected one NSIS installation; found $($entries.Count)." }
+          $entry = $entries[0]
+          if ($entry.DisplayVersion -cne '1.5.1') { throw "NSIS installed '$($entry.DisplayVersion)', expected 1.5.1." }
+          if ($entry.Publisher -cne 'RepoDNA') { throw "NSIS publisher '$($entry.Publisher)' is not RepoDNA." }
+
+          $command = [string]$entry.UninstallString
+          if ($command -match '^"([^"]+)"\s*(.*)$') {
+            $uninstaller = $Matches[1]
+            $existingArgs = $Matches[2].Trim()
+          } elseif ($command -match '^(.*?\.exe)(.*)$') {
+            $uninstaller = $Matches[1].Trim()
+            $existingArgs = $Matches[2].Trim()
+          } else {
+            throw "Unrecognized NSIS uninstall command: $command"
+          }
+          if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) { throw "Missing NSIS uninstaller: $uninstaller" }
+          $appExe = Join-Path (Split-Path -Parent $uninstaller) 'repodna-desktop.exe'
+          if (-not (Test-Path -LiteralPath $appExe -PathType Leaf)) { throw "Missing installed application: $appExe" }
+          $info = (Get-Item -LiteralPath $appExe).VersionInfo
+          if ($info.CompanyName -cne 'RepoDNA' -or $info.FileDescription -cne 'RepoDNA') {
+            throw "Installed NSIS executable metadata mismatch: CompanyName='$($info.CompanyName)' FileDescription='$($info.FileDescription)'."
+          }
+          Write-Host 'Verified NSIS install: version 1.5.1, Publisher RepoDNA, and executable CompanyName/FileDescription RepoDNA.'
+
+          $uninstallArgs = ($existingArgs + ' /S').Trim()
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList $uninstallArgs -Wait -PassThru
+          if ($uninstall.ExitCode -notin @(0, 3010)) { throw "NSIS uninstall failed with exit code $($uninstall.ExitCode)." }
+          for ($attempt = 1; $attempt -le 20; $attempt++) {
+            if (@(Get-RepoDNAInstallations).Count -eq 0) {
+              Write-Host 'Verified NSIS uninstall and registration cleanup.'
+              exit 0
+            }
+            Start-Sleep -Seconds 1
+          }
+          throw 'NSIS uninstall left RepoDNA registered.'
