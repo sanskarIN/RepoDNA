@@ -93,6 +93,34 @@ fn path(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
 
+
+#[test]
+fn validates_remote_revision_cli_options_without_network() {
+    let env = Env::new();
+    let conflicts = env.run(&[
+        "analyze",
+        "https://github.com/org/repo",
+        "--branch",
+        "main",
+        "--tag",
+        "v1.0.0",
+    ]);
+    assert_eq!(code(&conflicts), 2, "{}", stderr(&conflicts));
+
+    let invalid = env.run(&[
+        "analyze",
+        "https://github.com/org/repo",
+        "--branch",
+        "invalid..ref",
+    ]);
+    assert_eq!(code(&invalid), 3, "{}", stderr(&invalid));
+    assert!(stderr(&invalid).contains("invalid"));
+
+    let non_remote = env.run(&["analyze", ".", "--branch", "main"]);
+    assert_eq!(code(&non_remote), 3, "{}", stderr(&non_remote));
+    assert!(stderr(&non_remote).contains("remote Git URL"));
+}
+
 #[test]
 fn prints_version_help_and_usage_errors() {
     let env = Env::new();
