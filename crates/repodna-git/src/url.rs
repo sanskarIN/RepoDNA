@@ -194,7 +194,7 @@ pub struct CloneTarget {
     pub repository_url: String,
     /// Branch or tag to check out, when the input is a GitHub tree URL.
     pub branch: Option<String>,
-    /// Exact commit selected by a GitHub /commit/<sha> browser URL.
+    /// Exact commit selected by a GitHub `/commit/<sha>` browser URL.
     pub commit: Option<String>,
 }
 
