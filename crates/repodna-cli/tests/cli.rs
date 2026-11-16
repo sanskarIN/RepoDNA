@@ -93,7 +93,6 @@ fn path(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
 
-
 #[test]
 fn validates_remote_revision_cli_options_without_network() {
     let env = Env::new();
