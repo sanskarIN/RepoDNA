@@ -6,13 +6,9 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-No additional changes are recorded since the v1.5.1 maintenance candidate.
-The v1.5.1 tag and public stable release have not been published.
+No additional changes are recorded since v1.5.1.
 
-## [1.5.1] - 2026-11-14
-
-> Release-candidate notes, not a claim of public availability. The exact
-> published release date must be confirmed at the final approval gate.
+## [1.5.1] - 2026-11-16
 
 RepoDNA 1.5.1 is a focused maintenance update built from the published
 v1.5.0 source. It excludes new branch-root analysis and counts-only exports

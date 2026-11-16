@@ -8,10 +8,10 @@ the RepoDNA release it runs from this repository's releases, and checks it again
 release's `SHA256SUMS.txt`.
 
 **Version compatibility:** The examples below target the v1.5.1
-maintenance tag **after it is published**. Until then, the released action
-remains v1.5.0. This patch retains the CI `fileOwners` field and Findings
-review first shipped in v1.5.0. Untagged `main` features do not become part
-of the v1.5.1 release.
+maintenance tag. Confirm that the tag is published in
+[GitHub Releases](https://github.com/sanskarIN/RepoDNA/releases) before pinning
+it. This patch retains the CI `fileOwners` field and Findings review first
+shipped in v1.5.0. Untagged `main` features do not become part of v1.5.1.
 
 ```yaml
 name: RepoDNA

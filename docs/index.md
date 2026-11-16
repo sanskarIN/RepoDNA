@@ -12,9 +12,10 @@ repository.
 
 ## Start here
 
-**v1.5.1 is a maintenance release candidate until tagged and published.**
-See its [qualification checklist](../packaging/release/v1.5.1-checklist.md);
-the latest publicly downloadable stable remains v1.5.0 until then.
+**v1.5.1 is a focused maintenance update to the v1.5.0 release line.**
+See [GitHub Releases](https://github.com/sanskarIN/RepoDNA/releases) for the
+latest published version and the [v1.5.1 qualification record](../packaging/release/v1.5.1-checklist.md)
+for pre-publication release checks.
 
 - [Getting started](getting-started.md): analyze your first repository in five minutes
 - [Practical workflows](workflows.md): browser exploration, CLI history, CI baselines, and safe sharing

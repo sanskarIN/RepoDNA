@@ -17,15 +17,15 @@ the browser, and an official GitHub Action runs RepoDNA in workflows.
 
 ## After v1.5.0 — v1.5.1 maintenance
 
-RepoDNA v1.5.0 was published November 6, 2026. A focused **v1.5.1 patch**
-is being qualified from that exact stable tag. It addresses saved-analysis
+RepoDNA v1.5.0 was published November 6, 2026. The focused **v1.5.1 patch**
+is built from that exact stable source. It addresses saved-analysis
 recovery/deletion correctness, malformed artifact validation and Git remote
 security without adding the newer features already on `main`.
 
 The `main` branch continues broader post-v1.5.0 feature development
 independently. No future minor-version scope is promised by this patch. See
 the [v1.5.1 qualification record](packaging/release/v1.5.1-checklist.md).
-The release remains unpublished until full trial and explicit maintainer approval.
+Published release availability is listed on the [GitHub Releases page](https://github.com/sanskarIN/RepoDNA/releases); the qualification record documents the pre-publication approval gate.
 
 ## Candidate feature milestones
 

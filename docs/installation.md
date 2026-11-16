@@ -23,10 +23,10 @@ reports no history). Nothing else: the binaries have no runtime dependencies.
 
 ## Prebuilt binaries
 
-The examples below use the **v1.5.1** release-candidate filenames,
-which become public only when the corresponding stable GitHub Release is
-approved and published. Confirm the published assets and checksums on the
-[GitHub releases page](https://github.com/sanskarIN/RepoDNA/releases).
+The examples below use **v1.5.1** archive and installer filenames. Confirm
+that the matching version and its assets are published on the
+[GitHub releases page](https://github.com/sanskarIN/RepoDNA/releases), and
+verify downloads with that release's `SHA256SUMS.txt`.
 The hosted GitHub Pages interface can update independently of desktop/CLI
 packages. See [release compatibility](reviewing-changes.md).
 
