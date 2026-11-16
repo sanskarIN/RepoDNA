@@ -368,7 +368,7 @@ pub fn analyze(
     let git = detected_git
         .as_ref()
         .and_then(|result| result.as_ref().ok());
-    let prepared = prepare_input(&request.input, git, request.fetch, cancel)?;
+    let prepared = prepare_input(&request.input, git, request.fetch.clone(), cancel)?;
     warnings.extend(prepared.notes.iter().cloned());
     let root = prepared.root.as_path();
 
