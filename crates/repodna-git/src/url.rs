@@ -201,8 +201,11 @@ pub struct CloneTarget {
 /// A user-selected remote revision, independent of the browser URL.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RequestedRevision {
+    /// A branch that should remain attached to HEAD.
     Branch(String),
+    /// A tag to check out at detached HEAD.
     Tag(String),
+    /// A full-length commit identifier to check out at detached HEAD.
     Commit(String),
 }
 
