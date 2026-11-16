@@ -70,27 +70,40 @@ pub fn clone_repository(
     cancel: &CancellationToken,
 ) -> Result<(), GitError> {
     let target = resolve_clone_target(url, options.policy)?;
-    let revision = options.revision.or_else(|| target.commit.clone().map(RequestedRevision::Commit));
+    let revision = options
+        .revision
+        .or_else(|| target.commit.clone().map(RequestedRevision::Commit));
     if let Some(revision) = &revision {
         revision.validate()?;
     }
     let destination_text = destination.to_string_lossy().into_owned();
     let depth = options.depth.map(|depth| depth.max(1).to_string());
-    let args = clone_args(&target, revision.as_ref(), depth.as_deref(), &destination_text);
+    let args = clone_args(
+        &target,
+        revision.as_ref(),
+        depth.as_deref(),
+        &destination_text,
+    );
     // Name the failure after what the user asked for, not after the options it ran with.
-    runner.run_global(&args, cancel).map_err(|error| match error {
-        GitError::CommandFailed { status, stderr, .. } => GitError::CommandFailed {
-            command: "git clone".to_owned(),
-            status,
-            stderr,
-        },
-        other => other,
-    })?;
+    runner
+        .run_global(&args, cancel)
+        .map_err(|error| match error {
+            GitError::CommandFailed { status, stderr, .. } => GitError::CommandFailed {
+                command: "git clone".to_owned(),
+                status,
+                stderr,
+            },
+            other => other,
+        })?;
 
     // Explicit branch selection must remain on that branch. A similarly named
     // tag is not a substitute; Git's --branch accepts both by design.
     if let Some(RequestedRevision::Branch(expected)) = &revision {
-        let actual = runner.text(destination, &["symbolic-ref", "--quiet", "--short", "HEAD"], cancel)?;
+        let actual = runner.text(
+            destination,
+            &["symbolic-ref", "--quiet", "--short", "HEAD"],
+            cancel,
+        )?;
         if actual != *expected {
             return Err(GitError::InvalidUrl(
                 "the selected branch did not produce a branch checkout".to_owned(),
@@ -102,7 +115,11 @@ pub fn clone_repository(
     }
     // A GitHub /tree/ URL can refer to a branch or a tag. Git clone --branch
     // handles both, and every successful clone must have a real commit at HEAD.
-    runner.text(destination, &["rev-parse", "--verify", "HEAD^{commit}"], cancel)?;
+    runner.text(
+        destination,
+        &["rev-parse", "--verify", "HEAD^{commit}"],
+        cancel,
+    )?;
     Ok(())
 }
 
@@ -117,10 +134,13 @@ fn finish_detached_checkout(
         RequestedRevision::Tag(name) => {
             let reference = format!("refs/tags/{name}");
             let peeled = format!("{reference}^{{commit}}");
-            let expected = runner.text(destination, &["rev-parse", "--verify", &peeled], cancel)
-                .map_err(|_| GitError::InvalidUrl(
-                    "the selected tag is not available in the cloned repository".to_owned(),
-                ))?;
+            let expected = runner
+                .text(destination, &["rev-parse", "--verify", &peeled], cancel)
+                .map_err(|_| {
+                    GitError::InvalidUrl(
+                        "the selected tag is not available in the cloned repository".to_owned(),
+                    )
+                })?;
             (reference, expected)
         }
         RequestedRevision::Commit(sha) => {
@@ -141,14 +161,25 @@ fn finish_detached_checkout(
     };
     runner.stream(
         Some(destination),
-        &["-c", "core.symlinks=false", "checkout", "--force", "--detach", &reference],
+        &[
+            "-c",
+            "core.symlinks=false",
+            "checkout",
+            "--force",
+            "--detach",
+            &reference,
+        ],
         cancel,
         |reader| {
             std::io::copy(reader, &mut std::io::sink()).map_err(GitError::Io)?;
             Ok(())
         },
     )?;
-    let actual = runner.text(destination, &["rev-parse", "--verify", "HEAD^{commit}"], cancel)?;
+    let actual = runner.text(
+        destination,
+        &["rev-parse", "--verify", "HEAD^{commit}"],
+        cancel,
+    )?;
     if actual != expected {
         return Err(GitError::InvalidUrl(
             "the checked-out commit does not match the selected revision".to_owned(),
@@ -218,7 +249,6 @@ mod tests {
             ]
         );
     }
-
 
     #[test]
     fn explicit_revision_overrides_tree_url_and_defers_commit_checkout() {
