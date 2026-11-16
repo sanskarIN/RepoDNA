@@ -4,9 +4,7 @@ import { githubSourceHint } from "./github-source";
 describe("GitHub browser URL preview", () => {
   it("recognizes the exact Sonumio branch without truncating slash names", () => {
     expect(
-      githubSourceHint(
-        "https://github.com/sanskarIN/sonumio/tree/feat/initial-audio-platform",
-      ),
+      githubSourceHint("https://github.com/sanskarIN/sonumio/tree/feat/initial-audio-platform"),
     ).toEqual({
       repository: "sanskarIN/sonumio",
       reference: "feat/initial-audio-platform",
