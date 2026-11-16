@@ -306,10 +306,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            runner.text(repo.path(), &["rev-parse", "HEAD"], &cancel).unwrap(),
+            runner
+                .text(repo.path(), &["rev-parse", "HEAD"], &cancel)
+                .unwrap(),
             first
         );
-        assert!(runner.text(repo.path(), &["symbolic-ref", "HEAD"], &cancel).is_err());
+        assert!(
+            runner
+                .text(repo.path(), &["symbolic-ref", "HEAD"], &cancel)
+                .is_err()
+        );
         finish_detached_checkout(
             &runner,
             repo.path(),
@@ -318,7 +324,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            runner.text(repo.path(), &["rev-parse", "HEAD"], &cancel).unwrap(),
+            runner
+                .text(repo.path(), &["rev-parse", "HEAD"], &cancel)
+                .unwrap(),
             second
         );
         assert!(
