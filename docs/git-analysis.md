@@ -30,6 +30,17 @@ the history sections are marked *unavailable* and the rest of the analysis still
   use the branch-root link. The static hosted web version cannot clone
   remote Git repositories; use the CLI, desktop app, or `repodna serve`.
   This is not available in the already-published v1.5.0 installers.
+- **Explicit revisions (development-only)**: `repodna analyze URL --branch
+  feat/initial-audio-platform` selects an existing branch, `--tag v1.5.0`
+  selects a detached tag, and `--commit <full-SHA>` selects a detached
+  commit already available in the fetched objects. These switches are
+  mutually exclusive and take precedence over references in GitHub browser URLs.
+  Native desktop and local-server forms offer the same choices. GitHub
+  `/commit/<full-SHA>` browser links are also recognized. A successful
+  checkout is verified against Git's HEAD and the selected revision; missing
+  branches or unreachable commits do not fall back to the default branch.
+  `--clone-depth` intentionally limits evidence and can exclude commits.
+  This new feature is **not included in the published v1.5.1 maintenance installers**.
 - **Which checkout**: the Overview and History views identify the branch checked out
   when the analysis ran, if Git supplies it. This is different from the
   repository's default branch and does not imply that any newer remote commits
