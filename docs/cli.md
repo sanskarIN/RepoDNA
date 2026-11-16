@@ -95,6 +95,9 @@ repodna analyze                       # the current directory
 repodna analyze ~/src/project --profile deep
 repodna analyze https://github.com/sanskarIN/RepoDNA
 repodna analyze https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development  # development builds after v1.5.0
+repodna analyze https://github.com/sanskarIN/sonumio --branch feat/initial-audio-platform  # development builds only
+repodna analyze https://github.com/owner/repo --tag v1.5.0  # detached HEAD
+repodna analyze https://github.com/owner/repo --commit 0123456789abcdef0123456789abcdef01234567  # full SHA
 repodna analyze . --output repodna-report   # also write a report bundle
 repodna analyze . --format json > repodna.json
 repodna analyze . --format markdown > REPORT.md
@@ -103,9 +106,23 @@ repodna analyze . --format markdown > REPORT.md
 | Option | Meaning |
 |---|---|
 | `--format text\|json\|markdown` | What to print: a summary (default), the complete artifact, or the full report. |
+| `--branch NAME` | Select an existing remote branch; overrides any branch or tag in the input URL. |
+| `--tag NAME` | Analyze a remote tag at detached HEAD. |
+| `--commit SHA` | Analyze an exact full 40- or 64-hex-character commit when fetched Git objects contain it; detached HEAD. |
 | `-o`, `--output DIR` | Also write a report bundle into this directory. |
 | `--privacy PRESET` | Privacy preset for printed and written output (default `local`). |
 | `--force` | Write into an existing directory that RepoDNA did not create. |
+
+The three revision switches are mutually exclusive and apply only to remote Git URLs.
+An explicit switch wins over a GitHub browser URL; otherwise a recognized
+`/tree/<ref>` or `/commit/<full-sha>` is used, followed by the repository
+default branch. A `/tree/` path may include a subdirectory; RepoDNA treats
+everything after `/tree/` as the candidate ref and will not guess where a
+directory starts. Use the branch-root URL or `--branch` in that case.
+A full commit SHA must be present in the cloned objects (some hosts reject
+arbitrary SHA fetching). Git verifies the checkout before analysis.
+These selectors are **development-only** and are not in the published
+v1.5.1 maintenance release.
 
 Progress goes to standard error, so `--format json > file` captures only the artifact.
 Press Ctrl+C to cancel; exit code 130 means the analysis was cancelled.
