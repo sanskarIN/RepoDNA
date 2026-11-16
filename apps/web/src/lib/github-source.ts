@@ -20,7 +20,7 @@ export function githubSourceHint(input: string): GitHubSourceHint | null {
     }
     const segments = url.pathname.split("/");
     const [, owner, repository, route, ...refParts] = segments;
-    if (!owner || !repository || !["tree", "commit"].includes(route)) return null;
+    if (!owner || !repository || !route || !["tree", "commit"].includes(route)) return null;
     const raw = refParts.join("/").replace(/\/$/, "");
     if (!raw || (route === "commit" && refParts.length !== 1)) return null;
     const reference = decodeURIComponent(raw);
