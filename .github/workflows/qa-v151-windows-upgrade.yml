@@ -27,13 +27,13 @@ jobs:
           gh release download v1.5.0 --repo sanskarIN/RepoDNA --pattern 'RepoDNA_1.5.0_x64_en-US.msi' --dir baseline
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the published v1.5.0 x64 MSI.' }
 
-          gh run download 43569346000 --repo sanskarIN/RepoDNA --name desktop-Windows --dir candidate
+          gh run download 43803524993 --repo sanskarIN/RepoDNA --name desktop-Windows --dir candidate
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen v1.5.1 Windows x64 artifacts.' }
 
-          gh run download 43569346000 --repo sanskarIN/RepoDNA --name desktop-Windows-arm64 --dir candidate-arm64
+          gh run download 43803524993 --repo sanskarIN/RepoDNA --name desktop-Windows-arm64 --dir candidate-arm64
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen v1.5.1 Windows ARM64 artifacts.' }
 
-          gh run download 43569346000 --repo sanskarIN/RepoDNA --name trial-sha256sums --dir sums
+          gh run download 43803524993 --repo sanskarIN/RepoDNA --name trial-sha256sums --dir sums
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the frozen trial SHA-256 manifest.' }
 
           $baselineMsi = 'baseline/RepoDNA_1.5.0_x64_en-US.msi'
