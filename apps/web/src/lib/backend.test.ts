@@ -277,9 +277,9 @@ describe("explicit native Git revision requests", () => {
   });
 
   it("passes tags and commits distinctly, never as repository URLs", async () => {
-    const spy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify(validJob), { status: 202 }));
+    const spy = vi.spyOn(globalThis, "fetch");
+    spy.mockResolvedValueOnce(new Response(JSON.stringify(validJob), { status: 202 }));
+    spy.mockResolvedValueOnce(new Response(JSON.stringify(validJob), { status: 202 }));
     const backend = new ServerBackend(null);
     await backend.startScan("https://github.com/org/repo", undefined, {
       kind: "tag",
