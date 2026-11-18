@@ -136,10 +136,11 @@ fn finish_detached_checkout(
             let peeled = format!("{reference}^{{commit}}");
             let expected = runner
                 .text(destination, &["rev-parse", "--verify", &peeled], cancel)
-                .map_err(|_| {
-                    GitError::InvalidUrl(
+                .map_err(|error| match error {
+                    GitError::CommandFailed { .. } => GitError::InvalidUrl(
                         "the selected tag is not available in the cloned repository".to_owned(),
-                    )
+                    ),
+                    other => other,
                 })?;
             (reference, expected)
         }
@@ -147,13 +148,10 @@ fn finish_detached_checkout(
             let peeled = format!("{sha}^{{commit}}");
             let expected = runner.text(destination, &["rev-parse", "--verify", &peeled], cancel)
                 .map_err(|error| match error {
-                    GitError::Cancelled => GitError::Cancelled,
-                    other => {
-                        let _ = other;
-                        GitError::InvalidUrl(
-                            "the requested commit is not reachable from fetched references; try a branch containing it or a full-history clone".to_owned(),
-                        )
-                    }
+                    GitError::CommandFailed { .. } => GitError::InvalidUrl(
+                        "the requested commit is not reachable from fetched references; try a branch containing it or a full-history clone".to_owned(),
+                    ),
+                    other => other,
                 })?;
             (sha.clone(), expected)
         }
@@ -338,6 +336,38 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn detached_checkout_preserves_cancelled_git_operations() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("state.txt", "initial");
+        let commit = repo.commit(
+            "initial",
+            "Test",
+            "test@example.invalid",
+            "2025-01-01T00:00:00Z",
+        );
+        repo.tag("v0.1.0", None);
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+
+        for revision in [
+            RequestedRevision::Tag("v0.1.0".to_owned()),
+            RequestedRevision::Commit(commit),
+        ] {
+            assert!(
+                matches!(
+                    finish_detached_checkout(&runner, repo.path(), &revision, &cancel),
+                    Err(GitError::Cancelled)
+                ),
+                "cancellation must not be reported as an unavailable revision"
+            );
+        }
     }
 
     #[test]
