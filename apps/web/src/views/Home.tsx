@@ -201,7 +201,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           ? `GitHub ${hint.repository}: ${hint.kind === "tree" ? "branch or tag candidate" : "commit candidate"} ${hint.reference}. `
           : "Remote branch, tag, and commit selection requires native Git. "}
         {revisionKind === "auto"
-          ? "RepoDNA verifies the requested revision during analysis. GitHub directory URLs may be ambiguous."
+          ? "For GitHub tree URLs, RepoDNA finds the longest advertised branch or tag, verifies any folder path, and analyzes the whole repository."
           : "Your explicit selection overrides the reference in the URL."}
       </p>
       <p className="muted" id="scan-profile-help">
