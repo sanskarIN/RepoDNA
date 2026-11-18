@@ -27,10 +27,14 @@ CI, checkouts are often shallow (`fetch-depth: 1`); fetch the full history
 clone URLs, not GitHub browser `/tree/<branch>` links. In development builds
 after v1.5.0, branch-root links are recognized and the selected branch is
 checked out. An invalid or missing branch still fails with a helpful hint.
-Avoid pasting a branch link with an extra subdirectory path: a branch
-itself may contain slashes, so that form is ambiguous. On v1.5.0, clone
-the repository yourself, switch to the branch, then analyze its local
-directory as a workaround.
+The latest development-only revision work resolves slash-containing
+`/tree/` links against actual remote branch/tag refs, selecting the
+longest matching prefix and verifying any trailing directory exists.
+It then analyzes the whole repository at that revision (not only the
+directory). If the ref is unavailable, ambiguous due to an unsupported
+URL component, or remote discovery is refused, paste the branch-root
+URL or use the explicit `--branch`/`--tag` selector. With published
+stable v1.5.1, clone the repository yourself and analyze the local checkout.
 
 **A GitHub pull request, issue, or release page cannot be cloned.**
 These are browser pages rather than Git repository URLs. Development builds
