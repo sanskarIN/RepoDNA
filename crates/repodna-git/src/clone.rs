@@ -502,6 +502,104 @@ mod tests {
     }
 
     #[test]
+    fn discovered_tag_and_branch_clone_the_expected_commit_and_directory() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("src/engine/main.rs", "first");
+        let first = repo.commit(
+            "first",
+            "Test",
+            "test@example.invalid",
+            "2025-01-01T00:00:00Z",
+        );
+        repo.tag("feat/audio", None);
+        repo.write("src/engine/main.rs", "second");
+        let second = repo.commit(
+            "second",
+            "Test",
+            "test@example.invalid",
+            "2025-01-02T00:00:00Z",
+        );
+        repo.git(&["branch", "other/audio"]);
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        let source = CloneTarget {
+            repository_url: repo.path().to_string_lossy().into_owned(),
+            branch: None,
+            commit: None,
+        };
+        let destination = tempfile::tempdir().unwrap();
+
+        let selected = discover_tree_ref(
+            &runner,
+            &source.repository_url,
+            "feat/audio/src/engine",
+            &cancel,
+        )
+        .unwrap();
+        let tagged = destination.path().join("tagged");
+        let tagged_text = tagged.to_string_lossy().into_owned();
+        let tag_revision = selected_revision(&selected);
+        runner
+            .run_global(
+                &clone_args(&source, Some(&tag_revision), None, &tagged_text),
+                &cancel,
+            )
+            .unwrap();
+        finish_detached_checkout(&runner, &tagged, &tag_revision, &cancel).unwrap();
+        verify_tree_directory(
+            &runner,
+            &tagged,
+            selected.directory.as_deref().unwrap(),
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            runner.text(&tagged, &["rev-parse", "HEAD"], &cancel).unwrap(),
+            first
+        );
+        assert_eq!(
+            std::fs::read_to_string(tagged.join("src/engine/main.rs")).unwrap(),
+            "first"
+        );
+
+        let selected = discover_tree_ref(
+            &runner,
+            &source.repository_url,
+            "other/audio/src/engine",
+            &cancel,
+        )
+        .unwrap();
+        let branched = destination.path().join("branched");
+        let branched_text = branched.to_string_lossy().into_owned();
+        let branch_revision = selected_revision(&selected);
+        runner
+            .run_global(
+                &clone_args(&source, Some(&branch_revision), None, &branched_text),
+                &cancel,
+            )
+            .unwrap();
+        verify_branch_checkout(&runner, &branched, "other/audio", &cancel).unwrap();
+        verify_tree_directory(
+            &runner,
+            &branched,
+            selected.directory.as_deref().unwrap(),
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            runner.text(&branched, &["rev-parse", "HEAD"], &cancel).unwrap(),
+            second
+        );
+        assert_eq!(
+            std::fs::read_to_string(branched.join("src/engine/main.rs")).unwrap(),
+            "second"
+        );
+    }
+
+    #[test]
     fn checkout_with_same_named_branch_and_tag_verifies_full_symbolic_ref() {
         if !git_available() {
             return;
