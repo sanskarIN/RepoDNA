@@ -1,5 +1,6 @@
 //! Cloning remote repositories for analysis.
 
+use std::io::{BufRead, Read};
 use std::path::Path;
 
 use repodna_core::CancellationToken;
@@ -56,6 +57,133 @@ fn clone_args<'a>(
     args
 }
 
+// Limit memory even when the remote advertises hostile or unexpectedly many refs.
+const MAX_REMOTE_REF_LINE: usize = 16 * 1024;
+const MAX_REMOTE_REFS: usize = 16 * 1024 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RemoteTreeMatch {
+    reference: String,
+    directory: Option<String>,
+    branch: bool,
+}
+
+/// GitHub /tree/ links cannot delimit slash-containing refs from directories.
+/// Prefer the longest advertised ref; prefer a branch for equal tag/branch names.
+fn consider_remote_ref(
+    requested: &str,
+    advertised: &str,
+    best: &mut Option<RemoteTreeMatch>,
+) {
+    let (branch, reference) = if let Some(name) = advertised.strip_prefix("refs/heads/") {
+        (true, name)
+    } else if let Some(name) = advertised.strip_prefix("refs/tags/") {
+        (false, name)
+    } else {
+        return;
+    };
+    let Some(remaining) = requested.strip_prefix(reference) else {
+        return;
+    };
+    let directory = if remaining.is_empty() {
+        None
+    } else if let Some(directory) = remaining.strip_prefix('/') {
+        if directory.is_empty() {
+            return;
+        }
+        Some(directory.to_owned())
+    } else {
+        return;
+    };
+    if best.as_ref().is_none_or(|current| {
+        reference.len() > current.reference.len()
+            || (reference.len() == current.reference.len() && branch && !current.branch)
+    }) {
+        *best = Some(RemoteTreeMatch {
+            reference: reference.to_owned(),
+            directory,
+            branch,
+        });
+    }
+}
+
+/// Resolve only advertised Git refs, with bounded, cancellable Git output.
+fn discover_tree_ref(
+    runner: &GitRunner,
+    repository_url: &str,
+    requested: &str,
+    cancel: &CancellationToken,
+) -> Result<RemoteTreeMatch, GitError> {
+    let mut best = None;
+    let mut total = 0usize;
+    runner.stream(
+        None,
+        &["ls-remote", "--refs", "--heads", "--tags", "--", repository_url],
+        cancel,
+        |reader| {
+            loop {
+                let mut line = Vec::new();
+                let size = reader
+                    .take((MAX_REMOTE_REF_LINE + 1) as u64)
+                    .read_until(b'\n', &mut line)
+                    .map_err(GitError::Io)?;
+                if size == 0 {
+                    break;
+                }
+                total = total.saturating_add(size);
+                if size > MAX_REMOTE_REF_LINE || total > MAX_REMOTE_REFS {
+                    return Err(GitError::Parse(
+                        "remote reference discovery exceeded its size limit; use --branch or --tag explicitly"
+                            .to_owned(),
+                    ));
+                }
+                let Ok(line) = std::str::from_utf8(&line) else {
+                    continue;
+                };
+                let Some((object, reference)) =
+                    line.trim_end_matches(['\r', '\n']).split_once('\t')
+                else {
+                    continue;
+                };
+                if matches!(object.len(), 40 | 64)
+                    && object.bytes().all(|byte| byte.is_ascii_hexdigit())
+                {
+                    consider_remote_ref(requested, reference, &mut best);
+                }
+            }
+            Ok(())
+        },
+    )?;
+    best.ok_or_else(|| {
+        GitError::InvalidUrl(
+            "the GitHub /tree/ path does not match an advertised branch or tag; use a branch-root URL or select --branch/--tag explicitly"
+                .to_owned(),
+        )
+    })
+}
+
+/// Require a real directory, never silently choose a shorter ref for a typo.
+fn verify_tree_directory(
+    runner: &GitRunner,
+    checkout: &Path,
+    directory: &str,
+    cancel: &CancellationToken,
+) -> Result<(), GitError> {
+    let entries = runner.text(
+        checkout,
+        &["ls-tree", "-d", "--name-only", "HEAD", "--", directory],
+        cancel,
+    )?;
+    if entries.lines().any(|entry| entry == directory) {
+        Ok(())
+    } else {
+        Err(GitError::InvalidUrl(
+            "the GitHub /tree/ directory does not exist at the checked-out revision"
+                .to_owned(),
+        ))
+    }
+}
+
 /// Clones `url` into `destination` (which must not exist or be empty).
 ///
 /// The clone checks out symbolic links as plain files (`core.symlinks=false`) so nothing in
@@ -69,7 +197,17 @@ pub fn clone_repository(
     options: CloneOptions,
     cancel: &CancellationToken,
 ) -> Result<(), GitError> {
-    let target = resolve_clone_target(url, options.policy)?;
+    let mut target = resolve_clone_target(url, options.policy)?;
+    let mut selected_directory = None;
+    // Explicit selectors bypass remote discovery; branch-root URLs without
+    // slashes retain the original clone path and its error reporting.
+    if options.revision.is_none() {
+        if let Some(candidate) = target.branch.as_deref().filter(|name| name.contains('/')) {
+            let selected = discover_tree_ref(runner, &target.repository_url, candidate, cancel)?;
+            selected_directory = selected.directory;
+            target.branch = Some(selected.reference);
+        }
+    }
     let revision = options
         .revision
         .or_else(|| target.commit.clone().map(RequestedRevision::Commit));
@@ -120,6 +258,9 @@ pub fn clone_repository(
         &["rev-parse", "--verify", "HEAD^{commit}"],
         cancel,
     )?;
+    if let Some(directory) = selected_directory.as_deref() {
+        verify_tree_directory(runner, destination, directory, cancel)?;
+    }
     Ok(())
 }
 
