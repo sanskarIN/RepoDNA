@@ -103,54 +103,65 @@ fn consider_remote_ref(requested: &str, advertised: &str, best: &mut Option<Remo
     }
 }
 
-/// Resolve only advertised Git refs, with bounded, cancellable Git output.
+/// Parse the bounded Git advertisement stream. Keeping this pure allows
+/// deterministic fixtures without relaxing the production runner's disabled
+/// file:// transport.
+fn select_remote_ref(
+    reader: &mut dyn BufRead,
+    requested: &str,
+) -> Result<Option<RemoteTreeMatch>, GitError> {
+    let mut best = None;
+    let mut total = 0usize;
+    loop {
+        let mut line = Vec::new();
+        let size = (&mut *reader)
+            .take((MAX_REMOTE_REF_LINE + 1) as u64)
+            .read_until(b'\n', &mut line)
+            .map_err(GitError::Io)?;
+        if size == 0 {
+            break;
+        }
+        total = total.saturating_add(size);
+        if size > MAX_REMOTE_REF_LINE || total > MAX_REMOTE_REFS {
+            return Err(GitError::Parse(
+                "remote reference discovery exceeded its size limit; use --branch or --tag explicitly"
+                    .to_owned(),
+            ));
+        }
+        let Ok(line) = std::str::from_utf8(&line) else {
+            continue;
+        };
+        let Some((object, reference)) = line.trim_end_matches(['\r', '\n']).split_once('\t')
+        else {
+            continue;
+        };
+        if matches!(object.len(), 40 | 64)
+            && object.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            consider_remote_ref(requested, reference, &mut best);
+        }
+    }
+    Ok(best)
+}
+
+/// Resolve only advertised Git refs through the hardened, cancellable runner.
 fn discover_tree_ref(
     runner: &GitRunner,
     repository_url: &str,
     requested: &str,
     cancel: &CancellationToken,
 ) -> Result<RemoteTreeMatch, GitError> {
-    let mut best = None;
-    let mut total = 0usize;
+    let mut selected = None;
     runner.stream(
         None,
         &["ls-remote", "--refs", "--heads", "--tags", "--", repository_url],
         cancel,
         |reader| {
-            loop {
-                let mut line = Vec::new();
-                let size = (&mut *reader)
-                    .take((MAX_REMOTE_REF_LINE + 1) as u64)
-                    .read_until(b'\n', &mut line)
-                    .map_err(GitError::Io)?;
-                if size == 0 {
-                    break;
-                }
-                total = total.saturating_add(size);
-                if size > MAX_REMOTE_REF_LINE || total > MAX_REMOTE_REFS {
-                    return Err(GitError::Parse(
-                        "remote reference discovery exceeded its size limit; use --branch or --tag explicitly"
-                            .to_owned(),
-                    ));
-                }
-                let Ok(line) = std::str::from_utf8(&line) else {
-                    continue;
-                };
-                let Some((object, reference)) =
-                    line.trim_end_matches(['\r', '\n']).split_once('\t')
-                else {
-                    continue;
-                };
-                if matches!(object.len(), 40 | 64)
-                    && object.bytes().all(|byte| byte.is_ascii_hexdigit())
-                {
-                    consider_remote_ref(requested, reference, &mut best);
-                }
-            }
+            selected = select_remote_ref(reader, requested)?;
             Ok(())
         },
     )?;
-    best.ok_or_else(|| {
+    selected.ok_or_else(|| {
         GitError::InvalidUrl(
             "the GitHub /tree/ path does not match an advertised branch or tag; use a branch-root URL or select --branch/--tag explicitly"
                 .to_owned(),
@@ -413,6 +424,21 @@ mod tests {
     }
 
     #[test]
+    fn malformed_or_oversized_remote_ref_advertisements_are_rejected() {
+        let mut malformed = std::io::Cursor::new(
+            b"not-a-sha\trefs/heads/main\n0123\trefs/heads/main\n",
+        );
+        assert_eq!(select_remote_ref(&mut malformed, "main").unwrap(), None);
+
+        let too_long = vec![b'x'; MAX_REMOTE_REF_LINE + 1];
+        let mut oversized = std::io::Cursor::new(too_long);
+        assert!(matches!(
+            select_remote_ref(&mut oversized, "main"),
+            Err(GitError::Parse(_))
+        ));
+    }
+
+    #[test]
     fn tree_directory_must_exist_at_selected_revision() {
         if !git_available() {
             return;
@@ -475,9 +501,11 @@ mod tests {
         repo.git(&["branch", "other/audio"]);
         let runner = GitRunner::detect().unwrap();
         let cancel = CancellationToken::new();
-        let remote = repo.path().to_str().unwrap();
+        let listing = repo.git(&["ls-remote", "--refs", "--heads", "--tags", "--", "."]);
+        let mut reader = std::io::Cursor::new(listing.as_bytes());
 
-        let selected = discover_tree_ref(&runner, remote, "feat/audio/src/engine", &cancel)
+        let selected = select_remote_ref(&mut reader, "feat/audio/src/engine")
+            .unwrap()
             .unwrap();
         assert_eq!(selected.reference, "feat/audio");
         assert_eq!(selected.directory.as_deref(), Some("src/engine"));
@@ -493,7 +521,9 @@ mod tests {
         )
         .unwrap();
 
-        let selected = discover_tree_ref(&runner, remote, "other/audio/src/engine", &cancel)
+        let mut reader = std::io::Cursor::new(listing.as_bytes());
+        let selected = select_remote_ref(&mut reader, "other/audio/src/engine")
+            .unwrap()
             .unwrap();
         assert_eq!(
             selected_revision(&selected),
@@ -532,22 +562,20 @@ mod tests {
         };
         let destination = tempfile::tempdir().unwrap();
 
-        let selected = discover_tree_ref(
-            &runner,
-            &source.repository_url,
-            "feat/audio/src/engine",
-            &cancel,
-        )
-        .unwrap();
+        let listing = repo.git(&["ls-remote", "--refs", "--heads", "--tags", "--", "."]);
+        let mut reader = std::io::Cursor::new(listing.as_bytes());
+        let selected = select_remote_ref(&mut reader, "feat/audio/src/engine")
+            .unwrap()
+            .unwrap();
         let tagged = destination.path().join("tagged");
         let tagged_text = tagged.to_string_lossy().into_owned();
         let tag_revision = selected_revision(&selected);
-        runner
-            .run_global(
-                &clone_args(&source, Some(&tag_revision), None, &tagged_text),
-                &cancel,
-            )
-            .unwrap();
+        repo.git(&clone_args(
+            &source,
+            Some(&tag_revision),
+            None,
+            &tagged_text,
+        ));
         finish_detached_checkout(&runner, &tagged, &tag_revision, &cancel).unwrap();
         verify_tree_directory(
             &runner,
@@ -565,22 +593,19 @@ mod tests {
             "first"
         );
 
-        let selected = discover_tree_ref(
-            &runner,
-            &source.repository_url,
-            "other/audio/src/engine",
-            &cancel,
-        )
-        .unwrap();
+        let mut reader = std::io::Cursor::new(listing.as_bytes());
+        let selected = select_remote_ref(&mut reader, "other/audio/src/engine")
+            .unwrap()
+            .unwrap();
         let branched = destination.path().join("branched");
         let branched_text = branched.to_string_lossy().into_owned();
         let branch_revision = selected_revision(&selected);
-        runner
-            .run_global(
-                &clone_args(&source, Some(&branch_revision), None, &branched_text),
-                &cancel,
-            )
-            .unwrap();
+        repo.git(&clone_args(
+            &source,
+            Some(&branch_revision),
+            None,
+            &branched_text,
+        ));
         verify_branch_checkout(&runner, &branched, "other/audio", &cancel).unwrap();
         verify_tree_directory(
             &runner,
