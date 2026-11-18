@@ -123,7 +123,7 @@ fn discover_tree_ref(
         |reader| {
             loop {
                 let mut line = Vec::new();
-                let size = reader
+                let size = (&mut *reader)
                     .take((MAX_REMOTE_REF_LINE + 1) as u64)
                     .read_until(b'\n', &mut line)
                     .map_err(GitError::Io)?;
