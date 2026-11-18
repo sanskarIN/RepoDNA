@@ -144,6 +144,9 @@ impl GitError {
             GitError::Timeout { .. } => Some(
                 "Lower `analysis.max_commits` in your configuration or use `--profile quick` for very large histories.",
             ),
+            GitError::InvalidUrl(reason) if reason.contains("GitHub /tree/") => Some(
+                "Use a GitHub branch or tag URL, or select --branch/--tag explicitly. Any directory in a tree URL must exist at that revision; RepoDNA analyzes the whole repository.",
+            ),
             GitError::InvalidUrl(_) => Some(
                 "Use an https:// or ssh:// URL (or git@host:owner/repo). Local paths should be passed directly, not as URLs.",
             ),
@@ -180,7 +183,7 @@ fn remote_hint(stderr: &str) -> Option<&'static str> {
     let lower = stderr.to_ascii_lowercase();
     if lower.contains("remote branch") && lower.contains("not found") {
         Some(
-            "The requested branch or tag was not found on the remote. Check the branch name, and paste its GitHub /tree/<branch> URL without an additional directory path.",
+            "The requested branch or tag was not found on the remote. Check the ref name, or select --branch/--tag explicitly. GitHub tree URLs with directory paths require an existing advertised ref and directory.",
         )
     } else if ACCESS_DENIED.iter().any(|text| lower.contains(text)) {
         Some(
@@ -198,6 +201,27 @@ fn remote_hint(stderr: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn github_tree_errors_explain_the_ref_and_directory_requirements() {
+        let invalid = GitError::InvalidUrl(
+            "the GitHub /tree/ directory does not exist at the checked-out revision".to_owned(),
+        );
+        let hint = invalid.hint().unwrap();
+        assert!(hint.contains("directory"));
+        assert!(hint.contains("whole repository"));
+
+        let ordinary = GitError::InvalidUrl("bad transport".to_owned());
+        assert!(ordinary.hint().unwrap().contains("https://"));
+
+        let missing = GitError::from_failure(
+            "git clone",
+            Some(128),
+            "fatal: Remote branch missing not found",
+            None,
+        );
+        assert!(missing.hint().unwrap().contains("directory paths"));
+    }
 
     #[test]
     fn classifies_common_failures() {
