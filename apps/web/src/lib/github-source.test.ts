@@ -66,6 +66,8 @@ describe("GitHub browser URL preview", () => {
     for (const sha of ["main", "a".repeat(39), "z".repeat(40), "a".repeat(65)]) {
       expect(githubSourceHint("https://github.com/org/repo/commit/" + sha)).toBeNull();
     }
-    expect(githubSourceHint("https://github.com/org/repo/commit/" + "a".repeat(40) + "/extra")).toBeNull();
+    expect(
+      githubSourceHint("https://github.com/org/repo/commit/" + "a".repeat(40) + "/extra"),
+    ).toBeNull();
   });
 });
