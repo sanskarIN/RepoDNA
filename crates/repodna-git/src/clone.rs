@@ -131,13 +131,10 @@ fn select_remote_ref(
         let Ok(line) = std::str::from_utf8(&line) else {
             continue;
         };
-        let Some((object, reference)) = line.trim_end_matches(['\r', '\n']).split_once('\t')
-        else {
+        let Some((object, reference)) = line.trim_end_matches(['\r', '\n']).split_once('\t') else {
             continue;
         };
-        if matches!(object.len(), 40 | 64)
-            && object.bytes().all(|byte| byte.is_ascii_hexdigit())
-        {
+        if matches!(object.len(), 40 | 64) && object.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             consider_remote_ref(requested, reference, &mut best);
         }
     }
@@ -154,7 +151,14 @@ fn discover_tree_ref(
     let mut selected = None;
     runner.stream(
         None,
-        &["ls-remote", "--refs", "--heads", "--tags", "--", repository_url],
+        &[
+            "ls-remote",
+            "--refs",
+            "--heads",
+            "--tags",
+            "--",
+            repository_url,
+        ],
         cancel,
         |reader| {
             selected = select_remote_ref(reader, requested)?;
@@ -242,10 +246,10 @@ pub fn clone_repository(
         && let Some(candidate) = target.branch.as_deref().filter(|name| name.contains('/'))
     {
         let selected = discover_tree_ref(runner, &target.repository_url, candidate, cancel)?;
-        selected_directory = selected.directory;
-        // Preserve the advertised kind: tags must be detached and branches
-        // must stay attached, even if both refs share the same name.
+        // Determine checkout kind before taking ownership of the directory.
+        // A same-name tag must never silently replace the selected branch.
         revision = Some(selected_revision(&selected));
+        selected_directory = selected.directory;
     }
     if let Some(revision) = &revision {
         revision.validate()?;
@@ -425,9 +429,8 @@ mod tests {
 
     #[test]
     fn malformed_or_oversized_remote_ref_advertisements_are_rejected() {
-        let mut malformed = std::io::Cursor::new(
-            b"not-a-sha\trefs/heads/main\n0123\trefs/heads/main\n",
-        );
+        let mut malformed =
+            std::io::Cursor::new(b"not-a-sha\trefs/heads/main\n0123\trefs/heads/main\n");
         assert_eq!(select_remote_ref(&mut malformed, "main").unwrap(), None);
 
         let too_long = vec![b'x'; MAX_REMOTE_REF_LINE + 1];
@@ -585,7 +588,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            runner.text(&tagged, &["rev-parse", "HEAD"], &cancel).unwrap(),
+            runner
+                .text(&tagged, &["rev-parse", "HEAD"], &cancel)
+                .unwrap(),
             first
         );
         assert_eq!(
@@ -615,7 +620,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            runner.text(&branched, &["rev-parse", "HEAD"], &cancel).unwrap(),
+            runner
+                .text(&branched, &["rev-parse", "HEAD"], &cancel)
+                .unwrap(),
             second
         );
         assert_eq!(
@@ -643,7 +650,11 @@ mod tests {
         // Git shortens a branch to heads/main when a tag called main exists.
         assert_eq!(
             runner
-                .text(repo.path(), &["symbolic-ref", "--quiet", "--short", "HEAD"], &cancel)
+                .text(
+                    repo.path(),
+                    &["symbolic-ref", "--quiet", "--short", "HEAD"],
+                    &cancel
+                )
                 .unwrap(),
             "heads/main"
         );
