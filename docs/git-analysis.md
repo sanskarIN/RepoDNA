@@ -24,12 +24,16 @@ the history sections are marked *unavailable* and the rest of the analysis still
   `https://github.com/owner/repo/tree/branch-name` URL to clone the
   underlying repository and check out that branch before analysis. Slashes
   in branch names are supported (including `%2F`), and one trailing URL
-  slash is accepted. The path after `/tree/` is treated as the complete ref:
-  a URL pointing to a subdirectory inside a branch cannot be distinguished
-  from a branch containing slashes, so
-  use the branch-root link. The static hosted web version cannot clone
-  remote Git repositories; use the CLI, desktop app, or `repodna serve`.
-  This is not available in the already-published v1.5.0 installers.
+  slash is accepted. For slash-containing `/tree/` links, native RepoDNA
+  requests the remote's advertised branch and tag names and chooses the
+  longest matching ref. Any remaining URL path must be a real directory
+  at the checked-out revision; the analysis still covers the **entire
+  repository**, not only that directory. No match or nonexistent directory
+  fails instead of falling back to the default branch. Explicit
+  `--branch`/`--tag` switches bypass this discovery.
+  The static hosted web version cannot clone remote Git repositories;
+  use the CLI, desktop app, or `repodna serve`. This enhancement is
+  development-only and not in the published v1.5.1 maintenance installers.
 - **Explicit revisions (development-only)**: `repodna analyze URL --branch
   feat/initial-audio-platform` selects an existing branch, `--tag v1.5.0`
   selects a detached tag, and `--commit <full-SHA>` selects a detached
