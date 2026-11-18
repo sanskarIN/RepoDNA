@@ -201,12 +201,12 @@ pub fn clone_repository(
     let mut selected_directory = None;
     // Explicit selectors bypass remote discovery; branch-root URLs without
     // slashes retain the original clone path and its error reporting.
-    if options.revision.is_none() {
-        if let Some(candidate) = target.branch.as_deref().filter(|name| name.contains('/')) {
-            let selected = discover_tree_ref(runner, &target.repository_url, candidate, cancel)?;
-            selected_directory = selected.directory;
-            target.branch = Some(selected.reference);
-        }
+    if options.revision.is_none()
+        && let Some(candidate) = target.branch.as_deref().filter(|name| name.contains('/'))
+    {
+        let selected = discover_tree_ref(runner, &target.repository_url, candidate, cancel)?;
+        selected_directory = selected.directory;
+        target.branch = Some(selected.reference);
     }
     let revision = options
         .revision
