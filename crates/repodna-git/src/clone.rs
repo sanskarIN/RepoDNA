@@ -333,6 +333,115 @@ mod tests {
     use repodna_testkit::{GitRepo, git_available};
 
     #[test]
+    fn tree_ref_discovery_prefers_longest_advertised_prefix() {
+        let requested = "feat/audio/src/mixer";
+        let mut best = None;
+        for reference in [
+            "refs/heads/feat",
+            "refs/tags/feat/audio",
+            "refs/heads/feat/audio",
+            "refs/heads/feature",
+            "refs/tags/unrelated",
+        ] {
+            consider_remote_ref(requested, reference, &mut best);
+        }
+        assert_eq!(
+            best,
+            Some(RemoteTreeMatch {
+                reference: "feat/audio".to_owned(),
+                directory: Some("src/mixer".to_owned()),
+                branch: true,
+            })
+        );
+        consider_remote_ref(requested, "refs/heads/feat/audio/src", &mut best);
+        assert_eq!(
+            best,
+            Some(RemoteTreeMatch {
+                reference: "feat/audio/src".to_owned(),
+                directory: Some("mixer".to_owned()),
+                branch: true,
+            })
+        );
+        consider_remote_ref(requested, "refs/heads/feat/audio/src/mixer", &mut best);
+        assert_eq!(
+            best,
+            Some(RemoteTreeMatch {
+                reference: requested.to_owned(),
+                directory: None,
+                branch: true,
+            })
+        );
+    }
+
+    #[test]
+    fn tree_ref_discovery_never_guesses_unadvertised_revisions() {
+        let mut best = None;
+        for reference in [
+            "refs/heads/maintain",
+            "refs/heads/main/subdir-more",
+            "refs/tags/main2",
+            "refs/pull/123/head",
+        ] {
+            consider_remote_ref("main/subdir", reference, &mut best);
+        }
+        assert_eq!(best, None);
+        consider_remote_ref("main/subdir", "refs/tags/main", &mut best);
+        assert_eq!(
+            best,
+            Some(RemoteTreeMatch {
+                reference: "main".to_owned(),
+                directory: Some("subdir".to_owned()),
+                branch: false,
+            })
+        );
+    }
+
+    #[test]
+    fn tree_directory_must_exist_at_selected_revision() {
+        if !git_available() {
+            return;
+        }
+        let repository = GitRepo::new();
+        repository.write("src/engine/main.rs", "fn main() {}");
+        repository.commit(
+            "add source directory",
+            "Test",
+            "test@example.invalid",
+            "2025-01-01T00:00:00Z",
+        );
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        verify_tree_directory(&runner, repository.path(), "src/engine", &cancel).unwrap();
+        assert!(matches!(
+            verify_tree_directory(&runner, repository.path(), "src/missing", &cancel),
+            Err(GitError::InvalidUrl(_))
+        ));
+        assert!(matches!(
+            verify_tree_directory(&runner, repository.path(), "src/engine/main.rs", &cancel),
+            Err(GitError::InvalidUrl(_))
+        ));
+    }
+
+    #[test]
+    fn cancelled_ref_discovery_never_contacts_the_remote() {
+        if !git_available() {
+            return;
+        }
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+        assert!(matches!(
+            discover_tree_ref(
+                &runner,
+                "https://github.com/sanskarIN/RepoDNA",
+                "feature/branch",
+                &cancel
+            ),
+            Err(GitError::Cancelled)
+        ));
+    }
+
+    #[test]
     fn git_clone_selects_github_tree_branch_without_cloning_browser_url() {
         let target = resolve_clone_target(
             "https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development",
