@@ -70,11 +70,7 @@ struct RemoteTreeMatch {
 
 /// GitHub /tree/ links cannot delimit slash-containing refs from directories.
 /// Prefer the longest advertised ref; prefer a branch for equal tag/branch names.
-fn consider_remote_ref(
-    requested: &str,
-    advertised: &str,
-    best: &mut Option<RemoteTreeMatch>,
-) {
+fn consider_remote_ref(requested: &str, advertised: &str, best: &mut Option<RemoteTreeMatch>) {
     let (branch, reference) = if let Some(name) = advertised.strip_prefix("refs/heads/") {
         (true, name)
     } else if let Some(name) = advertised.strip_prefix("refs/tags/") {
@@ -162,6 +158,34 @@ fn discover_tree_ref(
     })
 }
 
+/// Convert an advertised ref to a typed checkout request so a same-name tag
+/// cannot silently replace a branch (or vice versa).
+fn selected_revision(selected: &RemoteTreeMatch) -> RequestedRevision {
+    if selected.branch {
+        RequestedRevision::Branch(selected.reference.clone())
+    } else {
+        RequestedRevision::Tag(selected.reference.clone())
+    }
+}
+
+/// Git's --short symbolic-ref output may be qualified as heads/name when a
+/// tag shares the branch name. The full symbolic ref is unambiguous.
+fn verify_branch_checkout(
+    runner: &GitRunner,
+    destination: &Path,
+    expected: &str,
+    cancel: &CancellationToken,
+) -> Result<(), GitError> {
+    let actual = runner.text(destination, &["symbolic-ref", "--quiet", "HEAD"], cancel)?;
+    if actual == format!("refs/heads/{expected}") {
+        Ok(())
+    } else {
+        Err(GitError::InvalidUrl(
+            "the selected branch did not produce a branch checkout".to_owned(),
+        ))
+    }
+}
+
 /// Require a real directory, never silently choose a shorter ref for a typo.
 fn verify_tree_directory(
     runner: &GitRunner,
@@ -178,8 +202,7 @@ fn verify_tree_directory(
         Ok(())
     } else {
         Err(GitError::InvalidUrl(
-            "the GitHub /tree/ directory does not exist at the checked-out revision"
-                .to_owned(),
+            "the GitHub /tree/ directory does not exist at the checked-out revision".to_owned(),
         ))
     }
 }
@@ -197,20 +220,22 @@ pub fn clone_repository(
     options: CloneOptions,
     cancel: &CancellationToken,
 ) -> Result<(), GitError> {
-    let mut target = resolve_clone_target(url, options.policy)?;
+    let target = resolve_clone_target(url, options.policy)?;
     let mut selected_directory = None;
+    let mut revision = options
+        .revision
+        .or_else(|| target.commit.clone().map(RequestedRevision::Commit));
     // Explicit selectors bypass remote discovery; branch-root URLs without
     // slashes retain the original clone path and its error reporting.
-    if options.revision.is_none()
+    if revision.is_none()
         && let Some(candidate) = target.branch.as_deref().filter(|name| name.contains('/'))
     {
         let selected = discover_tree_ref(runner, &target.repository_url, candidate, cancel)?;
         selected_directory = selected.directory;
-        target.branch = Some(selected.reference);
+        // Preserve the advertised kind: tags must be detached and branches
+        // must stay attached, even if both refs share the same name.
+        revision = Some(selected_revision(&selected));
     }
-    let revision = options
-        .revision
-        .or_else(|| target.commit.clone().map(RequestedRevision::Commit));
     if let Some(revision) = &revision {
         revision.validate()?;
     }
@@ -237,16 +262,7 @@ pub fn clone_repository(
     // Explicit branch selection must remain on that branch. A similarly named
     // tag is not a substitute; Git's --branch accepts both by design.
     if let Some(RequestedRevision::Branch(expected)) = &revision {
-        let actual = runner.text(
-            destination,
-            &["symbolic-ref", "--quiet", "--short", "HEAD"],
-            cancel,
-        )?;
-        if actual != *expected {
-            return Err(GitError::InvalidUrl(
-                "the selected branch did not produce a branch checkout".to_owned(),
-            ));
-        }
+        verify_branch_checkout(runner, destination, expected, cancel)?;
     }
     if let Some(revision @ (RequestedRevision::Tag(_) | RequestedRevision::Commit(_))) = &revision {
         finish_detached_checkout(runner, destination, revision, cancel)?;
@@ -438,6 +454,80 @@ mod tests {
                 &cancel
             ),
             Err(GitError::Cancelled)
+        ));
+    }
+
+    #[test]
+    fn remote_ref_discovery_preserves_tag_and_branch_checkout_kinds() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("src/engine/main.rs", "fn main() {}");
+        repo.commit(
+            "create nested source",
+            "Test",
+            "test@example.invalid",
+            "2025-01-01T00:00:00Z",
+        );
+        repo.git(&["branch", "feat"]);
+        repo.tag("feat/audio", None);
+        repo.git(&["branch", "other/audio"]);
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        let remote = repo.path().to_str().unwrap();
+
+        let selected = discover_tree_ref(&runner, remote, "feat/audio/src/engine", &cancel)
+            .unwrap();
+        assert_eq!(selected.reference, "feat/audio");
+        assert_eq!(selected.directory.as_deref(), Some("src/engine"));
+        assert_eq!(
+            selected_revision(&selected),
+            RequestedRevision::Tag("feat/audio".to_owned())
+        );
+        verify_tree_directory(
+            &runner,
+            repo.path(),
+            selected.directory.as_deref().unwrap(),
+            &cancel,
+        )
+        .unwrap();
+
+        let selected = discover_tree_ref(&runner, remote, "other/audio/src/engine", &cancel)
+            .unwrap();
+        assert_eq!(
+            selected_revision(&selected),
+            RequestedRevision::Branch("other/audio".to_owned())
+        );
+    }
+
+    #[test]
+    fn checkout_with_same_named_branch_and_tag_verifies_full_symbolic_ref() {
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("file.txt", "contents");
+        repo.commit(
+            "create main",
+            "Test",
+            "test@example.invalid",
+            "2025-01-01T00:00:00Z",
+        );
+        repo.tag("main", None);
+        let runner = GitRunner::detect().unwrap();
+        let cancel = CancellationToken::new();
+        // Git shortens a branch to heads/main when a tag called main exists.
+        assert_eq!(
+            runner
+                .text(repo.path(), &["symbolic-ref", "--quiet", "--short", "HEAD"], &cancel)
+                .unwrap(),
+            "heads/main"
+        );
+        verify_branch_checkout(&runner, repo.path(), "main", &cancel).unwrap();
+        assert!(matches!(
+            verify_branch_checkout(&runner, repo.path(), "wrong", &cancel),
+            Err(GitError::InvalidUrl(_))
         ));
     }
 
