@@ -180,10 +180,8 @@ pub fn prepare_input(
                 notes.push(format!(
                     "Explicit revision selection: {revision:?}; this overrides a GitHub browser URL reference."
                 ));
-            } else if let Some(branch) = &target.branch {
-                notes.push(format!(
-                    "Checked out GitHub branch or tag {branch} from the requested tree URL."
-                ));
+            } else if let Some(candidate) = &target.branch {
+                notes.push(github_tree_selection_note(candidate));
             } else if target.commit.is_some() {
                 notes.push("Checked out the exact commit requested by the GitHub commit URL (detached HEAD).".to_owned());
             }
@@ -251,6 +249,15 @@ pub fn prepare_input(
     }
 }
 
+/// Describe an ambiguous GitHub tree link without claiming its entire path
+/// is the ref. A link like /tree/main/docs may resolve to branch main and
+/// directory docs; the checkout itself is verified separately.
+fn github_tree_selection_note(candidate: &str) -> String {
+    format!(
+        "GitHub tree URL requested {candidate}. RepoDNA resolves slash-containing paths against advertised branches and tags and verifies any trailing directory; the full repository is analyzed."
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,6 +285,15 @@ mod tests {
             InputSpec::detect(archive.to_str().unwrap()),
             InputSpec::Archive(_)
         ));
+    }
+
+    #[test]
+    fn github_tree_note_does_not_claim_a_directory_suffix_is_a_ref() {
+        let note = github_tree_selection_note("main/docs");
+        assert!(note.contains("requested main/docs"));
+        assert!(note.contains("advertised branches and tags"));
+        assert!(note.contains("full repository"));
+        assert!(!note.contains("Checked out GitHub branch or tag main/docs"));
     }
 
     #[test]
