@@ -116,9 +116,14 @@ repodna analyze . --format markdown > REPORT.md
 The three revision switches are mutually exclusive and apply only to remote Git URLs.
 An explicit switch wins over a GitHub browser URL; otherwise a recognized
 `/tree/<ref>` or `/commit/<full-sha>` is used, followed by the repository
-default branch. A `/tree/` path may include a subdirectory; RepoDNA treats
-everything after `/tree/` as the candidate ref and will not guess where a
-directory starts. Use the branch-root URL or `--branch` in that case.
+default branch. For a slash-containing `/tree/` link, RepoDNA uses
+native Git's remote advertised branches and tags to select the **longest
+matching reference prefix**. A remaining path is verified as a directory
+in that checkout; analysis still covers the **whole repository**, not
+only that folder. If a ref is not advertised, the directory is absent, or
+the remote's ref listing exceeds safety limits, use a branch-root URL
+or pass `--branch`/`--tag` explicitly. This ref discovery occurs only
+for remote GitHub tree links without an explicit revision.
 A full commit SHA must be present in the cloned objects (some hosts reject
 arbitrary SHA fetching). Git verifies the checkout before analysis.
 These selectors are **development-only** and are not in the published
