@@ -37,4 +37,35 @@ describe("GitHub browser URL preview", () => {
     expect(githubSourceHint("https://github.com/org/repo/tree/bad%GG")).toBeNull();
     expect(githubSourceHint("not a URL")).toBeNull();
   });
+
+  it("rejects malformed Git refs rather than previewing an invalid checkout", () => {
+    for (const ref of [
+      "%2D%2Dupload-pack%3Dcmd",
+      "a%2E%2Eb",
+      "%40%7Bbad",
+      "a%2F",
+      "main//",
+      ".hidden",
+      "a.lock",
+      "main%0Aevil",
+      "bad%GG",
+    ]) {
+      expect(githubSourceHint("https://github.com/org/repo/tree/" + ref)).toBeNull();
+    }
+  });
+
+  it("accepts exact full SHA-1 and SHA-256 commit IDs only", () => {
+    for (const size of [40, 64]) {
+      const sha = "a".repeat(size);
+      expect(githubSourceHint("https://github.com/org/repo/commit/" + sha)).toEqual({
+        repository: "org/repo",
+        reference: sha,
+        kind: "commit",
+      });
+    }
+    for (const sha of ["main", "a".repeat(39), "z".repeat(40), "a".repeat(65)]) {
+      expect(githubSourceHint("https://github.com/org/repo/commit/" + sha)).toBeNull();
+    }
+    expect(githubSourceHint("https://github.com/org/repo/commit/" + "a".repeat(40) + "/extra")).toBeNull();
+  });
 });
