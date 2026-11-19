@@ -37,7 +37,9 @@ function validGitRef(reference: string): boolean {
  */
 function validGitTreeCandidate(reference: string): boolean {
   if (validGitRef(reference)) return true;
-  const [first, ...components] = reference.split("/");
+  const segments = reference.split("/");
+  const first = segments[0] ?? "";
+  const components = segments.slice(1);
   return (
     validGitRef(first) &&
     components.length > 0 &&
@@ -60,7 +62,7 @@ export function githubSourceHint(input: string): GitHubSourceHint | null {
     const source = input.trim();
     // URL() normalizes /./ and /../ before we can validate the tree path.
     // Reject those raw segments, including their encoded spellings, first.
-    const rawPath = source.split(/[?#]/)[0];
+    const rawPath = source.split(/[?#]/)[0] ?? "";
     if (/\s/.test(source) || /(?:^|\/)(?:\.|%2e){1,2}(?:\/|$)/i.test(rawPath)) {
       return null;
     }

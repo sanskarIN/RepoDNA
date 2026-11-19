@@ -31,7 +31,7 @@ describe("GitHub browser URL preview", () => {
         "feat/new-ui/.github/workflows",
       ],
       ["https://github.com/org/repo/tree/main/config.lock", "main/config.lock"],
-    ]) {
+    ] as const) {
       expect(githubSourceHint(url)).toEqual({
         repository: "org/repo",
         reference,
