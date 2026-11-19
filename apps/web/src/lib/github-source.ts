@@ -61,10 +61,9 @@ export function githubSourceHint(input: string): GitHubSourceHint | null {
     // URL() normalizes /./ and /../ before we can validate the tree path.
     // Reject those raw segments, including their encoded spellings, first.
     const rawPath = source.split(/[?#]/)[0];
-    if (
-      /\s/.test(source) ||
-      /(?:^|\/)(?:\.|%2e){1,2}(?:\/|$)/i.test(rawPath)
-    ) return null;
+    if (/\s/.test(source) || /(?:^|\/)(?:\.|%2e){1,2}(?:\/|$)/i.test(rawPath)) {
+      return null;
+    }
     const url = new URL(source);
     if (
       url.protocol !== "https:" ||
