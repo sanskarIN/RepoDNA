@@ -708,7 +708,10 @@ mod tests {
     #[test]
     fn github_tree_urls_allow_safe_directory_components_but_not_traversal() {
         for (url, expected) in [
-            ("https://github.com/org/repo/tree/main/.github", "main/.github"),
+            (
+                "https://github.com/org/repo/tree/main/.github",
+                "main/.github",
+            ),
             (
                 "https://github.com/org/repo/tree/main/docs/design%20notes",
                 "main/docs/design notes",
@@ -717,7 +720,10 @@ mod tests {
                 "https://github.com/org/repo/tree/feat/new-ui/.github/workflows",
                 "feat/new-ui/.github/workflows",
             ),
-            ("https://github.com/org/repo/tree/main/config.lock", "main/config.lock"),
+            (
+                "https://github.com/org/repo/tree/main/config.lock",
+                "main/config.lock",
+            ),
         ] {
             let target = resolve_clone_target(url, PUBLIC).unwrap();
             assert_eq!(target.branch.as_deref(), Some(expected), "{url}");
