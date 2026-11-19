@@ -76,6 +76,7 @@ impl Ctx {
                     allow_private_hosts: analysis.allow_private_hosts,
                 },
                 clone_depth: analysis.clone_depth,
+                revision: None,
             },
             no_store: analysis.no_store,
             reproducible: analysis.reproducible,

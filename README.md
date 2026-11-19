@@ -333,6 +333,7 @@ see [practical workflows](docs/workflows.md).
 ```sh
 repodna scan .                                     # analyze (scan is an alias of analyze)
 repodna analyze https://github.com/sanskarIN/RepoDNA   # clone to a temporary directory
+repodna analyze https://github.com/sanskarIN/sonumio --branch feat/initial-audio-platform  # development builds only
 repodna analyze project.zip --profile deep         # archives too; deep adds duplication and more
 repodna report . --format html -o report.html      # one self-contained HTML page
 repodna report . -o report                         # a bundle: HTML, Markdown, JSON, card, CSV

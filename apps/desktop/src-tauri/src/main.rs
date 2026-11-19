@@ -11,7 +11,9 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use repodna_app::{AnalyzeOptions, AppPaths, artifact_file_name, report_bundle, write_bundle};
+use repodna_app::{
+    AnalyzeOptions, AppPaths, artifact_file_name, report_bundle, requested_revision, write_bundle,
+};
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::ReportOptions;
@@ -101,6 +103,9 @@ fn start_scan(
     desktop: State<'_, Desktop>,
     input: String,
     profile: Option<String>,
+    branch: Option<String>,
+    tag: Option<String>,
+    commit: Option<String>,
 ) -> Reply<JobState> {
     let library = desktop.library()?;
     let input = input.trim();
@@ -114,6 +119,9 @@ fn start_scan(
     if let Some(profile) = profile {
         options.config.overrides.profile = Some(profile.parse::<AnalysisProfile>()?);
     }
+    options.fetch.revision =
+        requested_revision(branch.as_deref(), tag.as_deref(), commit.as_deref())
+            .map_err(message)?;
     library.jobs.start(library.paths.clone(), options)
 }
 

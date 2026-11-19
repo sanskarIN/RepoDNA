@@ -266,6 +266,15 @@ pub struct AnalyzeCmd {
     /// A directory, archive, or Git URL.
     #[arg(default_value = ".")]
     pub input: String,
+    /// Analyze a specific remote branch instead of the URL's selected reference.
+    #[arg(long, value_name = "BRANCH", conflicts_with_all = ["tag", "commit"])]
+    pub branch: Option<String>,
+    /// Analyze a specific remote tag with a detached checkout.
+    #[arg(long, value_name = "TAG", conflicts_with_all = ["branch", "commit"])]
+    pub tag: Option<String>,
+    /// Analyze one exact 40- or 64-character commit SHA (detached HEAD).
+    #[arg(long, value_name = "SHA", conflicts_with_all = ["branch", "tag"])]
+    pub commit: Option<String>,
     /// What to print.
     #[arg(long, value_enum, default_value_t = AnalyzeFormat::Text)]
     pub format: AnalyzeFormat,

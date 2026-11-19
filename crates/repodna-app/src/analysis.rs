@@ -110,6 +110,11 @@ pub fn run_analysis(
     cancel: &CancellationToken,
 ) -> Result<AnalysisOutcome, AppError> {
     let spec = InputSpec::detect(&options.input);
+    if options.fetch.revision.is_some() && !matches!(spec, InputSpec::Url(_)) {
+        return Err(AppError::input(
+            "branch, tag, and commit selection require a remote Git URL",
+        ));
+    }
     let project_root = match &spec {
         InputSpec::Directory(path) => Some(path.as_path()),
         _ => None,
@@ -133,7 +138,7 @@ pub fn run_analysis(
         config: loaded.config,
         config_sources: loaded.sources,
         config_warnings,
-        fetch: options.fetch,
+        fetch: options.fetch.clone(),
         languages: plugins.languages,
         extensions: plugins.extensions,
         cache: store.clone().map(|store| store as Arc<dyn AnalysisCache>),

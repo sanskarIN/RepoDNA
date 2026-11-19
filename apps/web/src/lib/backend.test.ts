@@ -257,3 +257,41 @@ describe("local server token URLs", () => {
     expect(takeToken()).toBe("secret-123");
   });
 });
+
+describe("explicit native Git revision requests", () => {
+  it("passes a slash-containing branch as a separate API field", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(validJob), { status: 202 }));
+    await new ServerBackend("local-token").startScan(
+      "https://github.com/sanskarIN/sonumio/tree/main",
+      "standard",
+      { kind: "branch", value: "feat/initial-audio-platform" },
+    );
+    const init = spy.mock.calls[0]?.[1];
+    expect(JSON.parse(init?.body as string)).toEqual({
+      input: "https://github.com/sanskarIN/sonumio/tree/main",
+      profile: "standard",
+      branch: "feat/initial-audio-platform",
+    });
+  });
+
+  it("passes tags and commits distinctly, never as repository URLs", async () => {
+    const spy = vi.spyOn(globalThis, "fetch");
+    spy.mockResolvedValueOnce(new Response(JSON.stringify(validJob), { status: 202 }));
+    spy.mockResolvedValueOnce(new Response(JSON.stringify(validJob), { status: 202 }));
+    const backend = new ServerBackend(null);
+    await backend.startScan("https://github.com/org/repo", undefined, {
+      kind: "tag",
+      value: "v1.5.0",
+    });
+    await backend.startScan("https://github.com/org/repo", undefined, {
+      kind: "commit",
+      value: "0123456789abcdef0123456789abcdef01234567",
+    });
+    expect(JSON.parse(spy.mock.calls[0]?.[1]?.body as string).tag).toBe("v1.5.0");
+    expect(JSON.parse(spy.mock.calls[1]?.[1]?.body as string).commit).toBe(
+      "0123456789abcdef0123456789abcdef01234567",
+    );
+  });
+});

@@ -4,7 +4,8 @@ import { BrowserScan, useEngine } from "../components/BrowserAnalysis";
 import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../components/common";
 import { droppedFolder, isArchive } from "../engine/input";
 import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
-import type { JobState, RepositorySummary, ScanSummary } from "../lib/backend";
+import type { JobState, RemoteRevision, RepositorySummary, ScanSummary } from "../lib/backend";
+import { githubSourceHint } from "../lib/github-source";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
 import { REPOSITORY } from "../lib/links";
@@ -31,6 +32,8 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   const { backend, session } = useApp();
   const [input, setInput] = useState("");
   const [profile, setProfile] = useState("standard");
+  const [revisionKind, setRevisionKind] = useState<RemoteRevision["kind"] | "auto">("auto");
+  const [revisionValue, setRevisionValue] = useState("");
   const [job, setJob] = useState<JobState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
@@ -69,7 +72,9 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   const start = async () => {
     setError(null);
     try {
-      const started = await backend.startScan(input.trim(), profile);
+      const revision =
+        revisionKind === "auto" ? undefined : { kind: revisionKind, value: revisionValue.trim() };
+      const started = await backend.startScan(input.trim(), profile, revision);
       setJob(started);
       poll(started.id);
     } catch (reason) {
@@ -78,6 +83,8 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   };
 
   const running = job?.status === "running";
+  const hint = githubSourceHint(input);
+  const revisionReady = revisionKind === "auto" || revisionValue.trim().length > 0;
   return (
     <section className="panel" aria-labelledby="scan-title">
       <div className="panel-header">
@@ -90,7 +97,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         className="filters"
         onSubmit={(event) => {
           event.preventDefault();
-          if (input.trim() && !running) {
+          if (input.trim() && revisionReady && !running) {
             void start();
           }
         }}
@@ -106,6 +113,48 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           placeholder="/path/to/repository or https://github.com/owner/repo"
           style={{ flex: "1 1 320px" }}
         />
+        <label htmlFor="scan-revision-kind">Source revision</label>
+        <select
+          id="scan-revision-kind"
+          value={revisionKind}
+          onChange={(event) => {
+            setRevisionKind(event.target.value as RemoteRevision["kind"] | "auto");
+            setRevisionValue("");
+          }}
+          disabled={running}
+          aria-describedby="scan-revision-help"
+        >
+          <option value="auto">URL reference / default branch</option>
+          <option value="branch">Branch</option>
+          <option value="tag">Tag</option>
+          <option value="commit">Commit SHA</option>
+        </select>
+        {revisionKind !== "auto" ? (
+          <>
+            <label htmlFor="scan-revision-value">
+              {revisionKind === "commit"
+                ? "Full commit SHA"
+                : revisionKind === "tag"
+                  ? "Tag name"
+                  : "Branch name"}
+            </label>
+            <input
+              id="scan-revision-value"
+              type="text"
+              value={revisionValue}
+              onChange={(event) => setRevisionValue(event.target.value)}
+              placeholder={
+                revisionKind === "commit"
+                  ? "Full 40- or 64-character SHA"
+                  : revisionKind === "tag"
+                    ? "v1.5.0"
+                    : "feat/initial-audio-platform"
+              }
+              disabled={running}
+              required
+            />
+          </>
+        ) : null}
         {backend.pickDirectory ? (
           <button
             type="button"
@@ -134,7 +183,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             </option>
           ))}
         </select>
-        <button type="submit" className="primary" disabled={!input.trim() || running}>
+        <button
+          type="submit"
+          className="primary"
+          disabled={!input.trim() || !revisionReady || running}
+        >
           {running ? "Analyzing…" : "Analyze"}
         </button>
         {running && job ? (
@@ -143,6 +196,14 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           </button>
         ) : null}
       </form>
+      <p className="muted" id="scan-revision-help">
+        {hint
+          ? `GitHub ${hint.repository}: ${hint.kind === "tree" ? "branch or tag candidate" : "commit candidate"} ${hint.reference}. `
+          : "Remote branch, tag, and commit selection requires native Git. "}
+        {revisionKind === "auto"
+          ? "For GitHub tree URLs, RepoDNA finds the longest advertised branch or tag, verifies any folder path, and analyzes the whole repository."
+          : "Your explicit selection overrides the reference in the URL."}
+      </p>
       <p className="muted" id="scan-profile-help">
         {PROFILES.find(([id]) => id === profile)?.[2]}
       </p>

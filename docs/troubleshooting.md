@@ -27,16 +27,30 @@ CI, checkouts are often shallow (`fetch-depth: 1`); fetch the full history
 clone URLs, not GitHub browser `/tree/<branch>` links. In development builds
 after v1.5.0, branch-root links are recognized and the selected branch is
 checked out. An invalid or missing branch still fails with a helpful hint.
-Avoid pasting a branch link with an extra subdirectory path: a branch
-itself may contain slashes, so that form is ambiguous. On v1.5.0, clone
-the repository yourself, switch to the branch, then analyze its local
-directory as a workaround.
+The latest development-only revision work resolves slash-containing
+`/tree/` links against actual remote branch/tag refs, selecting the
+longest matching prefix and verifying any trailing directory exists.
+This includes hidden folders like `.github` and percent-encoded spaces
+in directory names. It then analyzes the whole repository at that revision
+(not only the directory). If the ref is unavailable, or a path contains an unsupported
+URL component, or remote discovery is refused, paste the branch-root
+URL or use the explicit `--branch`/`--tag` selector. With published
+stable v1.5.1, clone the repository yourself and analyze the local checkout.
 
-**A GitHub pull request, issue, release, or commit link cannot be cloned.**
-Those are browser pages, not Git repository URLs. In development builds after
-v1.5.0, RepoDNA rejects these inputs before running Git and asks for the
-repository-root URL or a supported `/tree/<branch>` link. For stable v1.5.0,
-use the repository-root clone URL or an already checked-out local directory.
+**A GitHub pull request, issue, or release page cannot be cloned.**
+These are browser pages rather than Git repository URLs. Development builds
+support `/tree/<branch-or-tag>` and, with the newer revision-selection work,
+`/commit/<full-SHA>`; other unsupported routes are rejected before invoking
+Git. Published v1.5.0 and v1.5.1 maintenance installers do not include the
+branch-link feature or the new explicit revision selectors. Use a repository
+clone URL or an already checked-out local directory.
+
+**An exact commit is unavailable.** A full commit SHA may not be present in
+the objects fetched by `git clone`; shallow clones especially limit the
+available history. Try a branch containing the commit, or retry without
+`--clone-depth`. RepoDNA does not silently analyze another revision.
+If a branch is missing, check that your Git credentials can access it and
+that you did not paste a directory URL in place of a branch-root URL.
 
 **A copied GitHub repository-root URL contains browser navigation.** Links from a
 browser can include `?tab=...` or `#readme`, which are not part of the Git remote.

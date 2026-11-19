@@ -33,6 +33,12 @@ export interface ScanSummary {
   };
 }
 
+/** Explicit native Git revision selection; omission uses the URL or default branch. */
+export interface RemoteRevision {
+  kind: "branch" | "tag" | "commit";
+  value: string;
+}
+
 export interface JobState {
   id: string;
   input: string;
@@ -77,7 +83,7 @@ export interface Backend {
   deleteRepository(id: string): Promise<void>;
   /** Deletes one saved scan and its artifact. */
   deleteScan(repositoryId: string, scanId: string): Promise<void>;
-  startScan(input: string, profile?: string): Promise<JobState>;
+  startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState>;
   job(id: string): Promise<JobState>;
   cancelJob(id: string): Promise<void>;
   /** A link to a generated report (server only). */
@@ -316,11 +322,15 @@ export class ServerBackend implements Backend {
     );
   }
 
-  async startScan(input: string, profile?: string): Promise<JobState> {
+  async startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {
     const value = await this.request<unknown>("scans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profile ? { input, profile } : { input }),
+      body: JSON.stringify({
+        input,
+        ...(profile ? { profile } : {}),
+        ...(revision ? { [revision.kind]: revision.value } : {}),
+      }),
     });
     if (!isJobState(value, ["running"])) {
       throw new BackendError("The server returned an invalid new scan job.", 200);

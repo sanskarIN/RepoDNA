@@ -7,6 +7,7 @@ import type {
   Backend,
   JobState,
   ReportOptions,
+  RemoteRevision,
   RepositorySummary,
   SaveFormat,
   ScanSummary,
@@ -41,8 +42,14 @@ export class DesktopBackend implements Backend {
     await invoke("delete_scan", { id, scan });
   }
 
-  startScan(input: string, profile?: string): Promise<JobState> {
-    return invoke<JobState>("start_scan", { input, profile: profile ?? null });
+  startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {
+    return invoke<JobState>("start_scan", {
+      input,
+      profile: profile ?? null,
+      branch: revision?.kind === "branch" ? revision.value : null,
+      tag: revision?.kind === "tag" ? revision.value : null,
+      commit: revision?.kind === "commit" ? revision.value : null,
+    });
   }
 
   job(id: string): Promise<JobState> {

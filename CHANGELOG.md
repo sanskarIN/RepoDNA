@@ -15,6 +15,17 @@ notes below. No later stable version or date has been announced.
 
 ### Added
 
+- Accept explicit remote branch, tag, and full commit SHA selections in the
+  CLI, local server, and desktop form; verify checked-out revisions, support
+  GitHub `/commit/<full-SHA>` links, and preview `/tree/` candidates without
+  uploading repository data. For slash-containing GitHub tree paths, discover
+  remote refs with bounded Git output, select the longest advertised branch/tag
+  prefix, and verify any trailing directory before whole-repository analysis.
+  GitHub folder links with hidden directories such as `.github` and
+  percent-encoded spaces are supported without weakening explicit Git ref
+  validation; traversal and control characters remain rejected.
+  Development-only; not in v1.5.1 maintenance installers.
+
 - Show the checked-out Git branch in the Overview and History views when
   available, distinguishing the analyzed checkout from the remote default (#228).
 - Export a reviewed, counts-only Findings CSV grouped by severity and

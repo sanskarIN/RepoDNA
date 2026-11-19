@@ -209,7 +209,12 @@ pub fn summary(
 
 /// Runs `repodna analyze`.
 pub fn run(ctx: &Ctx, cmd: &AnalyzeCmd) -> Result<(), AppError> {
-    let options = ctx.analyze_options(&cmd.input, &cmd.analysis);
+    let mut options = ctx.analyze_options(&cmd.input, &cmd.analysis);
+    options.fetch.revision = repodna_app::requested_revision(
+        cmd.branch.as_deref(),
+        cmd.tag.as_deref(),
+        cmd.commit.as_deref(),
+    )?;
     ctx.note(&format!(
         "{} {} · analyzing {}",
         ctx.err.bold("RepoDNA"),
