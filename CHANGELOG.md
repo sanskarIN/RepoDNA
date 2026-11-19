@@ -21,6 +21,9 @@ notes below. No later stable version or date has been announced.
   uploading repository data. For slash-containing GitHub tree paths, discover
   remote refs with bounded Git output, select the longest advertised branch/tag
   prefix, and verify any trailing directory before whole-repository analysis.
+  GitHub folder links with hidden directories such as `.github` and
+  percent-encoded spaces are supported without weakening explicit Git ref
+  validation; traversal and control characters remain rejected.
   Development-only; not in v1.5.1 maintenance installers.
 
 - Show the checked-out Git branch in the Overview and History views when

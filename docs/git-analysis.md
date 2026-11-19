@@ -28,9 +28,14 @@ the history sections are marked *unavailable* and the rest of the analysis still
   requests the remote's advertised branch and tag names and chooses the
   longest matching ref. Any remaining URL path must be a real directory
   at the checked-out revision; the analysis still covers the **entire
-  repository**, not only that directory. No match or nonexistent directory
-  fails instead of falling back to the default branch. Explicit
-  `--branch`/`--tag` switches bypass this discovery.
+  repository**, not only that directory. Folder paths such as
+  `/tree/main/.github` and `/tree/main/docs/design%20notes`
+  are accepted when the advertised ref and checked-out directory both
+  exist. Directory components may contain spaces or start with a dot,
+  but dot traversal and control characters are rejected; explicit
+  branch/tag names still follow Git's ref-name rules. No match or
+  nonexistent directory fails instead of falling back to the default
+  branch. Explicit `--branch`/`--tag` switches bypass this discovery.
   The static hosted web version cannot clone remote Git repositories;
   use the CLI, desktop app, or `repodna serve`. This enhancement is
   development-only and not in the published v1.5.1 maintenance installers.

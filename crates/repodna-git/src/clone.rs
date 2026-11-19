@@ -448,6 +448,8 @@ mod tests {
         }
         let repository = GitRepo::new();
         repository.write("src/engine/main.rs", "fn main() {}");
+        repository.write(".github/workflows/ci.yml", "name: CI");
+        repository.write("docs/design notes/intro.md", "# Notes");
         repository.commit(
             "add source directory",
             "Test",
@@ -457,6 +459,9 @@ mod tests {
         let runner = GitRunner::detect().unwrap();
         let cancel = CancellationToken::new();
         verify_tree_directory(&runner, repository.path(), "src/engine", &cancel).unwrap();
+        verify_tree_directory(&runner, repository.path(), ".github", &cancel).unwrap();
+        verify_tree_directory(&runner, repository.path(), ".github/workflows", &cancel).unwrap();
+        verify_tree_directory(&runner, repository.path(), "docs/design notes", &cancel).unwrap();
         assert!(matches!(
             verify_tree_directory(&runner, repository.path(), "src/missing", &cancel),
             Err(GitError::InvalidUrl(_))

@@ -22,6 +22,39 @@ describe("GitHub browser URL preview", () => {
     });
   });
 
+  it("previews hidden folders and encoded spaces after a GitHub revision", () => {
+    for (const [url, reference] of [
+      ["https://github.com/org/repo/tree/main/.github", "main/.github"],
+      ["https://github.com/org/repo/tree/main/docs/design%20notes", "main/docs/design notes"],
+      [
+        "https://github.com/org/repo/tree/feat/new-ui/.github/workflows",
+        "feat/new-ui/.github/workflows",
+      ],
+      ["https://github.com/org/repo/tree/main/config.lock", "main/config.lock"],
+    ]) {
+      expect(githubSourceHint(url)).toEqual({
+        repository: "org/repo",
+        reference,
+        kind: "tree",
+      });
+    }
+  });
+
+  it("rejects traversal and unencrypted links before a misleading preview", () => {
+    for (const url of [
+      "https://github.com/org/repo/tree/main/../secrets",
+      "https://github.com/org/repo/tree/main/%2E%2E/secrets",
+      "https://github.com/org/repo/tree/main/.%2Fsecret",
+      "https://github.com/org/repo/tree/main/%00",
+      "https://github.com/org/repo/tree/main/%5Cescaped",
+      "https://github.com/org/repo/tree/main/%2A",
+      "https://github.com/org/repo/tree/main/design notes",
+      "http://github.com/org/repo/tree/main",
+    ]) {
+      expect(githubSourceHint(url)).toBeNull();
+    }
+  });
+
   it("previews exact commit URLs without confusing them with a clone URL", () => {
     const sha = "0123456789abcdef0123456789abcdef01234567";
     expect(githubSourceHint(`https://github.com/org/repo/commit/${sha}?diff=split`)).toEqual({

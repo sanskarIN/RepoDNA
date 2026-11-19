@@ -30,15 +30,44 @@ function validGitRef(reference: string): boolean {
   );
 }
 
+/**
+ * A GitHub tree URL may contain a valid advertised ref plus a directory.
+ * Directory names can begin with a dot or contain spaces (percent-encoded in
+ * the URL), but traversal and unsafe controls are never previewed.
+ */
+function validGitTreeCandidate(reference: string): boolean {
+  if (validGitRef(reference)) return true;
+  const [first, ...components] = reference.split("/");
+  return (
+    validGitRef(first) &&
+    components.length > 0 &&
+    components.every(
+      (part) =>
+        part.length > 0 &&
+        part !== "." &&
+        part !== ".." &&
+        !/[\x00-\x1f\x7f-\x9f\\~^:?*\[]/.test(part),
+    )
+  );
+}
+
 function validCommitSha(reference: string): boolean {
   return /^(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})$/.test(reference);
 }
 
 export function githubSourceHint(input: string): GitHubSourceHint | null {
   try {
-    const url = new URL(input.trim());
+    const source = input.trim();
+    // URL() normalizes /./ and /../ before we can validate the tree path.
+    // Reject those raw segments, including their encoded spellings, first.
+    const rawPath = source.split(/[?#]/)[0];
     if (
-      !["https:", "http:"].includes(url.protocol) ||
+      /\s/.test(source) ||
+      /(?:^|\/)(?:\.|%2e){1,2}(?:\/|$)/i.test(rawPath)
+    ) return null;
+    const url = new URL(source);
+    if (
+      url.protocol !== "https:" ||
       !["github.com", "www.github.com"].includes(url.hostname.toLowerCase())
     ) {
       return null;
@@ -48,7 +77,9 @@ export function githubSourceHint(input: string): GitHubSourceHint | null {
     const raw = refParts.join("/").replace(/\/$/, "");
     if (!raw || (route === "commit" && refParts.length !== 1)) return null;
     const reference = decodeURIComponent(raw);
-    if (route === "tree" ? !validGitRef(reference) : !validCommitSha(reference)) return null;
+    if (route === "tree" ? !validGitTreeCandidate(reference) : !validCommitSha(reference)) {
+      return null;
+    }
     return { repository: owner + "/" + repository, reference, kind: route };
   } catch {
     return null;

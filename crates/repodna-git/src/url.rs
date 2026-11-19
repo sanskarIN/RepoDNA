@@ -186,8 +186,8 @@ pub fn parse_remote(url: &str) -> ParsedRemote {
 /// A cloneable remote and an optional selected GitHub branch or tag.
 ///
 /// GitHub's `/tree/<ref>` pages are browser links, not Git clone URLs.
-/// A branch name can contain slashes, so the entire path after `/tree/`
-/// is interpreted as the ref (not as a directory inside it).
+/// A branch name can contain slashes. The clone layer resolves the longest
+/// advertised ref prefix and verifies any trailing directory after checkout.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CloneTarget {
     /// Git repository URL, without a GitHub browser route.
@@ -270,11 +270,33 @@ fn valid_github_ref(reference: &str) -> bool {
         })
 }
 
+/// A /tree/ path can be a Git ref followed by a directory. Accept safe
+/// directory components (including .github and percent-encoded spaces) while
+/// retaining strict ref-name validation for advertised refs and explicit
+/// branch/tag selectors. Never accept dot traversal or control characters.
+fn valid_github_tree_candidate(candidate: &str) -> bool {
+    if valid_github_ref(candidate) {
+        return true;
+    }
+    let Some((first, _)) = candidate.split_once('/') else {
+        return false;
+    };
+    valid_github_ref(first)
+        && candidate.split('/').all(|component| {
+            !component.is_empty()
+                && component != "."
+                && component != ".."
+                && !component.chars().any(|ch| {
+                    ch.is_control() || matches!(ch, '\\' | '~' | '^' | ':' | '?' | '*' | '[')
+                })
+        })
+}
+
 /// Convert an allowed GitHub `/tree/<branch>` browser URL into a cloneable
 /// repository URL plus a requested checkout. Ordinary Git remotes are unchanged.
 ///
-/// This does not try to guess where a slash-containing branch name ends and a
-/// subdirectory begins. For a directory URL, use the branch-root page instead.
+/// Ambiguous slash-containing paths are resolved later against advertised
+/// branch/tag names, then any directory suffix is verified after checkout.
 pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarget, GitError> {
     let url = validate_clone_url(input, policy)?;
     let Some(parts) = split(&url) else {
@@ -348,8 +370,8 @@ pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarge
     let raw_branch = segments[3..].join("/");
     let raw_branch = raw_branch.strip_suffix('/').unwrap_or(&raw_branch);
     let branch = decode_github_ref(raw_branch)
-        .filter(|reference| valid_github_ref(reference))
-        .ok_or_else(|| invalid("invalid GitHub branch or tag in tree URL"))?;
+        .filter(|reference| valid_github_tree_candidate(reference))
+        .ok_or_else(|| invalid("invalid GitHub branch, tag, or directory in tree URL"))?;
 
     let Some(prefix) = url.strip_suffix(parts.path) else {
         return Err(invalid("could not resolve GitHub repository URL"));
@@ -680,6 +702,38 @@ mod tests {
                 ),
                 "unexpectedly accepted {url}"
             );
+        }
+    }
+
+    #[test]
+    fn github_tree_urls_allow_safe_directory_components_but_not_traversal() {
+        for (url, expected) in [
+            ("https://github.com/org/repo/tree/main/.github", "main/.github"),
+            (
+                "https://github.com/org/repo/tree/main/docs/design%20notes",
+                "main/docs/design notes",
+            ),
+            (
+                "https://github.com/org/repo/tree/feat/new-ui/.github/workflows",
+                "feat/new-ui/.github/workflows",
+            ),
+            ("https://github.com/org/repo/tree/main/config.lock", "main/config.lock"),
+        ] {
+            let target = resolve_clone_target(url, PUBLIC).unwrap();
+            assert_eq!(target.branch.as_deref(), Some(expected), "{url}");
+            assert_eq!(target.repository_url, "https://github.com/org/repo");
+        }
+
+        for url in [
+            "https://github.com/org/repo/tree/main/%2E",
+            "https://github.com/org/repo/tree/main/%2E%2E",
+            "https://github.com/org/repo/tree/main/%2E%2E/secrets",
+            "https://github.com/org/repo/tree/main/.%2Fsrc",
+            "https://github.com/org/repo/tree/main/%00",
+            "https://github.com/org/repo/tree/main/%5Cescaped",
+            "https://github.com/org/repo/tree/main/%2A",
+        ] {
+            assert!(resolve_clone_target(url, PUBLIC).is_err(), "{url}");
         }
     }
 
