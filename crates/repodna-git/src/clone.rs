@@ -208,12 +208,18 @@ fn verify_tree_directory(
     directory: &str,
     cancel: &CancellationToken,
 ) -> Result<(), GitError> {
-    let entries = runner.text(
+    // Git quotes names containing double quotes even with core.quotePath=false.
+    // -z is the only unambiguous format: compare raw, NUL-delimited paths rather
+    // than Git's human-readable escaped output.
+    let entries = runner.output(
         checkout,
-        &["ls-tree", "-d", "--name-only", "HEAD", "--", directory],
+        &["ls-tree", "-z", "-d", "--name-only", "HEAD", "--", directory],
         cancel,
     )?;
-    if entries.lines().any(|entry| entry == directory) {
+    if entries
+        .split(|byte| *byte == 0)
+        .any(|entry| entry == directory.as_bytes())
+    {
         Ok(())
     } else {
         Err(GitError::InvalidUrl(
@@ -450,6 +456,8 @@ mod tests {
         repository.write("src/engine/main.rs", "fn main() {}");
         repository.write(".github/workflows/ci.yml", "name: CI");
         repository.write("docs/design notes/intro.md", "# Notes");
+        repository.write("docs/said \"hello\"/intro.md", "# Quoted");
+        repository.write("docs/日本語/intro.md", "# Unicode");
         repository.commit(
             "add source directory",
             "Test",
@@ -462,6 +470,8 @@ mod tests {
         verify_tree_directory(&runner, repository.path(), ".github", &cancel).unwrap();
         verify_tree_directory(&runner, repository.path(), ".github/workflows", &cancel).unwrap();
         verify_tree_directory(&runner, repository.path(), "docs/design notes", &cancel).unwrap();
+        verify_tree_directory(&runner, repository.path(), "docs/said \"hello\"", &cancel).unwrap();
+        verify_tree_directory(&runner, repository.path(), "docs/日本語", &cancel).unwrap();
         assert!(matches!(
             verify_tree_directory(&runner, repository.path(), "src/missing", &cancel),
             Err(GitError::InvalidUrl(_))
