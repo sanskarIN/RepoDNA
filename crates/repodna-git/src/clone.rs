@@ -456,6 +456,8 @@ mod tests {
         repository.write("src/engine/main.rs", "fn main() {}");
         repository.write(".github/workflows/ci.yml", "name: CI");
         repository.write("docs/design notes/intro.md", "# Notes");
+        // Quotes are legal Unix filenames but forbidden on Windows.
+        #[cfg(unix)]
         repository.write("docs/said \"hello\"/intro.md", "# Quoted");
         repository.write("docs/日本語/intro.md", "# Unicode");
         repository.commit(
@@ -470,6 +472,7 @@ mod tests {
         verify_tree_directory(&runner, repository.path(), ".github", &cancel).unwrap();
         verify_tree_directory(&runner, repository.path(), ".github/workflows", &cancel).unwrap();
         verify_tree_directory(&runner, repository.path(), "docs/design notes", &cancel).unwrap();
+        #[cfg(unix)]
         verify_tree_directory(&runner, repository.path(), "docs/said \"hello\"", &cancel).unwrap();
         verify_tree_directory(&runner, repository.path(), "docs/日本語", &cancel).unwrap();
         assert!(matches!(
