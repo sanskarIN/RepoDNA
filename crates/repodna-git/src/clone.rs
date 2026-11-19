@@ -213,7 +213,15 @@ fn verify_tree_directory(
     // than Git's human-readable escaped output.
     let entries = runner.output(
         checkout,
-        &["ls-tree", "-z", "-d", "--name-only", "HEAD", "--", directory],
+        &[
+            "ls-tree",
+            "-z",
+            "-d",
+            "--name-only",
+            "HEAD",
+            "--",
+            directory,
+        ],
         cancel,
     )?;
     if entries
