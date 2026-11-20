@@ -65,6 +65,19 @@ describe("GitHub browser URL preview", () => {
     });
   });
 
+  it("rejects encoded GitHub hostnames before URL normalization", () => {
+    for (const host of ["%67ithub.com", "github%2ecom", "%77ww.github.com"]) {
+      expect(githubSourceHint(`https://${host}/org/repo/tree/main`)).toBeNull();
+      expect(githubSourceHint(`https://${host}/org/repo/commit/${"a".repeat(40)}`)).toBeNull();
+    }
+    // Userinfo encoding is not a hostname and remains display-only metadata.
+    expect(githubSourceHint("https://user%40domain@github.com/org/repo/tree/main")).toEqual({
+      repository: "org/repo",
+      reference: "main",
+      kind: "tree",
+    });
+  });
+
   it("does not guess from other providers or incomplete paths", () => {
     expect(githubSourceHint("https://gitlab.com/org/repo/tree/main")).toBeNull();
     expect(githubSourceHint("https://github.com/org/repo/tree/")).toBeNull();
