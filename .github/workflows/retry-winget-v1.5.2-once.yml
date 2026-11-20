@@ -1,0 +1,36 @@
+name: Retry RepoDNA v1.5.2 WinGet submission once
+
+# This workflow only dispatches the existing independently validated submission
+# process. It does not create an external PR, publish binaries or modify tags.
+on:
+  push:
+    branches: [ops/retry-winget-v1.5.2-20261120]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  retry:
+    if: github.repository == 'sanskarIN/RepoDNA'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify v1.5.2 is already published and the submission fix is merged
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v1.5.2" --jq '.object.sha')
+          test "$tag_sha" = "5832b9818c5cb657a9238180feefb72e0c6b2d8e"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/pulls/289" --jq '.merged')" = true
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.5.2" --jq '.draft')" = false
+
+      - name: Dispatch the validated Microsoft WinGet submission for v1.5.2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run winget-submit.yml --repo "$GITHUB_REPOSITORY" --ref main --field tag=v1.5.2
+          echo "Queued WinGet submission using the merged manifest-only fork code."
