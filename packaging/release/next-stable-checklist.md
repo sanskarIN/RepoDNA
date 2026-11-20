@@ -139,6 +139,16 @@ Record the immutable candidate commit SHA here **after feature freeze**:
 
 ## C. Release-specific metadata
 
+For a candidate version (for example, `1.6.0` only after choosing feature-release
+scope), preview synchronized **local** metadata updates with
+`npm run release:prepare -- 1.6.0`; apply them explicitly with
+`npm run release:prepare -- 1.6.0 --write`. The script validates both Rust
+lockfile package inventories, npm workspace dependencies, and Tauri metadata
+before writing. It intentionally does **not** update unrelated dependency
+versions, regenerate third-party notices, create a changelog entry, tag code,
+or publish a release. Add and review the dated changelog separately; then
+re-run both Cargo locked-metadata commands, notice checks, and full CI.
+
 - [ ] Set the final stable version consistently in the Rust workspace crates,
   desktop Rust/Tauri config, npm workspaces, both Cargo lockfiles and npm lock.
 - [ ] Keep the Tauri identifier `io.github.sanskarin.repodna` stable, and
