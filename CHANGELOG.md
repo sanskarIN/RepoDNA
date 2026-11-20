@@ -36,6 +36,9 @@ notes below. No later stable version or date has been announced.
 
 ### Fixed
 
+- Reject percent-encoded Git remote hostnames rather than relying on their
+  undecoded spelling when applying private-host checks. Repository path
+  percent-encoding remains supported.
 - Reject special-use literal Git remote IP addresses (including 0/8,
   benchmarking, documentation, deprecated 6to4 relay, multicast, and reserved
   ranges) by default, with explicit private-host opt-in for trusted infrastructure.
