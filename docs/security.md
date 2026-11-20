@@ -130,8 +130,11 @@ stopped when you cancel.
 **Safe cloning.** Only URLs RepoDNA can reason about are cloned. Transport-helper syntax
 (`ext::`), local transports, option-like values, and control characters are rejected;
 unencrypted `http://` and `git://` and private or loopback hosts need an explicit opt-in.
-Host names are checked literally, so a public DNS name that resolves to a private address
-is not detected. Credentials in URLs are never stored or displayed.
+Percent-encoded hostnames are rejected, because later URL parsing can decode a
+different destination after the private-host check. Repository paths can still
+contain percent escapes. Remote URL queries, fragments and HTTP(S) credentials
+are removed from stored and displayed metadata. Host names are checked literally,
+so a public DNS name that resolves to a private address is not detected.
 
 **Safe archives.** ZIP and TAR extraction rejects absolute paths and `..` traversal, skips
 symbolic links, hard links, and device entries, and enforces limits (200,000 entries, 512

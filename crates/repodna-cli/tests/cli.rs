@@ -94,6 +94,24 @@ fn path(p: &Path) -> String {
 }
 
 #[test]
+fn rejects_encoded_remote_hosts_before_any_network_clone() {
+    let env = Env::new();
+    for url in [
+        "https://%6cocalhost/org/repo.git",
+        "https://github%2ecom/org/repo.git",
+        "ssh://git@%6cocalhost/org/repo.git",
+    ] {
+        let output = env.run(&["analyze", url]);
+        assert_eq!(code(&output), 3, "{url}: {}", stderr(&output));
+        assert!(
+            stderr(&output).contains("percent-encoded remote hosts"),
+            "{url}: {}",
+            stderr(&output)
+        );
+    }
+}
+
+#[test]
 fn prints_version_help_and_usage_errors() {
     let env = Env::new();
     let version = env.run(&["version"]);

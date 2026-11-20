@@ -46,9 +46,16 @@ struct Parts<'a> {
     path: &'a str,
 }
 
+// URL authority is terminated by path, query or fragment, whichever comes first.
+fn authority_and_suffix(rest: &str) -> (&str, &str) {
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    rest.split_at(end)
+}
+
 fn split(url: &str) -> Option<Parts<'_>> {
     if let Some((scheme, rest)) = url.split_once("://") {
-        let (authority, path) = rest.split_once('/').map_or((rest, ""), |(a, p)| (a, p));
+        let (authority, suffix) = authority_and_suffix(rest);
+        let path = suffix.strip_prefix('/').unwrap_or("");
         let (userinfo, host_port) = match authority.rsplit_once('@') {
             Some((userinfo, host)) => (Some(userinfo), host),
             None => (None, authority),
@@ -97,17 +104,20 @@ pub fn looks_like_url(input: &str) -> bool {
     split(input).is_some_and(|parts| parts.userinfo.is_some() && parts.host.contains('.'))
 }
 
-/// Removes credentials from an HTTP(S) URL. Other URL forms are returned unchanged
-/// (their user names, such as `git@`, are not secrets).
+/// Remove potentially sensitive query and fragment text from display-only URLs.
+fn without_query(value: &str) -> &str {
+    value.split(['?', '#']).next().unwrap_or(value)
+}
+
+/// Return a display-safe URL, never the URL used by Git. HTTP(S) credentials,
+/// query parameters and fragments are never stored or displayed.
 pub fn sanitize_url(url: &str) -> String {
     let trimmed = url.trim();
     let Some((scheme, rest)) = trimmed.split_once("://") else {
-        return trimmed.to_owned();
+        return without_query(trimmed).to_owned();
     };
     let scheme_lower = scheme.to_ascii_lowercase();
-    let (authority, path) = rest
-        .split_once('/')
-        .map_or((rest, None), |(a, p)| (a, Some(p)));
+    let (authority, suffix) = authority_and_suffix(rest);
     let keep_user = !matches!(scheme_lower.as_str(), "http" | "https");
     let authority = match authority.rsplit_once('@') {
         Some((userinfo, host)) => {
@@ -119,10 +129,7 @@ pub fn sanitize_url(url: &str) -> String {
         }
         None => authority.to_owned(),
     };
-    match path {
-        Some(path) => format!("{scheme}://{authority}/{path}"),
-        None => format!("{scheme}://{authority}"),
-    }
+    format!("{scheme}://{authority}{}", without_query(suffix))
 }
 
 fn provider_for(host: &str) -> &'static str {
@@ -282,6 +289,11 @@ pub fn validate_clone_url(input: &str, policy: UrlPolicy) -> Result<String, GitE
     if parts.host.starts_with('-') {
         return reject("host looks like a command-line option");
     }
+    // Downstream URL parsers may decode the hostname after our literal
+    // host policy check. Encode only path segments, never the authority.
+    if parts.host.contains('%') {
+        return reject("percent-encoded remote hosts are not allowed");
+    }
     if !policy.allow_private_hosts && is_private_host(parts.host) {
         return reject("private, loopback, or local host");
     }
@@ -330,6 +342,67 @@ mod tests {
         ] {
             assert!(validate_clone_url(url, PUBLIC).is_err(), "{url}");
         }
+    }
+
+    #[test]
+    fn encoded_remote_hostnames_are_rejected_even_for_trusted_hosts() {
+        let trusted = UrlPolicy {
+            allow_private_hosts: true,
+            ..PUBLIC
+        };
+        for url in [
+            "https://%6cocalhost/org/repo.git",
+            "https://%31%32%37.0.0.1/org/repo.git",
+            "https://127%2e0%2e0%2e1/org/repo.git",
+            "https://github%2ecom/org/repo.git",
+            "ssh://git@%6cocalhost/org/repo.git",
+            "git@%6cocalhost:org/repo.git",
+        ] {
+            assert!(validate_clone_url(url, PUBLIC).is_err(), "{url}");
+            assert!(
+                validate_clone_url(url, trusted).is_err(),
+                "{url} must stay invalid with private-host opt-in"
+            );
+        }
+        assert!(validate_clone_url("https://github.com/org/repo%20name.git", PUBLIC).is_ok());
+        assert!(validate_clone_url("https://localhost/org/repo.git", trusted).is_ok());
+    }
+
+    #[test]
+    fn query_and_fragment_delimiters_cannot_disguise_authority() {
+        for url in [
+            "https://127.0.0.1?@public.example/repo.git",
+            "https://127.0.0.1#@public.example/repo.git",
+            "https://public.example?@127.0.0.1/repo.git",
+        ] {
+            assert!(validate_clone_url(url, PUBLIC).is_err(), "{url}");
+        }
+        assert_eq!(
+            sanitize_url("https://127.0.0.1?@public.example/repo.git"),
+            "https://127.0.0.1"
+        );
+    }
+
+    #[test]
+    fn never_display_url_query_fragment_or_http_credentials() {
+        assert_eq!(
+            sanitize_url("https://alice:placeholder@github.com/org/repo.git?token=secret#session"),
+            "https://github.com/org/repo.git"
+        );
+        assert_eq!(
+            sanitize_url("https://github.com/org/repo?token=secret"),
+            "https://github.com/org/repo"
+        );
+        assert_eq!(
+            sanitize_url("git@github.com:org/repo.git?token=secret#session"),
+            "git@github.com:org/repo.git"
+        );
+        assert_eq!(
+            parse_remote("https://github.com/org/repo.git?token=secret")
+                .name
+                .as_deref(),
+            Some("repo")
+        );
     }
 
     #[test]

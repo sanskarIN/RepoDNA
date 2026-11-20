@@ -6,7 +6,24 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-No additional changes are recorded since v1.5.1.
+No changes are recorded after the v1.5.2 maintenance candidate.
+
+## [1.5.2] - 2026-11-20
+
+**Maintenance candidate only — not yet published as stable.** Confirm the
+publication date and replace this note after the exact-SHA build review.
+
+### Fixed
+
+- Reject percent-encoded remote hostnames before Git can reinterpret their
+  meaning, retaining encoded repository paths and explicit trusted literal hosts.
+- Parse remote URL authority before query or fragment delimiters so stray
+  userinfo markers cannot disguise the destination host.
+- Remove URL queries, fragments, and HTTP(S) credentials from remote URLs
+  displayed or saved in local analysis metadata.
+
+No new branch, tag, commit or directory analysis features from development
+`main` are included in this maintenance update.
 
 ## [1.5.1] - 2026-11-16
 

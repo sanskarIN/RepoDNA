@@ -7,8 +7,9 @@ seriously. Thank you for helping keep its users safe.
 
 | Version | Security fixes |
 |---|---|
-| 1.4.x (latest release) | Yes |
-| 1.3.x | No, upgrade to 1.4.x |
+| 1.5.x (latest published stable: v1.5.1) | Yes |
+| 1.4.x | Yes; upgrade to 1.5.x recommended |
+| 1.3.x | No, upgrade to 1.5.x |
 | 1.2.x and earlier | No |
 
 Fixes are released as new patch versions. Please upgrade to the latest release before
