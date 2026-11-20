@@ -234,8 +234,7 @@ mod tests {
             redact_url_credentials("fatal: unable to access 'https://example.com/a.git'"),
             "fatal: unable to access 'https://example.com/a.git'"
         );
-        let sensitive_query =
-            "fatal: unable to access 'https://user:password@github.com/org/repo.git?token=private-key#session'";
+        let sensitive_query = "fatal: unable to access 'https://user:password@github.com/org/repo.git?token=private-key#session'";
         let cleaned = redact_url_credentials(sensitive_query);
         assert_eq!(
             cleaned,
@@ -262,7 +261,11 @@ mod tests {
             None,
         );
         assert!(!ssh_failure.to_string().contains("password-placeholder"));
-        assert!(ssh_failure.to_string().contains("ssh://[REDACTED]@host.example/repo.git"));
+        assert!(
+            ssh_failure
+                .to_string()
+                .contains("ssh://[REDACTED]@host.example/repo.git")
+        );
     }
 
     #[test]
