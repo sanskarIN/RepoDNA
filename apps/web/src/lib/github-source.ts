@@ -66,6 +66,10 @@ export function githubSourceHint(input: string): GitHubSourceHint | null {
     if (/\s/.test(source) || /(?:^|\/)(?:\.|%2e){1,2}(?:\/|$)/i.test(rawPath)) {
       return null;
     }
+    // URL() decodes percent-encoded hostnames before hostname is exposed.
+    // Match the native Git URL policy instead of previewing an input it rejects.
+    const authority = /^https:\/\/([^/?#]+)/i.exec(source)?.[1];
+    if (authority?.slice(authority.lastIndexOf("@") + 1).includes("%")) return null;
     const url = new URL(source);
     if (
       url.protocol !== "https:" ||
