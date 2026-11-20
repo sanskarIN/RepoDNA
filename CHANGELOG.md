@@ -6,12 +6,13 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-These entries describe work on `main` after the v1.5.0 stable release.
-They are **not automatically included** in the separate
-[v1.5.1 maintenance release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1), which was published
-November 16, 2026 from its own isolated patch branch. Some overlapping
-security fixes were also backported into v1.5.1; consult the scoped patch
-notes below. No later stable version or date has been announced.
+These entries describe feature and hardening development on `main` after
+v1.5.0. They are **not automatically included** in the separately published
+[v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1) and
+[v1.5.2](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2)
+maintenance patches from isolated release sources. Some Git safety changes
+overlap because they were backported into the patch series; newer branch,
+tag and commit analysis and counts-only exports remain development-only.
 
 ### Added
 
@@ -24,7 +25,7 @@ notes below. No later stable version or date has been announced.
   GitHub folder links with hidden directories such as `.github` and
   percent-encoded spaces are supported without weakening explicit Git ref
   validation; traversal and control characters remain rejected.
-  Development-only; not in v1.5.1 maintenance installers.
+  Development-only; not in v1.5.1 or v1.5.2 maintenance installers.
 
 - Show the checked-out Git branch in the Overview and History views when
   available, distinguishing the analyzed checkout from the remote default (#228).
@@ -87,6 +88,27 @@ notes below. No later stable version or date has been announced.
   failure messages so query-based credentials are not published (#249).
 - Accept one trailing slash in GitHub branch-root `/tree/<ref>/` URLs while
   rejecting malformed refs and repeated trailing separators (#250).
+
+## [1.5.2] - 2026-11-20
+
+RepoDNA v1.5.2 is a security-focused maintenance update built from the
+published v1.5.1 source, without merging post-1.5.0 feature development.
+
+### Fixed
+
+- Reject percent-encoded Git remote hostnames so downstream URL decoding
+  cannot reinterpret them after literal private-host checks. Percent-encoded
+  repository paths and explicit trusted literal hosts remain supported.
+- Parse URL authority before query or fragment delimiters, preventing userinfo
+  markers outside the authority from disguising the validated destination.
+- Exclude URL queries, fragments and HTTP(S) userinfo from displayed and
+  stored Git remote metadata; redact corresponding URL secrets echoed in Git
+  failure diagnostics, including password-bearing SSH userinfo.
+
+The published [release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2)
+includes 15 platform binaries/installers/manifests plus `SHA256SUMS.txt`.
+See the [exact-commit qualification record](docs/release-v1.5.2.md).
+GitHub stable publication does not establish WinGet catalog availability.
 
 ## [1.5.1] - 2026-11-16
 
@@ -1126,7 +1148,8 @@ every conclusion backed by evidence.
   linear-time regular expressions, and local storage in SQLite that can be checked,
   repaired, and cleaned.
 
-[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/sanskarIN/RepoDNA/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2
 [1.5.1]: https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1
 [1.5.0]: https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0
 [1.4.2]: https://github.com/sanskarIN/RepoDNA/compare/v1.4.1...v1.4.2
