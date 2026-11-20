@@ -48,7 +48,7 @@ Open the printed link. The start page lets you:
   wins over the URL's candidate. The form previews GitHub branch links
   without contacting GitHub. Actual checkout verification occurs only when
   an analysis starts. These additional controls are not in published
-  v1.5.1 maintenance installers.
+  v1.5.2 maintenance installers.
 - **Open a stored analysis** from this machine. With more than eight, the newest are
   listed first, and a filter finds the others by name or location.
 - **Open an analysis file** (`repodna.json` or `.repodna`), by choosing it or dropping it
