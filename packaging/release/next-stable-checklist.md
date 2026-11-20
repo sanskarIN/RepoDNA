@@ -13,6 +13,54 @@ the exact frozen commit. Keep the historical
 [v1.5.0 qualification](v1.5.0-checklist.md) and
 [v1.5.1 publication record](../../docs/release-v1.5.1.md) intact.
 
+## Current live snapshot (November 20, 2026)
+
+This section supersedes historical branch/PR statuses below; historical evidence
+remains for auditability. The target is **release qualification**, not publication.
+
+- **Latest public stable:** `v1.5.1`, released November 16, 2026 from the
+  isolated maintenance commit `bbccf812148984ab45830c2c579729926cabf4f5`.
+  The public release contains 15 platform artifacts and `SHA256SUMS.txt`.
+  The v1.5.1 release-candidate PR
+  [#276](https://github.com/sanskarIN/RepoDNA/pull/276) was closed without
+  merging into `main` after the approved release was published.
+- **Development `main` baseline:** `c4b2c0a6cf6043b9b89a3eb098cd56825a4d526a`,
+  containing the merged revision-aware remote analysis
+  [#278](https://github.com/sanskarIN/RepoDNA/pull/278).
+  [Full CI run #44545069543](https://github.com/sanskarIN/RepoDNA/actions/runs/44545069543)
+  passed on retry (attempt 2). Its first attempt was not green because a
+  macOS GitHub Action job was cancelled. The
+  [main CodeQL run #44545069790](https://github.com/sanskarIN/RepoDNA/actions/runs/44545069790)
+  succeeded. Do not substitute either for future exact-candidate checks.
+- **Pending Git URL hardening:** [#279](https://github.com/sanskarIN/RepoDNA/pull/279)
+  adds percent-encoded hostname rejection with regression tests and security
+  documentation. It was **open and unmerged** at this snapshot; a passed
+  final-head CI and review are required before it can be called shipped.
+- **Still-open dependency PRs:** [#267](https://github.com/sanskarIN/RepoDNA/pull/267),
+  [#268](https://github.com/sanskarIN/RepoDNA/pull/268),
+  [#271](https://github.com/sanskarIN/RepoDNA/pull/271), and
+  [#272](https://github.com/sanskarIN/RepoDNA/pull/272).
+  The Rust and desktop changes overlap in dependency families and lockfiles;
+  refresh them from current `main`, coordinate updates, and run both locked
+  metadata/notices gates before choosing any merge.
+- Earlier draft [#266](https://github.com/sanskarIN/RepoDNA/pull/266) and
+  npm updates [#269](https://github.com/sanskarIN/RepoDNA/pull/269) and
+  [#270](https://github.com/sanskarIN/RepoDNA/pull/270) **have been merged**
+  since the historical snapshot below.
+
+### Version and source decision (still open)
+
+- **`v1.5.2` maintenance patch:** branch from the *published `v1.5.1` commit*,
+  include only narrowly scoped, backportable fixes and requalify all release
+  assets. Do not silently pull the feature-rich `main` branch into this patch.
+- **`v1.6.0` next feature release:** branch from current `main` after a feature
+  freeze, because new branch/tag/commit selection and browser routing features
+  have shipped to source but not to stable binaries. Evaluate compatibility,
+  dependency upgrades, and user-facing release notes before choosing this route.
+
+The maintainer must choose which scope to ship, then freeze an exact commit.
+The presence of a proposed version here is **not** approval to tag or publish.
+
 ## Historical pre-v1.5.1 audit snapshot (November 14, 2026)
 
 - Stable tag: `v1.5.0`; main head at initial audit:
@@ -136,7 +184,7 @@ Record the immutable candidate commit SHA here **after feature freeze**:
 
 | Field | Verified value |
 | --- | --- |
-| Proposed version | Pending scope decision |
+| Proposed version | v1.5.2 maintenance or v1.6.0 feature; decision pending |
 | Frozen candidate SHA | Pending |
 | Full CI run | Pending |
 | CodeQL run | Pending |
