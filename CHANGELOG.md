@@ -6,12 +6,12 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-No changes are recorded after the v1.5.2 maintenance candidate.
+No changes have been recorded since v1.5.2.
 
 ## [1.5.2] - 2026-11-20
 
-**Maintenance candidate only — not yet published as stable.** Confirm the
-publication date and replace this note after the exact-SHA build review.
+RepoDNA v1.5.2 is a focused maintenance update from the v1.5.1
+source, preserving the established CLI, web and desktop interfaces.
 
 ### Fixed
 
