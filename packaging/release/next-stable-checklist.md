@@ -36,6 +36,12 @@ remains for auditability. The target is **release qualification**, not publicati
   adds percent-encoded hostname rejection with regression tests and security
   documentation. It was **open and unmerged** at this snapshot; a passed
   final-head CI and review are required before it can be called shipped.
+- **Version metadata is not candidate-ready:** current `main` still declares
+  `1.5.0` in root `Cargo.toml`, `package.json`, and Tauri config.
+  A new trial requires a synchronized chosen version in the manifests and
+  **both** Cargo lockfiles plus npm lockfile, a dated changelog entry, and
+  `cargo metadata --locked` passing in both Rust workspaces. The Release
+  workflow intentionally rejects a candidate that lacks those gates.
 - **Still-open dependency PRs:** [#267](https://github.com/sanskarIN/RepoDNA/pull/267),
   [#268](https://github.com/sanskarIN/RepoDNA/pull/268),
   [#271](https://github.com/sanskarIN/RepoDNA/pull/271), and
