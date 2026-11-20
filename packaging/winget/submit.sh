@@ -34,7 +34,13 @@ done
 if [[ "$ready" != true ]]; then
   echo "::error::Fork initialization timed out" >&2; exit 1
 fi
-gh api -X POST "repos/$fork/merge-upstream" -f branch=master --silent
+# Do not sync the entire upstream tree into the personal fork here.
+# Upstream updates can include .github/workflows/* files; merging those into
+# the fork requires an unrelated high-privilege "workflow" token scope even
+# though this submission only proposes three manifest YAMLs per package.
+# Instead add a small commit to a new branch from the existing fork master.
+# GitHub's upstream PR uses the current microsoft/winget-pkgs master as its
+# base, applying only our two independent package-version additions.
 base="$(gh api "repos/$fork/git/ref/heads/master" --jq .object.sha)"
 base_tree="$(gh api "repos/$fork/git/commits/$base" --jq .tree.sha)"
 for entry in "Sanskar.RepoDNA:desktop" "Sanskar.RepoDNA.CLI:cli"; do
