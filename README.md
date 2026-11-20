@@ -17,6 +17,7 @@ the changes of every release on one page.
 
 | Version | Released | Highlights |
 |---|---|---|
+| [1.5.2](v1.5.2/README.md) | 2026-11-20 | Maintenance patch: encoded Git remote hostname protection, query/fragment authority parsing, and redacted URL secrets in Git diagnostics |
 | [1.4.0](v1.4.0/README.md) | 2026-10-15 | Hand-authored RepoDNA logo and startup splash; updated app/desktop icons; PayPal support; fixes to deep links and docs |
 | [1.3.3](v1.3.3/release-notes.md) | prepared | Safer WebAssembly CLI arguments and file output, more reliable documentation links, updated TLS security dependency |
 | [1.3.2](v1.3.2/release-notes.md) | not yet | The documentation as a site at sanskarin.github.io/RepoDNA/docs, with search; the new Buy Me a Coffee and Razorpay links; and plainer messages from `repodna-wasm` |
@@ -47,7 +48,7 @@ promo images and Project DNA cards of each release are on the
   `@sanskarin/repodna-visualization` on npmjs.com and GitHub Packages from 1.2.0 on, and
   `@sanskarin/repodna-web` from 1.3.0 on, and `@sanskarin/repodna-wasm` from 1.3.1 on; see [installation](https://github.com/sanskarIN/RepoDNA/blob/main/docs/installation.md#npm-packages).
 - **Web version:** [sanskarin.github.io/RepoDNA](https://sanskarin.github.io/RepoDNA/)
-  always runs the latest release.
+  tracks the GitHub Pages deployment and may contain features newer than the latest stable tag.
 
 ## Adding a release
 
