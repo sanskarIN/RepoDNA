@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
-  appendFileSync, chmodSync, mkdtempSync, mkdirSync, readFileSync,
+  chmodSync, mkdtempSync, mkdirSync, readFileSync,
   rmSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const script = resolve('packaging/winget/submit.sh');
@@ -27,7 +27,7 @@ function setup(t, behind = '0') {
   // gh API stub exercises the real submit.sh branch and PR creation code.
   // Upstream sync is forbidden: any attempted call fails the test.
   const mock = String.raw`#!/usr/bin/env node
-import { appendFileSync } from 'node:fs';
+const { appendFileSync } = require('node:fs');
 const args = process.argv.slice(2);
 const target = args.find(s => s.startsWith('repos/')) ?? (args.includes('user') ? 'user' : '');
 appendFileSync(process.env.MOCK_GH_LOG, JSON.stringify(args) + '\n');
