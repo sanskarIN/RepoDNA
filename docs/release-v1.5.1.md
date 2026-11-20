@@ -2,12 +2,12 @@
 
 **Stable version:** [v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1)  
 **Published:** November 16, 2026  
-**Status:** Public, latest stable, not a draft or prerelease  
+**Status:** Published stable (superseded by [v1.5.2](release-v1.5.2.md) on November 20, 2026); not a draft or prerelease  
 **Source tag:** [`v1.5.1`](https://github.com/sanskarIN/RepoDNA/tree/v1.5.1)  
 **Exact tag commit:** [`bbccf812148984ab45830c2c579729926cabf4f5`](https://github.com/sanskarIN/RepoDNA/commit/bbccf812148984ab45830c2c579729926cabf4f5)  
 **GitHub Release assets:** 15 platform/install/manifest files plus `SHA256SUMS.txt` (16 attachments total)
 
-This file records an **already published** release. The versioned source tag
+This file records an **already published historical** release. The versioned source tag
 is frozen and must not be changed to bring in later documentation or
 features from `main`.
 

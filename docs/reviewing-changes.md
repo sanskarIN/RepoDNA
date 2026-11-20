@@ -4,13 +4,13 @@ RepoDNA has two complementary review workflows: **baseline impact in the CLI**
 and **filtered findings exports in the web interface**. Neither workflow is a
 security audit, proof of causality, or a substitute for reading the actual diff.
 
-> **Latest stable (2026-11-16):** [RepoDNA v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1)
-> is a maintenance patch retaining the CI `fileOwners` field and local
+> **Latest stable (2026-11-20):** [RepoDNA v1.5.2](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2)
+> is a maintenance patch with stronger Git remote URL validation, retaining the CI `fileOwners` field and local
 > Findings-export review first shipped in v1.5.0 (PRs
 > [#198](https://github.com/sanskarIN/RepoDNA/pull/198) and
 > [#195](https://github.com/sanskarIN/RepoDNA/pull/195)).
 > The hosted application may deploy newer `main` features independently;
-> those features are **not** in the v1.5.1 desktop/CLI packages.
+> those features are **not** in the v1.5.2 desktop/CLI packages.
 
 ## 1. Build a comparable baseline
 
@@ -99,7 +99,7 @@ now active count as introduced. With `--new-only`, GitHub annotations target
 the introduced findings; their limit is 50 after filtering.
 
 The published [GitHub Action](github-action.md) provides an easier route for
-automated CI. **Pin `sanskarIN/RepoDNA@v1.5.1` for the published stable
+automated CI. **Pin `sanskarIN/RepoDNA@v1.5.2` for the published stable
 behavior**; the action does not automatically gain changes merged to `main`
 after the release. See
 [the practical CI workflow](workflows.md#review-new-findings-in-ci).
@@ -138,9 +138,9 @@ For exporting and sharing see [web](web.md), [reports](reports.md), and
 
 ## 5. Release and research status
 
-**v1.5.1 is the latest published stable patch.** See its
-[GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1),
-[verified release record](release-v1.5.1.md), the
+**v1.5.2 is the latest published stable patch.** See its
+[GitHub release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2),
+[verified release record](release-v1.5.2.md), the
 [roadmap](../ROADMAP.md) and [release history](../CHANGELOG.md).
 The v1.5.0 feature release remains documented in the
 [historical qualification record](../packaging/release/v1.5.0-checklist.md).
