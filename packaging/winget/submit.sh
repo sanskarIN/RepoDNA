@@ -34,8 +34,19 @@ done
 if [[ "$ready" != true ]]; then
   echo "::error::Fork initialization timed out" >&2; exit 1
 fi
-gh api -X POST "repos/$fork/merge-upstream" -f branch=master --silent
+# Do NOT synchronize the fork's default branch just to submit manifests.
+# GitHub's merge-upstream API can rewrite upstream workflow files in the fork,
+# which requires the broad `workflow` PAT scope (HTTP 422 with public_repo).
+# A manifest-only commit based on an ancestral fork master produces the correct
+# PR diff against the current upstream master without modifying workflow files.
+# Fail closed if the fork's master has any commits that are NOT on upstream:
+# such a diverged fork could accidentally contribute unrelated changes.
 base="$(gh api "repos/$fork/git/ref/heads/master" --jq .object.sha)"
+behind="$(gh api "repos/$fork/compare/master...microsoft:master" --jq .behind_by)"
+if [[ ! "$behind" =~ ^[0-9]+$ ]] || [[ "$behind" != 0 ]]; then
+  echo "::error::The fork master has commits not present on microsoft/winget-pkgs master; inspect and reconcile it manually before submitting." >&2
+  exit 1
+fi
 base_tree="$(gh api "repos/$fork/git/commits/$base" --jq .tree.sha)"
 for entry in "Sanskar.RepoDNA:desktop" "Sanskar.RepoDNA.CLI:cli"; do
   id="$(printf '%s' "$entry" | cut -d: -f1)"
