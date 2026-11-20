@@ -35,13 +35,13 @@ in directory names. It then analyzes the whole repository at that revision
 (not only the directory). If the ref is unavailable, or a path contains an unsupported
 URL component, or remote discovery is refused, paste the branch-root
 URL or use the explicit `--branch`/`--tag` selector. With published
-stable v1.5.1, clone the repository yourself and analyze the local checkout.
+stable v1.5.2, clone the repository yourself and analyze the local checkout.
 
 **A GitHub pull request, issue, or release page cannot be cloned.**
 These are browser pages rather than Git repository URLs. Development builds
 support `/tree/<branch-or-tag>` and, with the newer revision-selection work,
 `/commit/<full-SHA>`; other unsupported routes are rejected before invoking
-Git. Published v1.5.0 and v1.5.1 maintenance installers do not include the
+Git. Published v1.5.0, v1.5.1, and v1.5.2 installers do not include the
 branch-link feature or the new explicit revision selectors. Use a repository
 clone URL or an already checked-out local directory.
 
