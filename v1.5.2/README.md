@@ -34,9 +34,13 @@ Download files from the [official v1.5.2 GitHub Release](https://github.com/sans
 | Linux ARM64 | CLI only | `repodna-1.5.2-aarch64-unknown-linux-musl.tar.gz` |
 | WASI | — | `repodna-1.5.2-wasm32-wasip1.zip` |
 
-The release also includes `repodna-1.5.2-winget-manifests.zip`, but the
-separate WinGet community submission [failed](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
-with an authorization error; the public WinGet catalog is **not confirmed**.
+The release also includes `repodna-1.5.2-winget-manifests.zip`. The
+initial WinGet submission failed on unrelated fork workflow-file permissions,
+but a [manifest-only fix](https://github.com/sanskarIN/RepoDNA/pull/289)
+allowed a [successful retry](https://github.com/sanskarIN/RepoDNA/actions/runs/44763093413).
+Microsoft has [Desktop PR #485086](https://github.com/microsoft/winget-pkgs/pull/485086)
+and [CLI PR #485087](https://github.com/microsoft/winget-pkgs/pull/485087).
+The public WinGet catalog is **not confirmed** until Microsoft merges and indexes both versions.
 
 Verify every downloaded file against
 [`SHA256SUMS.txt`](https://github.com/sanskarIN/RepoDNA/releases/download/v1.5.2/SHA256SUMS.txt).
