@@ -20,7 +20,8 @@ publication date and replace this note after the exact-SHA build review.
 - Parse remote URL authority before query or fragment delimiters so stray
   userinfo markers cannot disguise the destination host.
 - Remove URL queries, fragments, and HTTP(S) credentials from remote URLs
-  displayed or saved in local analysis metadata.
+  displayed or saved in local analysis metadata, and scrub URL secrets echoed by
+  Git in failure diagnostics (including password-bearing SSH URLs).
 
 No new branch, tag, commit or directory analysis features from development
 `main` are included in this maintenance update.

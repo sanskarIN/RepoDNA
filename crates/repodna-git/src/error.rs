@@ -47,48 +47,56 @@ pub enum GitError {
     Io(#[from] std::io::Error),
 }
 
-/// Redact HTTP(S) userinfo echoed by Git before an error reaches logs or the UI.
+/// Redact credentials echoed in Git errors before they reach logs or the UI.
 ///
-/// Git can include the original URL in a failed clone's stderr, even though
-/// command descriptions avoid URLs. Only the authority's userinfo is removed;
-/// host, path and Git's actionable diagnostics remain available. The scan is
-/// ASCII case-insensitive so URLs such as HTTPS:// also receive protection.
-fn redact_http_url_credentials(stderr: &str) -> String {
+/// Remove all HTTP(S) authority userinfo; for SSH-style URL schemes, preserve
+/// the common bare username (e.g. `git@`) but redact password-bearing userinfo.
+/// Host, path, and actionable diagnostics are retained. Scheme matching is
+/// ASCII case-insensitive, including composite SSH schemes.
+fn redact_url_credentials(stderr: &str) -> String {
     let lowercase = stderr.to_ascii_lowercase();
     let mut redacted = String::with_capacity(stderr.len());
     let mut cursor = 0;
 
     while cursor < stderr.len() {
-        let next = ["https://", "http://"]
+        let next = ["https://", "http://", "git+ssh://", "ssh+git://", "ssh://"]
             .iter()
             .filter_map(|scheme| {
                 lowercase[cursor..]
                     .find(scheme)
-                    .map(|offset| (cursor + offset, scheme.len()))
+                    .map(|offset| (cursor + offset, *scheme))
             })
             .min_by_key(|(position, _)| *position);
-        let Some((scheme_start, scheme_len)) = next else {
+        let Some((scheme_start, scheme)) = next else {
             break;
         };
-        let authority_start = scheme_start + scheme_len;
+        let authority_start = scheme_start + scheme.len();
         redacted.push_str(&stderr[cursor..authority_start]);
-        let authority_end = stderr[authority_start..]
+        // Treat the URL as one span so credential-bearing query parameters and
+        // fragments cannot leak through Git's diagnostic text.
+        let url_end = stderr[authority_start..]
             .find(|character: char| {
-                character == '/'
-                    || character == '?'
-                    || character == '#'
-                    || character.is_whitespace()
-                    || matches!(character, '\'' | '"' | '<' | '>')
+                character.is_whitespace() || matches!(character, '\'' | '"' | '<' | '>')
             })
             .map_or(stderr.len(), |offset| authority_start + offset);
-        let authority = &stderr[authority_start..authority_end];
-        if let Some((_, host)) = authority.rsplit_once('@') {
-            redacted.push_str("[REDACTED]@");
-            redacted.push_str(host);
+        let url = &stderr[authority_start..url_end];
+        let authority_end = url.find(['/', '?', '#']).unwrap_or(url.len());
+        let authority = &url[..authority_end];
+        if let Some((userinfo, host)) = authority.rsplit_once('@') {
+            if matches!(scheme, "http://" | "https://") || userinfo.contains(':') {
+                redacted.push_str("[REDACTED]@");
+                redacted.push_str(host);
+            } else {
+                redacted.push_str(authority);
+            }
         } else {
             redacted.push_str(authority);
         }
-        cursor = authority_end;
+        // Keep the diagnostic's host and repository path, but not arbitrary
+        // query keys or fragments (which may be signed or bearer credentials).
+        let suffix = &url[authority_end..];
+        redacted.push_str(suffix.split(['?', '#']).next().unwrap_or_default());
+        cursor = url_end;
     }
 
     redacted.push_str(&stderr[cursor..]);
@@ -113,7 +121,7 @@ impl GitError {
         GitError::CommandFailed {
             command: command.to_owned(),
             status,
-            stderr: redact_http_url_credentials(stderr)
+            stderr: redact_url_credentials(stderr)
                 .trim()
                 .chars()
                 .take(2_000)
@@ -217,15 +225,40 @@ mod tests {
         assert!(failed.hint().unwrap().contains("may be private"));
 
         let mixed = "first HTTPS://login:another-secret@github.com/a then http://a:b@host.test/b";
-        let scrubbed = redact_http_url_credentials(mixed);
+        let scrubbed = redact_url_credentials(mixed);
         assert_eq!(
             scrubbed,
             "first HTTPS://[REDACTED]@github.com/a then http://[REDACTED]@host.test/b"
         );
         assert_eq!(
-            redact_http_url_credentials("fatal: unable to access 'https://example.com/a.git'"),
+            redact_url_credentials("fatal: unable to access 'https://example.com/a.git'"),
             "fatal: unable to access 'https://example.com/a.git'"
         );
+        let sensitive_query =
+            "fatal: unable to access 'https://user:password@github.com/org/repo.git?token=private-key#session'";
+        let cleaned = redact_url_credentials(sensitive_query);
+        assert_eq!(
+            cleaned,
+            "fatal: unable to access 'https://[REDACTED]@github.com/org/repo.git'"
+        );
+        assert!(!cleaned.contains("private-key"));
+        assert!(!cleaned.contains("password"));
+        assert_eq!(
+            redact_url_credentials("fatal: https://example.com/repo.git?access_token=hidden returned 403"),
+            "fatal: https://example.com/repo.git returned 403"
+        );
+        assert_eq!(
+            redact_url_credentials("fatal: https://example.com/repo.git#secret http://example.com/next?key=value"),
+            "fatal: https://example.com/repo.git http://example.com/next"
+        );
+        let ssh_failure = GitError::from_failure(
+            "git clone",
+            Some(128),
+            "fatal: permission denied for ssh://git:password-placeholder@host.example/repo.git",
+            None,
+        );
+        assert!(!ssh_failure.to_string().contains("password-placeholder"));
+        assert!(ssh_failure.to_string().contains("ssh://[REDACTED]@host.example/repo.git"));
     }
 
     #[test]

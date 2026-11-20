@@ -133,7 +133,8 @@ unencrypted `http://` and `git://` and private or loopback hosts need an explici
 Percent-encoded hostnames are rejected, because later URL parsing can decode a
 different destination after the private-host check. Repository paths can still
 contain percent escapes. Remote URL queries, fragments and HTTP(S) credentials
-are removed from stored and displayed metadata. Host names are checked literally,
+are removed from stored, displayed, and Git-error metadata. Password-bearing
+SSH authority userinfo in Git errors is redacted. Host names are checked literally,
 so a public DNS name that resolves to a private address is not detected.
 
 **Safe archives.** ZIP and TAR extraction rejects absolute paths and `..` traversal, skips
