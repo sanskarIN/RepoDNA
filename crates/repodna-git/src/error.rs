@@ -244,11 +244,15 @@ mod tests {
         assert!(!cleaned.contains("private-key"));
         assert!(!cleaned.contains("password"));
         assert_eq!(
-            redact_url_credentials("fatal: https://example.com/repo.git?access_token=hidden returned 403"),
+            redact_url_credentials(
+                "fatal: https://example.com/repo.git?access_token=hidden returned 403"
+            ),
             "fatal: https://example.com/repo.git returned 403"
         );
         assert_eq!(
-            redact_url_credentials("fatal: https://example.com/repo.git#secret http://example.com/next?key=value"),
+            redact_url_credentials(
+                "fatal: https://example.com/repo.git#secret http://example.com/next?key=value"
+            ),
             "fatal: https://example.com/repo.git http://example.com/next"
         );
         let ssh_failure = GitError::from_failure(
