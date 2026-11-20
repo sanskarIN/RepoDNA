@@ -1,0 +1,82 @@
+name: RepoDNA v1.5.2 one-time publication gate
+
+# Intentionally inert until an authorized maintainer changes the trigger to
+# the ops branch push, after all candidate checks pass. Never put in main.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  publish:
+    if: github.repository == 'sanskarIN/RepoDNA'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_SHA: 5832b9818c5cb657a9238180feefb72e0c6b2d8e
+      RELEASE_TAG: v1.5.2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+      - name: Verify owner-approved release source and complete checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "sanskarIN/RepoDNA"
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/283")
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .head.sha == $sha and
+            .base.ref == "maintenance/v1.5.x" and
+            .state == "open" and
+            .merged == false
+          ' <<< "$pr" >/dev/null
+          head_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/release/v1.5.2-candidate" --jq '.object.sha')
+          test "$head_sha" = "$CANDIDATE_SHA"
+          git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
+          test "$(git show "$CANDIDATE_SHA:package.json" | jq -r '.version')" = "1.5.2"
+          git show "$CANDIDATE_SHA:CHANGELOG.md" | grep -q '^## \[1.5.2\] - 2026-11-20$'
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100")
+          for spec in 'CI:pull_request' 'CodeQL Advanced:pull_request' 'Release:push'; do
+            name="${spec%:*}"
+            event="${spec##*:}"
+            jq -e --arg sha "$CANDIDATE_SHA" --arg name "$name" --arg event "$event" '
+              [.workflow_runs[] |
+               select(.head_sha == $sha and .name == $name
+                 and .event == $event and .conclusion == "success")]
+               | length > 0
+            ' <<< "$runs" >/dev/null || {
+              echo "::error::The exact-SHA $name/$event gate has not passed."
+              exit 1
+            }
+          done
+          echo "v1.5.2 exact-SHA CI, CodeQL and unpublished release inventory verified."
+
+      - name: Create exact source tag if absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > /dev/null 2>&1; then
+            remote_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')
+            test "$remote_sha" = "$CANDIDATE_SHA" || {
+              echo "::error::The existing release tag points at a different commit."
+              exit 1
+            }
+            echo "The exact validated tag already exists."
+          else
+            git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
+            git tag "$RELEASE_TAG" "$CANDIDATE_SHA"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+
+      - name: Start the GitHub stable release workflow for that tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Tag pushes using GITHUB_TOKEN do not trigger subsequent workflows.
+          # workflow_dispatch does, and release.yml checks out the tag itself.
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" \
+            --ref main --field "tag=$RELEASE_TAG"
+          echo "Dispatched the stable release build from $RELEASE_TAG."
