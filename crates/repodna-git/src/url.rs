@@ -603,9 +603,7 @@ mod tests {
         }
         // Repository *paths* are different from remote hostnames.
         assert!(validate_clone_url("https://github.com/org/repo%20name.git", PUBLIC).is_ok());
-        assert!(
-            validate_clone_url("https://localhost/org/repo.git", explicitly_trusted).is_ok()
-        );
+        assert!(validate_clone_url("https://localhost/org/repo.git", explicitly_trusted).is_ok());
     }
 
     #[test]
