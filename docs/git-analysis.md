@@ -38,7 +38,7 @@ the history sections are marked *unavailable* and the rest of the analysis still
   branch. Explicit `--branch`/`--tag` switches bypass this discovery.
   The static hosted web version cannot clone remote Git repositories;
   use the CLI, desktop app, or `repodna serve`. This enhancement is
-  development-only and not in the published v1.5.1 maintenance installers.
+  development-only and not in the published v1.5.2 maintenance installers.
 - **Explicit revisions (development-only)**: `repodna analyze URL --branch
   feat/initial-audio-platform` selects an existing branch, `--tag v1.5.0`
   selects a detached tag, and `--commit <full-SHA>` selects a detached
@@ -49,7 +49,7 @@ the history sections are marked *unavailable* and the rest of the analysis still
   checkout is verified against Git's HEAD and the selected revision; missing
   branches or unreachable commits do not fall back to the default branch.
   `--clone-depth` intentionally limits evidence and can exclude commits.
-  This new feature is **not included in the published v1.5.1 maintenance installers**.
+  This new feature is **not included in the published v1.5.2 maintenance installers**.
 - **Which checkout**: the Overview and History views identify the branch checked out
   when the analysis ran, if Git supplies it. This is different from the
   repository's default branch and does not imply that any newer remote commits

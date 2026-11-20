@@ -8,17 +8,18 @@ RepoDNA uses the `Sanskar` publisher prefix in its two Microsoft Windows Package
 | `Sanskar.RepoDNA` | Desktop application | x64 / ARM64 MSI |
 | `Sanskar.RepoDNA.CLI` | `repodna` CLI (with the local web UI built in) | x64 / ARM64 portable ZIP |
 
-**Important:** RepoDNA [v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1) is
-**published as stable on GitHub**, but its package-manager indexing is
-separate. The automatic v1.5.1 WinGet submission
-([run #43827597415](https://github.com/sanskarIN/RepoDNA/actions/runs/43827597415))
-passed installer/manifest validation but **failed to open upstream Microsoft PRs**
-because the configured personal access token lacked GitHub's `workflow` scope
-(HTTP 422). Earlier v1.4.1 community PRs also require separate acceptance.
-A release or manifest ZIP is **not proof** that either package is indexed in
+**Important:** RepoDNA [v1.5.2](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2)
+is published as stable on GitHub, but **WinGet indexing is independent**.
+Its automatic [v1.5.2 submission](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
+validated the Windows installers and the manifests, but failed to open the two
+upstream Microsoft pull requests: the personal access token could not push
+`.github/workflows/scriptAnalyzer.yaml` without GitHub's `workflow` scope
+(HTTP 422). The v1.5.1 attempt failed on the same authorization requirement.
+Valid manifest files, a GitHub Release or a failed submission are **not proof**
+that `Sanskar.RepoDNA` or `Sanskar.RepoDNA.CLI` version 1.5.2 is indexed in
 [Microsoft's WinGet catalog](https://github.com/microsoft/winget-pkgs).
-Use the [GitHub downloads](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1) until the exact package
-versions are independently verified in the public WinGet source.
+Use the [GitHub v1.5.2 downloads](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2)
+until both package versions are independently verified in the public source.
 
 ## When the community source lists the packages
 
@@ -113,7 +114,7 @@ perform this **one-time authorization** (never share the token in an issue or ch
 2. In **RepoDNA → Settings → Secrets and variables → Actions**, add a
    repository secret named `WINGET_CREATE_GITHUB_TOKEN` with that token as its value.
 3. Go to **RepoDNA → Actions → Submit RepoDNA to WinGet → Run workflow** and
-   enter `v1.5.1` to retry the newly published version after fixing permissions.
+   enter `v1.5.2` to retry the current published version after fixing permissions.
    Earlier v1.4.1 submissions remain separate and should not be duplicated.
    New successful tagged releases automatically dispatch this workflow.
 
@@ -163,10 +164,10 @@ winget show --id Sanskar.RepoDNA.CLI --exact --source winget
 ```
 
 This section records the historical baseline; it is not a current block on
-GitHub releases. v1.5.1 has already been published as stable, but Microsoft
-must separately accept and index **v1.5.1** manifests for any WinGet upgrade.
-Never describe that new version as installable solely because its GitHub
-release or valid manifest ZIP exists.
+GitHub releases. v1.5.2 has already been published as stable, but Microsoft
+must separately accept and index **v1.5.2** manifests for any WinGet upgrade.
+Never describe it as installable solely because the GitHub release
+or valid manifest ZIP exists.
 
 During v1.4.2 development, use the included PowerShell verifier to smoke-test
 Windows CLI ZIP packages **without installing them** (no WinGet source, admin

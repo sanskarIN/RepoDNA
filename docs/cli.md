@@ -127,7 +127,7 @@ for remote GitHub tree links without an explicit revision.
 A full commit SHA must be present in the cloned objects (some hosts reject
 arbitrary SHA fetching). Git verifies the checkout before analysis.
 These selectors are **development-only** and are not in the published
-v1.5.1 maintenance release.
+v1.5.2 maintenance release.
 
 Progress goes to standard error, so `--format json > file` captures only the artifact.
 Press Ctrl+C to cancel; exit code 130 means the analysis was cancelled.

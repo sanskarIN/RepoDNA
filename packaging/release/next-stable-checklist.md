@@ -1,19 +1,40 @@
 # Next RepoDNA stable release — qualification record
 
-> **Preparation for a future release only.** Latest published stable:
-> [v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1), November 16, 2026.
-> This version is already published; its [verified release record](../../docs/release-v1.5.1.md)
-> is separate from the future-release checklist below. No later version, date,
-> tag or feature set has been approved. Use an appropriate new version after
-> reviewing scope and compatibility; never reuse the existing v1.5.1 tag.
+> **Latest published stable:** [v1.5.2](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2),
+> November 20, 2026. It was published from the isolated v1.5.1 maintenance line.
+> The [verified v1.5.2 publication record](../../docs/release-v1.5.2.md)
+> is separate from this future-release checklist. The v1.5.2 tag must never be reused.
 
-This is a living, evidence-based checklist **for the next release after v1.5.1**,
-not a declaration that anything below passed. Check a box only after verifying
-the exact frozen commit. Keep the historical
-[v1.5.0 qualification](v1.5.0-checklist.md) and
-[v1.5.1 publication record](../../docs/release-v1.5.1.md) intact.
+This checklist is for **a future release after v1.5.2**. No subsequent
+version, exact source, date or feature set is approved. Require a fresh release
+decision, exact-SHA CI, CodeQL, dependency and license/security checks, complete
+cross-platform trial artifacts, checksums, and owner authorization before
+publishing anything new.
 
-## Current live snapshot (November 20, 2026)
+## Published v1.5.2 checkpoint — November 20, 2026
+
+- **Stable source:** `5832b9818c5cb657a9238180feefb72e0c6b2d8e`, tagged
+  `v1.5.2`; 15 platform/manifests files and `SHA256SUMS.txt` were published.
+- **Exact source CI:** [run #44748325759](https://github.com/sanskarIN/RepoDNA/actions/runs/44748325759)
+  passed 17/17 jobs; [CodeQL #44748325703](https://github.com/sanskarIN/RepoDNA/actions/runs/44748325703)
+  passed all 4 analyses.
+- **Unpublished asset trial:** [run #44748314983](https://github.com/sanskarIN/RepoDNA/actions/runs/44748314983)
+  succeeded with the full 15-file inventory and checksum verification.
+- **Stable publisher:** [run #44752365878](https://github.com/sanskarIN/RepoDNA/actions/runs/44752365878)
+  passed on attempt 2. A cancelled macOS arm64 runner job in attempt 1 was
+  retried; no patch/source change was needed.
+- **WinGet is not confirmed:** [submission #44757474107](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
+  verified installers and manifests, but GitHub rejected the upstream fork
+  push without the authorized token's `workflow` scope (HTTP 422). This is
+  separate from the completed stable GitHub publication.
+- The v1.6.0 source-only candidate PR [#282](https://github.com/sanskarIN/RepoDNA/pull/282)
+  was closed without merging. The owner selected a v1.5.2 patch instead.
+  Development `main` has additional features **not included in the patch**.
+
+The following earlier analysis is retained as a **historical pre-publication
+snapshot**, not the current stable-release status.
+
+## Historical pre-v1.5.2 qualification snapshot (November 20, 2026)
 
 This section supersedes historical branch/PR statuses below; historical evidence
 remains for auditability. The target is **release qualification**, not publication.
@@ -54,7 +75,7 @@ remains for auditability. The target is **release qualification**, not publicati
   [#270](https://github.com/sanskarIN/RepoDNA/pull/270) **have been merged**
   since the historical snapshot below.
 
-### Version and source decision (still open)
+### Version and source decision (historical; now resolved for v1.5.2)
 
 - **`v1.5.2` maintenance patch:** branch from the *published `v1.5.1` commit*,
   include only narrowly scoped, backportable fixes and requalify all release
@@ -200,14 +221,14 @@ re-run both Cargo locked-metadata commands, notice checks, and full CI.
 
 | Field | Verified value |
 | --- | --- |
-| Proposed version | v1.5.2 maintenance or v1.6.0 feature; decision pending |
+| Proposed version | Future version not selected; v1.5.2 already published |
 | Frozen candidate SHA | Pending |
 | Full CI run | Pending |
 | CodeQL run | Pending |
 | Non-publishing trial run | Pending |
 | Windows/manual QA | Pending |
-| Maintainer publication approval | **Not granted** |
-| Public stable release | **Not published** |
+| Maintainer publication approval | Not granted for any future release beyond v1.5.2 |
+| Public stable release | **v1.5.2 published**; future release not published |
 
 Review this checklist against `main` again before a future release freeze; the
 November 14 audit is historical and does not supersede the published v1.5.1 record.

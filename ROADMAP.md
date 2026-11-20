@@ -15,13 +15,14 @@ the browser, and an official GitHub Action runs RepoDNA in workflows.
 - Measure and improve performance on large repositories and long histories, and publish the
   results with the [benchmarks](benchmarks/README.md).
 
-## After v1.5.1 — continued development
+## After v1.5.2 — continued development
 
-**Latest stable:** [v1.5.1](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1), published
-November 16, 2026 as a maintenance-only patch based on v1.5.0. It improves
-saved-scan cache recovery, artifact shape validation and Git remote security.
-See the [release record](docs/release-v1.5.1.md). Features developed on
-`main` after v1.5.0 are not automatically included in this patch.
+**Latest stable:** [v1.5.2](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2),
+published November 20, 2026 as a maintenance patch built from v1.5.1. It
+hardens Git remote hostname validation, URL parsing and sensitive diagnostic
+redaction without introducing the new source-revision features on `main`.
+See the [release record](docs/release-v1.5.2.md). Development continues
+independently of the published tag.
 
 RepoDNA **v1.5.0 was published as a stable release on November 6, 2026**.
 See the [stable release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.0)
