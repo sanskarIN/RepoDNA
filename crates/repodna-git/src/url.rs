@@ -492,6 +492,13 @@ pub fn validate_clone_url(input: &str, policy: UrlPolicy) -> Result<String, GitE
     if parts.host.starts_with('-') {
         return reject("host looks like a command-line option");
     }
+    // Downstream URL clients may decode percent escapes in hostnames *after*
+    // our literal private-host check (e.g. %6cocalhost -> localhost).
+    // Disallow encoded authorities instead of letting Git reinterpret them.
+    // Percent-encoded repository paths remain valid.
+    if parts.host.contains('%') {
+        return reject("percent-encoded remote hosts are not allowed");
+    }
     if !policy.allow_private_hosts && is_private_host(parts.host) {
         return reject("private, local, or special-use host");
     }
@@ -572,6 +579,33 @@ mod tests {
         ] {
             assert!(validate_clone_url(url, PUBLIC).is_ok(), "{url}");
         }
+    }
+
+    #[test]
+    fn percent_encoded_remote_hosts_cannot_bypass_literal_host_policy() {
+        let explicitly_trusted = UrlPolicy {
+            allow_private_hosts: true,
+            ..PUBLIC
+        };
+        for url in [
+            "https://%6cocalhost/org/repo.git",
+            "https://%31%32%37.0.0.1/org/repo.git",
+            "https://127%2e0%2e0%2e1/org/repo.git",
+            "https://%30x7f.0.0.1/org/repo.git",
+            "ssh://git@%6cocalhost/org/repo.git",
+            "git@%6cocalhost:org/repo.git",
+        ] {
+            assert!(validate_clone_url(url, PUBLIC).is_err(), "{url}");
+            assert!(
+                validate_clone_url(url, explicitly_trusted).is_err(),
+                "{url} should remain invalid even with trusted-host opt-in"
+            );
+        }
+        // Repository *paths* are different from remote hostnames.
+        assert!(validate_clone_url("https://github.com/org/repo%20name.git", PUBLIC).is_ok());
+        assert!(
+            validate_clone_url("https://localhost/org/repo.git", explicitly_trusted).is_ok()
+        );
     }
 
     #[test]
