@@ -6,12 +6,25 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-These entries describe work on `main` after the v1.5.0 stable release.
-They are **not automatically included** in the separate
-[v1.5.1 maintenance release](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.1), which was published
-November 16, 2026 from its own isolated patch branch. Some overlapping
-security fixes were also backported into v1.5.1; consult the scoped patch
-notes below. No later stable version or date has been announced.
+No changes are recorded after this v1.6.0 candidate preparation.
+
+## [1.6.0] - 2026-11-20
+
+**Release-candidate source only; not published as stable.** The date reflects the
+preparation of this candidate, not a confirmed publication date. The final
+published release date and exact feature set must be verified and updated after
+review. Some maintenance fixes were already backported into v1.5.1; the branch,
+tag, and commit analysis features are new to this feature-release candidate.
+
+### Highlights
+
+- Analyze a selected GitHub branch, tag, or full commit through the CLI, local
+  server, or desktop; support tree URLs and verify selected directories.
+- Use stronger Git transport safety for remote hosts, credential-safe diagnostics,
+  bounded streaming, and cancellation across remote repository analysis.
+- Export reviewed, counts-only findings without including repository-controlled
+  paths, snippets, or evidence.
+- Improve checkout branch visibility and audit consistency for local AI labels.
 
 ### Added
 
