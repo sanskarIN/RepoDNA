@@ -228,6 +228,44 @@ jobs:
       - name: Test
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol --locked
 
+  windows-nsis:
+    name: NSIS installer metadata (${{ matrix.architecture }})
+    needs: web
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            rust-target: x86_64-pc-windows-msvc
+            bundle-args: ""
+            bundle-dir: target/release/bundle/nsis
+          - architecture: arm64
+            rust-target: aarch64-pc-windows-msvc
+            bundle-args: --target aarch64-pc-windows-msvc
+            bundle-dir: target/aarch64-pc-windows-msvc/release/bundle/nsis
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Build the NSIS installer from the current source
+        run: npm run bundle -w @repodna/desktop -- --bundles nsis ${{ matrix.bundle-args }}
+      - name: Verify the generated setup EXE version resource
+        shell: pwsh
+        run: |
+          $version = (Get-Content -LiteralPath apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $directory = Join-Path 'apps/desktop/src-tauri' '${{ matrix.bundle-dir }}'
+          & ./packaging/desktop/check-installer-metadata.ps1 -Directory $directory -Version $version -Architecture '${{ matrix.architecture }}'
+
   dependencies:
     name: Dependencies (${{ matrix.tree }}, ${{ matrix.checks }})
     runs-on: ubuntu-latest
