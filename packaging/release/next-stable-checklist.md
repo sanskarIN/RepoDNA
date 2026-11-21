@@ -23,10 +23,15 @@ publishing anything new.
 - **Stable publisher:** [run #44752365878](https://github.com/sanskarIN/RepoDNA/actions/runs/44752365878)
   passed on attempt 2. A cancelled macOS arm64 runner job in attempt 1 was
   retried; no patch/source change was needed.
-- **WinGet is not confirmed:** [submission #44757474107](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
-  verified installers and manifests, but GitHub rejected the upstream fork
-  push without the authorized token's `workflow` scope (HTTP 422). This is
-  separate from the completed stable GitHub publication.
+- **WinGet catalog indexing is not yet confirmed:** the initial
+  [submission #44757474107](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
+  failed to sync upstream workflow files without the token's `workflow`
+  scope. The [manifest-only fix #289](https://github.com/sanskarIN/RepoDNA/pull/289)
+  was merged; [retry #44763093413](https://github.com/sanskarIN/RepoDNA/actions/runs/44763093413)
+  successfully created upstream [Desktop PR #485086](https://github.com/microsoft/winget-pkgs/pull/485086)
+  and [CLI PR #485087](https://github.com/microsoft/winget-pkgs/pull/485087).
+  Each adds three manifest files. Microsoft approval and indexing are
+  independent of the completed GitHub stable release.
 - The v1.6.0 source-only candidate PR [#282](https://github.com/sanskarIN/RepoDNA/pull/282)
   was closed without merging. The owner selected a v1.5.2 patch instead.
   Development `main` has additional features **not included in the patch**.

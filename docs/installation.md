@@ -75,11 +75,14 @@ winget upgrade --id Sanskar.RepoDNA.CLI --exact
 
 WinGet updates require a newer package manifest to be accepted and indexed; the
 v1.5.2 GitHub release does **not** prove v1.5.2 is available through WinGet.
-The [v1.5.2 submission workflow](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
-passed installer and manifest validation, but could not open upstream PRs because
-the authorized token lacks the GitHub `workflow` scope (HTTP 422).
-See [WinGet setup, verification and publication](winget.md); do not claim
-that v1.5.2 is in Microsoft's catalog without verifying it there.
+The original v1.5.2 WinGet submission failed due to an upstream
+workflow-file permission problem, but the corrected
+[retry #44763093413](https://github.com/sanskarIN/RepoDNA/actions/runs/44763093413)
+succeeded and opened [Desktop PR #485086](https://github.com/microsoft/winget-pkgs/pull/485086)
+and [CLI PR #485087](https://github.com/microsoft/winget-pkgs/pull/485087).
+Microsoft approval and indexing remain separate; do **not** assume these
+packages are already available via `winget`.
+See [WinGet setup, verification and publication](winget.md).
 
 ### Verify the download
 

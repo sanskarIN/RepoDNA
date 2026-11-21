@@ -100,13 +100,18 @@ system before claiming full real-device QA.
 ## Package-manager follow-up
 
 - Official GitHub publication and WinGet indexing are different events.
-  [WinGet submission #44757474107](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
-  passed validation of the published Windows installers and six manifest files,
-  but **failed to open upstream Microsoft pull requests** because its
-  authorized GitHub token lacks the `workflow` scope (HTTP 422).
-  Repair the submission permissions or avoid touching upstream workflow files,
-  then retry; do not claim that WinGet 1.5.2 is indexed until both package
-  IDs are verified in the public catalog. See [WinGet instructions](winget.md).
+  The initial [WinGet submission #44757474107](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
+  passed validation but failed while synchronizing unrelated upstream
+  workflow files (HTTP 422: missing `workflow` scope). The
+  [manifest-only submission fix #289](https://github.com/sanskarIN/RepoDNA/pull/289)
+  was merged with exact-commit tests; the
+  [successful retry #44763093413](https://github.com/sanskarIN/RepoDNA/actions/runs/44763093413)
+  created separate upstream Microsoft pull requests for
+  [Desktop #485086](https://github.com/microsoft/winget-pkgs/pull/485086)
+  and [CLI #485087](https://github.com/microsoft/winget-pkgs/pull/485087),
+  each with exactly three manifest files. Microsoft still needs to review,
+  merge and index them; do not claim `winget install` v1.5.2 availability
+  without independently checking the public catalog.
 - The official release workflow succeeded at its npm and container-image jobs.
   Verify availability in each external registry separately before giving a
   platform-specific package-manager instruction as definitely indexed.

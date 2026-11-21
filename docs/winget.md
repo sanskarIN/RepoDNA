@@ -9,17 +9,24 @@ RepoDNA uses the `Sanskar` publisher prefix in its two Microsoft Windows Package
 | `Sanskar.RepoDNA.CLI` | `repodna` CLI (with the local web UI built in) | x64 / ARM64 portable ZIP |
 
 **Important:** RepoDNA [v1.5.2](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2)
-is published as stable on GitHub, but **WinGet indexing is independent**.
-Its automatic [v1.5.2 submission](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
-validated the Windows installers and the manifests, but failed to open the two
-upstream Microsoft pull requests: the personal access token could not push
-`.github/workflows/scriptAnalyzer.yaml` without GitHub's `workflow` scope
-(HTTP 422). The v1.5.1 attempt failed on the same authorization requirement.
-Valid manifest files, a GitHub Release or a failed submission are **not proof**
-that `Sanskar.RepoDNA` or `Sanskar.RepoDNA.CLI` version 1.5.2 is indexed in
-[Microsoft's WinGet catalog](https://github.com/microsoft/winget-pkgs).
-Use the [GitHub v1.5.2 downloads](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2)
-until both package versions are independently verified in the public source.
+is published as stable on GitHub, but **WinGet indexing is separate**.
+Its first automated [submission attempt](https://github.com/sanskarIN/RepoDNA/actions/runs/44757474107)
+validated the Windows installers but failed during full-fork synchronization:
+GitHub refused an unrelated workflow-file update without the PAT's `workflow`
+scope (HTTP 422). [RepoDNA PR #289](https://github.com/sanskarIN/RepoDNA/pull/289)
+removed that unnecessary synchronization and added a fail-closed fork-history
+check. The [v1.5.2 retry](https://github.com/sanskarIN/RepoDNA/actions/runs/44763093413)
+succeeded and opened two upstream Microsoft PRs:
+
+- [Desktop `Sanskar.RepoDNA` — PR #485086](https://github.com/microsoft/winget-pkgs/pull/485086)
+- [CLI `Sanskar.RepoDNA.CLI` — PR #485087](https://github.com/microsoft/winget-pkgs/pull/485087)
+
+Both PRs contained exactly one commit and three package manifest YAML files
+when opened. Microsoft still needs to review, merge and index the submissions;
+an open PR is **not proof** that either package is installable from the
+[public WinGet catalog](https://github.com/microsoft/winget-pkgs).
+Until the exact version is independently verified in that catalog, use
+[the official v1.5.2 GitHub downloads](https://github.com/sanskarIN/RepoDNA/releases/tag/v1.5.2).
 
 ## When the community source lists the packages
 
@@ -100,23 +107,22 @@ and publishes the validated YAML as a GitHub Actions artifact. For v1.4.1,
 the exact six proposed files are also checked in under
 [`packaging/winget/submissions/manifests`](../packaging/winget/submissions/manifests/).
 
-For the upstream pull requests to be created automatically, the repository owner must
-perform this **one-time authorization** (never share the token in an issue or chat):
+For future upstream submissions, the repository owner must keep a
+**user-authorized GitHub credential** configured (never put tokens into chat,
+issues, source files, artifacts or logs):
 
-1. On GitHub, create a **classic personal access token**, owned by `sanskarIN`,
-   with the minimum scopes required by the actual fork-and-submit workflow.
-   **The v1.5.1 attempt demonstrated that `public_repo` alone was insufficient**:
-   the fork synchronization tried to update `.github/workflows/scriptAnalyzer.yaml`
-   and GitHub rejected the push without `workflow` scope (HTTP 422).
-   Either add this scope to the authorized token or change and test the
-   submission script so it does not push upstream workflow files. Treat
-   expanded token privileges as security-sensitive and keep the token private.
-2. In **RepoDNA → Settings → Secrets and variables → Actions**, add a
-   repository secret named `WINGET_CREATE_GITHUB_TOKEN` with that token as its value.
-3. Go to **RepoDNA → Actions → Submit RepoDNA to WinGet → Run workflow** and
-   enter `v1.5.2` to retry the current published version after fixing permissions.
-   Earlier v1.4.1 submissions remain separate and should not be duplicated.
-   New successful tagged releases automatically dispatch this workflow.
+1. Use an account-authorized token belonging to `sanskarIN` with the least
+   permissions required to create manifest-only PRs in the public fork.
+   The corrected submission script no longer synchronizes upstream
+   `.github/workflows` files, so it does not require additional privileges
+   to update those workflow files. If a fork has unrelated commits, the
+   script fails rather than pushing them upstream.
+2. In **RepoDNA → Settings → Secrets and variables → Actions**, configure
+   the repository secret `WINGET_CREATE_GITHUB_TOKEN` securely.
+3. Use **RepoDNA → Actions → Submit RepoDNA to WinGet → Run workflow** for a
+   released tag when resubmission is needed. The script checks for existing
+   package PRs before creating new ones; v1.5.2 already has the two upstream
+   PRs linked above, so avoid duplicate manual submissions.
 
 When the secret is available, [`packaging/winget/submit.sh`](../packaging/winget/submit.sh)
 creates or synchronizes the personal fork of
