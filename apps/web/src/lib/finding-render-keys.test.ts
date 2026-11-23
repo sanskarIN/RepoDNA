@@ -16,10 +16,7 @@ describe("stable findings render identities", () => {
     expect(keys.get(second)).toBe("analysis-one:1");
     expect(keys.get(third)).toBe("analysis-one:2");
     const filtered = [second, first];
-    expect(filtered.map((item) => keys.get(item))).toEqual([
-      "analysis-one:1",
-      "analysis-one:0",
-    ]);
+    expect(filtered.map((item) => keys.get(item))).toEqual(["analysis-one:1", "analysis-one:0"]);
   });
 
   it("changes keys across analyses without mutating frozen findings", () => {
