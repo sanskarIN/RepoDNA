@@ -7,6 +7,7 @@ import { Chip, EvidenceList, SeverityBadge } from "./common";
  */
 export function FindingItem({ finding, level = 3 }: { finding: Finding; level?: 2 | 3 }) {
   const suppressed = isSuppressed(finding);
+  const evidence = finding.evidence ?? [];
   const limitations = finding.limitations ?? [];
   const nextSteps = finding.nextSteps ?? [];
   const Heading = level === 2 ? "h2" : "h3";
@@ -25,7 +26,7 @@ export function FindingItem({ finding, level = 3 }: { finding: Finding; level?: 
       <details>
         <summary>Evidence and method</summary>
         {finding.rationale ? <p>{finding.rationale}</p> : null}
-        {finding.evidence.length > 0 ? <EvidenceList evidence={finding.evidence} /> : null}
+        {evidence.length > 0 ? <EvidenceList evidence={evidence} /> : null}
         {finding.method ? (
           <p>
             <strong>Method:</strong> {finding.method}
