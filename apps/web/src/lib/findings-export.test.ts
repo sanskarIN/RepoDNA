@@ -95,18 +95,17 @@ describe("filtered findings export review", () => {
   });
 
   it("counts unique paths, evidence and suppression without double-counting", () => {
-    const review = findingsExportReview(
-      [
-        sample({ paths: ["src/a.rs", "src/a.rs"], evidence: [{ kind: "source", detail: "one" }] }),
-        sample({
-          paths: ["src/a.rs", "src/b.rs"],
-          evidence: [{ kind: "source", detail: "two" }, { kind: "source", detail: "three" }],
-          suppressed: { source: "config", reason: "accepted" },
-        }),
-        sample({ paths: undefined, evidence: undefined }),
-      ],
-      "markdown",
-    );
+    const first = sample({
+      paths: ["src/a.rs", "src/a.rs"],
+      evidence: [{ kind: "source", detail: "one" }],
+    });
+    const second = sample({
+      paths: ["src/a.rs", "src/b.rs"],
+      evidence: [{ kind: "source", detail: "two" }, { kind: "source", detail: "three" }],
+      suppressed: { source: "config", reason: "accepted" },
+    });
+    const third = sample({ paths: undefined, evidence: undefined });
+    const review = findingsExportReview([first, second, third], "markdown");
     expect(review.paths).toBe(2);
     expect(review.evidenceItems).toBe(3);
     expect(review.suppressed).toBe(1);
