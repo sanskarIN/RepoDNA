@@ -102,6 +102,31 @@ test('publication rejects explicit unreleased notices even with a valid date', (
   assert.match(result.stderr, /published release notes must not contain provisional release wording/);
 });
 
+test('publication requires an actual change rather than an empty section', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'CHANGELOG.md');
+  const contents = readFileSync(path, 'utf8');
+  const heading = '## [' + currentVersion(root) + '] - ';
+  const start = contents.indexOf(heading);
+  const next = contents.indexOf('\n## [', start + heading.length);
+  assert.ok(start >= 0 && next > start, 'the fixture needs a following release section');
+  const section = contents.slice(start, next).replace(/^- /gm, '* ');
+  writeFileSync(path, contents.slice(0, start) + section + contents.slice(next));
+  assert.equal(check(root).status, 0);
+  const result = check(root, ['--publish']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /published release notes must include an actual change/);
+});
+
+test('publication ignores draft wording outside the selected release section', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'CHANGELOG.md');
+  const contents = readFileSync(path, 'utf8');
+  writeFileSync(path, contents.replace('## [Unreleased]', '## [Unreleased]\n\n> **Not released:** Future work.'));
+  const result = check(root, ['--publish']);
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('publication rejects duplicate release headings', (t) => {
   const root = fixture(t);
   const path = join(root, 'CHANGELOG.md');
