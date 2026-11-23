@@ -37,15 +37,18 @@ function check(root, args = []) {
   return spawnSync(process.execPath, [checker, ...args], { cwd: root, encoding: 'utf8' });
 }
 
+function currentVersion(root) {
+  return JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+}
+
 function replaceReleaseHeading(root, replacement) {
   const path = join(root, 'CHANGELOG.md');
   const changelog = readFileSync(path, 'utf8');
-  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
-  const prefix = '## [' + version + '] - ';
+  const prefix = '## [' + currentVersion(root) + '] - ';
   const heading = changelog.split(/\r?\n/).find((line) => line.startsWith(prefix));
   assert.ok(heading, 'test fixture must contain the current release heading');
   writeFileSync(path, changelog.replace(heading, replacement));
-  return { path, heading, version };
+  return path;
 }
 
 function editJson(root, file, change) {
@@ -68,18 +71,16 @@ test('publication mode accepts a finalized, dated release with actual highlights
 
 test('provisional changelog dates remain usable for trials but block tag publication', (t) => {
   const root = fixture(t);
-  const { version } = replaceReleaseHeading(root, '## [' + JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version + '] - Unreleased');
+  replaceReleaseHeading(root, '## [' + currentVersion(root) + '] - Unreleased');
   assert.equal(check(root).status, 0, 'trial metadata may be intentionally provisional');
   const result = check(root, ['--publish']);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /published release needs an ISO date/);
-  assert.equal(version.length > 0, true);
 });
 
 test('publication rejects impossible calendar dates instead of normalizing them', (t) => {
   const root = fixture(t);
-  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
-  replaceReleaseHeading(root, '## [' + version + '] - 2026-02-30');
+  replaceReleaseHeading(root, '## [' + currentVersion(root) + '] - 2026-02-30');
   assert.equal(check(root).status, 0, 'the normal metadata check should not gate trials');
   const result = check(root, ['--publish']);
   assert.notEqual(result.status, 0);
@@ -88,13 +89,13 @@ test('publication rejects impossible calendar dates instead of normalizing them'
 
 test('publication rejects explicit unreleased notices even with a valid date', (t) => {
   const root = fixture(t);
-  const { path, heading } = replaceReleaseHeading(
-    root,
-    '## [' + JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version + '] - 2026-11-23',
-  );
+  const heading = '## [' + currentVersion(root) + '] - 2026-11-23';
+  const path = replaceReleaseHeading(root, heading);
   const contents = readFileSync(path, 'utf8');
-  writeFileSync(path, contents.replace('## [' + JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version + '] - 2026-11-23', '## [' + JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version + '] - 2026-11-23\n\n> **Not released:** Candidate preparation date only.'));
-  assert.ok(heading.length > 0);
+  writeFileSync(
+    path,
+    contents.replace(heading, heading + '\n\n> **Not released:** Candidate preparation date only.'),
+  );
   assert.equal(check(root).status, 0);
   const result = check(root, ['--publish']);
   assert.notEqual(result.status, 0);
@@ -105,7 +106,7 @@ test('publication rejects duplicate release headings', (t) => {
   const root = fixture(t);
   const path = join(root, 'CHANGELOG.md');
   const contents = readFileSync(path, 'utf8');
-  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  const version = currentVersion(root);
   const heading = contents.split(/\r?\n/).find((line) => line.startsWith('## [' + version + '] - '));
   assert.ok(heading);
   writeFileSync(path, contents + '\n' + heading + '\n\n- Duplicate.\n');
