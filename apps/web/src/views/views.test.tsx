@@ -276,6 +276,31 @@ describe("views", () => {
     expect(screen.getByText("No findings match these filters.")).toBeTruthy();
   });
 
+  it("keeps distinct finding cards when imported IDs repeat across filters", async () => {
+    const data = demo();
+    const original = data.dna.findings[0];
+    if (!original) throw new Error("the demo has findings");
+    data.dna.findings = [
+      { ...original, id: "legacy-shared-id", title: "Alpha distinct finding", evidence: [] },
+      { ...original, id: "legacy-shared-id", title: "Beta distinct finding", evidence: [] },
+    ];
+    await renderAt("/findings", data);
+
+    const first = screen.getByRole("article", { name: "Alpha distinct finding" });
+    expect(screen.getByRole("article", { name: "Beta distinct finding" })).toBeTruthy();
+    const firstDetails = within(first).getByText("Evidence and method").closest("details");
+    if (!firstDetails) throw new Error("the first finding has an evidence disclosure");
+    firstDetails.open = true;
+
+    fireEvent.change(screen.getByLabelText("Search findings"), {
+      target: { value: "Beta distinct" },
+    });
+    expect(screen.queryByRole("article", { name: "Alpha distinct finding" })).toBeNull();
+    const second = screen.getByRole("article", { name: "Beta distinct finding" });
+    const secondDetails = within(second).getByText("Evidence and method").closest("details");
+    expect(secondDetails?.open).toBe(false);
+  });
+
   it("offers JSON alongside CSV for matching findings, and disables both when filters match none", async () => {
     await renderAt("/findings", dataset);
     const csv = screen.getByRole("button", { name: "Export filtered CSV" });
