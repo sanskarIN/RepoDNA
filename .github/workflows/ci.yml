@@ -236,8 +236,8 @@ jobs:
       matrix:
         tree: [workspace, desktop]
         checks: [advisories, bans licenses sources]
-    # A newly published advisory shows as a failed job without blocking unrelated changes.
-    continue-on-error: ${{ matrix.checks == 'advisories' }}
+    # Security advisories are blocking checks, consistent with release.yml.
+    # Report new vulnerabilities as failures instead of silently passing CI.
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
