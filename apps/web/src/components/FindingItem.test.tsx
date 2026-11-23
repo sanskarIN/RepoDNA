@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { Finding } from "@repodna/schema";
+import { AppProvider } from "../state";
 import { FindingItem } from "./FindingItem";
 
 function sample(evidence?: Finding["evidence"]): Finding {
@@ -25,7 +26,11 @@ describe("FindingItem", () => {
   });
 
   it("keeps available evidence visible in the document", () => {
-    render(<FindingItem finding={sample([{ kind: "observation", text: "Verified" }])} />);
+    render(
+      <AppProvider>
+        <FindingItem finding={sample([{ kind: "observation", text: "Verified" }])} />
+      </AppProvider>,
+    );
     expect(screen.getByText("Verified")).toBeTruthy();
   });
 });
