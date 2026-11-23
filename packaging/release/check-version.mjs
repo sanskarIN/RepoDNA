@@ -180,10 +180,16 @@ assert.ok(
 // describe a finalized, dated release. Never apply this gate to branch trials.
 if (publish) {
   const heading = '## [' + version + '] - ';
-  const headings = changelog.split(/\r?\n/).filter((line) => line.startsWith(heading));
-  assert.equal(headings.length, 1, 'published releases need exactly one matching changelog heading');
+  const lines = changelog.split(/\r?\n/);
+  const headingIndexes = lines.flatMap((line, index) => (line.startsWith(heading) ? [index] : []));
+  assert.equal(
+    headingIndexes.length,
+    1,
+    'published releases need exactly one matching changelog heading',
+  );
 
-  const releaseDate = headings[0].slice(heading.length);
+  const start = headingIndexes[0];
+  const releaseDate = lines[start].slice(heading.length);
   assert.match(releaseDate, /^\d{4}-\d{2}-\d{2}$/, 'published release needs an ISO date');
   const date = new Date(releaseDate + 'T00:00:00.000Z');
   assert.ok(
@@ -191,10 +197,10 @@ if (publish) {
     'published release date must be a real calendar day',
   );
 
-  const start = changelog.indexOf(headings[0]) + headings[0].length;
-  const afterHeading = changelog.slice(start);
-  const nextHeading = afterHeading.search(/^## \[/m);
-  const notes = nextHeading >= 0 ? afterHeading.slice(0, nextHeading) : afterHeading;
+  // Never mix an earlier Unreleased section or a later version's notes into
+  // the actual published version, even if that text mentions the heading.
+  const next = lines.findIndex((line, index) => index > start && line.startsWith('## ['));
+  const notes = lines.slice(start + 1, next < 0 ? undefined : next).join('\n');
   assert.doesNotMatch(
     notes,
     /\b(?:not released|candidate preparation date|trial candidate|do not publish)\b/i,
