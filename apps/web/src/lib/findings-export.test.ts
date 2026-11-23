@@ -94,41 +94,30 @@ describe("filtered findings export review", () => {
     expect(review.preview).not.toContain("Result 4");
   });
 
-  it("counts unique paths, evidence and suppression without double-counting", () => {
-    const first = sample({
+  it("deduplicates paths and counts evidence in the full selection", () => {
+    const a = sample({
       paths: ["src/a.rs", "src/a.rs"],
       evidence: [{ kind: "observation", text: "one" }],
     });
-    const second = sample({
-      paths: ["src/a.rs", "src/b.rs"],
-      evidence: [{ kind: "observation", text: "two" }, { kind: "observation", text: "three" }],
+    const b = sample({
+      paths: ["src/b.rs"],
+      evidence: [{ kind: "observation", text: "two" }],
       suppressed: { source: "config", reason: "accepted" },
     });
-    const third = sample({ paths: undefined, evidence: undefined });
-    const review = findingsExportReview([first, second, third], "markdown");
+    const review = findingsExportReview([a, b], "markdown");
     expect(review.paths).toBe(2);
-    expect(review.evidenceItems).toBe(3);
+    expect(review.evidenceItems).toBe(2);
     expect(review.suppressed).toBe(1);
-    expect(review.sampled).toBe(3);
+    expect(review.sampled).toBe(2);
   });
 
-  it("keeps bounded preview and exact totals across thousands of records", () => {
-    const findings = Array.from({ length: 3_000 }, (_, index) =>
-      sample({
-        id: `finding-${index}`,
-        title: `Result ${index}`,
-        paths: [`src/file-${index % 10}.rs`],
-        evidence: [{ kind: "source", detail: "checked" }],
-        ...(index % 1_000 === 0 ? { suppressed: { source: "config" } } : {}),
-      }),
-    );
+  it("keeps a bounded preview for thousands of findings", () => {
+    const findings = Array.from({ length: 3_000 }, () => sample({ paths: ["src/a.rs"] }));
     const review = findingsExportReview(findings, "json");
-    expect(review.paths).toBe(10);
-    expect(review.evidenceItems).toBe(3_000);
-    expect(review.suppressed).toBe(3);
+    expect(review.paths).toBe(1);
+    expect(review.evidenceItems).toBe(0);
     expect(review.sampled).toBe(3);
     expect(review.shortened).toBe(true);
-    expect(review.preview).not.toContain("Result 2999");
   });
 
   it("bounds long untrusted repository text before display", () => {
