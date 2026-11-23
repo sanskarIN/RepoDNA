@@ -1,13 +1,17 @@
 import type { Finding } from "@repodna/schema";
 
 /**
- * Preserve distinct React keys for imported findings with repeated IDs.
- * Keys follow original analysis positions, not the current filtered/sorted
- * position, so opening or closing a search filter cannot swap a card's UI
- * state with another finding. No fields are added to the artifact.
+ * Stable React keys for a particular analysis, including imported findings
+ * with duplicate or empty IDs. Use original array positions, never positions
+ * in a filtered or sorted list, to preserve the correct expanded card.
+ * A new analysis scope prevents an expanded card leaking to another dataset.
+ * Nothing is written back into a RepositoryDNA artifact.
  */
-export function findingRenderKeys(findings: readonly Finding[]): WeakMap<Finding, number> {
-  const keys = new WeakMap<Finding, number>();
-  findings.forEach((finding, index) => keys.set(finding, index));
+export function findingRenderKeys(
+  findings: readonly Finding[],
+  scope: string,
+): WeakMap<Finding, string> {
+  const keys = new WeakMap<Finding, string>();
+  findings.forEach((finding, index) => keys.set(finding, `${scope}:${index}`));
   return keys;
 }
