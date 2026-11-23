@@ -107,6 +107,13 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-p
 
 Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny):
 `cargo deny check` and `cargo deny --manifest-path apps/desktop/src-tauri/Cargo.toml check`.
+**Security-advisory failures block pull-request and main-branch CI**, for both the
+Rust workspace and the separate desktop lockfile; the release workflow also
+requires these checks to pass. A fresh vulnerability can block a previously
+unrelated change until the dependency is patched, rather than allowing a
+misleading overall green check. The `unmaintained` policy remains scoped in
+[`deny.toml`](../deny.toml) so transitive deprecation notices do not
+automatically fail builds.
 
 `THIRD-PARTY-NOTICES.txt` lists the licenses of the Rust crates and npm packages that the
 downloads include, and ships with the command line, the desktop app, and the web interface.
