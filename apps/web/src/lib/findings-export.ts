@@ -119,12 +119,23 @@ export function findingsExportReview(
           ? findingsJson(sample)
           : findingsMarkdown(sample);
   const clipped = text.length > PREVIEW_CHARACTERS;
+  // Stream over the full selection once: large analyses can contain many
+  // repeated paths, so avoid allocating a second array of every path or
+  // repeatedly walking the findings merely to count their review metadata.
+  const distinctPaths = new Set<string>();
+  let evidenceItems = 0;
+  let suppressed = 0;
+  for (const finding of findings) {
+    for (const path of finding.paths ?? []) distinctPaths.add(path);
+    evidenceItems += finding.evidence?.length ?? 0;
+    if (isSuppressed(finding)) suppressed += 1;
+  }
   return {
     preview: clipped ? text.slice(0, PREVIEW_CHARACTERS) + "\n[Sample shortened]" : text,
     sampled: format === "counts" ? findings.length : sample.length,
     shortened: clipped || (format !== "counts" && sample.length !== findings.length),
-    paths: new Set(findings.flatMap((finding) => finding.paths ?? [])).size,
-    evidenceItems: findings.reduce((count, finding) => count + (finding.evidence?.length ?? 0), 0),
-    suppressed: findings.filter(isSuppressed).length,
+    paths: distinctPaths.size,
+    evidenceItems,
+    suppressed,
   };
 }

@@ -32,6 +32,22 @@ describe("findings search and export filtering", () => {
     expect(filterFindings([first, second], { ...defaults, query: "beta.rs" })).toEqual([second]);
   });
 
+  it("matches multiple search terms across titles, paths and evidence", () => {
+    const wanted = finding("Remote regression", {
+      paths: ["src/async.rs"],
+      evidence: [{ kind: "observation", text: "Graph unexpectedly changed" }],
+    });
+    const other = finding("Remote regression", { paths: ["src/async.rs"] });
+    const filters = { ...defaults, query: "REMOTE async.rs GRAPH" };
+    expect(filterFindings([other, wanted], filters)).toEqual([wanted]);
+  });
+
+  it("keeps legacy imported findings searchable when evidence is absent", () => {
+    const legacy = finding("Legacy finding", { paths: undefined, evidence: undefined });
+    const filters = { ...defaults, query: "legacy finding" };
+    expect(filterFindings([legacy], filters)).toEqual([legacy]);
+  });
+
   it("combines case-insensitive search terms with severity and category", () => {
     const wanted = finding("Circular dependency", {
       severity: "critical",

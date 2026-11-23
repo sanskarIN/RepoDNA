@@ -94,6 +94,32 @@ describe("filtered findings export review", () => {
     expect(review.preview).not.toContain("Result 4");
   });
 
+  it("deduplicates paths and counts evidence in the full selection", () => {
+    const a = sample({
+      paths: ["src/a.rs", "src/a.rs"],
+      evidence: [{ kind: "observation", text: "one" }],
+    });
+    const b = sample({
+      paths: ["src/b.rs"],
+      evidence: [{ kind: "observation", text: "two" }],
+      suppressed: { source: "config", reason: "accepted" },
+    });
+    const review = findingsExportReview([a, b], "markdown");
+    expect(review.paths).toBe(2);
+    expect(review.evidenceItems).toBe(2);
+    expect(review.suppressed).toBe(1);
+    expect(review.sampled).toBe(2);
+  });
+
+  it("keeps a bounded preview for thousands of findings", () => {
+    const findings = Array.from({ length: 3_000 }, () => sample({ paths: ["src/a.rs"] }));
+    const review = findingsExportReview(findings, "json");
+    expect(review.paths).toBe(1);
+    expect(review.evidenceItems).toBe(0);
+    expect(review.sampled).toBe(3);
+    expect(review.shortened).toBe(true);
+  });
+
   it("bounds long untrusted repository text before display", () => {
     const review = findingsExportReview([sample({ summary: "x".repeat(20_000) })], "markdown");
     expect(review.shortened).toBe(true);
