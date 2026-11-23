@@ -24,10 +24,17 @@ function searchable(finding: Finding): string {
     finding.rule,
     finding.category,
     ...(finding.paths ?? []),
-    ...finding.evidence.map(describeEvidence),
+    ...(finding.evidence ?? []).map(describeEvidence),
   ]
     .join(" ")
     .toLowerCase();
+}
+
+/** Match all query terms against a single normalized text string per candidate. */
+function matchesTerms(finding: Finding, terms: readonly string[]): boolean {
+  if (terms.length === 0) return true;
+  const text = searchable(finding);
+  return terms.every((term) => text.includes(term));
 }
 
 /**
@@ -43,7 +50,7 @@ export function filterFindings(findings: readonly Finding[], filters: FindingFil
         (filters.severity === "all" || finding.severity === filters.severity) &&
         (filters.category === "all" || finding.category === filters.category) &&
         (filters.confidence === "all" || finding.confidence === filters.confidence) &&
-        (terms.length === 0 || terms.every((term) => searchable(finding).includes(term))),
+        matchesTerms(finding, terms),
     )
     .sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
 }
