@@ -39,7 +39,18 @@ jobs:
         with:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
       - name: Check release metadata consistency
-        run: node packaging/release/check-version.mjs
+        # Trial branch builds may use provisional notes. A tag publication must
+        # have final dated notes; reject candidate/disclaimer wording before
+        # starting the expensive cross-platform release build fan-out.
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node packaging/release/check-version.mjs
+          if [ -n "$RELEASE_TAG" ]; then
+            node packaging/release/check-version.mjs --publish
+          fi
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify both Rust lockfiles before release fan-out
         # Fail before expensive platform builds if a dependency PR left the
