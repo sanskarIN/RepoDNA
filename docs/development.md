@@ -322,7 +322,19 @@ notes link to them.
 The [release workflow](../.github/workflows/release.yml) checks that the tag matches the
 workspace version and the changelog, builds the command line for Linux, macOS, and Windows
 (x64 and Arm), the WebAssembly analysis, and the desktop installers, and publishes them
-with checksums. It also publishes these
+with checksums.
+
+**Before a tagged publication**, run `node packaging/release/check-version.mjs --publish`.
+The release workflow also runs that strict check automatically on tag pushes and
+explicitly tagged manual dispatches, before the build fan-out. It requires exactly
+one changelog heading for the chosen version, a real ISO calendar date, at least
+one change bullet, and no `Not released`/candidate-only wording in that version's
+notes. The ordinary `node packaging/release/check-version.mjs` command remains
+appropriate for untagged trial builds with provisional notes. A successful preflight
+does **not** substitute for CI, CodeQL, dependency audits, artifact checksums,
+manual installer QA, or explicit maintainer approval of the release source.
+
+The release workflow also publishes these
 packages to GitHub Packages, and the npm packages to npmjs.com too:
 
 | Package | Built from |
