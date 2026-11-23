@@ -36,6 +36,27 @@ publishing anything new.
   was closed without merging. The owner selected a v1.5.2 patch instead.
   Development `main` has additional features **not included in the patch**.
 
+## Post-release dependency security follow-up — November 23, 2026
+
+- The **published v1.5.2 desktop source** (`v1.5.2`, `apps/desktop/src-tauri/Cargo.lock`)
+  still locks `url` **2.5.8**, a version affected by
+  [RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592.html).
+  This dependency finding does not establish that RepoDNA exposes the
+  vulnerable `Url::origin()` call to untrusted input; assess the reachable
+  call path separately.
+- The protected development `main` branch received `url` **2.5.9** and
+  `form_urlencoded` **1.2.3** in [PR #296](https://github.com/sanskarIN/RepoDNA/pull/296).
+  Its desktop advisory, build, test and CodeQL checks passed. **This does not
+  patch the already published v1.5.2 executable or installer files.**
+- [ ] Decide whether to prepare a small maintenance release from the isolated
+  v1.5.2 baseline, rather than unintentionally shipping all development features.
+- [ ] Revalidate the lockfiles, dependency notices, version manifests and both
+  Windows architectures on a versioned maintenance candidate; confirm the
+  intended patch reaches its release artifacts.
+- [ ] Obtain exact-version and exact-commit maintainer approval, publish a
+  **new tag and new artifacts** only after release qualification. Never retag
+  or replace v1.5.2 in place.
+
 The following earlier analysis is retained as a **historical pre-publication
 snapshot**, not the current stable-release status.
 
