@@ -23,6 +23,7 @@ import {
 } from "../lib/findings-export";
 import { findingsMarkdown } from "../lib/findings-markdown";
 import { filterFindings } from "../lib/findings-filter";
+import { findingRenderKeys } from "../lib/finding-render-keys";
 import { useRoute } from "../lib/router";
 import { useDataset } from "../state";
 
@@ -50,6 +51,10 @@ export function Findings() {
   const [reviewFormat, setReviewFormat] = useState<FindingsExportFormat | null>(null);
   const [shown, setShown] = useState(FINDINGS_PAGE);
   const counts = findingCounts(dna);
+  const renderKeys = useMemo(
+    () => findingRenderKeys(dna.findings, `${dna.identity.name}:${dna.analysisMetadata.generatedAt}`),
+    [dna.findings, dna.identity.name, dna.analysisMetadata.generatedAt],
+  );
   const categories = useMemo(
     () => [...new Set(dna.findings.map((f) => f.category))].sort(),
     [dna.findings],
@@ -296,7 +301,7 @@ export function Findings() {
         <>
           <div className="panel">
             {filtered.slice(0, shown).map((finding) => (
-              <FindingItem key={finding.id} finding={finding} level={2} />
+              <FindingItem key={renderKeys.get(finding)} finding={finding} level={2} />
             ))}
           </div>
           {filtered.length > shown ? (
