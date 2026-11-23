@@ -33,8 +33,38 @@ function fixture(t) {
   return root;
 }
 
-function check(root) {
-  return spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' });
+function check(root, args = []) {
+  return spawnSync(process.execPath, [checker, ...args], { cwd: root, encoding: 'utf8' });
+}
+
+function currentVersion(root) {
+  return JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+}
+
+function replaceReleaseHeading(root, replacement) {
+  const path = join(root, 'CHANGELOG.md');
+  const changelog = readFileSync(path, 'utf8');
+  const prefix = '## [' + currentVersion(root) + '] - ';
+  const heading = changelog.split(/\r?\n/).find((line) => line.startsWith(prefix));
+  assert.ok(heading, 'test fixture must contain the current release heading');
+  writeFileSync(path, changelog.replace(heading, replacement));
+  return path;
+}
+
+// The repository can be on a draft maintenance branch whose changelog says
+// "Not released". Positive publication tests must control their own finalized
+// version section rather than assume the checkout is already published.
+function finalizedFixture(t) {
+  const root = fixture(t);
+  const path = join(root, 'CHANGELOG.md');
+  const changelog = readFileSync(path, 'utf8');
+  const heading = '## [' + currentVersion(root) + '] - ';
+  const start = changelog.indexOf(heading);
+  const next = changelog.indexOf('\n## [', start + heading.length);
+  assert.ok(start >= 0 && next > start, 'test fixture needs a release section');
+  const finalized = heading + '2026-11-23\n\n### Fixed\n\n- Verified release notes for tests.\n';
+  writeFileSync(path, changelog.slice(0, start) + finalized + changelog.slice(next));
+  return root;
 }
 
 function editJson(root, file, change) {
@@ -47,6 +77,89 @@ function editJson(root, file, change) {
 test('accepts synchronized release metadata from both package ecosystems', (t) => {
   const result = check(fixture(t));
   assert.equal(result.status, 0, result.stderr);
+});
+
+test('publication mode accepts a finalized, dated release with actual highlights', (t) => {
+  const result = check(finalizedFixture(t), ['--publish']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /publication notes finalized/);
+});
+
+test('provisional changelog dates remain usable for trials but block tag publication', (t) => {
+  const root = fixture(t);
+  replaceReleaseHeading(root, '## [' + currentVersion(root) + '] - Unreleased');
+  assert.equal(check(root).status, 0, 'trial metadata may be intentionally provisional');
+  const result = check(root, ['--publish']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /published release needs an ISO date/);
+});
+
+test('publication rejects impossible calendar dates instead of normalizing them', (t) => {
+  const root = fixture(t);
+  replaceReleaseHeading(root, '## [' + currentVersion(root) + '] - 2026-02-30');
+  assert.equal(check(root).status, 0, 'the normal metadata check should not gate trials');
+  const result = check(root, ['--publish']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /published release date must be a real calendar day/);
+});
+
+test('publication rejects explicit unreleased notices even with a valid date', (t) => {
+  const root = fixture(t);
+  const heading = '## [' + currentVersion(root) + '] - 2026-11-23';
+  const path = replaceReleaseHeading(root, heading);
+  const contents = readFileSync(path, 'utf8');
+  writeFileSync(
+    path,
+    contents.replace(heading, heading + '\n\n> **Not released:** Candidate preparation date only.'),
+  );
+  assert.equal(check(root).status, 0);
+  const result = check(root, ['--publish']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /published release notes must not contain provisional release wording/);
+});
+
+test('publication requires an actual change rather than an empty section', (t) => {
+  const root = finalizedFixture(t);
+  const path = join(root, 'CHANGELOG.md');
+  const contents = readFileSync(path, 'utf8');
+  const heading = '## [' + currentVersion(root) + '] - ';
+  const start = contents.indexOf(heading);
+  const next = contents.indexOf('\n## [', start + heading.length);
+  assert.ok(start >= 0 && next > start, 'the fixture needs a following release section');
+  const section = contents.slice(start, next).replace(/^- /gm, '* ');
+  writeFileSync(path, contents.slice(0, start) + section + contents.slice(next));
+  assert.equal(check(root).status, 0);
+  const result = check(root, ['--publish']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /published release notes must include an actual change/);
+});
+
+test('publication ignores draft wording outside the selected release section', (t) => {
+  const root = finalizedFixture(t);
+  const path = join(root, 'CHANGELOG.md');
+  const contents = readFileSync(path, 'utf8');
+  writeFileSync(path, contents.replace('## [Unreleased]', '## [Unreleased]\n\n> **Not released:** Future work.'));
+  const result = check(root, ['--publish']);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('publication rejects duplicate release headings', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'CHANGELOG.md');
+  const contents = readFileSync(path, 'utf8');
+  const version = currentVersion(root);
+  const heading = contents.split(/\r?\n/).find((line) => line.startsWith('## [' + version + '] - '));
+  assert.ok(heading);
+  writeFileSync(path, contents + '\n' + heading + '\n\n- Duplicate.\n');
+  const result = check(root, ['--publish']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /published releases need exactly one matching changelog heading/);
+});
+
+test('publication mode rejects unsupported checker arguments', (t) => {
+  const result = check(fixture(t), ['--publsh']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /accepts only the optional --publish argument/);
 });
 
 test('rejects a missing Windows executable and installer publisher', (t) => {

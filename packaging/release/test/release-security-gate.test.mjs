@@ -27,3 +27,17 @@ test('every release publishing path waits for the security gate', () => {
   }
   assert.match(job('catalog'), /needs: \[[^\]]*\bpublish\b[^\]]*\]/);
 });
+
+test('tag publications refuse provisional changelog wording before platform builds', () => {
+  const prepare = job('prepare');
+  // The same tag selection drives both the publication preflight and the
+  // version job; release/v* branch trials must not set a publication tag.
+  assert.match(
+    prepare,
+    /RELEASE_TAG: \$\{\{ github\.event_name == 'push' && github\.ref_type == 'tag' && github\.ref_name \|\| inputs\.tag \}\}/,
+  );
+  assert.match(prepare, /if \[ -n "\$RELEASE_TAG" \]; then/);
+  assert.match(prepare, /node packaging\/release\/check-version\.mjs --publish/);
+  assert.match(prepare, /if \[ -n "\$TAG" \]; then/);
+  assert.match(prepare, /publish=false/);
+});
