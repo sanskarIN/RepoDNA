@@ -51,7 +51,7 @@ export function Findings() {
   const [reviewFormat, setReviewFormat] = useState<FindingsExportFormat | null>(null);
   const [shown, setShown] = useState(FINDINGS_PAGE);
   const counts = findingCounts(dna);
-  const renderScope = `${dna.identity.name}:${dna.analysisMetadata.generatedAt}`;
+  const renderScope = `${dna.analysisMetadata.id}:${dna.identity.name}:${dna.analysisMetadata.generatedAt}`;
   const renderKeys = useMemo(
     () => findingRenderKeys(dna.findings, renderScope),
     [dna.findings, renderScope],
