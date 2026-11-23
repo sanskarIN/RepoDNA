@@ -97,11 +97,11 @@ describe("filtered findings export review", () => {
   it("counts unique paths, evidence and suppression without double-counting", () => {
     const first = sample({
       paths: ["src/a.rs", "src/a.rs"],
-      evidence: [{ kind: "source", detail: "one" }],
+      evidence: [{ kind: "observation", text: "one" }],
     });
     const second = sample({
       paths: ["src/a.rs", "src/b.rs"],
-      evidence: [{ kind: "source", detail: "two" }, { kind: "source", detail: "three" }],
+      evidence: [{ kind: "observation", text: "two" }, { kind: "observation", text: "three" }],
       suppressed: { source: "config", reason: "accepted" },
     });
     const third = sample({ paths: undefined, evidence: undefined });
