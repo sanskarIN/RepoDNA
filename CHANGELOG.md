@@ -8,7 +8,10 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 The following source-only maintenance candidate is not a published release.
 
-## [1.5.3] - Unreleased
+## [1.5.3] - 2026-11-23
+
+> **Candidate preparation date, not a release or publication date.** Update this
+> date when an exact stable source is explicitly approved and published.
 
 ### Security
 
