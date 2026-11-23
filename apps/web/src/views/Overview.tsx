@@ -33,9 +33,10 @@ export function Overview() {
   const { dna, warnings, origin } = useDataset();
   const { theme } = useApp();
   const counts = findingCounts(dna);
+  const renderScope = `${dna.identity.name}:${dna.analysisMetadata.generatedAt}`;
   const renderKeys = useMemo(
-    () => findingRenderKeys(dna.findings, `${dna.identity.name}:${dna.analysisMetadata.generatedAt}`),
-    [dna.findings, dna.identity.name, dna.analysisMetadata.generatedAt],
+    () => findingRenderKeys(dna.findings, renderScope),
+    [dna.findings, renderScope],
   );
   const git = dna.git;
   const shares = languageShares(dna, theme);
