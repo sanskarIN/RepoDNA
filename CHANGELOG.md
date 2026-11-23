@@ -22,6 +22,13 @@ The following source-only maintenance candidate is not a published release.
   must be evaluated separately. No unrelated development features from
   `main` are included.
 
+### Fixed
+
+- Embed `RepoDNA` CompanyName in Windows NSIS setup EXE metadata and
+  verify both x64 and ARM64 installer version resources during release
+  packaging. This change is limited to installer metadata; manual installation,
+  upgrade, launch and uninstall testing remains mandatory.
+
 > **Not released:** This candidate is for test builds and exact-commit review.
 > The final release date and authorization are pending. Do not publish or
 > reuse the v1.5.2 tag/assets.
