@@ -94,6 +94,44 @@ describe("filtered findings export review", () => {
     expect(review.preview).not.toContain("Result 4");
   });
 
+  it("counts unique paths, evidence and suppression without double-counting", () => {
+    const review = findingsExportReview(
+      [
+        sample({ paths: ["src/a.rs", "src/a.rs"], evidence: [{ kind: "source", detail: "one" }] }),
+        sample({
+          paths: ["src/a.rs", "src/b.rs"],
+          evidence: [{ kind: "source", detail: "two" }, { kind: "source", detail: "three" }],
+          suppressed: { source: "config", reason: "accepted" },
+        }),
+        sample({ paths: undefined, evidence: undefined }),
+      ],
+      "markdown",
+    );
+    expect(review.paths).toBe(2);
+    expect(review.evidenceItems).toBe(3);
+    expect(review.suppressed).toBe(1);
+    expect(review.sampled).toBe(3);
+  });
+
+  it("keeps bounded preview and exact totals across thousands of records", () => {
+    const findings = Array.from({ length: 3_000 }, (_, index) =>
+      sample({
+        id: `finding-${index}`,
+        title: `Result ${index}`,
+        paths: [`src/file-${index % 10}.rs`],
+        evidence: [{ kind: "source", detail: "checked" }],
+        ...(index % 1_000 === 0 ? { suppressed: { source: "config" } } : {}),
+      }),
+    );
+    const review = findingsExportReview(findings, "json");
+    expect(review.paths).toBe(10);
+    expect(review.evidenceItems).toBe(3_000);
+    expect(review.suppressed).toBe(3);
+    expect(review.sampled).toBe(3);
+    expect(review.shortened).toBe(true);
+    expect(review.preview).not.toContain("Result 2999");
+  });
+
   it("bounds long untrusted repository text before display", () => {
     const review = findingsExportReview([sample({ summary: "x".repeat(20_000) })], "markdown");
     expect(review.shortened).toBe(true);
