@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import { confidenceLabel, findingCounts, type RepositoryDna } from "@repodna/schema";
 import { categorize, compact, date, percent, thousands, type Theme } from "@repodna/visualization";
 import { ShareBar } from "../charts/ShareBar";
 import { Chip, Note, PageHeader, Panel, SectionStatus, Tile } from "../components/common";
 import { DataTable } from "../components/DataTable";
 import { FindingItem } from "../components/FindingItem";
+import { findingRenderKeys } from "../lib/finding-render-keys";
 import { highlights } from "../lib/findings";
 import { count, languageNamer, unitFor } from "../lib/names";
 import { href } from "../lib/router";
@@ -31,6 +33,11 @@ export function Overview() {
   const { dna, warnings, origin } = useDataset();
   const { theme } = useApp();
   const counts = findingCounts(dna);
+  const renderScope = `${dna.analysisMetadata.id}:${dna.identity.name}:${dna.analysisMetadata.generatedAt}`;
+  const renderKeys = useMemo(
+    () => findingRenderKeys(dna.findings, renderScope),
+    [dna.findings, renderScope],
+  );
   const git = dna.git;
   const shares = languageShares(dna, theme);
   const active = dna.findings.filter((f) => !f.suppressed);
@@ -255,7 +262,7 @@ export function Overview() {
         >
           {active.length === 0 ? <p className="muted">No findings.</p> : null}
           {highlights(active, 4).map((finding) => (
-            <FindingItem key={finding.id} finding={finding} />
+            <FindingItem key={renderKeys.get(finding)} finding={finding} />
           ))}
         </Panel>
       </div>
