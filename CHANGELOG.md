@@ -6,7 +6,25 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-No changes have been recorded since v1.5.2.
+The following source-only maintenance candidate is not a published release.
+
+## [1.5.3] - 2026-11-23
+
+> **Candidate preparation date, not a release or publication date.** Update this
+> date when an exact stable source is explicitly approved and published.
+
+### Security
+
+- Update the desktop lockfile from `url` 2.5.8 to 2.5.9 for
+  [RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592.html),
+  including the minimum required `form_urlencoded` 1.2.3 patch.
+  This is a dependency fix; reachability through the shipped desktop app
+  must be evaluated separately. No unrelated development features from
+  `main` are included.
+
+> **Not released:** This candidate is for test builds and exact-commit review.
+> The final release date and authorization are pending. Do not publish or
+> reuse the v1.5.2 tag/assets.
 
 ## [1.5.2] - 2026-11-20
 
