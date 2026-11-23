@@ -265,6 +265,15 @@ jobs:
           $version = (Get-Content -LiteralPath apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           $directory = Join-Path 'apps/desktop/src-tauri' '${{ matrix.bundle-dir }}'
           & ./packaging/desktop/check-installer-metadata.ps1 -Directory $directory -Version $version -Architecture '${{ matrix.architecture }}'
+      # Preserve only verified setup EXEs as short-lived, unsigned CI trial builds.
+      # These artifacts are not published release assets and must be tested on Windows.
+      - name: Upload verified NSIS trial installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: repodna-nsis-trial-${{ matrix.architecture }}
+          path: apps/desktop/src-tauri/${{ matrix.bundle-dir }}/RepoDNA_*_${{ matrix.architecture }}-setup.exe
+          if-no-files-found: error
+          retention-days: 14
 
   dependencies:
     name: Dependencies (${{ matrix.tree }}, ${{ matrix.checks }})
