@@ -4,6 +4,13 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+const argumentsGiven = process.argv.slice(2);
+assert.ok(
+  argumentsGiven.length === 0 || (argumentsGiven.length === 1 && argumentsGiven[0] === '--publish'),
+  'check-version.mjs accepts only the optional --publish argument',
+);
+const publish = argumentsGiven[0] === '--publish';
+
 const read = (path) => readFileSync(path, 'utf8');
 const json = (path) => JSON.parse(read(path));
 const version = json('package.json').version;
@@ -162,9 +169,47 @@ for (const path of ['Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock']) {
     assert.equal(lockedVersion, version, path + ': ' + name + ' is out of sync');
   }
 }
+const changelog = read('CHANGELOG.md');
 assert.ok(
-  read('CHANGELOG.md').includes('## [' + version + '] - '),
-  'CHANGELOG.md needs a dated section for ' + version
+  changelog.includes('## [' + version + '] - '),
+  'CHANGELOG.md needs a dated section for ' + version,
 );
 
-console.log('Verified RepoDNA ' + version + ' versions in Rust, Tauri, npm and both lockfiles.');
+// Trial builds may deliberately contain a provisional changelog. Only a tag
+// publication must prove that the shipped What's New and GitHub release notes
+// describe a finalized, dated release. Never apply this gate to branch trials.
+if (publish) {
+  const heading = '## [' + version + '] - ';
+  const lines = changelog.split(/\r?\n/);
+  const headingIndexes = lines.flatMap((line, index) => (line.startsWith(heading) ? [index] : []));
+  assert.equal(
+    headingIndexes.length,
+    1,
+    'published releases need exactly one matching changelog heading',
+  );
+
+  const start = headingIndexes[0];
+  const releaseDate = lines[start].slice(heading.length);
+  assert.match(releaseDate, /^\d{4}-\d{2}-\d{2}$/, 'published release needs an ISO date');
+  const date = new Date(releaseDate + 'T00:00:00.000Z');
+  assert.ok(
+    !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === releaseDate,
+    'published release date must be a real calendar day',
+  );
+
+  // Never mix an earlier Unreleased section or a later version's notes into
+  // the actual published version, even if that text mentions the heading.
+  const next = lines.findIndex((line, index) => index > start && line.startsWith('## ['));
+  const notes = lines.slice(start + 1, next < 0 ? undefined : next).join('\n');
+  assert.doesNotMatch(
+    notes,
+    /\b(?:not released|candidate preparation date|trial candidate|do not publish)\b/i,
+    'published release notes must not contain provisional release wording',
+  );
+  assert.match(notes, /^- .+/m, 'published release notes must include an actual change');
+}
+
+console.log(
+  'Verified RepoDNA ' + version + ' versions in Rust, Tauri, npm and both lockfiles' +
+    (publish ? ' (publication notes finalized).' : '.'),
+);

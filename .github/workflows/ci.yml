@@ -220,6 +220,55 @@ jobs:
       - name: Test
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol --locked
 
+  windows-nsis:
+    name: NSIS installer metadata (${{ matrix.architecture }})
+    needs: web
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            rust-target: x86_64-pc-windows-msvc
+            bundle-args: ""
+            bundle-dir: target/release/bundle/nsis
+          - architecture: arm64
+            rust-target: aarch64-pc-windows-msvc
+            bundle-args: --target aarch64-pc-windows-msvc
+            bundle-dir: target/aarch64-pc-windows-msvc/release/bundle/nsis
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Build the NSIS installer from the current source
+        run: npm run bundle -w @repodna/desktop -- --bundles nsis ${{ matrix.bundle-args }}
+      - name: Verify the generated setup EXE version resource
+        shell: pwsh
+        run: |
+          $version = (Get-Content -LiteralPath apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $directory = Join-Path 'apps/desktop/src-tauri' '${{ matrix.bundle-dir }}'
+          & ./packaging/desktop/check-installer-metadata.ps1 -Directory $directory -Version $version -Architecture '${{ matrix.architecture }}'
+      # Preserve only verified setup EXEs as short-lived, unsigned CI trial builds.
+      # These artifacts are not published release assets and must be tested on Windows.
+      - name: Upload verified NSIS trial installer
+        # Do not distribute executables built from untrusted fork contributions.
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@v7
+        with:
+          name: repodna-nsis-trial-${{ matrix.architecture }}
+          path: apps/desktop/src-tauri/${{ matrix.bundle-dir }}/RepoDNA_*_${{ matrix.architecture }}-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
   dependencies:
     name: Dependencies (${{ matrix.tree }}, ${{ matrix.checks }})
     runs-on: ubuntu-latest
@@ -228,8 +277,8 @@ jobs:
       matrix:
         tree: [workspace, desktop]
         checks: [advisories, bans licenses sources]
-    # A newly published advisory shows as a failed job without blocking unrelated changes.
-    continue-on-error: ${{ matrix.checks == 'advisories' }}
+    # Security advisories are blocking checks, consistent with release.yml.
+    # Report new vulnerabilities as failures instead of silently passing CI.
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
