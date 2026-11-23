@@ -39,9 +39,9 @@ tag and commit analysis and counts-only exports remain development-only.
 
 - Patch the desktop dependency lockfile to `url` 2.5.9 and
   `form_urlencoded` 1.2.3 for RUSTSEC-2026-0592 (#296). This is a
-  development-branch correction; **published v1.5.2 desktop installers still
-  contain the earlier `url` 2.5.8 dependency** until a separately approved
-  maintenance version is built and released.
+  development-branch correction; **the v1.5.2 desktop source still locks
+  `url` 2.5.8** and its published installers have not been rebuilt. A separately
+  approved maintenance version is required to distribute the patch.
 
 - Reject percent-encoded Git remote hostnames rather than relying on their
   undecoded spelling when applying private-host checks. Repository path
