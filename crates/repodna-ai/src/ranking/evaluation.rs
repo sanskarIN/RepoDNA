@@ -278,29 +278,19 @@ pub fn evaluate_repository_stability(
     holdout: &[LabeledEvidence],
     k: usize,
 ) -> Result<RepositoryStabilityEvaluation, String> {
-    model.validate()?;
-    if !(1..=100).contains(&k) {
-        return Err("retrieval cutoff k must be between 1 and 100".to_owned());
-    }
-    let grouped = group_holdout(holdout)?;
-    let mut repositories: BTreeMap<String, Vec<LabeledEvidence>> = BTreeMap::new();
-    for ((repository, _), candidates) in grouped {
-        repositories
-            .entry(repository)
-            .or_default()
-            .extend(candidates.into_iter().cloned());
-    }
+    let (count, scores) = repository_scores(model, holdout, k)?;
+    Ok(stability_from_scores(k, count, &scores))
+}
 
-    let count = repositories.len();
-    let mut scores = Vec::new();
-    for candidates in repositories.values() {
-        let learned = model.evaluate_retrieval(candidates, k)?;
-        if learned.evaluated_queries == 0 {
-            continue;
-        }
-        let baseline = evaluate_original_order(candidates, k)?;
-        scores.push((learned.ndcg_at_k, learned.ndcg_at_k - baseline.ndcg_at_k));
-    }
+fn stability_from_scores(
+    k: usize,
+    count: usize,
+    repositories: &[RepositoryScore],
+) -> RepositoryStabilityEvaluation {
+    let scores = repositories
+        .iter()
+        .map(|repo| (repo.learned_ndcg, repo.learned_ndcg - repo.baseline_ndcg))
+        .collect::<Vec<_>>();
     let evaluated = scores.len();
     let improved = scores.iter().filter(|(_, delta)| *delta > 1e-12).count();
     let regressed = scores.iter().filter(|(_, delta)| *delta < -1e-12).count();
@@ -331,7 +321,7 @@ pub fn evaluate_repository_stability(
         (None, None, None, None)
     };
 
-    Ok(RepositoryStabilityEvaluation {
+    RepositoryStabilityEvaluation {
         k,
         repositories: count,
         evaluated_repositories: evaluated,
@@ -347,7 +337,7 @@ pub fn evaluate_repository_stability(
         leave_one_out_max_ndcg_at_k: loo_max_ndcg,
         leave_one_out_min_ndcg_delta: loo_min_delta,
         leave_one_out_max_ndcg_delta: loo_max_delta,
-    })
+    }
 }
 
 /// Independently summarize ranking quality across repositories, without
@@ -360,43 +350,102 @@ pub fn evaluate_repository_balanced(
     holdout: &[LabeledEvidence],
     k: usize,
 ) -> Result<RepositoryBalancedEvaluation, String> {
+    let (count, scores) = repository_scores(model, holdout, k)?;
+    Ok(balanced_from_scores(k, count, &scores))
+}
+
+/// Compute repository-balanced retrieval and stability in one scoring pass.
+///
+/// Both diagnostics use identical repository grouping, stable ranking and
+/// baseline order. Evidence stays borrowed; no label text is copied into
+/// temporary per-repository datasets. Outputs contain aggregate metrics only.
+pub fn evaluate_repository_diagnostics(
+    model: &RankerModel,
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<(RepositoryBalancedEvaluation, RepositoryStabilityEvaluation), String> {
+    let (count, scores) = repository_scores(model, holdout, k)?;
+    Ok((
+        balanced_from_scores(k, count, &scores),
+        stability_from_scores(k, count, &scores),
+    ))
+}
+
+#[derive(Default)]
+struct RepositoryScore {
+    learned_ndcg: f64,
+    baseline_ndcg: f64,
+    learned_mrr: f64,
+    baseline_mrr: f64,
+    queries: usize,
+}
+
+impl RepositoryScore {
+    fn finish(mut self) -> Option<Self> {
+        if self.queries == 0 {
+            return None;
+        }
+        let divisor = self.queries as f64;
+        self.learned_ndcg /= divisor;
+        self.baseline_ndcg /= divisor;
+        self.learned_mrr /= divisor;
+        self.baseline_mrr /= divisor;
+        Some(self)
+    }
+}
+
+fn repository_scores(
+    model: &RankerModel,
+    holdout: &[LabeledEvidence],
+    k: usize,
+) -> Result<(usize, Vec<RepositoryScore>), String> {
     model.validate()?;
     if !(1..=100).contains(&k) {
         return Err("retrieval cutoff k must be between 1 and 100".to_owned());
     }
-    let grouped = group_holdout(holdout)?;
-    let mut repositories: BTreeMap<String, Vec<LabeledEvidence>> = BTreeMap::new();
-    for ((repository, _), candidates) in grouped {
-        repositories
-            .entry(repository)
-            .or_default()
-            .extend(candidates.into_iter().cloned());
-    }
-
-    let count = repositories.len();
-    let mut evaluated = 0_usize;
-    let mut model_ndcg = 0.0_f64;
-    let mut baseline_ndcg = 0.0_f64;
-    let mut model_mrr = 0.0_f64;
-    let mut baseline_mrr = 0.0_f64;
-    for candidates in repositories.values() {
-        let actual = model.evaluate_retrieval(candidates, k)?;
-        if actual.evaluated_queries == 0 {
+    let groups = group_holdout(holdout)?;
+    let mut repositories: BTreeMap<String, RepositoryScore> = BTreeMap::new();
+    // The BTreeMap's repository/question order is the same as the old
+    // per-repository regrouping. Keep summation order unchanged.
+    for ((repository, query), mut candidates) in groups {
+        let repo = repositories.entry(repository).or_default();
+        let relevant = candidates.iter().filter(|item| item.relevant).count();
+        if relevant == 0 {
             continue;
         }
-        let baseline = evaluate_original_order(candidates, k)?;
-        evaluated += 1;
-        model_ndcg += actual.ndcg_at_k;
-        baseline_ndcg += baseline.ndcg_at_k;
-        model_mrr += actual.mean_reciprocal_rank;
-        baseline_mrr += baseline.mean_reciprocal_rank;
+        let baseline = query_metrics(&candidates, relevant, k);
+        sort_by_relevance(model, query, &mut candidates);
+        let learned = query_metrics(&candidates, relevant, k);
+        repo.queries += 1;
+        repo.learned_ndcg += learned.ndcg;
+        repo.baseline_ndcg += baseline.ndcg;
+        repo.learned_mrr += learned.mrr;
+        repo.baseline_mrr += baseline.mrr;
     }
+    let count = repositories.len();
+    let scores = repositories
+        .into_values()
+        .filter_map(RepositoryScore::finish)
+        .collect();
+    Ok((count, scores))
+}
+
+fn balanced_from_scores(
+    k: usize,
+    count: usize,
+    scores: &[RepositoryScore],
+) -> RepositoryBalancedEvaluation {
+    let evaluated = scores.len();
+    let model_ndcg: f64 = scores.iter().map(|repo| repo.learned_ndcg).sum();
+    let baseline_ndcg: f64 = scores.iter().map(|repo| repo.baseline_ndcg).sum();
+    let model_mrr: f64 = scores.iter().map(|repo| repo.learned_mrr).sum();
+    let baseline_mrr: f64 = scores.iter().map(|repo| repo.baseline_mrr).sum();
     let divisor = evaluated.max(1) as f64;
     let ndcg_at_k = model_ndcg / divisor;
     let original_order_ndcg_at_k = baseline_ndcg / divisor;
     let mean_reciprocal_rank = model_mrr / divisor;
     let original_order_mean_reciprocal_rank = baseline_mrr / divisor;
-    Ok(RepositoryBalancedEvaluation {
+    RepositoryBalancedEvaluation {
         k,
         repositories: count,
         evaluated_repositories: evaluated,
@@ -407,7 +456,7 @@ pub fn evaluate_repository_balanced(
         mean_reciprocal_rank,
         original_order_mean_reciprocal_rank,
         mean_reciprocal_rank_delta: mean_reciprocal_rank - original_order_mean_reciprocal_rank,
-    })
+    }
 }
 
 pub(super) fn group_holdout(
@@ -445,6 +494,51 @@ pub(super) fn validate_holdout(holdout: &[LabeledEvidence]) -> Result<(), String
     group_holdout(holdout).map(|_| ())
 }
 
+// Cache features once per candidate and keep input order for score ties.
+fn sort_by_relevance(model: &RankerModel, query: &str, group: &mut [&LabeledEvidence]) {
+    let query_terms = super::terms(query);
+    let mut scored = group
+        .iter()
+        .map(|&item| (model.relevance_with_terms(&query_terms, &item.evidence), item))
+        .collect::<Vec<_>>();
+    scored.sort_by(|(left, _), (right, _)| right.total_cmp(left));
+    for (slot, (_, item)) in group.iter_mut().zip(scored) {
+        *slot = item;
+    }
+}
+
+struct QueryMetrics {
+    mrr: f64,
+    precision: f64,
+    recall: f64,
+    ndcg: f64,
+}
+
+fn query_metrics(group: &[&LabeledEvidence], relevant: usize, k: usize) -> QueryMetrics {
+    debug_assert!(relevant > 0);
+    let mrr = group
+        .iter()
+        .position(|item| item.relevant)
+        .map_or(0.0, |position| 1.0 / (position + 1) as f64);
+    let mut found = 0_usize;
+    let mut dcg = 0.0;
+    for (position, item) in group.iter().take(k).enumerate() {
+        if item.relevant {
+            found += 1;
+            dcg += 1.0 / ((position + 2) as f64).log2();
+        }
+    }
+    let ideal_dcg: f64 = (0..relevant.min(k))
+        .map(|position| 1.0 / ((position + 2) as f64).log2())
+        .sum();
+    QueryMetrics {
+        mrr,
+        precision: found as f64 / k as f64,
+        recall: found as f64 / relevant as f64,
+        ndcg: dcg / ideal_dcg,
+    }
+}
+
 fn evaluate_retrieval_inner(
     model: Option<&RankerModel>,
     holdout: &[LabeledEvidence],
@@ -468,39 +562,14 @@ fn evaluate_retrieval_inner(
             continue;
         }
         evaluated_queries += 1;
-        // Tokenize once and score each candidate once. Stable sorting
-        // preserves the original input order when learned scores tie.
         if let Some(model) = model {
-            let query_terms = super::terms(query);
-            let mut scored = group
-                .into_iter()
-                .map(|item| {
-                    (
-                        model.relevance_with_terms(&query_terms, &item.evidence),
-                        item,
-                    )
-                })
-                .collect::<Vec<_>>();
-            scored.sort_by(|(left_score, _), (right_score, _)| right_score.total_cmp(left_score));
-            group = scored.into_iter().map(|(_, item)| item).collect();
+            sort_by_relevance(model, query, &mut group);
         }
-        if let Some(position) = group.iter().position(|item| item.relevant) {
-            mrr += 1.0 / (position + 1) as f64;
-        }
-        let mut found = 0_usize;
-        let mut dcg = 0.0;
-        for (position, item) in group.iter().take(k).enumerate() {
-            if item.relevant {
-                found += 1;
-                dcg += 1.0 / ((position + 2) as f64).log2();
-            }
-        }
-        let ideal_dcg: f64 = (0..total_relevant.min(k))
-            .map(|position| 1.0 / ((position + 2) as f64).log2())
-            .sum();
-        precision += found as f64 / k as f64;
-        recall += found as f64 / total_relevant as f64;
-        ndcg += dcg / ideal_dcg;
+        let metrics = query_metrics(&group, total_relevant, k);
+        mrr += metrics.mrr;
+        precision += metrics.precision;
+        recall += metrics.recall;
+        ndcg += metrics.ndcg;
     }
     let divisor = evaluated_queries.max(1) as f64;
     Ok(RetrievalEvaluation {
@@ -608,6 +677,142 @@ mod tests {
                 evaluate_original_order(&candidates, k).unwrap()
             );
         }
+    }
+
+    // The former repository-level implementation rebuilt owned groups
+    // and called public retrieval methods independently for each repository.
+    // Keep that approach as a reference for the optimized shared pass.
+    fn reference_repository_scores(
+        model: &RankerModel,
+        holdout: &[LabeledEvidence],
+        k: usize,
+    ) -> (usize, Vec<RepositoryScore>) {
+        let mut repositories: BTreeMap<String, Vec<LabeledEvidence>> = BTreeMap::new();
+        for sample in holdout {
+            repositories
+                .entry(normalized_repository_id(&sample.repository))
+                .or_default()
+                .push(sample.clone());
+        }
+        let count = repositories.len();
+        let mut scores = Vec::new();
+        for candidates in repositories.values() {
+            let learned = model.evaluate_retrieval(candidates, k).unwrap();
+            if learned.evaluated_queries == 0 {
+                continue;
+            }
+            let baseline = evaluate_original_order(candidates, k).unwrap();
+            scores.push(RepositoryScore {
+                learned_ndcg: learned.ndcg_at_k,
+                baseline_ndcg: baseline.ndcg_at_k,
+                learned_mrr: learned.mean_reciprocal_rank,
+                baseline_mrr: baseline.mean_reciprocal_rank,
+                queries: learned.evaluated_queries,
+            });
+        }
+        (count, scores)
+    }
+
+    #[test]
+    fn shared_repository_diagnostics_match_owned_reference_across_cutoffs() {
+        let mut holdout = Vec::new();
+        for repository in 0..17 {
+            for query in 0..=repository % 5 {
+                for item in 0..=(repository + query) % 11 {
+                    let name = if item % 2 == 0 {
+                        format!(" Repo-{repository:02} ")
+                    } else {
+                        format!("repo-{repository:02}")
+                    };
+                    let kind = match item % 3 {
+                        0 => EvidenceKind::Commit,
+                        1 => EvidenceKind::Package,
+                        _ => EvidenceKind::Fact,
+                    };
+                    holdout.push(labeled(
+                        &name,
+                        &format!("query-{query}"),
+                        &format!("E{item}"),
+                        kind,
+                        repository % 4 != 0 && (item + query) % 3 == 0,
+                    ));
+                }
+            }
+        }
+        let mut tied = model();
+        tied.weights.fill(0.0);
+        let mut pairwise = model();
+        pairwise.format = crate::ranking::PAIRWISE_MODEL_FORMAT.into();
+        for ranker in [model(), tied, pairwise] {
+            for reverse in [false, true] {
+                if reverse {
+                    holdout.reverse();
+                }
+                for k in [1, 2, 5, 10, 100] {
+                    let (count, expected) = reference_repository_scores(&ranker, &holdout, k);
+                    let (actual_count, actual) =
+                        repository_scores(&ranker, &holdout, k).unwrap();
+                    assert_eq!(actual_count, count);
+                    assert_eq!(actual.len(), expected.len());
+                    for (left, right) in actual.iter().zip(&expected) {
+                        assert_eq!(left.queries, right.queries);
+                        assert_eq!(left.learned_ndcg.to_bits(), right.learned_ndcg.to_bits());
+                        assert_eq!(left.baseline_ndcg.to_bits(), right.baseline_ndcg.to_bits());
+                        assert_eq!(left.learned_mrr.to_bits(), right.learned_mrr.to_bits());
+                        assert_eq!(left.baseline_mrr.to_bits(), right.baseline_mrr.to_bits());
+                    }
+                    let combined = evaluate_repository_diagnostics(&ranker, &holdout, k).unwrap();
+                    assert_eq!(combined.0, balanced_from_scores(k, count, &expected));
+                    assert_eq!(combined.1, stability_from_scores(k, count, &expected));
+                    assert_eq!(
+                        combined.0,
+                        evaluate_repository_balanced(&ranker, &holdout, k).unwrap()
+                    );
+                    assert_eq!(
+                        combined.1,
+                        evaluate_repository_stability(&ranker, &holdout, k).unwrap()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn shared_diagnostics_preserve_empty_ranges_and_validation() {
+        let negative = labeled(
+            "private-repo",
+            "private-question",
+            "E1",
+            EvidenceKind::Fact,
+            false,
+        );
+        let (balanced, stability) =
+            evaluate_repository_diagnostics(&model(), std::slice::from_ref(&negative), 5).unwrap();
+        assert_eq!(balanced.repositories, 1);
+        assert_eq!(balanced.evaluated_repositories, 0);
+        assert_eq!(stability.unanswerable_repositories, 1);
+        assert_eq!(stability.min_repository_ndcg_at_k, None);
+        let serialized = serde_json::to_string(&(balanced, stability)).unwrap();
+        assert!(!serialized.contains("private-repo"));
+        assert!(!serialized.contains("private-question"));
+        assert!(evaluate_repository_diagnostics(&model(), &[], 5).is_err());
+        assert!(
+            evaluate_repository_diagnostics(&model(), std::slice::from_ref(&negative), 0)
+                .is_err()
+        );
+        assert!(
+            evaluate_repository_diagnostics(&model(), &[negative.clone(), negative], 5).is_err()
+        );
+        let mut invalid = model();
+        invalid.weights[0] = f64::NAN;
+        assert!(
+            evaluate_repository_diagnostics(
+                &invalid,
+                &[labeled("repo", "question", "E1", EvidenceKind::Fact, true)],
+                5
+            )
+            .is_err()
+        );
     }
 
     #[test]

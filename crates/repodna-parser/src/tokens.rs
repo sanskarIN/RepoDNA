@@ -108,6 +108,23 @@ mod tests {
     }
 
     #[test]
+    fn block_comments_separate_tokens_without_changing_fingerprints() {
+        let expected = hashes("const value = left + right; return value;");
+        assert_eq!(
+            hashes("const/**/value = left/**/+/**/right; return/**/value;"),
+            expected
+        );
+        assert_ne!(hashes("constvalue = left + right; returnvalue;"), expected);
+    }
+
+    #[test]
+    fn adjacent_comment_tokens_cannot_merge_numeric_or_unicode_identifiers() {
+        assert_eq!(hashes("const 世界 = 12/**/34;"), hashes("const 世界 = 12 34;"));
+        assert_ne!(hashes("const 世界 = 12/**/34;"), hashes("const 世界 = 1234;"));
+        assert_eq!(hashes("let café/**/世界;"), hashes("let café 世界;"));
+    }
+
+    #[test]
     fn identifiers_are_significant() {
         assert_ne!(hashes("add(a, b);"), hashes("sub(a, b);"));
     }

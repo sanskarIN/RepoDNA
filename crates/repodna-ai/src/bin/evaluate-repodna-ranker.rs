@@ -13,7 +13,7 @@ use serde::Deserialize;
 
 use repodna_ai::ranking::{
     LabeledEvidence, MAX_EXAMPLES, MODEL_FORMAT, RankerModel, evaluate_original_order,
-    evaluate_repository_balanced, evaluate_repository_stability, evaluate_tie_aware,
+    evaluate_repository_balanced, evaluate_repository_diagnostics, evaluate_tie_aware,
     training_data_fingerprint, validate_repository_split,
 };
 
@@ -242,10 +242,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let pair_ordering = model
         .evaluate_pair_ordering(&test)
         .map_err(io::Error::other)?;
-    let repository_balanced =
-        evaluate_repository_balanced(&model, &test, 5).map_err(io::Error::other)?;
-    let repository_stability =
-        evaluate_repository_stability(&model, &test, 5).map_err(io::Error::other)?;
+    let (repository_balanced, repository_stability) =
+        evaluate_repository_diagnostics(&model, &test, 5).map_err(io::Error::other)?;
 
     let tie_aware = evaluate_tie_aware(&model, &test, 5).map_err(io::Error::other)?;
 
