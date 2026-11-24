@@ -408,10 +408,7 @@ mod tests {
 
     #[test]
     fn cycle_search_ignores_external_edges_and_handles_self_loops() {
-        let g = graph(
-            8,
-            &[(1, 4), (4, 6), (6, 1), (6, 6), (1, 0), (4, 7)],
-        );
+        let g = graph(8, &[(1, 4), (4, 6), (6, 1), (6, 6), (1, 0), (4, 7)]);
         let members = [1, 4, 6];
         assert_eq!(shortest_cycle(&g, &members, 1), Some(vec![1, 4, 6, 1]));
         assert_eq!(shortest_cycle(&g, &members, 3), Some(vec![6, 6]));
