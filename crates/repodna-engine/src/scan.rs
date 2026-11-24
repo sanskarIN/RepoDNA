@@ -779,6 +779,81 @@ mod tests {
     }
 
     #[test]
+    fn comment_boundary_corrections_agree_on_cached_and_uncached_deep_scans() {
+        use std::sync::Mutex;
+
+        #[derive(Debug, Default)]
+        struct MemoryCache(Mutex<HashMap<String, FileAnalysis>>);
+        impl AnalysisCache for MemoryCache {
+            fn get(&self, key: &str) -> Option<FileAnalysis> {
+                self.0.lock().unwrap().get(key).cloned()
+            }
+
+            fn put(&self, entries: &[(String, &FileAnalysis)]) {
+                let mut map = self.0.lock().unwrap();
+                for (key, analysis) in entries {
+                    map.insert(key.clone(), (*analysis).clone());
+                }
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        write_tree(
+            dir.path(),
+            &[
+                (
+                    "src/a.rs",
+                    "pub/**/fn/**/calculate() {\n    if/**/true {}\n}\n",
+                ),
+                (
+                    "src/b.rs",
+                    "pub fn calculate() {\n    if true {}\n}\n",
+                ),
+            ],
+        );
+        let config = Config::default();
+        let cache = MemoryCache::default();
+        let standard = ScanOptions {
+            config: &config,
+            stages: StageSet::of(&[Stage::Discovery, Stage::Parsing]),
+            registry: LanguageRegistry::builtin(),
+            progress: &Progress::default(),
+            cache: Some(&cache),
+        };
+        let deep = ScanOptions {
+            stages: standard.stages.with(Stage::Similarity),
+            ..standard
+        };
+        let cancel = CancellationToken::new();
+        let first = scan_files(dir.path(), &standard, &cancel).unwrap();
+        assert_eq!((first.cache_hits, first.cache_misses), (0, 2));
+        assert!(first.files.iter().all(|file| file.tokens.is_none()));
+        let cached = scan_files(dir.path(), &deep, &cancel).unwrap();
+        assert_eq!((cached.cache_hits, cached.cache_misses), (2, 0));
+        let fresh = scan_files(
+            dir.path(),
+            &ScanOptions {
+                cache: None,
+                ..deep
+            },
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(cached.files.len(), 2);
+        for (cached, fresh) in cached.files.iter().zip(&fresh.files) {
+            assert_eq!(cached.analysis, fresh.analysis);
+            assert_eq!(cached.tokens, fresh.tokens);
+            let analysis = cached.analysis.as_ref().unwrap();
+            assert_eq!(analysis.symbols[0].name, "calculate");
+            assert_eq!(analysis.symbols[0].complexity, Some(2));
+        }
+        assert_eq!(
+            cached.files[0].tokens.as_ref().unwrap().hashes,
+            cached.files[1].tokens.as_ref().unwrap().hashes
+        );
+    }
+
+    #[test]
     fn cancellation_on_last_progress_event_is_not_reported_as_success() {
         let dir = tempfile::tempdir().unwrap();
         write_tree(dir.path(), &[("src/lib.rs", "pub fn run() {}\n")]);
