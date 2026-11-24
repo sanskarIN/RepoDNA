@@ -33,12 +33,15 @@ sends nothing anywhere unless you ask it to.
 
 ## Release status
 
-**RepoDNA v1.5.1** is a maintenance patch based on the published v1.5.0 source. It
-focuses on saved-analysis recovery, artifact validation and safer Git remote handling;
-newer features on `main` are not part of this patch. For actual published versions and
-downloads, use [GitHub Releases](https://github.com/sanskarIN/RepoDNA/releases).
-The [v1.5.1 qualification record](packaging/release/v1.5.1-checklist.md)
-documents the checks performed before publication.
+Use [GitHub Releases](https://github.com/sanskarIN/RepoDNA/releases) for the
+**latest published stable version**, verified downloads and release notes.
+A development branch or maintenance candidate is not itself a published release,
+even if its version manifests and changelog have been prepared.
+
+See [CHANGELOG.md](CHANGELOG.md) for changes by version and
+[release qualification records](packaging/release/) for test evidence and
+remaining approval gates. New analysis features on `main` are not necessarily
+included in maintenance releases.
 
 ## Contents
 
