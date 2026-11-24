@@ -399,5 +399,4 @@ mod tests {
             assert_same_weights(&data, 2);
         }
     }
-
 }
