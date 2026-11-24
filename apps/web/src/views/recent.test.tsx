@@ -182,6 +182,32 @@ describe("recent analyses", () => {
     expect(await screen.findByText("None kept.")).toBeTruthy();
   });
 
+  it("syncs a retention opt-out made in another browser tab", async () => {
+    const store = memoryStore();
+    await start("/", store);
+    await openFile("another-tab.json");
+    await waitFor(() => expect(openPointer()?.kind).toBe("file");
+    await act(async () => {
+      window.localStorage.setItem("repodna-remember-recent", "off");
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "repodna-remember-recent",
+          newValue: "off",
+          storageArea: window.localStorage,
+        }),
+      );
+    });
+    await waitFor(async () => {
+      expect(await store.list()).toEqual([]);
+      expect(openPointer()).toBeNull();
+    });
+    window.location.hash = "#/settings";
+    const keep = (await screen.findByRole("checkbox", {
+      name: /Keep the last \d+ analysis files/,
+    })) as HTMLInputElement;
+    expect(keep.checked).toBe(false);
+  });
+
   it("does not keep files when turned off before they are opened", async () => {
     setRememberRecent(false);
     const store = memoryStore();

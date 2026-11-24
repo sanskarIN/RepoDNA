@@ -42,7 +42,7 @@ export const RECENT_LIMIT = 5;
 export const RECENT_MAX_BYTES = 64 * 1024 * 1024;
 
 const OPEN_KEY = "repodna-open";
-const REMEMBER_KEY = "repodna-remember-recent";
+export const REMEMBER_KEY = "repodna-remember-recent";
 
 /**
  * Stored metadata is external input, even when it comes from IndexedDB. Corrupted or

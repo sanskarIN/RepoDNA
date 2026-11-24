@@ -20,6 +20,7 @@ import {
   browserStore,
   openPointer,
   rememberRecent,
+  REMEMBER_KEY,
   RECENT_MAX_BYTES,
   setOpenPointer,
   setRememberRecent,
@@ -170,6 +171,7 @@ export function AppProvider({
   const selectionEpoch = useRef(0);
   const selectedFileId = useRef<string | null>(null);
   const pendingRecentId = useRef<string | null>(null);
+  const pendingRecentSelection = useRef<number | null>(null);
   const refreshSequence = useRef(0);
   const enqueueWrite = useCallback((write: () => Promise<void>): Promise<void> => {
     const pending = writeQueue.current.then(write);
@@ -250,6 +252,8 @@ export function AppProvider({
   const open = useCallback(
     (next: Dataset, source?: SourceFile) => {
       const selection = ++selectionEpoch.current;
+      pendingRecentId.current = null;
+      pendingRecentSelection.current = null;
       selectedFileId.current =
         next.origin.kind === "file" ? next.dna.analysisMetadata.id : null;
       setDataset(next);
@@ -297,6 +301,8 @@ export function AppProvider({
   const close = useCallback(() => {
     selectionEpoch.current += 1;
     selectedFileId.current = null;
+    pendingRecentId.current = null;
+    pendingRecentSelection.current = null;
     setDataset(null);
     setOpenPointer(null);
   }, []);
@@ -308,6 +314,7 @@ export function AppProvider({
       const selection = ++selectionEpoch.current;
       const retention = retentionEpoch.current;
       pendingRecentId.current = entry.id;
+      pendingRecentSelection.current = selection;
       try {
         const text = await store.text(entry.id);
         if (
@@ -332,8 +339,11 @@ export function AppProvider({
           { text, size: entry.size },
         );
       } finally {
-        if (pendingRecentId.current === entry.id) {
+        // Two overlapping reads may refer to the same ID. The older read
+        // must never clear the newer read's pending selection marker.
+        if (pendingRecentSelection.current === selection) {
           pendingRecentId.current = null;
+          pendingRecentSelection.current = null;
         }
       }
     },
@@ -351,6 +361,7 @@ export function AppProvider({
     ) {
       selectionEpoch.current += 1;
       pendingRecentId.current = null;
+      pendingRecentSelection.current = null;
     }
   }, []);
   const forget = useCallback(
@@ -381,6 +392,27 @@ export function AppProvider({
     },
     [store, refresh, enqueueWrite, clearFilePointer],
   );
+
+  useEffect(() => {
+    // localStorage preference changes are broadcast to other same-origin tabs.
+    // Keep the UI in sync, and finish any pending file removal in this tab.
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== REMEMBER_KEY && event.key !== null) return;
+      const enabled = rememberRecent();
+      setRememberState(enabled);
+      if (enabled) {
+        refresh();
+      } else {
+        retentionEpoch.current += 1;
+        clearFilePointer();
+        refreshSequence.current += 1;
+        setRecent([]);
+        void enqueueWrite(() => store.clear()).then(refresh, refresh);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [store, refresh, enqueueWrite, clearFilePointer]);
 
   const value = useMemo<AppState>(
     () => ({
