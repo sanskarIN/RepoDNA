@@ -76,7 +76,10 @@ pub fn join(base_dir: &str, relative: &str) -> Option<String> {
     // Check the child before concatenation; otherwise a rooted path becomes
     // a seemingly relative nested path merely because base_dir is nonempty.
     let relative = relative.replace('\\', "/");
-    if relative.starts_with('/') || has_windows_prefix(relative.trim_start_matches("./")) {
+    let first = relative
+        .split('/')
+        .find(|part| !part.is_empty() && *part != ".");
+    if relative.starts_with('/') || first.is_some_and(has_windows_prefix) {
         return None;
     }
     let base = normalize_relative(base_dir)?;
@@ -205,6 +208,67 @@ mod tests {
         );
         assert_eq!(join("", "./main.py").as_deref(), Some("main.py"));
         assert_eq!(join("src", "../../escape"), None);
+    }
+
+    #[test]
+    fn rejects_rooted_children_before_adding_a_base_directory() {
+        for base in ["", "src", "src/app", "src/.."] {
+            for child in [
+                "/absolute/file",
+                "\\absolute\\file",
+                "//server/share",
+                "\\\\server\\share",
+                "C:/file",
+                "c:\\file",
+                "D:relative",
+                "./C:/file",
+                ".//D:relative",
+                ".\\C:\\file",
+                "\\\\?\\C:\\file",
+                "\\\\.\\device",
+            ] {
+                assert_eq!(join(base, child), None, "base={base:?}, child={child:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_drive_prefixes_exposed_by_path_normalization() {
+        for path in [
+            "./C:/file",
+            "src/../C:/file",
+            "src\\..\\D:relative",
+            "././z:relative",
+            ".//C:/file",
+            "a/b/../../E:\\file",
+        ] {
+            assert_eq!(normalize_relative(path), None, "{path:?}");
+        }
+        for (base, child) in [("src", "../C:/file"), ("src/app", "../../D:relative")] {
+            assert_eq!(join(base, child), None);
+        }
+    }
+
+    #[test]
+    fn validates_base_separately_and_preserves_safe_parent_segments() {
+        for base in ["/src", "C:/src", "./D:src", "../src", "a/../E:src"] {
+            assert_eq!(join(base, "file"), None, "{base:?}");
+            assert_eq!(join(base, "../file"), None, "{base:?}");
+        }
+        assert_eq!(join("src/..", "file").as_deref(), Some("file"));
+        assert_eq!(join("a/b", "../file").as_deref(), Some("a/file"));
+        assert_eq!(join("a/b", "..\\..\\file").as_deref(), Some("file"));
+        assert_eq!(join("a/b", "../../.."), None);
+        assert_eq!(join("a/b", "").as_deref(), Some("a/b"));
+        assert_eq!(join("a/b", "../..").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn path_normalization_is_idempotent_for_safe_unicode_and_relative_paths() {
+        for path in ["", ".", "a//b", "a/../b", "资料/代码.rs", "a\\b\\c", "a/b/.."] {
+            let normalized = normalize_relative(path).expect("valid path");
+            assert_eq!(normalize_relative(&normalized), Some(normalized));
+        }
     }
 
     #[test]
