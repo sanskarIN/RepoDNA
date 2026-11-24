@@ -89,6 +89,74 @@ struct Parsed<'a> {
     lockfile: Option<ParsedLockfile>,
 }
 
+// Index actual workspace roots, including those without shared declarations.
+// An empty inner table is a boundary: do not fall back to another workspace.
+type SharedDependencies<'a> =
+    BTreeMap<&'a str, BTreeMap<&'a str, BTreeMap<String, &'a DeclaredDependency>>>;
+
+fn shared_dependencies<'a>(parsed: &'a [Parsed<'_>]) -> SharedDependencies<'a> {
+    let mut index = SharedDependencies::new();
+    for item in parsed {
+        let Some(manifest) = &item.manifest else {
+            continue;
+        };
+        if manifest.workspace_tool.is_none() {
+            continue;
+        }
+        let entries = index
+            .entry(item.ecosystem)
+            .or_default()
+            .entry(paths::parent(item.path))
+            .or_default();
+        for dependency in &manifest.shared_dependencies {
+            entries
+                .entry(dependency.name.to_lowercase())
+                .or_insert(dependency);
+        }
+    }
+    index
+}
+
+// Cargo's explicit package.workspace can point sideways or upwards within
+// the repository. Reject absolute paths and escapes; do not inspect the host
+// filesystem or silently fall back to another root when an override is invalid.
+fn explicit_workspace_directory(base: &str, root: &str) -> Option<String> {
+    let bytes = root.as_bytes();
+    if root.trim().is_empty()
+        || root.starts_with(['/', '\\'])
+        || (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
+    {
+        return None;
+    }
+    paths::join(base, root)
+}
+
+// Lexical approximation of Cargo's workspace lookup. The nearest discovered
+// enclosing workspace wins unless package.workspace explicitly selects one.
+// This does not evaluate membership globs, excludes, or Cargo metadata.
+fn inherited_dependency<'a>(
+    index: &SharedDependencies<'a>,
+    item: &Parsed<'_>,
+    manifest: &ParsedManifest,
+    name: &str,
+) -> Option<&'a DeclaredDependency> {
+    let workspaces = index.get(item.ecosystem)?;
+    let mut directory = paths::parent(item.path);
+    if let Some(root) = &manifest.workspace_root {
+        let explicit = explicit_workspace_directory(directory, root)?;
+        return workspaces.get(explicit.as_str())?.get(name).copied();
+    }
+    loop {
+        if let Some(entries) = workspaces.get(directory) {
+            return entries.get(name).copied();
+        }
+        if directory.is_empty() {
+            return None;
+        }
+        directory = paths::parent(directory);
+    }
+}
+
 /// Analyzes manifests and lockfiles.
 pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
     let providers = builtin_providers();
@@ -171,19 +239,7 @@ pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
         }
     }
 
-    // Shared declarations members can inherit (the shallowest manifest wins).
-    let mut shared: BTreeMap<(&str, String), &DeclaredDependency> = BTreeMap::new();
-    let mut by_depth: Vec<&Parsed<'_>> = parsed.iter().collect();
-    by_depth.sort_by_key(|item| (paths::depth(item.path), item.path));
-    for item in by_depth {
-        if let Some(manifest) = &item.manifest {
-            for dependency in &manifest.shared_dependencies {
-                shared
-                    .entry((item.ecosystem, dependency.name.to_lowercase()))
-                    .or_insert(dependency);
-            }
-        }
-    }
+    let shared = shared_dependencies(&parsed);
 
     // Direct dependencies, merged per ecosystem and name.
     let mut records: BTreeMap<(&str, String), DependencyRecord> = BTreeMap::new();
@@ -195,7 +251,7 @@ pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
             let key = (item.ecosystem, declared_dependency.name.to_lowercase());
             let resolved;
             let dependency = if declared_dependency.source == "inherited" {
-                resolved = match shared.get(&key) {
+                resolved = match inherited_dependency(&shared, item, manifest, &key.1) {
                     Some(template) => DeclaredDependency {
                         name: declared_dependency.name.clone(),
                         requirement: declared_dependency
