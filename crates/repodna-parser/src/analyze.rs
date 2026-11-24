@@ -312,6 +312,38 @@ mod tests {
     }
 
     #[test]
+    fn julia_source_has_imports_symbols_markers_and_normalized_tokens() {
+        let source = concat!(
+            "using LinearAlgebra\n",
+            "import .Local: helper\n",
+            "include(\"helpers.jl\")\n",
+            "# TODO: add tests\n",
+            "function compute(x)\n",
+            "    return helper(x)\n",
+            "end\n",
+        );
+        let registry = LanguageRegistry::builtin();
+        let spec = registry.detect_path("src/compute.jl").unwrap();
+        assert_eq!(spec.id, "julia");
+        assert_eq!(spec.capability(), ParserCapability::Lexical);
+        let (analysis, tokens) = analyze_and_tokenize(spec, source);
+        assert_eq!(analysis, analyze_source(spec, source));
+        assert_eq!(
+            analysis
+                .imports
+                .iter()
+                .map(|import| import.specifier.as_str())
+                .collect::<Vec<_>>(),
+            vec!["LinearAlgebra", ".Local", "helpers.jl"]
+        );
+        assert_eq!(analysis.symbols[0].name, "compute");
+        assert_eq!(analysis.symbols[0].complexity, Some(1));
+        assert_eq!(analysis.markers.len(), 1);
+        assert!(!tokens.is_empty());
+        assert_eq!(registry.detect_shebang("#!/usr/bin/env julia").unwrap().id, "julia");
+    }
+
+    #[test]
     fn summarizes_a_typescript_module() {
         let source = "import { api } from './api';\n\n// TODO: cache results\nexport function load(id: string) {\n  if (!id) { return null; }\n  return fetch(`/items/${id}`);\n}\nconst template = './views/item.html';\n";
         let analysis = analyze("typescript", source);
