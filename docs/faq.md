@@ -22,7 +22,7 @@ No. The analysis is deterministic. AI explanations are an optional extra, off by
 see [AI](ai.md).
 
 **Which languages does it support?**
-65 built-in languages: 25 with lexical analysis (imports, symbols, complexity) and 40 with
+65 built-in languages: 26 with lexical analysis (imports, symbols, complexity) and 39 with
 line counting. See the [list](../README.md#supported-languages). Plugins can add more.
 
 ## Results
