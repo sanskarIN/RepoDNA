@@ -85,7 +85,10 @@ fn query_metrics(scored: &[(f64, bool)], k: usize) -> QueryMetrics {
             end += 1;
         }
         let size = end - start;
-        let positive = scored[start..end].iter().filter(|(_, label)| *label).count();
+        let positive = scored[start..end]
+            .iter()
+            .filter(|(_, label)| *label)
+            .count();
         let negative = size - positive;
         let visible = size.min(k - start);
         let worst_hits = visible.saturating_sub(negative);

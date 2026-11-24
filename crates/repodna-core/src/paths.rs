@@ -265,7 +265,15 @@ mod tests {
 
     #[test]
     fn path_normalization_is_idempotent_for_safe_unicode_and_relative_paths() {
-        for path in ["", ".", "a//b", "a/../b", "资料/代码.rs", "a\\b\\c", "a/b/.."] {
+        for path in [
+            "",
+            ".",
+            "a//b",
+            "a/../b",
+            "资料/代码.rs",
+            "a\\b\\c",
+            "a/b/..",
+        ] {
             let normalized = normalize_relative(path).expect("valid path");
             assert_eq!(normalize_relative(&normalized), Some(normalized));
         }
