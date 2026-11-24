@@ -8,7 +8,7 @@
 //! tokenizer, identifiers are not, so renamed copies are not reported.
 
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use repodna_core::hash::stable_id;
 use repodna_core::metric::round4;
@@ -81,14 +81,27 @@ fn winnow(kgrams: &[u64], window: usize) -> Vec<(u64, usize)> {
         return selected;
     }
     let window = window.min(kgrams.len()).max(1);
-    for start in 0..=kgrams.len() - window {
-        let mut best = start;
-        for position in start..start + window {
-            if kgrams[position] <= kgrams[best] {
-                best = position;
+    // Maintain increasing hashes in a deque of positions. Removing equal
+    // hashes from the back retains the rightmost minimum, exactly as in the
+    // original per-window scan. Each position enters and leaves at most once.
+    let mut minima: VecDeque<usize> = VecDeque::with_capacity(window);
+    for (position, &hash) in kgrams.iter().enumerate() {
+        if position >= window {
+            let expired = position - window;
+            while minima.front().is_some_and(|&index| index <= expired) {
+                minima.pop_front();
             }
         }
-        if selected.last().is_none_or(|&(_, last)| last != best) {
+        while minima.back().is_some_and(|&index| kgrams[index] >= hash) {
+            minima.pop_back();
+        }
+        minima.push_back(position);
+        if position + 1 < window {
+            continue;
+        }
+        if let Some(&best) = minima.front()
+            && selected.last().is_none_or(|&(_, last)| last != best)
+        {
             selected.push((kgrams[best], best));
         }
     }
