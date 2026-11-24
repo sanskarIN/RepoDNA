@@ -1,5 +1,6 @@
 //! Per-file analysis entry point.
 
+use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -222,6 +223,10 @@ fn extract_references(
     rust: bool,
 ) -> Vec<RawReference> {
     let mut references = Vec::new();
+    // Build the borrowed lookup only if a real path candidate occurs.
+    // Import order and repeated entries are irrelevant to this membership
+    // test, but both line number and exact spelling remain significant.
+    let mut imported_paths: Option<HashSet<(u32, &str)>> = None;
     let mut tests = RustTestRegions::default();
     for (index, line) in lines.iter().enumerate() {
         if rust && tests.in_test(&line.masked) {
@@ -242,9 +247,14 @@ fn extract_references(
                 continue;
             }
             let path = path.as_str();
-            let is_import = imports
-                .iter()
-                .any(|import| import.line == line_number && import.specifier == path);
+            let is_import = imported_paths
+                .get_or_insert_with(|| {
+                    imports
+                        .iter()
+                        .map(|import| (import.line, import.specifier.as_str()))
+                        .collect()
+                })
+                .contains(&(line_number, path));
             if !is_import {
                 references.push(RawReference {
                     path: path.to_owned(),
@@ -356,6 +366,99 @@ mod tests {
         assert_eq!(analysis.imports.len(), 1);
         assert!(analysis.references.is_empty());
     }
+    #[test]
+    fn import_reference_index_preserves_exact_line_and_spelling() {
+        use crate::spec::ImportKind;
+
+        let spec = LanguageRegistry::builtin().get("javascript").unwrap();
+        let source = "const a = './asset.json';\nconst b = './asset.json';\nconst c = './other.json';\nconst d = './Asset.json';\n";
+        let scanned = scan(source, &spec.syntax);
+        let import = |line, path: &str| RawImport {
+            specifier: path.to_owned(),
+            line,
+            kind: ImportKind::Import,
+            names: Vec::new(),
+        };
+        // Deliberately unsorted with a repeated entry, a mismatching path
+        // on line 3 and a casing difference on line 4.
+        let imports = [
+            import(4, "./asset.json"),
+            import(1, "./asset.json"),
+            import(3, "./different.json"),
+            import(1, "./asset.json"),
+        ];
+        let references = extract_references(&scanned.lines, &imports, false);
+        assert_eq!(
+            references,
+            vec![
+                RawReference {
+                    line: 2,
+                    path: "./asset.json".into(),
+                },
+                RawReference {
+                    line: 3,
+                    path: "./other.json".into(),
+                },
+                RawReference {
+                    line: 4,
+                    path: "./Asset.json".into(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn reference_limit_counts_only_nonimport_paths_in_source_order() {
+        use crate::spec::ImportKind;
+
+        let spec = LanguageRegistry::builtin().get("javascript").unwrap();
+        let mut source = String::new();
+        let mut imports = Vec::new();
+        for i in 0..2_000u32 {
+            let path = format!("./assets/{i}.json");
+            source.push_str(&format!("const value = '{path}';\n"));
+            if i % 2 == 0 {
+                imports.push(RawImport {
+                    specifier: path,
+                    line: i + 1,
+                    kind: ImportKind::Import,
+                    names: Vec::new(),
+                });
+            }
+        }
+        imports.reverse();
+        let scanned = scan(&source, &spec.syntax);
+        let references = extract_references(&scanned.lines, &imports, false);
+        assert_eq!(references.len(), MAX_REFERENCES);
+        for (index, reference) in references.iter().enumerate() {
+            let i = index * 2 + 1;
+            assert_eq!(reference.line as usize, i + 1);
+            assert_eq!(reference.path, format!("./assets/{i}.json"));
+        }
+    }
+
+    #[test]
+    fn reference_lookup_does_not_change_rust_test_region_exclusion() {
+        use crate::spec::ImportKind;
+
+        let spec = LanguageRegistry::builtin().get("rust").unwrap();
+        let source = "const A: &str = \"a.json\";\n#[cfg(test)]\nmod fixtures {\n    const B: &str = \"b.json\";\n}\nconst C: &str = \"c.json\";\n";
+        let scanned = scan(source, &spec.syntax);
+        let imports = [RawImport {
+            specifier: "a.json".into(),
+            line: 1,
+            kind: ImportKind::Import,
+            names: Vec::new(),
+        }];
+        assert_eq!(
+            extract_references(&scanned.lines, &imports, true),
+            vec![RawReference {
+                path: "c.json".into(),
+                line: 6,
+            }]
+        );
+    }
+
     #[test]
     fn analyze_and_tokenize_matches_separate_calls() {
         let registry = crate::LanguageRegistry::builtin();
