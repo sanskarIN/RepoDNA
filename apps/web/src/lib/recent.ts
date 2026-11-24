@@ -207,7 +207,9 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
         }
         // Purge damaged legacy metadata as well as normal expired entries.
         for (const row of rows) {
-          if (row && typeof row.id === "string" && !keep.has(row.id)) {
+          // A legacy row can have a valid IndexedDB key of the wrong TS type
+          // (e.g. a number). It must not be retained just because it is hidden.
+          if (row && row.id !== undefined && !keep.has(row.id)) {
             recent.delete(row.id);
             texts.delete(row.id);
           }

@@ -16,8 +16,8 @@ function entry(id: string, openedAt: string): RecentEntry {
  * The fake does not claim to reproduce the browser's concurrency scheduler. */
 function fakeIndexedDb() {
   const rows = {
-    recent: new Map<string, unknown>(),
-    texts: new Map<string, unknown>(),
+    recent: new Map<IDBValidKey, unknown>(),
+    texts: new Map<IDBValidKey, unknown>(),
   };
   const transactions: Array<{ stores: string[]; mode: IDBTransactionMode }> = [];
 
@@ -76,7 +76,7 @@ function fakeIndexedDb() {
               map.set(record.id, record);
               return resultRequest(undefined, tx);
             },
-            delete: (id: string) => {
+            delete: (id: IDBValidKey) => {
               active();
               map.delete(id);
               return resultRequest(undefined, tx);
@@ -196,9 +196,13 @@ describe("local recent-analysis persistence integrity", () => {
     expect(fake.rows.recent.size).toBe(0);
     fake.rows.recent.set("corrupt", { ...entry("corrupt", "broken"), openedAt: "bad" });
     fake.rows.texts.set("corrupt", { id: "corrupt", text: "stale" });
+    fake.rows.recent.set(42, { ...entry("bad-number-key", "2026-11-01T00:00:00Z"), id: 42 });
+    fake.rows.texts.set(42, { id: 42, text: "unreachable" });
     await indexed.add(entry("valid", "2026-11-02T00:00:00Z"), "fresh");
     expect(fake.rows.recent.has("corrupt")).toBe(false);
     expect(fake.rows.texts.has("corrupt")).toBe(false);
+    expect(fake.rows.recent.has(42)).toBe(false);
+    expect(fake.rows.texts.has(42)).toBe(false);
     expect(await indexed.text("valid")).toBe("fresh");
     fake.rows.texts.set("valid", { id: "valid", text: 42 });
     expect(await indexed.text("valid")).toBeNull();
