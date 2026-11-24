@@ -101,6 +101,56 @@ describe("recent analyses", () => {
     await waitFor(() => expect(window.location.hash).toBe("#/overview"));
   });
 
+  it("does not reopen a recently selected file after it was deleted while loading", async () => {
+    const actual = memoryStore();
+    const saved: RecentEntry = {
+      id: "pending-file",
+      name: "pending-file.json",
+      repository: "test",
+      generatedAt: "2026-11-23T00:00:00Z",
+      openedAt: "2026-11-24T00:00:00Z",
+      size: 10,
+    };
+    await actual.add(saved, demoText);
+    let release!: (text: string | null) => void;
+    const pending = new Promise<string | null>((resolve) => {
+      release = resolve;
+    });
+    let began!: () => void;
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const store: RecentStore = {
+      ...actual,
+      text(id) {
+        if (id === saved.id) {
+          began();
+          return pending;
+        }
+        return actual.text(id);
+      },
+    };
+    await start("/", store);
+    const section = await screen.findByRole("region", { name: "Recent analyses" });
+    await act(async () => {
+      fireEvent.click(within(section).getByRole("button", { name: "Open" }));
+    });
+    await started;
+    const remove = await screen.findByRole("button", {
+      name: "Remove pending-file.json from recent analyses",
+    });
+    await act(async () => {
+      fireEvent.click(remove);
+    });
+    await act(async () => {
+      release(demoText);
+      await pending;
+    });
+    await waitFor(async () => expect(await actual.list()).toEqual([]));
+    expect(window.location.hash).toBe("#/");
+    expect(openPointer()).toBeNull();
+  });
+
   it("removes an analysis from the list", async () => {
     const store = memoryStore();
     await start("/", store);

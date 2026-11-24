@@ -169,6 +169,7 @@ export function AppProvider({
   const retentionEpoch = useRef(0);
   const selectionEpoch = useRef(0);
   const selectedFileId = useRef<string | null>(null);
+  const pendingRecentId = useRef<string | null>(null);
   const refreshSequence = useRef(0);
   const enqueueWrite = useCallback((write: () => Promise<void>): Promise<void> => {
     const pending = writeQueue.current.then(write);
@@ -302,31 +303,54 @@ export function AppProvider({
 
   const openRecent = useCallback(
     async (entry: RecentEntry) => {
-      const text = await store.text(entry.id);
-      if (text === null) {
-        await store.remove(entry.id);
-        refresh();
-        throw new Error(`${entry.name} is no longer kept in this browser.`);
+      // A slow storage read must not reopen a file deleted in the meantime,
+      // override a newer selection, or re-enable a disabled retention choice.
+      const selection = ++selectionEpoch.current;
+      const retention = retentionEpoch.current;
+      pendingRecentId.current = entry.id;
+      try {
+        const text = await store.text(entry.id);
+        if (
+          selection !== selectionEpoch.current ||
+          retention !== retentionEpoch.current ||
+          !rememberRecent()
+        ) {
+          return;
+        }
+        if (text === null) {
+          await enqueueWrite(() => store.remove(entry.id));
+          refresh();
+          throw new Error(`${entry.name} is no longer kept in this browser.`);
+        }
+        const loaded = parseArtifact(text);
+        open(
+          {
+            dna: loaded.artifact,
+            origin: { kind: "file", name: entry.name },
+            warnings: loaded.warnings,
+          },
+          { text, size: entry.size },
+        );
+      } finally {
+        if (pendingRecentId.current === entry.id) {
+          pendingRecentId.current = null;
+        }
       }
-      const loaded = parseArtifact(text);
-      open(
-        {
-          dna: loaded.artifact,
-          origin: { kind: "file", name: entry.name },
-          warnings: loaded.warnings,
-        },
-        { text, size: entry.size },
-      );
     },
-    [store, open, refresh],
+    [store, open, refresh, enqueueWrite],
   );
   const clearFilePointer = useCallback((id?: string) => {
     const pointer = openPointer();
     if (pointer?.kind === "file" && (id === undefined || pointer.id === id)) {
       setOpenPointer(null);
     }
-    if (id === undefined || selectedFileId.current === id) {
+    if (
+      id === undefined ||
+      selectedFileId.current === id ||
+      pendingRecentId.current === id
+    ) {
       selectionEpoch.current += 1;
+      pendingRecentId.current = null;
     }
   }, []);
   const forget = useCallback(
