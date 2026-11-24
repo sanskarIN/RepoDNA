@@ -8,8 +8,8 @@
 use std::collections::{BTreeMap, HashSet};
 
 use super::{
-    FEATURE_COUNT, LabeledEvidence, MAX_EXAMPLES, RankerModel, features, normalized_repository_id,
-    sigmoid, training_data_fingerprint, validate_evidence_ids,
+    FEATURE_COUNT, LabeledEvidence, MAX_EXAMPLES, RankerModel, features_with_terms,
+    normalized_repository_id, sigmoid, terms, training_data_fingerprint, validate_evidence_ids,
 };
 
 /// Versioned checkpoint for relative-order-trained ranker weights.
@@ -20,6 +20,41 @@ const WEIGHT_DECAY: f64 = 0.001;
 
 /// Mixed-label question group, preserving borrowed, checked annotations.
 type PairGroup<'a> = (Vec<&'a LabeledEvidence>, Vec<&'a LabeledEvidence>);
+
+// Preserve the v1 pair schedule exactly, including its per-group cap.
+// No feature computation occurs inside the epoch loop.
+fn prepare_pairs(
+    query: &str,
+    positives: &[&LabeledEvidence],
+    negatives: &[&LabeledEvidence],
+    output: &mut Vec<[f64; FEATURE_COUNT]>,
+) {
+    let cycle_length = positives.len().max(negatives.len());
+    let pair_count = cycle_length.saturating_mul(2).min(MAX_PAIRS_PER_GROUP);
+    let query_terms = terms(query);
+    // When a group exceeds the pair cap, no unused candidate is tokenized.
+    // Every visited index is below pair_count, except the negative rotation
+    // can reach one additional index on the second cycle.
+    let positive_features = positives
+        .iter()
+        .take(pair_count)
+        .map(|item| features_with_terms(&query_terms, &item.evidence))
+        .collect::<Vec<_>>();
+    let negative_features = negatives
+        .iter()
+        .take(pair_count.saturating_add(1))
+        .map(|item| features_with_terms(&query_terms, &item.evidence))
+        .collect::<Vec<_>>();
+    for i in 0..pair_count {
+        let p = positive_features[i % positives.len()];
+        let n = negative_features[(i + i / cycle_length) % negatives.len()];
+        let mut diff = [0.0; FEATURE_COUNT];
+        for j in 0..FEATURE_COUNT {
+            diff[j] = p[j] - n[j];
+        }
+        output.push(diff);
+    }
+}
 
 impl RankerModel {
     /// Learn relative evidence order from within-question positive/negative pairs.
@@ -72,34 +107,27 @@ impl RankerModel {
             );
         }
 
+        // Pair selection and feature vectors are independent of the current
+        // weights. Prepare them once, preserving the exact original update
+        // order and floating-point arithmetic. At most 2 * samples.len()
+        // differences are retained, each containing FEATURE_COUNT f64s.
+        let mut prepared = Vec::new();
+        for ((_, query), (positives, negatives)) in &groups {
+            if positives.is_empty() || negatives.is_empty() {
+                continue;
+            }
+            prepare_pairs(query, positives, negatives, &mut prepared);
+        }
+
         let mut weights = vec![0.0_f64; FEATURE_COUNT];
         for _ in 0..epochs {
-            for ((_, query), (positives, negatives)) in &groups {
-                if positives.is_empty() || negatives.is_empty() {
-                    continue;
-                }
-                // Visit every positive and negative at least once when
-                // the group fits the cap. A second cycle rotates negatives,
-                // preventing equal-size groups from comparing only matching
-                // array positions. At most twice the sample count per epoch.
-                let cycle_length = positives.len().max(negatives.len());
-                let pair_count = cycle_length.saturating_mul(2).min(MAX_PAIRS_PER_GROUP);
-                for i in 0..pair_count {
-                    let positive = positives[i % positives.len()];
-                    let negative = negatives[(i + i / cycle_length) % negatives.len()];
-                    let p = features(query, &positive.evidence);
-                    let n = features(query, &negative.evidence);
-                    let mut diff = [0.0_f64; FEATURE_COUNT];
-                    for j in 0..FEATURE_COUNT {
-                        diff[j] = p[j] - n[j];
-                    }
-                    let logit = weights.iter().zip(diff).map(|(w, d)| w * d).sum();
-                    let gradient = 1.0 - sigmoid(logit);
-                    for (weight, delta) in weights.iter_mut().zip(diff) {
-                        *weight = (*weight
-                            + LEARNING_RATE * (gradient * delta - WEIGHT_DECAY * *weight))
-                            .clamp(-32.0, 32.0);
-                    }
+            for &diff in &prepared {
+                let logit = weights.iter().zip(diff).map(|(w, d)| w * d).sum();
+                let gradient = 1.0 - sigmoid(logit);
+                for (weight, delta) in weights.iter_mut().zip(diff) {
+                    *weight = (*weight
+                        + LEARNING_RATE * (gradient * delta - WEIGHT_DECAY * *weight))
+                        .clamp(-32.0, 32.0);
                 }
             }
         }
