@@ -271,8 +271,8 @@ describe("recent analyses", () => {
     const keep = await screen.findByRole("checkbox", {
       name: /Keep the last \d+ analysis files/,
     });
-    expect(keep.textContent).toContain("during this visit");
-    expect(keep.textContent).not.toContain("after a reload");
+    expect(keep.closest("label")?.textContent).toContain("during this visit");
+    expect(keep.closest("label")?.textContent).not.toContain("after a reload");
   });
 
   it("recovers a later successful save after an earlier browser-storage write fails", async () => {
