@@ -1147,6 +1147,108 @@ mod tests {
     }
 
     #[test]
+    fn deep_trial_preserves_workspace_boundaries_and_reports_similarity_caps() {
+        let dir = tempfile::tempdir().unwrap();
+        // A sibling workspace has a different requirement, but no member
+        // in that workspace inherits it. Only the active member's root
+        // may supply the dependency. An absolute manifest entrypoint
+        // must never turn into a plausible nested repository path.
+        write_tree(
+            dir.path(),
+            &[
+                (
+                    "alpha/Cargo.toml",
+                    "[workspace]\n[workspace.dependencies]\nserde = \"1\"\n",
+                ),
+                (
+                    "beta/Cargo.toml",
+                    "[workspace]\n[workspace.dependencies]\nserde = \"2\"\n",
+                ),
+                (
+                    "beta/member/Cargo.toml",
+                    "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\n[lib]\npath = \"/external.rs\"\n",
+                ),
+                (
+                    "beta/member/src/lib.rs",
+                    "pub fn greet() -> u32 { 42 }\n",
+                ),
+                (
+                    "beta/member/external.rs",
+                    "pub fn unrelated() -> u32 { 0 }\n",
+                ),
+            ],
+        );
+        let copies = dir.path().join("src/copies");
+        std::fs::create_dir_all(&copies).unwrap();
+        let mut source = String::from("def calculate(items):\n    total = 0\n");
+        for i in 0..12 {
+            source.push_str(&format!("    total += items[{i}] * 2\n"));
+        }
+        source.push_str("    return total\n");
+        for index in 0..53 {
+            std::fs::write(copies.join(format!("copy_{index:03}.py")), &source).unwrap();
+        }
+
+        let mut deep = request(dir.path(), AnalysisProfile::Deep);
+        deep.config.analysis.include_git = false;
+        let run = || analyze(&deep, &CancellationToken::new()).unwrap();
+        let dna = run();
+
+        let serde = dna
+            .dependencies
+            .dependencies
+            .iter()
+            .find(|dependency| dependency.name == "serde")
+            .expect("inherited registry dependency");
+        assert_eq!(serde.requirement.as_deref(), Some("2"));
+        assert_eq!(serde.source, "registry");
+        assert_eq!(serde.manifests, vec!["beta/member/Cargo.toml"]);
+        assert!(
+            dna.structure
+                .entrypoints
+                .iter()
+                .all(|entry| entry.path != "beta/member/external.rs")
+        );
+
+        assert_eq!(dna.architecture.status, SectionStatus::Analyzed);
+        assert!(
+            dna.architecture
+                .modules
+                .iter()
+                .all(|module| module.centrality.is_finite())
+        );
+        assert_eq!(dna.similarity.status, SectionStatus::Partial);
+        assert_eq!(status(&dna, Stage::Similarity), AnalyzerStatus::Partial);
+        assert!(dna.analysis_metadata.partial);
+        assert_eq!(dna.similarity.similar_files.len(), 100);
+        assert!(
+            dna.similarity
+                .similar_files
+                .iter()
+                .all(|pair| pair.similarity == 1.0)
+        );
+        assert!(
+            dna.similarity
+                .notes
+                .iter()
+                .any(|note| note.contains("48 bucket memberships"))
+        );
+        assert!(!dna.analysis_metadata.privacy.network_used);
+        assert_eq!(
+            serde_json::to_string(&dna).unwrap(),
+            serde_json::to_string(&run()).unwrap()
+        );
+
+        // The standard profile must not accidentally enable deep-only
+        // similarity work, even for the same input and configuration.
+        let mut standard = request(dir.path(), AnalysisProfile::Standard);
+        standard.config.analysis.include_git = false;
+        let dna = analyze(&standard, &CancellationToken::new()).unwrap();
+        assert_eq!(dna.similarity.status, SectionStatus::Skipped);
+        assert_eq!(status(&dna, Stage::Similarity), AnalyzerStatus::Skipped);
+    }
+
+    #[test]
     fn applies_suppressions_and_runs_extensions() {
         struct AddFinding;
         impl Extension for AddFinding {

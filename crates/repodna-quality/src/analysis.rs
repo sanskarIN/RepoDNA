@@ -15,7 +15,7 @@ use crate::duplication::detect_duplication;
 use crate::findings::quality_findings;
 use crate::maintainability::maintainability_signals;
 use crate::markers::marker_report;
-use crate::similarity::detect_similarity;
+use crate::similarity::detect_similarity_cancellable;
 
 /// Inputs to quality analysis.
 #[derive(Debug, Clone, Copy)]
@@ -92,7 +92,7 @@ pub fn analyze(
     cancel.check()?;
 
     let similarity = if input.similarity {
-        detect_similarity(files, thresholds.similarity)
+        detect_similarity_cancellable(files, thresholds.similarity, cancel)?
     } else {
         SimilarityReport {
             status: SectionStatus::Skipped,

@@ -120,34 +120,39 @@ pub fn strongly_connected_components(graph: &Graph) -> Vec<Vec<usize>> {
 /// component, using breadth-first search from each of the first `max_starts` members.
 /// The returned path repeats its first node at the end.
 pub fn shortest_cycle(graph: &Graph, members: &[usize], max_starts: usize) -> Option<Vec<usize>> {
-    let in_component = |node: usize| members.binary_search(&node).is_ok();
+    // SCC members are sorted by the caller. Map each visited node to its
+    // component-local index, so a tiny cycle in a huge graph no longer
+    // initializes graph-sized arrays for each attempted start.
+    let mut parent = vec![usize::MAX; members.len()];
+    let mut queue = VecDeque::new();
     let mut best: Option<Vec<usize>> = None;
-    for &start in members.iter().take(max_starts.max(1)) {
-        let mut parent = vec![usize::MAX; graph.len()];
-        let mut queue = VecDeque::from([start]);
+    for (start_index, &start) in members.iter().enumerate().take(max_starts.max(1)) {
+        parent.fill(usize::MAX);
+        queue.clear();
+        queue.push_back(start_index);
         let mut found = None;
-        'search: while let Some(node) = queue.pop_front() {
-            for &next in graph.successors(node) {
-                if !in_component(next) {
+        'search: while let Some(index) = queue.pop_front() {
+            for &next in graph.successors(members[index]) {
+                let Ok(next_index) = members.binary_search(&next) else {
                     continue;
-                }
-                if next == start {
-                    found = Some(node);
+                };
+                if next_index == start_index {
+                    found = Some(index);
                     break 'search;
                 }
-                if parent[next] == usize::MAX && next != start {
-                    parent[next] = node;
-                    queue.push_back(next);
+                if parent[next_index] == usize::MAX {
+                    parent[next_index] = index;
+                    queue.push_back(next_index);
                 }
             }
         }
         if let Some(last) = found {
             let mut path = vec![start];
-            let mut node = last;
+            let mut index = last;
             let mut reversed = Vec::new();
-            while node != start {
-                reversed.push(node);
-                node = parent[node];
+            while index != start_index {
+                reversed.push(members[index]);
+                index = parent[index];
             }
             path.extend(reversed.into_iter().rev());
             path.push(start);
@@ -156,6 +161,11 @@ pub fn shortest_cycle(graph: &Graph, members: &[usize], max_starts: usize) -> Op
                 .is_none_or(|current| path.len() < current.len())
             {
                 best = Some(path);
+            }
+            // A self-loop is the shortest possible cycle. Later starts
+            // cannot improve it, and equal-length cycles retain first order.
+            if best.as_ref().is_some_and(|path| path.len() == 2) {
+                break;
             }
         }
     }
@@ -177,10 +187,16 @@ pub fn layers(graph: &Graph, components: &[Vec<usize>]) -> Vec<u32> {
     for node in 0..graph.len() {
         for &next in graph.successors(node) {
             let (a, b) = (component_of[node], component_of[next]);
-            if a != b && !outgoing[a].contains(&b) {
+            if a != b {
                 outgoing[a].push(b);
             }
         }
+    }
+    // Deduplicate once rather than linearly searching a growing adjacency
+    // list for every edge. This avoids quadratic work for high-fanout SCCs.
+    for targets in &mut outgoing {
+        targets.sort_unstable();
+        targets.dedup();
     }
     // Process components in reverse topological order: dependencies (sinks) first.
     let mut dependents_left = vec![0usize; count];
@@ -207,10 +223,92 @@ pub fn layers(graph: &Graph, components: &[Vec<usize>]) -> Vec<u32> {
         .collect()
 }
 
+// Sum positive path counts in logarithmic space without exponentiating
+// the large counts themselves. NEG_INFINITY represents zero paths.
+fn log_add(left: f64, right: f64) -> f64 {
+    if left == f64::NEG_INFINITY {
+        return right;
+    }
+    if right == f64::NEG_INFINITY {
+        return left;
+    }
+    let high = left.max(right);
+    let low = left.min(right);
+    high + (low - high).exp().ln_1p()
+}
+
+// Recompute only a source whose shortest-path counts overflowed. BFS
+// order is a topological ordering of its shortest-path predecessor DAG.
+// Every predecessor is therefore finalized before the next log count.
+fn log_path_counts(order: &[usize], predecessors: &[Vec<usize>]) -> Vec<f64> {
+    let mut counts = vec![f64::NEG_INFINITY; predecessors.len()];
+    if let Some(&source) = order.first() {
+        counts[source] = 0.0;
+    }
+    for &node in order.iter().skip(1) {
+        let mut total = f64::NEG_INFINITY;
+        for &predecessor in &predecessors[node] {
+            total = log_add(total, counts[predecessor]);
+        }
+        counts[node] = total;
+    }
+    counts
+}
+
+// Accumulate one source's contributions into the unnormalized scores.
+// Keep the original arithmetic for finite path counts, so existing
+// ordinary graphs retain exactly the same floating-point results.
+fn accumulate_source(graph: &Graph, source: usize, centrality: &mut [f64]) {
+    let len = graph.len();
+    let mut stack = Vec::with_capacity(len);
+    let mut predecessors: Vec<Vec<usize>> = vec![Vec::new(); len];
+    let mut paths = vec![0.0f64; len];
+    let mut distance = vec![-1i64; len];
+    let mut overflowed = false;
+    paths[source] = 1.0;
+    distance[source] = 0;
+    let mut queue = VecDeque::from([source]);
+    while let Some(node) = queue.pop_front() {
+        stack.push(node);
+        for &next in graph.successors(node) {
+            if distance[next] < 0 {
+                distance[next] = distance[node] + 1;
+                queue.push_back(next);
+            }
+            if distance[next] == distance[node] + 1 {
+                paths[next] += paths[node];
+                overflowed |= !paths[next].is_finite();
+                predecessors[next].push(node);
+            }
+        }
+    }
+    // A ratio of infinity / infinity would yield NaN and contaminate
+    // upstream centrality. Log differences give the same path fractions
+    // without requiring the total number of shortest paths to fit in f64.
+    let logs = overflowed.then(|| log_path_counts(&stack, &predecessors));
+    let mut dependency = vec![0.0f64; len];
+    while let Some(node) = stack.pop() {
+        for &predecessor in &predecessors[node] {
+            let fraction = if let Some(counts) = &logs {
+                // The predecessor count cannot exceed the sum at node.
+                // Clamp a tiny positive log difference due to rounding.
+                (counts[predecessor] - counts[node]).min(0.0).exp()
+            } else {
+                paths[predecessor] / paths[node]
+            };
+            dependency[predecessor] += fraction * (1.0 + dependency[node]);
+        }
+        if node != source {
+            centrality[node] += dependency[node];
+        }
+    }
+}
+
 /// Normalized betweenness centrality for an unweighted directed graph (Brandes' algorithm).
 ///
 /// Values are divided by `(n - 1)(n - 2)`, the number of ordered pairs of other nodes, so
-/// they fall between 0 and 1.
+/// they fall between 0 and 1. Sources with exceptionally many shortest paths use log-domain
+/// path counts to avoid non-finite intermediate ratios.
 pub fn betweenness(graph: &Graph) -> Vec<f64> {
     let len = graph.len();
     let mut centrality = vec![0.0f64; len];
@@ -218,38 +316,14 @@ pub fn betweenness(graph: &Graph) -> Vec<f64> {
         return centrality;
     }
     for source in 0..len {
-        let mut stack = Vec::with_capacity(len);
-        let mut predecessors: Vec<Vec<usize>> = vec![Vec::new(); len];
-        let mut paths = vec![0.0f64; len];
-        let mut distance = vec![-1i64; len];
-        paths[source] = 1.0;
-        distance[source] = 0;
-        let mut queue = VecDeque::from([source]);
-        while let Some(node) = queue.pop_front() {
-            stack.push(node);
-            for &next in graph.successors(node) {
-                if distance[next] < 0 {
-                    distance[next] = distance[node] + 1;
-                    queue.push_back(next);
-                }
-                if distance[next] == distance[node] + 1 {
-                    paths[next] += paths[node];
-                    predecessors[next].push(node);
-                }
-            }
-        }
-        let mut dependency = vec![0.0f64; len];
-        while let Some(node) = stack.pop() {
-            for &predecessor in &predecessors[node] {
-                dependency[predecessor] +=
-                    paths[predecessor] / paths[node] * (1.0 + dependency[node]);
-            }
-            if node != source {
-                centrality[node] += dependency[node];
-            }
+        // Isolated/sink nodes cannot contribute any betweenness to others.
+        if !graph.successors(source).is_empty() {
+            accumulate_source(graph, source, &mut centrality);
         }
     }
-    let scale = ((len - 1) * (len - 2)) as f64;
+    // Multiply after conversion: usize multiplication could overflow
+    // on 32-bit targets, including WebAssembly, for large node counts.
+    let scale = (len - 1) as f64 * (len - 2) as f64;
     centrality.iter().map(|value| value / scale).collect()
 }
 
@@ -308,6 +382,140 @@ mod tests {
     }
 
     #[test]
+    fn log_path_counts_preserve_zero_one_and_multiple_paths() {
+        assert_eq!(
+            log_add(f64::NEG_INFINITY, f64::NEG_INFINITY),
+            f64::NEG_INFINITY
+        );
+        assert_eq!(log_add(0.0, f64::NEG_INFINITY), 0.0);
+        assert_eq!(log_add(f64::NEG_INFINITY, 0.0), 0.0);
+        assert!((log_add(0.0, 0.0) - 2.0_f64.ln()).abs() < 1e-12);
+        assert_eq!(log_add(1_000.0, 0.0), 1_000.0);
+        let predecessors = vec![vec![], vec![0], vec![0], vec![1, 2], vec![]];
+        let counts = log_path_counts(&[0, 1, 2, 3], &predecessors);
+        assert_eq!(counts[0], 0.0);
+        assert_eq!(counts[1], 0.0);
+        assert_eq!(counts[2], 0.0);
+        assert!((counts[3] - 2.0_f64.ln()).abs() < 1e-12);
+        assert_eq!(counts[4], f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn centrality_remains_finite_when_shortest_path_counts_exceed_f64() {
+        // A source followed by 1,100 two-node layers and a final sink.
+        // Every node connects to both nodes in the next layer. The sink
+        // has 2^1100 shortest paths, beyond the finite range of f64.
+        const LAYERS: usize = 1_100;
+        let sink = 1 + 2 * LAYERS;
+        let mut g = Graph::new(sink + 1);
+        g.add_edge(0, 1);
+        g.add_edge(0, 2);
+        for layer in 0..LAYERS - 1 {
+            let from = 1 + 2 * layer;
+            let to = from + 2;
+            for node in from..from + 2 {
+                g.add_edge(node, to);
+                g.add_edge(node, to + 1);
+            }
+        }
+        g.add_edge(sink - 2, sink);
+        g.add_edge(sink - 1, sink);
+        g.finish();
+        let mut contributions = vec![0.0; g.len()];
+        accumulate_source(&g, 0, &mut contributions);
+        assert!(contributions.iter().all(|value| value.is_finite()));
+        assert_eq!(contributions[0], 0.0);
+        assert_eq!(contributions[sink], 0.0);
+        for layer in 0..LAYERS {
+            // Half of the paths to every later node pass through either
+            // vertex, so each later pair contributes 1 and the sink 1/2.
+            let expected = (LAYERS - layer - 1) as f64 + 0.5;
+            let left = contributions[1 + 2 * layer];
+            let right = contributions[2 + 2 * layer];
+            assert!((left - expected).abs() < 1e-6, "layer {layer}: {left}");
+            assert!((right - expected).abs() < 1e-6, "layer {layer}: {right}");
+        }
+    }
+
+    // Independent oracle for small graphs: enumerate all shortest simple
+    // paths between ordered source/target pairs, counting internal vertices.
+    // This deliberately avoids Brandes' predecessor/dependency recurrence.
+    fn brute_centrality(g: &Graph) -> Vec<f64> {
+        let mut result = vec![0.0; g.len()];
+        if g.len() < 3 {
+            return result;
+        }
+        for source in 0..g.len() {
+            for target in 0..g.len() {
+                if source == target {
+                    continue;
+                }
+                let mut queue = VecDeque::from([vec![source]]);
+                let mut shortest = Vec::new();
+                let mut length = usize::MAX;
+                while let Some(path) = queue.pop_front() {
+                    if path.len() > length {
+                        break;
+                    }
+                    let last = path[path.len() - 1];
+                    if last == target {
+                        length = path.len();
+                        shortest.push(path);
+                        continue;
+                    }
+                    for &next in g.successors(last) {
+                        if !path.contains(&next) {
+                            let mut extended = path.clone();
+                            extended.push(next);
+                            queue.push_back(extended);
+                        }
+                    }
+                }
+                let count = shortest.len() as f64;
+                for path in shortest {
+                    for &node in &path[1..path.len() - 1] {
+                        result[node] += 1.0 / count;
+                    }
+                }
+            }
+        }
+        let scale = (g.len() - 1) as f64 * (g.len() - 2) as f64;
+        result.iter_mut().for_each(|value| *value /= scale);
+        result
+    }
+
+    #[test]
+    fn centrality_matches_shortest_path_enumeration_on_all_four_node_graphs() {
+        let edges = (0..4)
+            .flat_map(|from| (0..4).map(move |to| (from, to)))
+            .filter(|(from, to)| from != to)
+            .collect::<Vec<_>>();
+        for mask in 0usize..(1 << edges.len()) {
+            let selected = edges
+                .iter()
+                .enumerate()
+                .filter_map(|(index, &edge)| ((mask >> index) & 1 == 1).then_some(edge))
+                .collect::<Vec<_>>();
+            let g = graph(4, &selected);
+            let actual = betweenness(&g);
+            let expected = brute_centrality(&g);
+            for (left, right) in actual.into_iter().zip(expected) {
+                assert!(
+                    (left - right).abs() < 1e-12,
+                    "mask {mask}: {left} != {right}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn large_edgeless_graph_has_zero_centrality_without_integer_scale_overflow() {
+        let result = betweenness(&Graph::new(70_000));
+        assert_eq!(result.len(), 70_000);
+        assert!(result.iter().all(|&value| value == 0.0));
+    }
+
+    #[test]
     fn betweenness_of_a_path_graph() {
         // 0 → 1 → 2: node 1 lies on the only path between 0 and 2.
         let g = graph(3, &[(0, 1), (1, 2)]);
@@ -318,5 +526,126 @@ mod tests {
         let centrality = betweenness(&star);
         assert!((centrality[4] - 4.0 / 12.0).abs() < 1e-9);
         assert!(centrality[..4].iter().all(|&c| c == 0.0));
+    }
+
+    // Retain the previous graph-wide scratch algorithm as an independent
+    // compatibility oracle, including its first-start and BFS tie behavior.
+    fn reference_cycle(graph: &Graph, members: &[usize], max_starts: usize) -> Option<Vec<usize>> {
+        let in_component = |node: usize| members.binary_search(&node).is_ok();
+        let mut best: Option<Vec<usize>> = None;
+        for &start in members.iter().take(max_starts.max(1)) {
+            let mut parent = vec![usize::MAX; graph.len()];
+            let mut queue = VecDeque::from([start]);
+            let mut found = None;
+            'search: while let Some(node) = queue.pop_front() {
+                for &next in graph.successors(node) {
+                    if !in_component(next) {
+                        continue;
+                    }
+                    if next == start {
+                        found = Some(node);
+                        break 'search;
+                    }
+                    if parent[next] == usize::MAX && next != start {
+                        parent[next] = node;
+                        queue.push_back(next);
+                    }
+                }
+            }
+            if let Some(last) = found {
+                let mut path = vec![start];
+                let mut node = last;
+                let mut reversed = Vec::new();
+                while node != start {
+                    reversed.push(node);
+                    node = parent[node];
+                }
+                path.extend(reversed.into_iter().rev());
+                path.push(start);
+                if best
+                    .as_ref()
+                    .is_none_or(|current| path.len() < current.len())
+                {
+                    best = Some(path);
+                }
+            }
+        }
+        best
+    }
+
+    #[test]
+    fn component_local_cycle_matches_previous_search_exhaustively() {
+        let possible = (0..4)
+            .flat_map(|from| (0..4).map(move |to| (from, to)))
+            .filter(|(from, to)| from != to)
+            .collect::<Vec<_>>();
+        for mask in 0usize..(1 << possible.len()) {
+            let edges = possible
+                .iter()
+                .enumerate()
+                .filter_map(|(index, &edge)| ((mask >> index) & 1 == 1).then_some(edge))
+                .collect::<Vec<_>>();
+            let g = graph(4, &edges);
+            for component in strongly_connected_components(&g) {
+                for starts in [0, 1, 2, 4] {
+                    assert_eq!(
+                        shortest_cycle(&g, &component, starts),
+                        reference_cycle(&g, &component, starts),
+                        "mask={mask}, component={component:?}, starts={starts}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cycle_search_ignores_external_edges_and_handles_self_loops() {
+        let g = graph(8, &[(1, 4), (4, 6), (6, 1), (6, 6), (1, 0), (4, 7)]);
+        let members = [1, 4, 6];
+        assert_eq!(shortest_cycle(&g, &members, 1), Some(vec![1, 4, 6, 1]));
+        assert_eq!(shortest_cycle(&g, &members, 3), Some(vec![6, 6]));
+        assert_eq!(shortest_cycle(&g, &[], 10), None);
+        assert_eq!(shortest_cycle(&g, &[2], 10), None);
+    }
+
+    #[test]
+    fn small_components_in_a_large_graph_keep_global_node_ids() {
+        let g = graph(
+            200_000,
+            &[(100_000, 199_999), (199_999, 100_000), (199_999, 5)],
+        );
+        assert_eq!(
+            shortest_cycle(&g, &[100_000, 199_999], 10),
+            Some(vec![100_000, 199_999, 100_000])
+        );
+    }
+
+    #[test]
+    fn layer_deduplication_handles_dense_edges_between_components() {
+        let mut g = Graph::new(102);
+        for node in 0..100 {
+            g.add_edge(node, (node + 1) % 100);
+            g.add_edge(node, 100);
+            g.add_edge(node, 101);
+        }
+        g.add_edge(100, 101);
+        g.finish();
+        let components = strongly_connected_components(&g);
+        let result = layers(&g, &components);
+        assert_eq!(components.len(), 3);
+        assert!(result[..100].iter().all(|&layer| layer == 2));
+        assert_eq!(&result[100..], &[1, 0]);
+    }
+
+    #[test]
+    fn layers_support_wide_dependency_fanout() {
+        let mut g = Graph::new(20_000);
+        for node in 1..g.len() {
+            g.add_edge(0, node);
+        }
+        g.finish();
+        let result = layers(&g, &strongly_connected_components(&g));
+        assert_eq!(result[0], 1);
+        assert!(result[1..].iter().all(|&layer| layer == 0));
     }
 }
