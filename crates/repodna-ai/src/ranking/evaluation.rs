@@ -499,9 +499,7 @@ fn sort_by_relevance(model: &RankerModel, query: &str, group: &mut [&LabeledEvid
     let query_terms = super::terms(query);
     let mut scored = group
         .iter()
-        .map(|&item| {
-            (model.relevance_with_terms(&query_terms, &item.evidence), item)
-        })
+        .map(|&item| (model.relevance_with_terms(&query_terms, &item.evidence), item))
         .collect::<Vec<_>>();
     scored.sort_by(|(left, _), (right, _)| right.total_cmp(left));
     for (slot, (_, item)) in group.iter_mut().zip(scored) {
@@ -679,6 +677,142 @@ mod tests {
                 evaluate_original_order(&candidates, k).unwrap()
             );
         }
+    }
+
+    // The former repository-level implementation rebuilt owned groups
+    // and called public retrieval methods independently for each repository.
+    // Keep that approach as a reference for the optimized shared pass.
+    fn reference_repository_scores(
+        model: &RankerModel,
+        holdout: &[LabeledEvidence],
+        k: usize,
+    ) -> (usize, Vec<RepositoryScore>) {
+        let mut repositories: BTreeMap<String, Vec<LabeledEvidence>> = BTreeMap::new();
+        for sample in holdout {
+            repositories
+                .entry(normalized_repository_id(&sample.repository))
+                .or_default()
+                .push(sample.clone());
+        }
+        let count = repositories.len();
+        let mut scores = Vec::new();
+        for candidates in repositories.values() {
+            let learned = model.evaluate_retrieval(candidates, k).unwrap();
+            if learned.evaluated_queries == 0 {
+                continue;
+            }
+            let baseline = evaluate_original_order(candidates, k).unwrap();
+            scores.push(RepositoryScore {
+                learned_ndcg: learned.ndcg_at_k,
+                baseline_ndcg: baseline.ndcg_at_k,
+                learned_mrr: learned.mean_reciprocal_rank,
+                baseline_mrr: baseline.mean_reciprocal_rank,
+                queries: learned.evaluated_queries,
+            });
+        }
+        (count, scores)
+    }
+
+    #[test]
+    fn shared_repository_diagnostics_match_owned_reference_across_cutoffs() {
+        let mut holdout = Vec::new();
+        for repository in 0..17 {
+            for query in 0..=repository % 5 {
+                for item in 0..=(repository + query) % 11 {
+                    let name = if item % 2 == 0 {
+                        format!(" Repo-{repository:02} ")
+                    } else {
+                        format!("repo-{repository:02}")
+                    };
+                    let kind = match item % 3 {
+                        0 => EvidenceKind::Commit,
+                        1 => EvidenceKind::Package,
+                        _ => EvidenceKind::Fact,
+                    };
+                    holdout.push(labeled(
+                        &name,
+                        &format!("query-{query}"),
+                        &format!("E{item}"),
+                        kind,
+                        repository % 4 != 0 && (item + query) % 3 == 0,
+                    ));
+                }
+            }
+        }
+        let mut tied = model();
+        tied.weights.fill(0.0);
+        let mut pairwise = model();
+        pairwise.format = crate::ranking::PAIRWISE_MODEL_FORMAT.into();
+        for ranker in [model(), tied, pairwise] {
+            for reverse in [false, true] {
+                if reverse {
+                    holdout.reverse();
+                }
+                for k in [1, 2, 5, 10, 100] {
+                    let (count, expected) = reference_repository_scores(&ranker, &holdout, k);
+                    let (actual_count, actual) =
+                        repository_scores(&ranker, &holdout, k).unwrap();
+                    assert_eq!(actual_count, count);
+                    assert_eq!(actual.len(), expected.len());
+                    for (left, right) in actual.iter().zip(&expected) {
+                        assert_eq!(left.queries, right.queries);
+                        assert_eq!(left.learned_ndcg.to_bits(), right.learned_ndcg.to_bits());
+                        assert_eq!(left.baseline_ndcg.to_bits(), right.baseline_ndcg.to_bits());
+                        assert_eq!(left.learned_mrr.to_bits(), right.learned_mrr.to_bits());
+                        assert_eq!(left.baseline_mrr.to_bits(), right.baseline_mrr.to_bits());
+                    }
+                    let combined = evaluate_repository_diagnostics(&ranker, &holdout, k).unwrap();
+                    assert_eq!(combined.0, balanced_from_scores(k, count, &expected));
+                    assert_eq!(combined.1, stability_from_scores(k, count, &expected));
+                    assert_eq!(
+                        combined.0,
+                        evaluate_repository_balanced(&ranker, &holdout, k).unwrap()
+                    );
+                    assert_eq!(
+                        combined.1,
+                        evaluate_repository_stability(&ranker, &holdout, k).unwrap()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn shared_diagnostics_preserve_empty_ranges_and_validation() {
+        let negative = labeled(
+            "private-repo",
+            "private-question",
+            "E1",
+            EvidenceKind::Fact,
+            false,
+        );
+        let (balanced, stability) =
+            evaluate_repository_diagnostics(&model(), std::slice::from_ref(&negative), 5).unwrap();
+        assert_eq!(balanced.repositories, 1);
+        assert_eq!(balanced.evaluated_repositories, 0);
+        assert_eq!(stability.unanswerable_repositories, 1);
+        assert_eq!(stability.min_repository_ndcg_at_k, None);
+        let serialized = serde_json::to_string(&(balanced, stability)).unwrap();
+        assert!(!serialized.contains("private-repo"));
+        assert!(!serialized.contains("private-question"));
+        assert!(evaluate_repository_diagnostics(&model(), &[], 5).is_err());
+        assert!(
+            evaluate_repository_diagnostics(&model(), std::slice::from_ref(&negative), 0)
+                .is_err()
+        );
+        assert!(
+            evaluate_repository_diagnostics(&model(), &[negative.clone(), negative], 5).is_err()
+        );
+        let mut invalid = model();
+        invalid.weights[0] = f64::NAN;
+        assert!(
+            evaluate_repository_diagnostics(
+                &invalid,
+                &[labeled("repo", "question", "E1", EvidenceKind::Fact, true)],
+                5
+            )
+            .is_err()
+        );
     }
 
     #[test]
