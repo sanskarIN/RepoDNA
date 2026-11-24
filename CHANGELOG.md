@@ -6,32 +6,32 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
-The following source-only maintenance candidate is not a published release.
+## [1.5.3] - 2026-11-24
 
-## [1.5.3] - 2026-11-23
-
-> **Candidate preparation date, not a release or publication date.** Update this
-> date when an exact stable source is explicitly approved and published.
+RepoDNA v1.5.3 is a focused security and Windows installer metadata
+maintenance update from v1.5.2. The established CLI, browser interface,
+repository analysis behavior, and installed application identifier are
+unchanged; unrelated development features on `main` are not included.
 
 ### Security
 
-- Update the desktop lockfile from `url` 2.5.8 to 2.5.9 for
-  [RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592.html),
-  including the minimum required `form_urlencoded` 1.2.3 patch.
-  This is a dependency fix; reachability through the shipped desktop app
-  must be evaluated separately. No unrelated development features from
-  `main` are included.
+- Update the packaged desktop dependency `url` from 2.5.8 to 2.5.9,
+  addressing [RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592.html);
+  update its required `form_urlencoded` dependency from 1.2.2 to 1.2.3.
+  The advisory affects the dependency; application-level reachability has not
+  been confirmed.
+- Update the packaged desktop dependency `cookie` from 0.18.2 to 0.18.3
+  for [RUSTSEC-2026-0594](https://rustsec.org/advisories/RUSTSEC-2026-0594.html).
+  This addresses a private-cookie nonce-reuse vulnerability in processes
+  that fork. Reachability in the shipped desktop application has not been
+  established; no exception or advisory suppression is used.
 
 ### Fixed
 
-- Embed `RepoDNA` CompanyName in Windows NSIS setup EXE metadata and
-  verify both x64 and ARM64 installer version resources during release
-  packaging. This change is limited to installer metadata; manual installation,
-  upgrade, launch and uninstall testing remains mandatory.
-
-> **Not released:** This candidate is for test builds and exact-commit review.
-> The final release date and authorization are pending. Do not publish or
-> reuse the v1.5.2 tag/assets.
+- Set the Windows NSIS setup EXE version-resource `CompanyName` to
+  `RepoDNA`, alongside the existing product and version fields, for both
+  x64 and ARM64 installers. Keep the application identifier stable so existing
+  installations continue to use the same upgrade identity.
 
 ## [1.5.2] - 2026-11-20
 

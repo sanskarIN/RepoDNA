@@ -48,7 +48,9 @@ jobs:
         run: |
           set -euo pipefail
           node packaging/release/check-version.mjs
-          if [ -n "$RELEASE_TAG" ]; then
+          # This finalization branch verifies publication-ready notes without
+          # publishing any release; the publish gate still requires a real tag.
+          if [ -n "$RELEASE_TAG" ] || [[ "$GITHUB_REF_NAME" == release/v1.5.3-final-qualification-* ]]; then
             node packaging/release/check-version.mjs --publish
           fi
       - id: version
@@ -726,6 +728,104 @@ jobs:
           name: trial-sha256sums
           path: dist/SHA256SUMS.txt
           if-no-files-found: error
+
+  trial-native-windows-cli:
+    name: Run native Windows CLI trial (${{ matrix.arch }})
+    needs: [prepare, cli]
+    if: needs.prepare.outputs.publish == 'false' && needs.prepare.outputs.version == '1.5.3'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: cli-${{ matrix.target }}
+          path: trial-cli
+      - name: Launch the packaged native binary and analyze a disposable repository
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path 'trial-cli' "repodna-$env:VERSION-$env:TARGET.zip"
+          if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
+            throw "Missing CLI package: $archive"
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath 'trial-unpacked' -Force
+          $exe = Join-Path 'trial-unpacked' "repodna-$env:VERSION-$env:TARGET/repodna.exe"
+          if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
+            throw "Packaged CLI executable missing: $exe"
+          }
+          $native = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+          if ($env:ARCH -eq 'arm64' -and $native -ne 'Arm64') {
+            throw "Windows runner is not native Arm64: $native"
+          }
+          if ($env:ARCH -eq 'x64' -and $native -ne 'X64') {
+            throw "Windows runner is not native X64: $native"
+          }
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "Native CLI --version failed: $LASTEXITCODE" }
+          $sample = Join-Path $env:RUNNER_TEMP 'repodna-native-release-smoke'
+          New-Item -ItemType Directory -Path $sample -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $sample 'README.md') -Value '# Small RepoDNA smoke repository'
+          Set-Content -LiteralPath (Join-Path $sample 'main.rs') -Value 'fn main() { println!("native smoke"); }'
+          & $exe analyze $sample --profile quick --no-store --quiet
+          if ($LASTEXITCODE -ne 0) { throw "Native CLI analysis failed: $LASTEXITCODE" }
+          Write-Output "Native Windows $native CLI launch and local analysis passed."
+      # These smoke tests exercise the actual x64/ARM64 Windows executables.
+      # They do not install or launch the GUI desktop app.
+
+  trial-windows-qa:
+    name: Verify trial Windows packages against SHA-256 and version resources
+    needs: [prepare, trial-assets]
+    if: needs.prepare.outputs.publish == 'false' && needs.prepare.outputs.version == '1.5.3'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: trial-sha256sums
+          path: trial-checksums
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-Windows
+          path: trial-windows/x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-Windows-arm64
+          path: trial-windows/arm64
+      - name: Verify x64/ARM64 checksums and NSIS setup version resources
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($arch in @('x64', 'arm64')) {
+            & ./packaging/release/check-v1.5.3-windows-trial.ps1 `
+              -Architecture $arch `
+              -Directory "trial-windows/$arch" `
+              -ChecksumFile "trial-checksums/SHA256SUMS.txt" `
+              -Version $env:VERSION
+          }
+          Write-Output 'Verified four Windows trial packages against same-run checksums and NSIS metadata.'
+      # This checks the built files without executing them. Physical Windows
+      # installation, upgrade, launch and uninstall are still separate gates.
 
   publish:
     name: Publish the release

@@ -36,8 +36,38 @@ test('tag publications refuse provisional changelog wording before platform buil
     prepare,
     /RELEASE_TAG: \$\{\{ github\.event_name == 'push' && github\.ref_type == 'tag' && github\.ref_name \|\| inputs\.tag \}\}/,
   );
-  assert.match(prepare, /if \[ -n "\$RELEASE_TAG" \]; then/);
+  // Finalization branch trials also check finalized notes, but never set TAG.
+  assert.match(prepare, /if \[ -n "\$RELEASE_TAG" \] \|\|/);
+  assert.match(prepare, /release\/v1\.5\.3-final-qualification-\*/);
   assert.match(prepare, /node packaging\/release\/check-version\.mjs --publish/);
   assert.match(prepare, /if \[ -n "\$TAG" \]; then/);
   assert.match(prepare, /publish=false/);
+});
+
+test('v1.5.3 finalization trial runs native Windows CLI and installer integrity gates', () => {
+  const native = job('trial-native-windows-cli');
+  const windows = job('trial-windows-qa');
+  const publish = job('publish');
+
+  assert.match(native, /windows-11-arm/);
+  assert.match(native, /RuntimeInformation\]::OSArchitecture/);
+  assert.match(native, /--no-store --quiet/);
+  assert.match(native, /if: needs\.prepare\.outputs\.publish == 'false'/);
+  assert.match(windows, /needs: \[prepare, trial-assets\]/);
+  assert.match(windows, /check-v1\.5\.3-windows-trial\.ps1/);
+  assert.match(windows, /if: needs\.prepare\.outputs\.publish == 'false'/);
+  assert.match(publish, /if: needs\.prepare\.outputs\.publish == 'true'/);
+});
+
+
+test('v1.5.3 desktop lockfile includes the patched cookie advisory fix', () => {
+  const locked = readFileSync('apps/desktop/src-tauri/Cargo.lock', 'utf8');
+  const cookieBlocks = locked.match(/\[\[package\]\]\r?\nname = "cookie"\r?\nversion = "[^"]+"\r?\nsource = "[^"]+"\r?\nchecksum = "[^"]+"/g) ?? [];
+  assert.equal(cookieBlocks.length, 1, 'expected one desktop cookie crate');
+  assert.match(cookieBlocks[0], /version = "0\.18\.3"/);
+  assert.match(
+    cookieBlocks[0],
+    /checksum = "d55f2d6c30eeec7d5c6f98bd4395d4abb1895629eab97ee6522d340623615f8a"/,
+  );
+  assert.doesNotMatch(locked, /name = "cookie"\r?\nversion = "0\.18\.2"/);
 });

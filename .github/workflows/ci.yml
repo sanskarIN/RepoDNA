@@ -40,6 +40,28 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
         run: cargo test --workspace --locked
+      - name: Validate Windows release-trial PowerShell syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($file in @(
+            'packaging/release/check-v1.5.3-windows-trial.ps1',
+            'packaging/desktop/check-installer-metadata.ps1'
+          )) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path -LiteralPath $file).Path,
+              [ref] $tokens,
+              [ref] $parseErrors
+            ) | Out-Null
+            if ($parseErrors.Count -ne 0) {
+              $parseErrors | ForEach-Object { Write-Output "$file : $_" }
+              throw "Invalid Windows release-trial PowerShell syntax: $file"
+            }
+            Write-Output "Validated PowerShell syntax: $file"
+          }
       - name: Smoke-check a packaged Windows CLI in a clean temporary folder
         if: runner.os == 'Windows'
         shell: pwsh
