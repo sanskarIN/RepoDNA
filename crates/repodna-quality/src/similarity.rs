@@ -9,7 +9,6 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
 use repodna_core::cancel::{CancellationToken, Cancelled};
-
 use repodna_core::metric::round4;
 use repodna_core::model::SectionStatus;
 use repodna_core::model::quality::{SimilarFilePair, SimilarityReport};
@@ -55,10 +54,7 @@ fn mix(mut value: u64) -> u64 {
 }
 
 /// MinHash signature of the shingles of `hashes`.
-fn signature(
-    hashes: &[u32],
-    cancel: &CancellationToken,
-) -> Result<[u64; PERMUTATIONS], Cancelled> {
+fn signature(hashes: &[u32], cancel: &CancellationToken) -> Result<[u64; PERMUTATIONS], Cancelled> {
     let mut signature = [u64::MAX; PERMUTATIONS];
     for (index, window) in hashes.windows(SHINGLE).enumerate() {
         if index % CHECK_INTERVAL == 0 {
@@ -327,5 +323,210 @@ mod tests {
         let report = detect_similarity(&files, 0.8);
         assert_eq!(report.similar_files[0].similarity, 1.0);
         assert!(detect_similarity(&[], 0.8).similar_files.is_empty());
+    }
+
+    #[test]
+    fn different_languages_cannot_evict_a_valid_same_language_pair() {
+        let tokens = stream((0..100).collect());
+        let paths: Vec<_> = (0..MAX_BUCKET).map(|i| format!("a/{i:03}.py")).collect();
+        let mut files: Vec<_> = paths
+            .iter()
+            .map(|path| file(path, "python", &tokens))
+            .collect();
+        files.push(file("z/a.rs", "rust", &tokens));
+        files.push(file("z/b.rs", "rust", &tokens));
+
+        // The Rust pair would be evicted in the old global buckets. Use
+        // lexicographically early Rust paths so it remains visible in the
+        // bounded result even alongside 1,225 qualifying Python pairs.
+        files[MAX_BUCKET].path = "0/a.rs";
+        files[MAX_BUCKET + 1].path = "0/b.rs";
+        let report = detect_similarity(&files, 1.0);
+        assert_eq!(report.status, SectionStatus::Analyzed);
+        assert_eq!(report.similar_files.len(), MAX_PAIRS);
+        assert_eq!(report.similar_files[0].a, "0/a.rs");
+        assert_eq!(report.similar_files[0].b, "0/b.rs");
+        assert!(report.notes.iter().any(|note| note.starts_with("1226 ")));
+    }
+
+    #[test]
+    fn capped_buckets_report_partial_coverage_and_unique_pair_count() {
+        let tokens = stream((0..100).collect());
+        let paths: Vec<_> = (0..MAX_BUCKET + 3)
+            .map(|i| format!("src/{i:03}.rs"))
+            .collect();
+        let files: Vec<_> = paths
+            .iter()
+            .map(|path| file(path, "rust", &tokens))
+            .collect();
+        let report = detect_similarity(&files, 1.0);
+        assert_eq!(report.status, SectionStatus::Partial);
+        assert_eq!(report.similar_files.len(), MAX_PAIRS);
+        assert!(
+            report.notes.iter().any(|note| note.contains("16 language-specific"))
+        );
+        assert!(
+            report.notes.iter().any(|note| note.contains("48 bucket memberships"))
+        );
+        assert!(report.notes.iter().any(|note| note.starts_with("1225 ")));
+        assert_eq!(report, detect_similarity(&files, 1.0));
+        assert!(
+            report
+                .similar_files
+                .iter()
+                .all(|pair| pair.a < paths[MAX_BUCKET] && pair.b < paths[MAX_BUCKET])
+        );
+    }
+
+    #[test]
+    fn uncapped_bucket_pair_deduplication_retains_earliest_actual_band() {
+        let mut a = Candidate {
+            file_index: 0,
+            signature: [0; PERMUTATIONS],
+            bands: [0; BANDS],
+            retained: [true; BANDS],
+        };
+        let mut b = Candidate {
+            file_index: 1,
+            signature: [0; PERMUTATIONS],
+            bands: [0; BANDS],
+            retained: [true; BANDS],
+        };
+        assert!(!already_paired(&a, &b, 0));
+        assert!(already_paired(&a, &b, 1));
+        a.retained[0] = false;
+        assert!(!already_paired(&a, &b, 1));
+        b.bands[1] = 99;
+        assert!(!already_paired(&a, &b, 2));
+        assert!(already_paired(&a, &b, 3));
+    }
+
+    // A set-based reference independently constructs all retained pairs,
+    // then performs the original full sort. It is intentionally not used
+    // in the production path, where materializing the set is expensive.
+    fn reference_pairs(files: &[QualityFile<'_>], threshold: f64) -> Vec<SimilarFilePair> {
+        use std::collections::BTreeSet;
+        let token = CancellationToken::new();
+        let mut signatures = Vec::new();
+        let mut buckets: HashMap<(&str, usize, u64), Vec<usize>> = HashMap::new();
+        for (index, file) in files.iter().enumerate() {
+            if file.test {
+                continue;
+            }
+            let (Some(language), Some(tokens)) = (file.language, file.tokens) else {
+                continue;
+            };
+            if tokens.len() < MIN_TOKENS {
+                continue;
+            }
+            let sig = signature(&tokens.hashes, &token).unwrap();
+            let position = signatures.len();
+            signatures.push((index, sig));
+            for (band, key) in band_keys(&sig).into_iter().enumerate() {
+                buckets
+                    .entry((language, band, key))
+                    .or_default()
+                    .push(position);
+            }
+        }
+        let mut pairs = BTreeSet::new();
+        for bucket in buckets.values_mut() {
+            bucket.truncate(MAX_BUCKET);
+            for (position, &i) in bucket.iter().enumerate() {
+                for &j in &bucket[position + 1..] {
+                    pairs.insert((i, j));
+                }
+            }
+        }
+        let mut result = Vec::new();
+        for (i, j) in pairs {
+            let (a, b) = (&signatures[i], &signatures[j]);
+            let similarity = equal_slots(&a.1, &b.1) as f64 / PERMUTATIONS as f64;
+            if similarity >= threshold {
+                result.push(SimilarFilePair {
+                    a: files[a.0].path.to_owned(),
+                    b: files[b.0].path.to_owned(),
+                    similarity: round4(similarity),
+                });
+            }
+        }
+        result.sort_by(|a, b| {
+            b.similarity
+                .total_cmp(&a.similarity)
+                .then_with(|| a.a.cmp(&b.a))
+                .then_with(|| a.b.cmp(&b.b))
+        });
+        result.truncate(MAX_PAIRS);
+        result
+    }
+
+    #[test]
+    fn bounded_top_pairs_match_set_based_reference_across_mixed_buckets() {
+        let paths: Vec<_> = (0..130)
+            .map(|i| format!("src/{:03}.code", 129 - i))
+            .collect();
+        let streams: Vec<_> = (0..paths.len())
+            .map(|i| {
+                let mut hashes: Vec<u32> = (0..100).collect();
+                for j in 0..i % 9 {
+                    hashes[10 + j * 7] = (1_000 + i % 6) as u32;
+                }
+                stream(hashes)
+            })
+            .collect();
+        let files: Vec<_> = paths
+            .iter()
+            .zip(&streams)
+            .enumerate()
+            .map(|(i, (path, tokens))| {
+                let mut file = file(path, if i % 4 == 0 { "python" } else { "rust" }, tokens);
+                file.test = i % 19 == 0;
+                file
+            })
+            .collect();
+        for threshold in [0.0, 0.5, 0.8, 1.0] {
+            assert_eq!(
+                detect_similarity(&files, threshold).similar_files,
+                reference_pairs(&files, threshold)
+            );
+        }
+    }
+
+    #[test]
+    fn cancelled_similarity_returns_no_report_even_for_empty_input() {
+        let token = CancellationToken::new();
+        token.cancel();
+        let tokens = stream((0..100).collect());
+        let files = [file("a.rs", "rust", &tokens)];
+        assert_eq!(signature(&tokens.hashes, &token), Err(Cancelled));
+        assert_eq!(
+            detect_similarity_cancellable(&files, 0.8, &token),
+            Err(Cancelled)
+        );
+        assert_eq!(
+            detect_similarity_cancellable(&[], 0.8, &token),
+            Err(Cancelled)
+        );
+    }
+
+    #[test]
+    fn untokenized_analyzable_files_make_coverage_partial() {
+        use repodna_parser::{LanguageRegistry, analyze_source};
+        let spec = LanguageRegistry::builtin().get("rust").unwrap();
+        let analysis = analyze_source(spec, "fn f() {}");
+        let tokens = stream((0..100).collect());
+        let missing = QualityFile {
+            analysis: Some(&analysis),
+            tokens: None,
+            ..file("missing.rs", "rust", &tokens)
+        };
+        let excluded = QualityFile {
+            test: true,
+            ..missing
+        };
+        let result = detect_similarity(&[missing, excluded], 0.8);
+        assert_eq!(result.status, SectionStatus::Partial);
+        assert!(result.similar_files.is_empty());
+        assert!(result.notes[0].starts_with("1 eligible file"));
     }
 }
