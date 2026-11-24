@@ -2,10 +2,10 @@
 // again when the page is reloaded.
 
 import { act } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../App";
-import { memoryStore, setRememberRecent, type RecentStore } from "../lib/recent";
+import { memoryStore, openPointer, setRememberRecent, type RecentStore } from "../lib/recent";
 import demoText from "../../public/demo/repodna.json?raw";
 
 async function start(path: string, store: RecentStore) {
@@ -129,5 +129,109 @@ describe("recent analyses", () => {
     cleanup();
     await start("/files", store);
     expect(await screen.findByText("No analysis is open")).toBeTruthy();
+  });
+
+  it("never persists a file reload pointer when browser storage fails", async () => {
+    const store = memoryStore();
+    const failedAdd = vi.fn(async () => {
+      throw new Error("QuotaExceededError");
+    });
+    store.add = failedAdd;
+    await start("/", store);
+    await openFile("unsaved.json");
+    await waitFor(() => expect(failedAdd).toHaveBeenCalledTimes(1));
+    expect(openPointer()).toBeNull();
+    expect((await store.list()).length).toBe(0);
+    // The in-memory dataset still opens successfully even without persistence.
+    expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Overview");
+  });
+
+  it("persists the tab pointer only after its recent-analysis save resolves", async () => {
+    const actual = memoryStore();
+    let release!: () => void;
+    let began!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const store: RecentStore = {
+      ...actual,
+      async add(entry, text) {
+        began();
+        await gate;
+        await actual.add(entry, text);
+      },
+    };
+    await start("/", store);
+    await openFile("pending.json");
+    await started;
+    expect(openPointer()).toBeNull();
+    await act(async () => {
+      release();
+      await gate;
+    });
+    await waitFor(async () => {
+      const items = await actual.list();
+      expect(items).toHaveLength(1);
+      expect(openPointer()).toEqual({ kind: "file", id: items[0]?.id });
+    });
+  });
+
+  it("does not resurrect retained data after disabling history during an in-flight save", async () => {
+    const actual = memoryStore();
+    let release!: () => void;
+    let began!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const store: RecentStore = {
+      ...actual,
+      async add(entry, text) {
+        began();
+        await gate;
+        await actual.add(entry, text);
+      },
+    };
+    await start("/", store);
+    await openFile("pending.json");
+    await started;
+    expect(openPointer()).toBeNull();
+    window.location.hash = "#/settings";
+    const keep = await screen.findByRole("checkbox", {
+      name: /Keep the last \\d+ analysis files/,
+    });
+    await act(async () => {
+      fireEvent.click(keep);
+    });
+    release();
+    await waitFor(async () => {
+      expect(await actual.list()).toEqual([]);
+      expect(openPointer()).toBeNull();
+    });
+  });
+
+  it("invalidates a previously saved tab pointer when recent history is cleared", async () => {
+    const actual = memoryStore();
+    await start("/", actual);
+    await openFile("saved.json");
+    await waitFor(async () => {
+      const items = await actual.list();
+      expect(items).toHaveLength(1);
+      expect(openPointer()).toEqual({ kind: "file", id: items[0]?.id });
+    });
+    window.location.hash = "#/settings";
+    const keep = await screen.findByRole("checkbox", {
+      name: /Keep the last \\d+ analysis files/,
+    });
+    await act(async () => {
+      fireEvent.click(keep);
+    });
+    await waitFor(async () => expect(await actual.list()).toEqual([]));
+    expect(openPointer()).toBeNull();
   });
 });

@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -156,6 +157,18 @@ export function AppProvider({
   const [store] = useState<RecentStore>(() => givenStore ?? browserStore());
   const [recent, setRecent] = useState<RecentEntry[]>([]);
   const [remember, setRememberState] = useState(rememberRecent);
+  // Serialize recent-history writes in this tab, including clearing history.
+  // This prevents a pending file save from resurrecting data after opt-out.
+  const writeQueue = useRef<Promise<void>>(Promise.resolve());
+  const retentionEpoch = useRef(0);
+  const selectionEpoch = useRef(0);
+  const selectedFileId = useRef<string | null>(null);
+  const enqueueWrite = useCallback((write: () => Promise<void>): Promise<void> => {
+    const pending = writeQueue.current.then(write);
+    // A failed write must not permanently block a later delete/clear.
+    writeQueue.current = pending.catch(() => {});
+    return pending;
+  }, []);
   // An analysis given at start replaces the one a reloaded tab had open.
   const [openedAtStart] = useState(initial !== null);
 
@@ -209,33 +222,53 @@ export function AppProvider({
 
   const open = useCallback(
     (next: Dataset, source?: SourceFile) => {
+      const selection = ++selectionEpoch.current;
+      selectedFileId.current =
+        next.origin.kind === "file" ? next.dna.analysisMetadata.id : null;
       setDataset(next);
       const keep =
         remember &&
+        rememberRecent() &&
         next.origin.kind === "file" &&
         source !== undefined &&
         source.size <= RECENT_MAX_BYTES;
-      setOpenPointer(pointerFor(next, keep));
+      // File pointers must not outlive their saved text. Set one only when
+      // persistence succeeds for the still-selected analysis.
+      setOpenPointer(pointerFor(next, false));
       if (keep && source && next.origin.kind === "file") {
+        const epoch = retentionEpoch.current;
         const metadata = next.dna.analysisMetadata;
-        store
-          .add(
-            {
-              id: metadata.id,
-              name: next.origin.name,
-              repository: next.dna.identity.name,
-              generatedAt: metadata.generatedAt,
-              openedAt: new Date().toISOString(),
-              size: source.size,
-            },
-            source.text,
-          )
-          .then(refresh, refresh);
+        const entry: RecentEntry = {
+          id: metadata.id,
+          name: next.origin.name,
+          repository: next.dna.identity.name,
+          generatedAt: metadata.generatedAt,
+          openedAt: new Date().toISOString(),
+          size: source.size,
+        };
+        void enqueueWrite(async () => {
+          if (epoch !== retentionEpoch.current || !rememberRecent()) return;
+          await store.add(entry, source.text);
+        }).then(
+          () => {
+            if (
+              epoch === retentionEpoch.current &&
+              selection === selectionEpoch.current &&
+              rememberRecent()
+            ) {
+              setOpenPointer(pointerFor(next, true));
+            }
+            refresh();
+          },
+          refresh,
+        );
       }
     },
-    [remember, store, refresh],
+    [remember, store, refresh, enqueueWrite],
   );
   const close = useCallback(() => {
+    selectionEpoch.current += 1;
+    selectedFileId.current = null;
     setDataset(null);
     setOpenPointer(null);
   }, []);
@@ -260,24 +293,38 @@ export function AppProvider({
     },
     [store, open, refresh],
   );
+  const clearFilePointer = useCallback((id?: string) => {
+    const pointer = openPointer();
+    if (pointer?.kind === "file" && (id === undefined || pointer.id === id)) {
+      setOpenPointer(null);
+    }
+    if (id === undefined || selectedFileId.current === id) {
+      selectionEpoch.current += 1;
+    }
+  }, []);
   const forget = useCallback(
     (id: string) => {
-      store.remove(id).then(refresh, refresh);
+      clearFilePointer(id);
+      void enqueueWrite(() => store.remove(id)).then(refresh, refresh);
     },
-    [store, refresh],
+    [store, refresh, enqueueWrite, clearFilePointer],
   );
   const forgetAll = useCallback(() => {
-    store.clear().then(refresh, refresh);
-  }, [store, refresh]);
+    retentionEpoch.current += 1;
+    clearFilePointer();
+    void enqueueWrite(() => store.clear()).then(refresh, refresh);
+  }, [store, refresh, enqueueWrite, clearFilePointer]);
   const setRemember = useCallback(
     (on: boolean) => {
       setRememberRecent(on);
       setRememberState(on);
       if (!on) {
-        store.clear().then(refresh, refresh);
+        retentionEpoch.current += 1;
+        clearFilePointer();
+        void enqueueWrite(() => store.clear()).then(refresh, refresh);
       }
     },
-    [store, refresh],
+    [store, refresh, enqueueWrite, clearFilePointer],
   );
 
   const value = useMemo<AppState>(
