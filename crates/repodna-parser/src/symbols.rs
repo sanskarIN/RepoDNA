@@ -323,7 +323,73 @@ static END_WORD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\bend\b").unwrap_or_else(|error| panic!("invalid pattern: {error}"))
 });
 
+// Julia block keywords are meaningful outside grouping delimiters.
+// In particular, A[end] and comprehensions cannot close a function.
+static JULIA_BODY_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"[\p{L}\p{N}_!]+|[()\[\]{}]").expect("valid Julia body token pattern")
+});
+
+fn julia_body(lines: &[ScannedLine], start_line: usize) -> Body {
+    let mut depth = 0u32;
+    let mut max_depth = 0u32;
+    let mut delimiters = Vec::new();
+    for (line_index, line) in lines.iter().enumerate().skip(start_line) {
+        let text = &line.masked;
+        let mut previous = "";
+        for token in JULIA_BODY_TOKEN.find_iter(text) {
+            let word = token.as_str();
+            match word {
+                "(" => delimiters.push(")"),
+                "[" => delimiters.push("]"),
+                "{" => delimiters.push("}"),
+                ")" | "]" | "}" => {
+                    if delimiters.pop() != Some(word) {
+                        return Body::Declaration;
+                    }
+                }
+                _ if delimiters.is_empty() => {
+                    // Ignore property names, quoted symbols and macro names
+                    // adjacent to their punctuation, not control-flow words.
+                    let qualified = token.start() > 0
+                        && matches!(text.as_bytes()[token.start() - 1], b'.' | b':' | b'@');
+                    if !qualified {
+                        let opens = matches!(
+                            word,
+                            "function" | "macro" | "module" | "baremodule" | "struct"
+                                | "if" | "for" | "while" | "let" | "begin" | "try"
+                                | "quote" | "do"
+                        ) || (word == "type" && matches!(previous, "abstract" | "primitive"));
+                        if opens {
+                            depth = depth.saturating_add(1);
+                            max_depth = max_depth.max(depth);
+                        } else if word == "end" {
+                            if depth == 0 {
+                                return Body::Declaration;
+                            }
+                            depth -= 1;
+                            if depth == 0 {
+                                return Body::Braces {
+                                    end: line_index,
+                                    nesting: max_depth.saturating_sub(1),
+                                };
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+            previous = word;
+        }
+    }
+    // Missing closing keywords do not attribute the remainder of the file
+    // to an apparently complete function.
+    Body::Declaration
+}
+
 fn keyword_body(language: &str, lines: &[ScannedLine], start_line: usize) -> Body {
+    if language == "julia" {
+        return julia_body(lines, start_line);
+    }
     if language == "ruby" && RUBY_ENDLESS_DEF.is_match(&lines[start_line].masked) {
         return Body::Expression { end: start_line };
     }
