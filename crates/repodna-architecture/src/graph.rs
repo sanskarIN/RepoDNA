@@ -120,34 +120,39 @@ pub fn strongly_connected_components(graph: &Graph) -> Vec<Vec<usize>> {
 /// component, using breadth-first search from each of the first `max_starts` members.
 /// The returned path repeats its first node at the end.
 pub fn shortest_cycle(graph: &Graph, members: &[usize], max_starts: usize) -> Option<Vec<usize>> {
-    let in_component = |node: usize| members.binary_search(&node).is_ok();
+    // SCC members are sorted by the caller. Map each visited node to its
+    // component-local index, so a tiny cycle in a huge graph no longer
+    // initializes graph-sized arrays for each attempted start.
+    let mut parent = vec![usize::MAX; members.len()];
+    let mut queue = VecDeque::new();
     let mut best: Option<Vec<usize>> = None;
-    for &start in members.iter().take(max_starts.max(1)) {
-        let mut parent = vec![usize::MAX; graph.len()];
-        let mut queue = VecDeque::from([start]);
+    for (start_index, &start) in members.iter().enumerate().take(max_starts.max(1)) {
+        parent.fill(usize::MAX);
+        queue.clear();
+        queue.push_back(start_index);
         let mut found = None;
-        'search: while let Some(node) = queue.pop_front() {
-            for &next in graph.successors(node) {
-                if !in_component(next) {
+        'search: while let Some(index) = queue.pop_front() {
+            for &next in graph.successors(members[index]) {
+                let Ok(next_index) = members.binary_search(&next) else {
                     continue;
-                }
-                if next == start {
-                    found = Some(node);
+                };
+                if next_index == start_index {
+                    found = Some(index);
                     break 'search;
                 }
-                if parent[next] == usize::MAX && next != start {
-                    parent[next] = node;
-                    queue.push_back(next);
+                if parent[next_index] == usize::MAX {
+                    parent[next_index] = index;
+                    queue.push_back(next_index);
                 }
             }
         }
         if let Some(last) = found {
             let mut path = vec![start];
-            let mut node = last;
+            let mut index = last;
             let mut reversed = Vec::new();
-            while node != start {
-                reversed.push(node);
-                node = parent[node];
+            while index != start_index {
+                reversed.push(members[index]);
+                index = parent[index];
             }
             path.extend(reversed.into_iter().rev());
             path.push(start);
@@ -156,6 +161,11 @@ pub fn shortest_cycle(graph: &Graph, members: &[usize], max_starts: usize) -> Op
                 .is_none_or(|current| path.len() < current.len())
             {
                 best = Some(path);
+            }
+            // A self-loop is the shortest possible cycle. Later starts
+            // cannot improve it, and equal-length cycles retain first order.
+            if best.as_ref().is_some_and(|path| path.len() == 2) {
+                break;
             }
         }
     }
@@ -177,10 +187,16 @@ pub fn layers(graph: &Graph, components: &[Vec<usize>]) -> Vec<u32> {
     for node in 0..graph.len() {
         for &next in graph.successors(node) {
             let (a, b) = (component_of[node], component_of[next]);
-            if a != b && !outgoing[a].contains(&b) {
+            if a != b {
                 outgoing[a].push(b);
             }
         }
+    }
+    // Deduplicate once rather than linearly searching a growing adjacency
+    // list for every edge. This avoids quadratic work for high-fanout SCCs.
+    for targets in &mut outgoing {
+        targets.sort_unstable();
+        targets.dedup();
     }
     // Process components in reverse topological order: dependencies (sinks) first.
     let mut dependents_left = vec![0usize; count];
