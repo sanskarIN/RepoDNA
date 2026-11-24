@@ -359,6 +359,52 @@ makes this distinction explicit. An omitted probability statistic is not a
 missing measurement; it is a deliberate safeguard against misleading
 confidence estimates. Neither format proves claim accuracy.
 
+### Tie sensitivity diagnostics
+
+The frozen evaluator additionally reports `tieAwareRetrieval` for both
+checkpoint formats. The existing runtime and ordinary retrieval evaluation
+continue to preserve original candidate order when model scores tie. In
+contrast, this diagnostic separates the quality of the learned score order
+from the quality of the input order used to resolve equal scores.
+
+For each answerable repository/question group, evidence is sorted by the
+same finite sigmoid-transformed score used by the ranker. Exact equal-score
+groups are considered separately; nearly equal but distinct scores are not
+treated as ties. At the configured cutoff (currently five), the diagnostic
+reports three values for precision, recall and binary NDCG:
+
+- **Worst:** put irrelevant candidates first within every equal-score group.
+- **Expected:** average over uniform permutations of each equal-score group.
+- **Best:** put relevant candidates first within every equal-score group.
+
+If an equal-score group has `p` positive items, `n` negative items and
+`v` visible positions before the cutoff, its minimum hit count is
+`max(0, v - n)`, its maximum is `min(p, v)`, and its expected hit count
+is `v * p / (p + n)`. Each visible position has expected gain
+`p / (p + n)` multiplied by that position's usual DCG discount.
+The implementation computes these values directly; it does not sample
+permutations or consume random numbers.
+
+For example, four equal-scoring candidates with two positives and a
+cutoff of two have worst, expected and best precision of 0, 0.5 and 1.
+Even when all tied candidates fit in the cutoff, swapping positive and
+negative items can change NDCG while precision and recall remain fixed.
+
+The report also counts answerable questions with mixed-label ties
+intersecting the cutoff (`mixedTieQueriesAtK`) and questions whose top-k
+hit count can actually change (`cutoffSensitiveQueries`). It averages
+metrics over answerable questions only. All three metric objects are
+`null` when the holdout has no positive-labeled question.
+
+The ordinary stable-order metric lies within the corresponding bounds,
+apart from floating-point rounding. The expected metric is **not** a
+recommendation to randomize production ranking, and the range is not a
+statistical confidence interval. It describes ordering ambiguity for these
+specific labels, not generalization, factual confidence, or benchmark
+independence. Do not use final-test diagnostics to tune the model.
+The JSON exposes only aggregate counts and scores, not source evidence,
+repository identifiers, individual questions or labels.
+
 ## Experimental pairwise evidence ranking
 
 RepoDNA also offers an alternative **locally trained ranking objective** that

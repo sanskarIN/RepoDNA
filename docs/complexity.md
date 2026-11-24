@@ -65,9 +65,13 @@ duplicated. Rules: `quality.duplicate-block` and `quality.duplication-ratio`.
 
 Each file is reduced to the set of its 5-token shingles. A 64-value MinHash signature
 estimates the Jaccard similarity of two files, and locality-sensitive hashing (16 bands of 4
-values) finds candidate pairs without comparing every pair. Pairs at or above `similarity`
-(0.8) are reported as `quality.similar-files`: copies that have drifted apart, generated
-variants, or templates.
+values) finds candidate pairs without comparing every pair. Buckets are separated by
+language and retain at most 50 files in input order. If a bucket is capped or an eligible
+file lacks tokens, the similarity section is partial and records the limitation. The engine
+compares each retained candidate pair once and keeps the 100 highest-scoring pairs, with
+deterministic path ordering for equal scores. A partial or approximate result cannot
+establish the absence of similar files. Pairs at or above `similarity` (0.8) are reported
+as `quality.similar-files`: copies that have drifted apart, generated variants, or templates.
 
 ## Markers
 
