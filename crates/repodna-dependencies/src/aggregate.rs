@@ -939,6 +939,52 @@ mod tests {
     }
 
     #[test]
+    fn indexed_lockfile_joins_respect_inherited_workspace_source_and_scope() {
+        let files = [
+            file(
+                "alpha/Cargo.toml",
+                "[workspace]\n[workspace.dependencies]\nserde = \"1\"\n",
+            ),
+            file(
+                "beta/Cargo.toml",
+                "[workspace]\n[workspace.dependencies]\nserde = \"2\"\nlocal = { path = \"local\" }\n",
+            ),
+            file(
+                "beta/member/Cargo.toml",
+                "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\nlocal.workspace = true\n",
+            ),
+            file("alpha/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"1.9.0\"\n"),
+            file("beta/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"2.1.0\"\n"),
+            file("beta/member/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"2.2.0\"\n"),
+        ];
+        let report = analyze(&files).report;
+        let serde = report
+            .dependencies
+            .iter()
+            .find(|d| d.name == "serde")
+            .unwrap();
+        assert_eq!(serde.requirement.as_deref(), Some("2"));
+        assert_eq!(serde.resolved, vec!["2.1.0", "2.2.0"]);
+        assert_eq!(serde.source, "registry");
+        let local = report
+            .dependencies
+            .iter()
+            .find(|d| d.name == "local")
+            .unwrap();
+        assert!(local.internal);
+        assert_eq!(local.source, "path");
+        assert!(
+            report
+                .lockfiles
+                .iter()
+                .all(|lock| lock.missing_from_lock.is_empty())
+        );
+        let mut reverse = files;
+        reverse.reverse();
+        assert_eq!(report, analyze(&reverse).report);
+    }
+
+    #[test]
     fn empty_input_is_explained() {
         let analysis = analyze(&[]);
         assert_eq!(analysis.report.status, SectionStatus::Analyzed);
