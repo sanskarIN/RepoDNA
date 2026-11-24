@@ -1219,7 +1219,9 @@ mod tests {
         );
         assert_eq!(dna.similarity.status, SectionStatus::Partial);
         assert_eq!(status(&dna, Stage::Similarity), AnalyzerStatus::Partial);
-        assert!(dna.analysis_metadata.partial);
+        // A bounded but successful stage is partial at the section level.
+        // The artifact-wide flag is reserved for failed/cancelled stages.
+        assert!(!dna.analysis_metadata.partial);
         assert_eq!(dna.similarity.similar_files.len(), 100);
         assert!(
             dna.similarity
