@@ -644,6 +644,114 @@ mod tests {
     }
 
     #[test]
+    fn indexed_lockfile_join_preserves_directory_boundaries_and_version_union() {
+        let files = [
+            file(
+                "apps/web/package.json",
+                r#"{"name":"web","dependencies":{"Shared":"^1","local-only":"1","missing":"1","git-only":"git+https://example.test/a.git"}}"#,
+            ),
+            file(
+                "apps/web/package-lock.json",
+                r#"{"packages":{"node_modules/shared":{"version":"1.1.0"},"node_modules/local-only":{"version":"1.0.0"},"node_modules/a/node_modules/shared":{"version":"1.2.0"}}}"#,
+            ),
+            file(
+                "apps/web-admin/package.json",
+                r#"{"name":"admin","dependencies":{"shared":"2","admin-only":"1"}}"#,
+            ),
+            file(
+                "apps/web-admin/package-lock.json",
+                r#"{"packages":{"node_modules/shared":{"version":"2.0.0"},"node_modules/admin-only":{"version":"1.0.0"},"node_modules/missing":{"version":"99.0.0"}}}"#,
+            ),
+            file(
+                "apps/package-lock.json",
+                r#"{"packages":{"node_modules/shared":{"version":"1.0.0"},"node_modules/local-only":{"version":"1.0.0"}}}"#,
+            ),
+            file(
+                "unrelated/package-lock.json",
+                r#"{"packages":{"node_modules/shared":{"version":"99.0.0"}}}"#,
+            ),
+        ];
+        let report = analyze(&files).report;
+        let dependency = |name: &str| {
+            report
+                .dependencies
+                .iter()
+                .find(|d| d.name.eq_ignore_ascii_case(name))
+                .unwrap()
+        };
+        assert_eq!(
+            dependency("shared").resolved,
+            vec!["1.0.0", "1.1.0", "1.2.0", "2.0.0"]
+        );
+        assert_eq!(dependency("local-only").resolved, vec!["1.0.0"]);
+        assert!(dependency("missing").resolved.is_empty());
+        let lock = |path: &str| report.lockfiles.iter().find(|l| l.path == path).unwrap();
+        assert_eq!(lock("apps/web/package-lock.json").missing_from_lock, vec!["missing"]);
+        assert!(lock("apps/web-admin/package-lock.json").missing_from_lock.is_empty());
+        assert!(lock("apps/package-lock.json").missing_from_lock.is_empty());
+        assert_eq!(report.duplicates.len(), 1);
+        assert_eq!(report.duplicates[0].versions, vec!["1.1.0", "1.2.0"]);
+        let mut reversed = files;
+        reversed.reverse();
+        assert_eq!(report, analyze(&reversed).report);
+    }
+
+    #[test]
+    fn indexed_lockfile_join_isolated_by_ecosystem_and_exact_sibling_directory() {
+        let files = [
+            file(
+                "package.json",
+                r#"{"name":"frontend","dependencies":{"serde":"1","z":"1","a":"1"}}"#,
+            ),
+            file("package-lock.json", r#"{"packages":{}}"#),
+            file("Cargo.toml", "[package]\nname = \"backend\"\n[dependencies]\nserde = \"1\"\n"),
+            file("Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n"),
+            file(
+                "nested/package.json",
+                r#"{"name":"nested","dependencies":{"nested-only":"1"}}"#,
+            ),
+        ];
+        let report = analyze(&files).report;
+        let npm = report.dependencies.iter().find(|d| d.ecosystem == "npm" && d.name == "serde").unwrap();
+        let cargo = report.dependencies.iter().find(|d| d.ecosystem == "cargo" && d.name == "serde").unwrap();
+        assert!(npm.resolved.is_empty());
+        assert_eq!(cargo.resolved, vec!["1.0.0"]);
+        let lock = report.lockfiles.iter().find(|l| l.path == "package-lock.json").unwrap();
+        assert_eq!(lock.missing_from_lock, vec!["a", "serde", "z"]);
+    }
+
+    #[test]
+    fn indexed_joins_handle_many_disjoint_packages_without_cross_attribution() {
+        let mut owned = Vec::new();
+        for index in 0..256 {
+            let dir = format!("packages/p{index:03}");
+            let name = format!("dep{index:03}");
+            owned.push((
+                format!("{dir}/package.json"),
+                format!(r#"{{"name":"p{index:03}","dependencies":{{"{name}":"1","common":"1"}}}}"#),
+            ));
+            owned.push((
+                format!("{dir}/package-lock.json"),
+                format!(r#"{{"packages":{{"node_modules/{name}":{{"version":"1.0.0"}},"node_modules/common":{{"version":"1.0.{index}"}}}}}}"#),
+            ));
+        }
+        let files: Vec<_> = owned.iter().map(|(p, c)| file(p, c)).collect();
+        let result = analyze(&files);
+        assert_eq!(result.packages.len(), 256);
+        assert_eq!(result.report.direct_count, 257);
+        assert!(result.report.lockfiles.iter().all(|l| l.missing_from_lock.is_empty()));
+        for dependency in &result.report.dependencies {
+            if dependency.name == "common" {
+                assert_eq!(dependency.manifests.len(), 256);
+                assert_eq!(dependency.resolved.len(), 256);
+            } else {
+                assert_eq!(dependency.manifests.len(), 1);
+                assert_eq!(dependency.resolved, vec!["1.0.0"]);
+            }
+        }
+    }
+
+    #[test]
     fn empty_input_is_explained() {
         let analysis = analyze(&[]);
         assert_eq!(analysis.report.status, SectionStatus::Analyzed);
