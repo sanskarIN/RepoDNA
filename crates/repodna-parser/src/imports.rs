@@ -42,6 +42,10 @@ impl RawImport {
 /// Maximum number of imports recorded per file, a guard against pathological inputs.
 const MAX_IMPORTS: usize = 2_000;
 
+/// Maximum nesting of a Rust use tree expanded by the lexical analyzer.
+/// Very deep trees are outside this heuristic's supported scope.
+const MAX_USE_TREE_DEPTH: usize = 128;
+
 /// Extracts imports from scanned lines.
 pub fn extract_imports(spec: &LanguageSpec, lines: &[ScannedLine]) -> Vec<RawImport> {
     let mut imports = match spec.import_extractor {
@@ -285,6 +289,10 @@ fn rebase_super(tree: &str, inline_depth: usize) -> String {
 
 /// Expands a Rust use tree such as `a::{b, c::{d, e as f}}` into full paths.
 fn expand_use_tree(prefix: &str, tree: &str, out: &mut Vec<String>) {
+    expand_use_tree_at_depth(prefix, tree, out, 0);
+}
+
+fn expand_use_tree_at_depth(prefix: &str, tree: &str, out: &mut Vec<String>, depth: usize) {
     let join = |head: &str| -> String {
         let head = head.trim_start_matches("::");
         if prefix.is_empty() {
@@ -308,6 +316,9 @@ fn expand_use_tree(prefix: &str, tree: &str, out: &mut Vec<String>) {
             }
         }
         Some(open) => {
+            if depth >= MAX_USE_TREE_DEPTH {
+                return;
+            }
             let head = tree[..open].trim_end_matches("::");
             let new_prefix = join(head);
             let Some(inner) = matching_brace_contents(&tree[open..]) else {
@@ -315,7 +326,7 @@ fn expand_use_tree(prefix: &str, tree: &str, out: &mut Vec<String>) {
             };
             for part in split_top_level(inner) {
                 if !part.is_empty() {
-                    expand_use_tree(&new_prefix, part, out);
+                    expand_use_tree_at_depth(&new_prefix, part, out, depth + 1);
                 }
             }
         }
@@ -441,7 +452,8 @@ fn python_imports(lines: &[ScannedLine]) -> Vec<RawImport> {
             } else {
                 while names_text.trim_end().ends_with('\\') && index + 1 < lines.len() {
                     index += 1;
-                    names_text = names_text.trim_end().trim_end_matches('\\').to_owned();
+                    let end = names_text.trim_end().trim_end_matches('\\').len();
+                    names_text.truncate(end);
                     names_text.push(' ');
                     names_text.push_str(&lines[index].code);
                 }
