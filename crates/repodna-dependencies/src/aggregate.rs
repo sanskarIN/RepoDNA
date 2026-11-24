@@ -567,6 +567,110 @@ mod tests {
         assert_eq!(analysis.report.direct_count, 2);
     }
 
+
+    fn inherited_record<'a>(analysis: &'a DependencyAnalysis, name: &str) -> &'a DependencyRecord {
+        analysis
+            .report
+            .dependencies
+            .iter()
+            .find(|dependency| dependency.name == name)
+            .expect("expected declared dependency")
+    }
+
+    #[test]
+    fn inherited_dependencies_never_use_a_sibling_workspace() {
+        let first = "[workspace]\n[workspace.dependencies]\nserde = \"1\"\n";
+        let second = "[workspace]\n[workspace.dependencies]\nserde = \"2\"\n";
+        let member = "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\n";
+        let analysis = analyze(&[
+            file("first/Cargo.toml", first),
+            file("second/Cargo.toml", second),
+            file("second/member/Cargo.toml", member),
+        ]);
+        let dependency = inherited_record(&analysis, "serde");
+        assert_eq!(dependency.requirement.as_deref(), Some("2"));
+        assert_eq!(dependency.source, "registry");
+        assert_eq!(dependency.manifests, vec!["second/member/Cargo.toml"]);
+    }
+
+    #[test]
+    fn nearest_workspace_is_a_boundary_even_when_it_lacks_the_dependency() {
+        let outer = "[workspace]\n[workspace.dependencies]\nserde = \"1\"\nregex = \"1\"\n";
+        let inner = "[workspace]\n[workspace.dependencies]\nserde = \"2\"\n";
+        let empty = "[workspace]\n";
+        let member = "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\nregex.workspace = true\n";
+        let analysis = analyze(&[
+            file("Cargo.toml", outer),
+            file("nested/Cargo.toml", inner),
+            file("nested/member/Cargo.toml", member),
+        ]);
+        assert_eq!(
+            inherited_record(&analysis, "serde").requirement.as_deref(),
+            Some("2")
+        );
+        let missing = inherited_record(&analysis, "regex");
+        assert_eq!(missing.requirement, None);
+        assert_eq!(missing.source, "inherited");
+
+        let analysis = analyze(&[
+            file("Cargo.toml", outer),
+            file("nested/Cargo.toml", empty),
+            file("nested/member/Cargo.toml", member),
+        ]);
+        assert_eq!(inherited_record(&analysis, "serde").source, "inherited");
+        assert_eq!(inherited_record(&analysis, "regex").source, "inherited");
+    }
+
+    #[test]
+    fn explicit_workspace_override_can_select_a_different_discovered_root() {
+        let outer = "[workspace]\n[workspace.dependencies]\nserde = \"1\"\n";
+        let selected = "[workspace]\n[workspace.dependencies]\nserde = \"3\"\n";
+        let member = "[package]\nname = \"member\"\nworkspace = \"../../shared\"\n[dependencies]\nserde.workspace = true\n";
+        let analysis = analyze(&[
+            file("Cargo.toml", outer),
+            file("shared/Cargo.toml", selected),
+            file("crates/member/Cargo.toml", member),
+        ]);
+        let dependency = inherited_record(&analysis, "serde");
+        assert_eq!(dependency.requirement.as_deref(), Some("3"));
+        assert_eq!(dependency.source, "registry");
+    }
+
+    #[test]
+    fn invalid_explicit_workspace_never_falls_back_to_an_ancestor() {
+        let outer = "[workspace]\n[workspace.dependencies]\nserde = \"1\"\n";
+        for root in ["../missing", "../../outside", "/outside", "C:/outside", ""] {
+            let member = format!(
+                "[package]\nname = \"member\"\nworkspace = \"{root}\"\n[dependencies]\nserde.workspace = true\n"
+            );
+            let analysis = analyze(&[
+                file("Cargo.toml", outer),
+                file("member/Cargo.toml", &member),
+            ]);
+            let dependency = inherited_record(&analysis, "serde");
+            assert_eq!(dependency.requirement, None, "{root}");
+            assert_eq!(dependency.source, "inherited", "{root}");
+        }
+        assert!(explicit_workspace_directory("member", "\\outside").is_none());
+        assert_eq!(
+            explicit_workspace_directory("crates/member", "../../shared").as_deref(),
+            Some("shared")
+        );
+    }
+
+    #[test]
+    fn unrelated_workspace_is_not_a_fallback_for_an_orphan_package() {
+        let root = "[workspace]\n[workspace.dependencies]\nserde = \"1\"\n";
+        let member = "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\n";
+        let analysis = analyze(&[
+            file("workspace/Cargo.toml", root),
+            file("workspace-extra/member/Cargo.toml", member),
+        ]);
+        let dependency = inherited_record(&analysis, "serde");
+        assert_eq!(dependency.requirement, None);
+        assert_eq!(dependency.source, "inherited");
+    }
+
     #[test]
     fn merges_workspace_manifests_and_lockfiles() {
         let root = "[workspace]\nmembers = [\"crates/*\"]\n";
