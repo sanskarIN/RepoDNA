@@ -567,7 +567,8 @@ mod tests {
 
     #[test]
     fn python_continuation_preserves_names_aliases_and_first_line() {
-        let source = "from pkg import first, \\\n    second as alias, \\\n    third\nimport other\n";
+        let source =
+            "from pkg import first, \\\n    second as alias, \\\n    third\nimport other\n";
         let spec = LanguageRegistry::builtin().get("python").unwrap();
         let parsed = extract_imports(spec, &scan(source, &spec.syntax).lines);
         assert_eq!(parsed.len(), 2);
