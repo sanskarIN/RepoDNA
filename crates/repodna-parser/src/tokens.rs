@@ -119,8 +119,14 @@ mod tests {
 
     #[test]
     fn adjacent_comment_tokens_cannot_merge_numeric_or_unicode_identifiers() {
-        assert_eq!(hashes("const 世界 = 12/**/34;"), hashes("const 世界 = 12 34;"));
-        assert_ne!(hashes("const 世界 = 12/**/34;"), hashes("const 世界 = 1234;"));
+        assert_eq!(
+            hashes("const 世界 = 12/**/34;"),
+            hashes("const 世界 = 12 34;")
+        );
+        assert_ne!(
+            hashes("const 世界 = 12/**/34;"),
+            hashes("const 世界 = 1234;")
+        );
         assert_eq!(hashes("let café/**/世界;"), hashes("let café 世界;"));
     }
 
