@@ -5,7 +5,10 @@
 //! values) finds candidate pairs without comparing every pair of files. Candidates are then
 //! scored on the full signature and kept when the estimate reaches the threshold.
 
-use std::collections::{BTreeSet, HashMap};
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
+
+use repodna_core::cancel::{CancellationToken, Cancelled};
 
 use repodna_core::metric::round4;
 use repodna_core::model::SectionStatus;
@@ -18,6 +21,7 @@ const PERMUTATIONS: usize = 64;
 
 /// Rows per LSH band (`PERMUTATIONS / ROWS` bands).
 const ROWS: usize = 4;
+const BANDS: usize = PERMUTATIONS / ROWS;
 
 /// Tokens per shingle.
 const SHINGLE: usize = 5;
@@ -31,12 +35,16 @@ pub const MAX_PAIRS: usize = 100;
 /// Maximum files per LSH bucket examined pairwise.
 const MAX_BUCKET: usize = 50;
 
+/// Check cancellation periodically even inside a large file or bucket.
+const CHECK_INTERVAL: usize = 256;
+
 /// How similarity is measured, for reports.
 pub const SIMILARITY_METHOD: &str = "Each file is reduced to the set of its 5-token shingles \
 (comments, whitespace, imports, and literal values normalized away). A 64-value MinHash \
 signature estimates the Jaccard similarity of two files; 16 bands of 4 values select candidate \
-pairs, which are kept when the estimate reaches the threshold. Only files of the same language \
-with at least 50 tokens are compared, and test files are excluded.";
+pairs, which are kept when the estimate reaches the threshold. Buckets are language-specific \
+and retain at most 50 files in input order; capped buckets make the result partial. Only \
+files with at least 50 tokens are compared, and test files are excluded.";
 
 /// SplitMix64 finalizer: a fast, well-distributed 64-bit mixing function.
 fn mix(mut value: u64) -> u64 {
@@ -47,9 +55,15 @@ fn mix(mut value: u64) -> u64 {
 }
 
 /// MinHash signature of the shingles of `hashes`.
-fn signature(hashes: &[u32]) -> [u64; PERMUTATIONS] {
+fn signature(
+    hashes: &[u32],
+    cancel: &CancellationToken,
+) -> Result<[u64; PERMUTATIONS], Cancelled> {
     let mut signature = [u64::MAX; PERMUTATIONS];
-    for window in hashes.windows(SHINGLE) {
+    for (index, window) in hashes.windows(SHINGLE).enumerate() {
+        if index % CHECK_INTERVAL == 0 {
+            cancel.check()?;
+        }
         let shingle = window
             .iter()
             .fold(0u64, |hash, &token| mix(hash ^ u64::from(token)));
@@ -60,81 +74,196 @@ fn signature(hashes: &[u32]) -> [u64; PERMUTATIONS] {
             }
         }
     }
-    signature
+    Ok(signature)
 }
 
-fn estimate(a: &[u64; PERMUTATIONS], b: &[u64; PERMUTATIONS]) -> f64 {
-    let equal = a.iter().zip(b).filter(|(x, y)| x == y).count();
-    equal as f64 / PERMUTATIONS as f64
+fn equal_slots(a: &[u64; PERMUTATIONS], b: &[u64; PERMUTATIONS]) -> usize {
+    a.iter().zip(b).filter(|(x, y)| x == y).count()
+}
+
+fn band_keys(signature: &[u64; PERMUTATIONS]) -> [u64; BANDS] {
+    let mut keys = [0; BANDS];
+    for (key, rows) in keys.iter_mut().zip(signature.chunks_exact(ROWS)) {
+        *key = rows.iter().fold(0u64, |hash, &value| mix(hash ^ value));
+    }
+    keys
+}
+
+struct Candidate {
+    file_index: usize,
+    signature: [u64; PERMUTATIONS],
+    bands: [u64; BANDS],
+    retained: [bool; BANDS],
+}
+
+#[derive(Default)]
+struct Bucket {
+    members: Vec<usize>,
+    omitted: usize,
+}
+
+// A pair can occur in multiple LSH bands. Emit it only from the earliest
+// band that actually retained both members. Equal hash keys are not enough:
+// one candidate might have been dropped by an earlier bucket's capacity.
+fn already_paired(a: &Candidate, b: &Candidate, band: usize) -> bool {
+    (0..band).any(|earlier| {
+        a.retained[earlier] && b.retained[earlier] && a.bands[earlier] == b.bands[earlier]
+    })
+}
+
+// Ascending key means a better result: more equal slots, lexicographic
+// paths, then original candidate order for equal paths. BinaryHeap holds
+// the worst retained pair at its root, so storage is bounded by MAX_PAIRS.
+type PairKey<'a> = (Reverse<usize>, &'a str, &'a str, usize, usize);
+
+fn retain_pair<'a>(best: &mut BinaryHeap<PairKey<'a>>, key: PairKey<'a>) {
+    if best.len() < MAX_PAIRS {
+        best.push(key);
+    } else if best.peek().is_some_and(|worst| key < *worst) {
+        best.pop();
+        best.push(key);
+    }
 }
 
 /// Finds pairs of similar files among non-test files with token streams.
+///
+/// The non-cancellable convenience API uses a private token; the engine
+/// uses [`detect_similarity_cancellable`] to propagate cancellation.
 pub fn detect_similarity(files: &[QualityFile<'_>], threshold: f64) -> SimilarityReport {
+    match detect_similarity_cancellable(files, threshold, &CancellationToken::new()) {
+        Ok(report) => report,
+        Err(_) => unreachable!("a private cancellation token cannot be cancelled"),
+    }
+}
+
+/// Finds similar files with cooperative cancellation inside the expensive
+/// signature, bucket and pair passes. Cancellation returns no partial report.
+pub fn detect_similarity_cancellable(
+    files: &[QualityFile<'_>],
+    threshold: f64,
+    cancel: &CancellationToken,
+) -> Result<SimilarityReport, Cancelled> {
+    cancel.check()?;
     let mut report = SimilarityReport {
         status: SectionStatus::Analyzed,
         threshold,
         method: SIMILARITY_METHOD.to_owned(),
         ..SimilarityReport::default()
     };
-    let candidates: Vec<(usize, [u64; PERMUTATIONS])> = files
-        .iter()
-        .enumerate()
-        .filter(|(_, file)| !file.test && file.language.is_some())
-        .filter_map(|(index, file)| {
-            let tokens = file.tokens?;
-            (tokens.len() >= MIN_TOKENS).then(|| (index, signature(&tokens.hashes)))
-        })
-        .collect();
+    let mut candidates = Vec::new();
+    let mut buckets: HashMap<(&str, usize, u64), Bucket> = HashMap::new();
+    let mut untokenized = 0usize;
 
-    let mut buckets: HashMap<(usize, u64), Vec<usize>> = HashMap::new();
-    for (position, (_, signature)) in candidates.iter().enumerate() {
-        for (band, rows) in signature.chunks(ROWS).enumerate() {
-            let key = rows.iter().fold(0u64, |hash, &value| mix(hash ^ value));
-            buckets.entry((band, key)).or_default().push(position);
+    for (file_index, file) in files.iter().enumerate() {
+        cancel.check()?;
+        if file.test {
+            continue;
         }
+        let Some(language) = file.language else {
+            continue;
+        };
+        let Some(tokens) = file.tokens else {
+            if file.analysis.is_some() {
+                untokenized += 1;
+            }
+            continue;
+        };
+        if tokens.len() < MIN_TOKENS {
+            continue;
+        }
+        let signature = signature(&tokens.hashes, cancel)?;
+        let bands = band_keys(&signature);
+        let mut candidate = Candidate {
+            file_index,
+            signature,
+            bands,
+            retained: [false; BANDS],
+        };
+        for (band, key) in bands.into_iter().enumerate() {
+            // Partition before applying capacity so unrelated languages
+            // never evict a valid same-language comparison.
+            let bucket = buckets.entry((language, band, key)).or_default();
+            if bucket.members.len() < MAX_BUCKET {
+                bucket.members.push(candidates.len());
+                candidate.retained[band] = true;
+            } else {
+                bucket.omitted += 1;
+            }
+        }
+        candidates.push(candidate);
     }
-    let mut pairs: BTreeSet<(usize, usize)> = BTreeSet::new();
-    for members in buckets.values_mut().filter(|members| members.len() > 1) {
-        members.sort_unstable();
-        members.truncate(MAX_BUCKET);
-        for i in 0..members.len() {
-            for j in i + 1..members.len() {
-                pairs.insert((members[i], members[j]));
+
+    let mut capped = 0usize;
+    let mut omitted_memberships = 0usize;
+    let mut found = 0usize;
+    let mut comparisons = 0usize;
+    let mut best = BinaryHeap::with_capacity(MAX_PAIRS);
+    for ((_, band, _), bucket) in buckets {
+        cancel.check()?;
+        if bucket.omitted > 0 {
+            capped += 1;
+            omitted_memberships += bucket.omitted;
+        }
+        let members = bucket.members;
+        for (position, &i) in members.iter().enumerate() {
+            for &j in &members[position + 1..] {
+                comparisons += 1;
+                if comparisons % CHECK_INTERVAL == 0 {
+                    cancel.check()?;
+                }
+                let (a, b) = (&candidates[i], &candidates[j]);
+                if already_paired(a, b, band) {
+                    continue;
+                }
+                let equal = equal_slots(&a.signature, &b.signature);
+                let similarity = equal as f64 / PERMUTATIONS as f64;
+                if similarity >= threshold {
+                    found += 1;
+                    retain_pair(
+                        &mut best,
+                        (
+                            Reverse(equal),
+                            files[a.file_index].path,
+                            files[b.file_index].path,
+                            i,
+                            j,
+                        ),
+                    );
+                }
             }
         }
     }
 
-    let mut similar: Vec<SimilarFilePair> = pairs
-        .into_iter()
-        .filter_map(|(i, j)| {
-            let (a, b) = (&candidates[i], &candidates[j]);
-            let (file_a, file_b) = (&files[a.0], &files[b.0]);
-            if file_a.language != file_b.language {
-                return None;
-            }
-            let similarity = estimate(&a.1, &b.1);
-            (similarity >= threshold).then(|| SimilarFilePair {
-                a: file_a.path.to_owned(),
-                b: file_b.path.to_owned(),
-                similarity: round4(similarity),
-            })
-        })
-        .collect();
-    similar.sort_by(|x, y| {
-        y.similarity
-            .total_cmp(&x.similarity)
-            .then_with(|| x.a.cmp(&y.a))
-            .then_with(|| x.b.cmp(&y.b))
-    });
-    if similar.len() > MAX_PAIRS {
+    if untokenized > 0 {
+        report.status = SectionStatus::Partial;
         report.notes.push(format!(
-            "{} similar pairs were found; the report keeps the {MAX_PAIRS} most similar.",
-            similar.len()
+            "{untokenized} eligible file(s) were not tokenized; similarity coverage is partial."
         ));
-        similar.truncate(MAX_PAIRS);
     }
-    report.similar_files = similar;
-    report
+    if capped > 0 {
+        report.status = SectionStatus::Partial;
+        report.notes.push(format!(
+            "{capped} language-specific fingerprint bucket(s) reached the {MAX_BUCKET}-file limit; \
+             {omitted_memberships} bucket memberships were omitted. Some pairs may be missed."
+        ));
+    }
+    if found > MAX_PAIRS {
+        report.notes.push(format!(
+            "{found} similar pairs were found among retained candidates; the report keeps the \
+             {MAX_PAIRS} most similar."
+        ));
+    }
+    report.similar_files = best
+        .into_sorted_vec()
+        .into_iter()
+        .map(|(Reverse(equal), a, b, _, _)| SimilarFilePair {
+            a: a.to_owned(),
+            b: b.to_owned(),
+            similarity: round4(equal as f64 / PERMUTATIONS as f64),
+        })
+        .collect();
+    cancel.check()?;
+    Ok(report)
 }
 
 #[cfg(test)]
