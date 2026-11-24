@@ -184,6 +184,40 @@ describe("recent analyses", () => {
     });
   });
 
+  it("does not advertise reload restoration for a volatile browser fallback", async () => {
+    const actual = memoryStore();
+    const store: RecentStore = { ...actual, persistsAcrossReload: false };
+    await start("/", store);
+    await openFile("volatile.json");
+    await waitFor(async () => expect(await actual.list()).toHaveLength(1));
+    expect(openPointer()).toBeNull();
+  });
+
+  it("recovers a later successful save after an earlier browser-storage write fails", async () => {
+    const actual = memoryStore();
+    let calls = 0;
+    const store: RecentStore = {
+      ...actual,
+      async add(entry, text) {
+        calls += 1;
+        if (calls === 1) throw new Error("QuotaExceededError");
+        await actual.add(entry, text);
+      },
+    };
+    await start("/", store);
+    await openFile("first-failed.json");
+    await waitFor(() => expect(calls).toBe(1));
+    expect(openPointer()).toBeNull();
+    window.location.hash = "#/";
+    await openFile("second-saved.json");
+    await waitFor(async () => {
+      const entries = await actual.list();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.name).toBe("second-saved.json");
+      expect(openPointer()).toEqual({ kind: "file", id: entries[0]?.id });
+    });
+  });
+
   it("does not resurrect retained data after disabling history during an in-flight save", async () => {
     const actual = memoryStore();
     let release!: () => void;

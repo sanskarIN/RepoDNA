@@ -26,6 +26,8 @@ export interface RecentEntry {
 
 /** Where recent analyses are kept. */
 export interface RecentStore {
+  /** False for transient browser fallbacks; injected stores may omit this flag. */
+  readonly persistsAcrossReload?: boolean;
   list(): Promise<RecentEntry[]>;
   /** The text of an entry, or null when it is gone. */
   text(id: string): Promise<string | null>;
@@ -236,7 +238,9 @@ export function browserStore(): RecentStore {
   } catch {
     // Some browsers refuse storage in private windows; fall through to memory.
   }
-  return memoryStore();
+  // With IndexedDB unavailable, this store is session-only. The UI must not
+  // write a file pointer to sessionStorage that a reload cannot resolve.
+  return { ...memoryStore(), persistsAcrossReload: false };
 }
 
 // Keep Settings effective for the current tab when storage is blocked.

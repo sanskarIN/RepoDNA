@@ -254,6 +254,7 @@ export function AppProvider({
             if (
               epoch === retentionEpoch.current &&
               selection === selectionEpoch.current &&
+              store.persistsAcrossReload !== false &&
               rememberRecent()
             ) {
               setOpenPointer(pointerFor(next, true));
