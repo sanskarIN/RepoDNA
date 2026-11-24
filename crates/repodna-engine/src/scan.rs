@@ -29,7 +29,7 @@ use repodna_discovery::{
 };
 use repodna_parser::{
     ANALYZER_VERSION, FileAnalysis, LanguageRegistry, LanguageSpec, analyze_and_tokenize,
-    count_lines, tokenize,
+    analyze_source, count_lines, tokenize,
 };
 use repodna_project::wants_content;
 use repodna_quality::TokenStream;
@@ -350,8 +350,14 @@ fn process(discovered: &DiscoveredFile, context: &PassContext<'_>) -> Processed 
                                 }
                                 None => {
                                     processed.cache_key = key;
-                                    let (analysis, tokens) = analyze_and_tokenize(spec, text);
-                                    (analysis, Some(tokens))
+                                    if wants_tokens {
+                                        let (analysis, tokens) = analyze_and_tokenize(spec, text);
+                                        (analysis, Some(tokens))
+                                    } else {
+                                        // Quick/standard profiles and excluded files
+                                        // require lexical metrics, not token hashes.
+                                        (analyze_source(spec, text), None)
+                                    }
                                 }
                             };
                             record.lines = Some(analysis.lines);
@@ -462,16 +468,21 @@ pub fn scan_files(
     let mut tokens_used = 0usize;
     for chunk in discovery.files.chunks(CHUNK) {
         cancel.check()?;
-        let work = || -> Vec<Processed> {
+        let work = || -> Result<Vec<Processed>, repodna_core::cancel::Cancelled> {
             chunk
                 .par_iter()
-                .map(|file| process(file, &context))
+                .map(|file| {
+                    cancel.check()?;
+                    Ok(process(file, &context))
+                })
                 .collect()
         };
         let processed = match &pool {
             Some(pool) => pool.install(work),
             None => work(),
-        };
+        }?;
+        // Do not publish results or cache entries from an interrupted chunk.
+        cancel.check()?;
         let mut misses: Vec<(usize, String)> = Vec::new();
         for mut item in processed {
             if item.cache_hit {
@@ -481,7 +492,7 @@ pub fn scan_files(
                 misses.push((result.files.len(), key));
             }
             if let Some(tokens) = &item.file.tokens {
-                if tokens_used + tokens.len() > MAX_TOKENS {
+                if tokens.len() > MAX_TOKENS.saturating_sub(tokens_used) {
                     item.file.tokens = None;
                     result.tokens_truncated = true;
                 } else {
@@ -518,6 +529,7 @@ pub fn scan_files(
             total,
         });
     }
+    cancel.check()?;
     if let Some(cache) = options.cache {
         cache.finish();
     }
