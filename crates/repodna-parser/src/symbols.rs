@@ -584,6 +584,135 @@ mod tests {
             .collect()
     }
 
+    fn measured_symbol(line: u32, end_line: u32) -> ParsedSymbol {
+        ParsedSymbol {
+            name: "fixture".into(),
+            kind: SymbolKind::Function,
+            line,
+            end_line,
+            complexity: Some(1),
+            nesting: Some(0),
+        }
+    }
+
+    // Independent compatibility oracle: paint every extent in the old
+    // stable ordering, retaining the last symbol to overwrite each line.
+    fn reference_owners(symbols: &[ParsedSymbol], lines: usize) -> Vec<Option<usize>> {
+        let mut result = vec![None; lines];
+        let mut order: Vec<_> = (0..symbols.len())
+            .filter(|&i| symbols[i].complexity.is_some())
+            .collect();
+        order.sort_by(|&a, &b| {
+            symbols[a]
+                .line
+                .cmp(&symbols[b].line)
+                .then_with(|| symbols[b].end_line.cmp(&symbols[a].end_line))
+        });
+        for index in order {
+            let symbol = &symbols[index];
+            let start = symbol.line as usize - 1;
+            let end = (symbol.end_line as usize).min(lines);
+            for owner in result.iter_mut().take(end).skip(start) {
+                *owner = Some(index);
+            }
+        }
+        result
+    }
+
+    #[test]
+    fn streaming_owners_match_painting_for_all_small_interval_triples() {
+        let possible: Vec<_> = (1..=5)
+            .flat_map(|start| (start..=7).map(move |end| measured_symbol(start, end)))
+            .collect();
+        // Include duplicate intervals, crossing extents, out-of-bounds
+        // ends and every input order. The oracle defines tie precedence.
+        for a in &possible {
+            for b in &possible {
+                for c in &possible {
+                    let symbols = [a.clone(), b.clone(), c.clone()];
+                    let expected = reference_owners(&symbols, 5);
+                    let mut owners = ComplexityOwners::new(&symbols, 5);
+                    let actual: Vec<_> = (0..5).map(|line| owners.at(line)).collect();
+                    assert_eq!(actual, expected, "{symbols:?}");
+
+                    let mut sparse = ComplexityOwners::new(&symbols, 5);
+                    for line in [0, 2, 4] {
+                        assert_eq!(sparse.at(line), expected[line], "{symbols:?}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn streaming_owners_ignore_declarations_and_empty_intervals() {
+        let mut declaration = measured_symbol(2, 5);
+        declaration.complexity = None;
+        let symbols = [
+            measured_symbol(1, 10),
+            declaration,
+            measured_symbol(3, 2),
+            measured_symbol(20, 25),
+            measured_symbol(4, 4),
+        ];
+        let expected = reference_owners(&symbols, 5);
+        let mut owners = ComplexityOwners::new(&symbols, 5);
+        assert_eq!(owners.intervals.len(), 2);
+        for (line, expected) in expected.into_iter().enumerate() {
+            assert_eq!(owners.at(line), expected);
+        }
+        assert_eq!(ComplexityOwners::new(&symbols, 0).at(0), None);
+    }
+
+    #[test]
+    fn streaming_owners_restore_outer_intervals_after_crossing_extents() {
+        let symbols = [
+            measured_symbol(1, 12),
+            measured_symbol(3, 8),
+            measured_symbol(4, 10),
+            measured_symbol(5, 6),
+        ];
+        let mut owners = ComplexityOwners::new(&symbols, 12);
+        assert_eq!(owners.at(0), Some(0));
+        assert_eq!(owners.at(2), Some(1));
+        assert_eq!(owners.at(3), Some(2));
+        assert_eq!(owners.at(4), Some(3));
+        assert_eq!(owners.at(6), Some(2));
+        assert_eq!(owners.at(10), Some(0));
+        assert_eq!(owners.at(12), None);
+    }
+
+    #[test]
+    fn sparse_queries_do_not_allocate_memory_proportional_to_file_lines() {
+        let symbols = [
+            measured_symbol(1, u32::MAX),
+            measured_symbol(10, 20),
+            measured_symbol(1_000_000, 2_000_000),
+        ];
+        let mut owners = ComplexityOwners::new(&symbols, 10_000_000);
+        assert_eq!(owners.intervals.len(), 3);
+        assert_eq!(owners.at(0), Some(0));
+        assert_eq!(owners.at(19), Some(1));
+        assert_eq!(owners.at(20), Some(0));
+        assert_eq!(owners.at(1_999_999), Some(2));
+        assert_eq!(owners.at(2_000_000), Some(0));
+        assert_eq!(owners.at(9_999_999), Some(0));
+        assert!(owners.active.len() <= symbols.len());
+    }
+
+    #[test]
+    fn nested_python_decisions_return_to_the_enclosing_function() {
+        let analysis = analyze(
+            "python",
+            "def outer(x):\n    if x:\n        pass\n    def inner(y):\n        if y and x:\n            return y\n        return x\n    if x:\n        return inner(x)\n    return None\nif ready:\n    outer(1)\n",
+        );
+        let outer = analysis.symbols.iter().find(|s| s.name == "outer").unwrap();
+        let inner = analysis.symbols.iter().find(|s| s.name == "inner").unwrap();
+        assert_eq!(outer.complexity, Some(3));
+        assert_eq!(inner.complexity, Some(3));
+        assert_eq!(analysis.module_complexity, 1);
+    }
+
     #[test]
     fn rust_functions_methods_and_types() {
         let source = r#"pub struct Point { x: i32 }
