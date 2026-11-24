@@ -9,7 +9,8 @@
 //! * `comment` — the text of comments on the line (for TODO/FIXME markers).
 //!
 //! All delimiters are ASCII, so the scanner works on bytes without ever splitting a
-//! multi-byte UTF-8 sequence.
+//! multi-byte UTF-8 sequence. Removed inline block comments preserve token separation;
+//! `code` and `masked` retain matching byte offsets, not original source columns.
 
 use repodna_core::model::structure::LineCounts;
 
