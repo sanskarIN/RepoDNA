@@ -365,7 +365,14 @@ fn scan_rust_quote(bytes: &[u8], index: usize, line: &mut LineBuilder) -> usize 
             // Skip the escaped byte itself. In particular, the first
             // apostrophe in '\'' is content, not the closing delimiter.
             let after = match bytes.get(index + 2).copied() {
-                Some(b'x') => index + 5,
+                Some(b'x')
+                    if bytes
+                        .get(index + 3..index + 5)
+                        .is_some_and(|digits| digits.iter().all(u8::is_ascii_hexdigit)) =>
+                {
+                    index + 5
+                }
+                Some(b'x') => index + 1,
                 Some(b'u') if bytes.get(index + 3) == Some(&b'{') => {
                     let mut cursor = index + 4;
                     while bytes.get(cursor).is_some_and(|byte| {
@@ -543,6 +550,97 @@ mod tests {
         assert_eq!(scanned.lines[1].code, "b;");
         assert!(scan("", &c_like()).lines.is_empty());
         assert_eq!(scan("\n", &c_like()).lines.len(), 1);
+    }
+
+    #[test]
+    fn inline_block_comments_preserve_token_boundaries_and_alignment() {
+        let scanned = scan(
+            "int/**/value = left/* note */right;\nif/**/(ready) {}\nfoo/*a*//*b*/bar\n",
+            &c_like(),
+        );
+        assert_eq!(scanned.lines[0].code, "int value = left right;");
+        assert_eq!(scanned.lines[1].code, "if (ready) {}");
+        assert_eq!(scanned.lines[2].code, "foo bar");
+        assert_eq!(scanned.lines[2].comment, "a b");
+        for line in &scanned.lines {
+            assert_eq!(line.code, line.masked);
+            assert_eq!(line.kind, LineKind::Code);
+        }
+    }
+
+    #[test]
+    fn comment_gaps_do_not_change_existing_whitespace_or_trailing_code() {
+        let scanned = scan(
+            "a /*note*/b\nc/*note*/ d\nx/*trailing*/\n/*leading*/y\n",
+            &c_like(),
+        );
+        let code: Vec<_> = scanned
+            .lines
+            .iter()
+            .map(|line| line.code.as_str())
+            .collect();
+        assert_eq!(code, vec!["a b", "c d", "x", "y"]);
+    }
+
+    #[test]
+    fn every_physical_line_inside_block_comments_is_classified() {
+        let scanned = scan("/*\n\n  \r\n*/\n\nx\n", &c_like());
+        let kinds: Vec<_> = scanned.lines.iter().map(|line| line.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                LineKind::Comment,
+                LineKind::Comment,
+                LineKind::Comment,
+                LineKind::Comment,
+                LineKind::Blank,
+                LineKind::Code,
+            ]
+        );
+        let counts = scanned.line_counts();
+        assert_eq!(
+            (counts.total, counts.comment, counts.blank, counts.code),
+            (6, 4, 1, 1)
+        );
+    }
+
+    #[test]
+    fn nested_comment_boundaries_preserve_marker_words() {
+        let scanned = scan("/*first/*TODO*/FIXME*/fn f() {}", &rust_like());
+        let line = &scanned.lines[0];
+        assert_eq!(line.comment, "first TODO FIXME");
+        assert_eq!(line.code, "fn f() {}");
+    }
+
+    #[test]
+    fn block_comment_between_unicode_identifiers_preserves_utf8() {
+        let scanned = scan("let नमस्ते/*説明*/世界 = \"é\";", &rust_like());
+        let line = &scanned.lines[0];
+        assert_eq!(line.code, "let नमस्ते 世界 = \"é\";");
+        assert_eq!(line.masked, "let नमस्ते 世界 = \"  \";");
+        assert_eq!(line.code.len(), line.masked.len());
+        assert_eq!(line.comment, "説明");
+    }
+
+    #[test]
+    fn rust_escaped_apostrophe_and_other_character_literals_mask_correctly() {
+        let source = r#"let a = '\''; let b = '\\'; let c = '\x41'; let d = '\u{1F600}'; let e = 'é';"#;
+        let scanned = scan(source, &rust_like());
+        let line = &scanned.lines[0];
+        assert_eq!(line.code, source);
+        assert_eq!(
+            line.masked,
+            "let a = '  '; let b = '  '; let c = '    '; let d = '         '; let e = '  ';"
+        );
+        assert_eq!(line.masked.len(), line.code.len());
+    }
+
+    #[test]
+    fn invalid_rust_escape_cannot_consume_a_physical_newline() {
+        let scanned = scan("let c = '\\x\n'; // comment\nfn after() {}\n", &rust_like());
+        assert_eq!(scanned.lines.len(), 3);
+        assert_eq!(scanned.lines[1].comment, "comment");
+        assert_eq!(scanned.lines[2].masked, "fn after() {}");
     }
 
     #[test]
