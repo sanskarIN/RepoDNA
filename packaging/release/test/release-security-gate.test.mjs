@@ -37,8 +37,8 @@ test('tag publications refuse provisional changelog wording before platform buil
     /RELEASE_TAG: \$\{\{ github\.event_name == 'push' && github\.ref_type == 'tag' && github\.ref_name \|\| inputs\.tag \}\}/,
   );
   // Finalization branch trials also check finalized notes, but never set TAG.
-  assert.match(prepare, /if \\[ -n "\\$RELEASE_TAG" \\] \\|\\|/);
-  assert.match(prepare, /release\\/v1\\.5\\.3-final-qualification-\\*/);
+  assert.match(prepare, /if \[ -n "\$RELEASE_TAG" \] \|\|/);
+  assert.match(prepare, /release\/v1\.5\.3-final-qualification-\*/);
   assert.match(prepare, /node packaging\/release\/check-version\.mjs --publish/);
   assert.match(prepare, /if \[ -n "\$TAG" \]; then/);
   assert.match(prepare, /publish=false/);
@@ -50,11 +50,11 @@ test('v1.5.3 finalization trial runs native Windows CLI and installer integrity 
   const publish = job('publish');
 
   assert.match(native, /windows-11-arm/);
-  assert.match(native, /RuntimeInformation\\]::OSArchitecture/);
+  assert.match(native, /RuntimeInformation\]::OSArchitecture/);
   assert.match(native, /--no-store --quiet/);
-  assert.match(native, /if: needs\\.prepare\\.outputs\\.publish == 'false'/);
-  assert.match(windows, /needs: \\[prepare, trial-assets\\]/);
-  assert.match(windows, /check-v1\\.5\\.3-windows-trial\\.ps1/);
-  assert.match(windows, /if: needs\\.prepare\\.outputs\\.publish == 'false'/);
-  assert.match(publish, /if: needs\\.prepare\\.outputs\\.publish == 'true'/);
+  assert.match(native, /if: needs\.prepare\.outputs\.publish == 'false'/);
+  assert.match(windows, /needs: \[prepare, trial-assets\]/);
+  assert.match(windows, /check-v1\.5\.3-windows-trial\.ps1/);
+  assert.match(windows, /if: needs\.prepare\.outputs\.publish == 'false'/);
+  assert.match(publish, /if: needs\.prepare\.outputs\.publish == 'true'/);
 });
