@@ -44,7 +44,11 @@ describe("recent analyses", () => {
     const store = memoryStore();
     await start("/", store);
     await openFile("repodna.json");
-    await waitFor(async () => expect(await store.list()).toHaveLength(1));
+    await waitFor(async () => {
+      const entries = await store.list();
+      expect(entries).toHaveLength(1);
+      expect(openPointer()).toEqual({ kind: "file", id: entries[0]?.id });
+    });
     cleanup();
     await start("/files", store);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Files");
@@ -222,6 +226,46 @@ describe("recent analyses", () => {
       expect(await actual.list()).toEqual([]);
       expect(openPointer()).toBeNull();
     });
+  });
+
+  it("does not reattach an old session pointer after closing during a pending save", async () => {
+    const actual = memoryStore();
+    let release!: () => void;
+    let began!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const store: RecentStore = {
+      ...actual,
+      async add(entry, text) {
+        began();
+        await gate;
+        await actual.add(entry, text);
+      },
+    };
+    await start("/", store);
+    await openFile("closing.json");
+    await started;
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    });
+    const input = await screen.findByRole("combobox", { name: "Search and run commands" });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "close this analysis" } });
+    });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    expect(openPointer()).toBeNull();
+    await act(async () => {
+      release();
+      await gate;
+    });
+    await waitFor(async () => expect(await actual.list()).toHaveLength(1));
+    expect(openPointer()).toBeNull();
   });
 
   it("invalidates a previously saved tab pointer when recent history is cleared", async () => {
