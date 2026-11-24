@@ -567,7 +567,6 @@ mod tests {
         assert_eq!(analysis.report.direct_count, 2);
     }
 
-
     fn inherited_record<'a>(analysis: &'a DependencyAnalysis, name: &str) -> &'a DependencyRecord {
         analysis
             .report
