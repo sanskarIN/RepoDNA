@@ -71,10 +71,7 @@ export function newest(entries: readonly RecentEntry[]): RecentEntry[] {
   return entries
     .filter(validRecentEntry)
     // ISO dates with differing UTC offsets do not sort chronologically as strings.
-    .sort(
-      (a, b) =>
-        Date.parse(b.openedAt) - Date.parse(a.openedAt) || a.id.localeCompare(b.id),
-    )
+    .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt) || a.id.localeCompare(b.id))
     .slice(0, RECENT_LIMIT);
 }
 
@@ -193,9 +190,7 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
       // Read, save, and evict in one transaction. A separate post-save prune
       // could race with another tab's add/remove and delete its newer entry.
       const completion = done(transaction);
-      const prune = request(
-        recent.getAll() as IDBRequest<RecentEntry[]>,
-      ).then((rows) => {
+      const prune = request(recent.getAll() as IDBRequest<RecentEntry[]>).then((rows) => {
         const keep = new Set(newest([...rows, entry]).map((item) => item.id));
         recent.put(entry);
         if (text !== undefined) {
