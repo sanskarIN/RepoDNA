@@ -128,6 +128,29 @@ describe("local recent-analysis persistence integrity", () => {
     expect(await store.text("analysis-7")).toBe("content 7");
   });
 
+  it("does not evict a sixth analysis when refreshing an existing ID at capacity", async () => {
+    const fake = fakeIndexedDb();
+    const store = indexedDbStore(fake.factory);
+    for (let day = 1; day <= RECENT_LIMIT; day += 1) {
+      await store.add(
+        entry("analysis-" + day, `2026-11-${String(day).padStart(2, "0")}T00:00:00Z`),
+        "original " + day,
+      );
+    }
+    await store.add(entry("analysis-4", "2026-11-09T00:00:00Z"));
+    expect((await store.list()).map((item) => item.id)).toEqual([
+      "analysis-4",
+      "analysis-5",
+      "analysis-3",
+      "analysis-2",
+      "analysis-1",
+    ]);
+    expect(fake.rows.recent.size).toBe(RECENT_LIMIT);
+    expect(fake.rows.texts.size).toBe(RECENT_LIMIT);
+    expect(await store.text("analysis-4")).toBe("original 4");
+    expect(await store.text("analysis-1")).toBe("original 1");
+  });
+
   it("refreshes entries without erasing their existing saved text", async () => {
     const fake = fakeIndexedDb();
     const store = indexedDbStore(fake.factory);

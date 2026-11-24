@@ -191,7 +191,10 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
       // could race with another tab's add/remove and delete its newer entry.
       const completion = done(transaction);
       const prune = request(recent.getAll() as IDBRequest<RecentEntry[]>).then((rows) => {
-        const keep = new Set(newest([...rows, entry]).map((item) => item.id));
+        // Reopening an existing ID replaces its old metadata. Counting both
+        // revisions as separate candidates would evict a sixth entry early.
+        const candidates = rows.filter((row) => row?.id !== entry.id);
+        const keep = new Set(newest([...candidates, entry]).map((item) => item.id));
         recent.put(entry);
         if (text !== undefined) {
           texts.put({ id: entry.id, text });
