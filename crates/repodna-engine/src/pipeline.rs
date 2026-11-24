@@ -1168,10 +1168,7 @@ mod tests {
                     "beta/member/Cargo.toml",
                     "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\n[lib]\npath = \"/external.rs\"\n",
                 ),
-                (
-                    "beta/member/src/lib.rs",
-                    "pub fn greet() -> u32 { 42 }\n",
-                ),
+                ("beta/member/src/lib.rs", "pub fn greet() -> u32 { 42 }\n"),
                 (
                     "beta/member/external.rs",
                     "pub fn unrelated() -> u32 { 0 }\n",
