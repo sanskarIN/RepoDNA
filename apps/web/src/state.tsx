@@ -121,6 +121,9 @@ async function restore(
       };
     }
     case "file": {
+      // An opt-out recorded before the previous tab closed must also prevent
+      // restoring cached file content on the next application startup.
+      if (!rememberRecent()) return null;
       const text = await store.text(pointer.id);
       if (text === null) {
         return null;
@@ -163,6 +166,7 @@ export function AppProvider({
   const retentionEpoch = useRef(0);
   const selectionEpoch = useRef(0);
   const selectedFileId = useRef<string | null>(null);
+  const refreshSequence = useRef(0);
   const enqueueWrite = useCallback((write: () => Promise<void>): Promise<void> => {
     const pending = writeQueue.current.then(write);
     // A failed write must not permanently block a later delete/clear.
@@ -173,7 +177,18 @@ export function AppProvider({
   const [openedAtStart] = useState(initial !== null);
 
   const refresh = useCallback(() => {
-    store.list().then(setRecent, () => setRecent([]));
+    const sequence = ++refreshSequence.current;
+    void store.list().then(
+      (entries) => {
+        // A slower earlier read must not repopulate data after a later clear.
+        if (sequence === refreshSequence.current) {
+          setRecent(rememberRecent() ? entries : []);
+        }
+      },
+      () => {
+        if (sequence === refreshSequence.current) setRecent([]);
+      },
+    );
   }, [store]);
 
   useEffect(() => {
@@ -214,11 +229,19 @@ export function AppProvider({
       }
     };
     void start();
-    refresh();
+    if (rememberRecent()) {
+      refresh();
+    } else {
+      // Retention could have been disabled just before a tab closed, before
+      // its asynchronous deletion committed. Finish the clear on startup.
+      setRecent([]);
+      void enqueueWrite(() => store.clear()).then(refresh, refresh);
+    }
     return () => {
       cancelled = true;
+      refreshSequence.current += 1;
     };
-  }, [store, refresh, openedAtStart]);
+  }, [store, refresh, enqueueWrite, openedAtStart]);
 
   const open = useCallback(
     (next: Dataset, source?: SourceFile) => {
@@ -313,6 +336,8 @@ export function AppProvider({
   const forgetAll = useCallback(() => {
     retentionEpoch.current += 1;
     clearFilePointer();
+    refreshSequence.current += 1;
+    setRecent([]);
     void enqueueWrite(() => store.clear()).then(refresh, refresh);
   }, [store, refresh, enqueueWrite, clearFilePointer]);
   const setRemember = useCallback(
@@ -322,6 +347,8 @@ export function AppProvider({
       if (!on) {
         retentionEpoch.current += 1;
         clearFilePointer();
+        refreshSequence.current += 1;
+        setRecent([]);
         void enqueueWrite(() => store.clear()).then(refresh, refresh);
       }
     },

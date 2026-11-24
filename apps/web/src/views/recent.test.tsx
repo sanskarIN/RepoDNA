@@ -5,7 +5,14 @@ import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../App";
-import { memoryStore, openPointer, setRememberRecent, type RecentStore } from "../lib/recent";
+import {
+  memoryStore,
+  openPointer,
+  setOpenPointer,
+  setRememberRecent,
+  type RecentEntry,
+  type RecentStore,
+} from "../lib/recent";
 import demoText from "../../public/demo/repodna.json?raw";
 
 async function start(path: string, store: RecentStore) {
@@ -134,6 +141,75 @@ describe("recent analyses", () => {
     cleanup();
     await start("/files", store);
     expect(await screen.findByText("No analysis is open")).toBeTruthy();
+  });
+
+  it("finishes clearing cached recent files after an interrupted opt-out on reload", async () => {
+    const store = memoryStore();
+    await store.add(
+      {
+        id: "old",
+        name: "old-analysis.json",
+        repository: "test",
+        generatedAt: "2026-11-23T01:00:00Z",
+        openedAt: "2026-11-24T01:00:00Z",
+        size: 10,
+      },
+      "old text",
+    );
+    setOpenPointer({ kind: "file", id: "old" });
+    setRememberRecent(false);
+    await start("/", store);
+    await waitFor(async () => {
+      expect(await store.list()).toEqual([]);
+      expect(await store.text("old")).toBeNull();
+    });
+    expect(openPointer()).toBeNull();
+    expect(screen.queryByRole("region", { name: "Recent analyses" })).toBeNull();
+  });
+
+  it("discards an outdated recent-history read after retention was disabled", async () => {
+    const actual = memoryStore();
+    const stale: RecentEntry = {
+      id: "stale",
+      name: "stale-analysis.json",
+      repository: "test",
+      generatedAt: "2026-11-23T01:00:00Z",
+      openedAt: "2026-11-24T01:00:00Z",
+      size: 10,
+    };
+    await actual.add(stale, "old text");
+    let resolveFirst!: (entries: RecentEntry[]) => void;
+    const firstRead = new Promise<RecentEntry[]>((resolve) => {
+      resolveFirst = resolve;
+    });
+    let first = true;
+    const store: RecentStore = {
+      ...actual,
+      list() {
+        if (first) {
+          first = false;
+          return firstRead;
+        }
+        return actual.list();
+      },
+    };
+    await start("/", store);
+    window.location.hash = "#/settings";
+    const keep = await screen.findByRole("checkbox", {
+      name: /Keep the last \d+ analysis files/,
+    });
+    await act(async () => {
+      fireEvent.click(keep);
+    });
+    await waitFor(async () => expect(await actual.list()).toEqual([]));
+    await act(async () => {
+      resolveFirst([stale]);
+      await firstRead;
+    });
+    window.location.hash = "#/";
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Recent analyses" })).toBeNull(),
+    );
   });
 
   it("never persists a file reload pointer when browser storage fails", async () => {
