@@ -366,6 +366,140 @@ mod tests {
     }
 
     #[test]
+    fn log_path_counts_preserve_zero_one_and_multiple_paths() {
+        assert_eq!(
+            log_add(f64::NEG_INFINITY, f64::NEG_INFINITY),
+            f64::NEG_INFINITY
+        );
+        assert_eq!(log_add(0.0, f64::NEG_INFINITY), 0.0);
+        assert_eq!(log_add(f64::NEG_INFINITY, 0.0), 0.0);
+        assert!((log_add(0.0, 0.0) - 2.0_f64.ln()).abs() < 1e-12);
+        assert_eq!(log_add(1_000.0, 0.0), 1_000.0);
+        let predecessors = vec![vec![], vec![0], vec![0], vec![1, 2], vec![]];
+        let counts = log_path_counts(&[0, 1, 2, 3], &predecessors);
+        assert_eq!(counts[0], 0.0);
+        assert_eq!(counts[1], 0.0);
+        assert_eq!(counts[2], 0.0);
+        assert!((counts[3] - 2.0_f64.ln()).abs() < 1e-12);
+        assert_eq!(counts[4], f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn centrality_remains_finite_when_shortest_path_counts_exceed_f64() {
+        // A source followed by 1,100 two-node layers and a final sink.
+        // Every node connects to both nodes in the next layer. The sink
+        // has 2^1100 shortest paths, beyond the finite range of f64.
+        const LAYERS: usize = 1_100;
+        let sink = 1 + 2 * LAYERS;
+        let mut g = Graph::new(sink + 1);
+        g.add_edge(0, 1);
+        g.add_edge(0, 2);
+        for layer in 0..LAYERS - 1 {
+            let from = 1 + 2 * layer;
+            let to = from + 2;
+            for node in from..from + 2 {
+                g.add_edge(node, to);
+                g.add_edge(node, to + 1);
+            }
+        }
+        g.add_edge(sink - 2, sink);
+        g.add_edge(sink - 1, sink);
+        g.finish();
+        let mut contributions = vec![0.0; g.len()];
+        accumulate_source(&g, 0, &mut contributions);
+        assert!(contributions.iter().all(|value| value.is_finite()));
+        assert_eq!(contributions[0], 0.0);
+        assert_eq!(contributions[sink], 0.0);
+        for layer in 0..LAYERS {
+            // Half of the paths to every later node pass through either
+            // vertex, so each later pair contributes 1 and the sink 1/2.
+            let expected = (LAYERS - layer - 1) as f64 + 0.5;
+            let left = contributions[1 + 2 * layer];
+            let right = contributions[2 + 2 * layer];
+            assert!((left - expected).abs() < 1e-6, "layer {layer}: {left}");
+            assert!((right - expected).abs() < 1e-6, "layer {layer}: {right}");
+        }
+    }
+
+    // Independent oracle for small graphs: enumerate all shortest simple
+    // paths between ordered source/target pairs, counting internal vertices.
+    // This deliberately avoids Brandes' predecessor/dependency recurrence.
+    fn brute_centrality(g: &Graph) -> Vec<f64> {
+        let mut result = vec![0.0; g.len()];
+        if g.len() < 3 {
+            return result;
+        }
+        for source in 0..g.len() {
+            for target in 0..g.len() {
+                if source == target {
+                    continue;
+                }
+                let mut queue = VecDeque::from([vec![source]]);
+                let mut shortest = Vec::new();
+                let mut length = usize::MAX;
+                while let Some(path) = queue.pop_front() {
+                    if path.len() > length {
+                        break;
+                    }
+                    let last = path[path.len() - 1];
+                    if last == target {
+                        length = path.len();
+                        shortest.push(path);
+                        continue;
+                    }
+                    for &next in g.successors(last) {
+                        if !path.contains(&next) {
+                            let mut extended = path.clone();
+                            extended.push(next);
+                            queue.push_back(extended);
+                        }
+                    }
+                }
+                let count = shortest.len() as f64;
+                for path in shortest {
+                    for &node in &path[1..path.len() - 1] {
+                        result[node] += 1.0 / count;
+                    }
+                }
+            }
+        }
+        let scale = (g.len() - 1) as f64 * (g.len() - 2) as f64;
+        result.iter_mut().for_each(|value| *value /= scale);
+        result
+    }
+
+    #[test]
+    fn centrality_matches_shortest_path_enumeration_on_all_four_node_graphs() {
+        let edges = (0..4)
+            .flat_map(|from| (0..4).map(move |to| (from, to)))
+            .filter(|(from, to)| from != to)
+            .collect::<Vec<_>>();
+        for mask in 0usize..(1 << edges.len()) {
+            let selected = edges
+                .iter()
+                .enumerate()
+                .filter_map(|(index, &edge)| ((mask >> index) & 1 == 1).then_some(edge))
+                .collect::<Vec<_>>();
+            let g = graph(4, &selected);
+            let actual = betweenness(&g);
+            let expected = brute_centrality(&g);
+            for (left, right) in actual.into_iter().zip(expected) {
+                assert!(
+                    (left - right).abs() < 1e-12,
+                    "mask {mask}: {left} != {right}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn large_edgeless_graph_has_zero_centrality_without_integer_scale_overflow() {
+        let result = betweenness(&Graph::new(70_000));
+        assert_eq!(result.len(), 70_000);
+        assert!(result.iter().all(|&value| value == 0.0));
+    }
+
+    #[test]
     fn betweenness_of_a_path_graph() {
         // 0 → 1 → 2: node 1 lies on the only path between 0 and 2.
         let g = graph(3, &[(0, 1), (1, 2)]);
