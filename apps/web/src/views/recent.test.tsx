@@ -105,6 +105,7 @@ describe("recent analyses", () => {
       expect(screen.queryByRole("heading", { name: "Recent analyses" })).toBeNull(),
     );
     expect(await store.list()).toEqual([]);
+    expect(openPointer()).toBeNull();
   });
 
   it("keeps nothing when turned off in Settings", async () => {
@@ -143,7 +144,7 @@ describe("recent analyses", () => {
     expect(openPointer()).toBeNull();
     expect((await store.list()).length).toBe(0);
     // The in-memory dataset still opens successfully even without persistence.
-    expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Overview");
+    expect(await screen.findByText(/This is a snapshot of the repository/)).toBeTruthy();
   });
 
   it("persists the tab pointer only after its recent-analysis save resolves", async () => {
@@ -189,8 +190,12 @@ describe("recent analyses", () => {
     const started = new Promise<void>((resolve) => {
       began = resolve;
     });
+    const clearCalled = vi.fn(async () => {
+      await actual.clear();
+    });
     const store: RecentStore = {
       ...actual,
+      clear: clearCalled,
       async add(entry, text) {
         began();
         await gate;
@@ -203,13 +208,17 @@ describe("recent analyses", () => {
     expect(openPointer()).toBeNull();
     window.location.hash = "#/settings";
     const keep = await screen.findByRole("checkbox", {
-      name: /Keep the last \\d+ analysis files/,
+      name: /Keep the last \d+ analysis files/,
     });
     await act(async () => {
       fireEvent.click(keep);
     });
-    release();
+    await act(async () => {
+      release();
+      await gate;
+    });
     await waitFor(async () => {
+      expect(clearCalled).toHaveBeenCalledTimes(1);
       expect(await actual.list()).toEqual([]);
       expect(openPointer()).toBeNull();
     });
@@ -226,7 +235,7 @@ describe("recent analyses", () => {
     });
     window.location.hash = "#/settings";
     const keep = await screen.findByRole("checkbox", {
-      name: /Keep the last \\d+ analysis files/,
+      name: /Keep the last \d+ analysis files/,
     });
     await act(async () => {
       fireEvent.click(keep);
