@@ -780,6 +780,133 @@ mod tests {
     }
 
     #[test]
+    fn julia_long_form_functions_measure_nested_blocks_and_indexing_end() {
+        let source = concat!(
+            "module Example\n",
+            "mutable struct Counter\n",
+            "    value::Int\n",
+            "end\n",
+            "function update!(items)\n",
+            "    values = [x for x in items if x > 0]\n",
+            "    last = items[end]\n",
+            "    if last > 0\n",
+            "        for value in values\n",
+            "            last += value\n",
+            "        end\n",
+            "    elseif last < 0\n",
+            "        last = 0\n",
+            "    end\n",
+            "    return last\n",
+            "end\n",
+            "function Base.show(io, counter)\n",
+            "    print(io, counter.value)\n",
+            "end\n",
+            "end\n",
+        );
+        let result = analyze("julia", source);
+        let symbols = summary(&result);
+        assert_eq!(symbols.len(), 4);
+        assert_eq!(symbols[0].0, "Example");
+        assert_eq!(symbols[0].1, SymbolKind::Module);
+        assert_eq!(symbols[1].0, "Counter");
+        assert_eq!(symbols[1].1, SymbolKind::Struct);
+        assert_eq!(
+            symbols[2],
+            ("update!".into(), SymbolKind::Function, 5, 16, Some(6))
+        );
+        assert_eq!(
+            symbols[3],
+            ("Base.show".into(), SymbolKind::Function, 17, 19, Some(1))
+        );
+        assert_eq!(result.max_nesting, 2);
+    }
+
+    #[test]
+    fn julia_nested_functions_own_their_decisions_and_inline_end() {
+        let source = concat!(
+            "function outer(x)\n",
+            "    function inner(y)\n",
+            "        if y > 0; return y; end\n",
+            "        return 0\n",
+            "    end\n",
+            "    if x > 0 && x < 10\n",
+            "        return inner(x)\n",
+            "    end\n",
+            "end\n",
+            "function single(); return 1; end\n",
+        );
+        let result = analyze("julia", source);
+        let symbols = summary(&result);
+        assert_eq!(
+            symbols,
+            vec![
+                ("outer".into(), SymbolKind::Function, 1, 9, Some(3)),
+                ("inner".into(), SymbolKind::Function, 2, 5, Some(2)),
+                ("single".into(), SymbolKind::Function, 10, 10, Some(1)),
+            ]
+        );
+    }
+
+    #[test]
+    fn julia_ignores_keywords_in_comments_strings_and_grouped_expressions() {
+        let source = concat!(
+            "function κόσμος(x)\n",
+            "    #= function bogus(); end #= nested =# =#\n",
+            "    value = \"end if for\"\n",
+            "    command = \x60echo end\x60\n",
+            "    last = x[end]\n",
+            "    symbol = :end\n",
+            "    transposed = x'\n",
+            "    character = ']'\n",
+            "    return last\n",
+            "end\n",
+        );
+        let result = analyze("julia", source);
+        assert_eq!(result.symbols.len(), 1);
+        let symbol = &result.symbols[0];
+        assert_eq!(symbol.name, "κόσμος");
+        assert_eq!(symbol.end_line, 10);
+        assert_eq!(symbol.complexity, Some(1));
+    }
+
+    #[test]
+    fn julia_unclosed_function_does_not_claim_the_rest_of_the_file() {
+        let result = analyze(
+            "julia",
+            "function incomplete(x)\n    if x > 0\n        return x\n",
+        );
+        assert_eq!(result.symbols.len(), 1);
+        assert_eq!(result.symbols[0].end_line, 1);
+        assert_eq!(result.symbols[0].complexity, None);
+        assert_eq!(result.module_complexity, 1);
+    }
+
+    #[test]
+    fn julia_do_blocks_try_and_quoted_blocks_have_balanced_extents() {
+        let result = analyze(
+            "julia",
+            concat!(
+                "function work(items)\n",
+                "    map(items) do item\n",
+                "        try\n",
+                "            quote\n",
+                "                item\n",
+                "            end\n",
+                "        catch error\n",
+                "            nothing\n",
+                "        end\n",
+                "    end\n",
+                "end\n",
+                "function next(); return 2; end\n",
+            ),
+        );
+        assert_eq!(result.symbols[0].end_line, 11);
+        assert_eq!(result.symbols[0].nesting, Some(3));
+        assert_eq!(result.symbols[0].complexity, Some(2));
+        assert_eq!(result.symbols[1].end_line, 12);
+    }
+
+    #[test]
     fn rust_functions_methods_and_types() {
         let source = r#"pub struct Point { x: i32 }
 
