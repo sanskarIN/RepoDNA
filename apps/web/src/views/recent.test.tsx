@@ -267,6 +267,12 @@ describe("recent analyses", () => {
     await openFile("volatile.json");
     await waitFor(async () => expect(await actual.list()).toHaveLength(1));
     expect(openPointer()).toBeNull();
+    window.location.hash = "#/settings";
+    const keep = await screen.findByRole("checkbox", {
+      name: /Keep the last \d+ analysis files/,
+    });
+    expect(keep.textContent).toContain("during this visit");
+    expect(keep.textContent).not.toContain("after a reload");
   });
 
   it("recovers a later successful save after an earlier browser-storage write fails", async () => {

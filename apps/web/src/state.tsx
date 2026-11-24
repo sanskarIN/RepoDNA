@@ -60,6 +60,8 @@ export interface AppState {
   recent: RecentEntry[];
   /** Whether recent analyses are kept in this browser. */
   remember: boolean;
+  /** Whether this store can reopen a retained file after a page reload. */
+  recentCanReload: boolean;
   setRemember(on: boolean): void;
   openRecent(entry: RecentEntry): Promise<void>;
   forget(id: string): void;
@@ -158,6 +160,7 @@ export function AppProvider({
   const [signInNeeded, setSignInNeeded] = useState(false);
   const [dataset, setDataset] = useState<Dataset | null>(initial);
   const [store] = useState<RecentStore>(() => givenStore ?? browserStore());
+  const recentCanReload = store.persistsAcrossReload !== false;
   const [recent, setRecent] = useState<RecentEntry[]>([]);
   const [remember, setRememberState] = useState(rememberRecent);
   // Serialize recent-history writes in this tab, including clearing history.
@@ -367,6 +370,7 @@ export function AppProvider({
       close,
       recent,
       remember,
+      recentCanReload,
       setRemember,
       openRecent,
       forget,
@@ -386,6 +390,7 @@ export function AppProvider({
       close,
       recent,
       remember,
+      recentCanReload,
       setRemember,
       openRecent,
       forget,
