@@ -62,6 +62,21 @@ describe("recent analyses", () => {
     expect(screen.queryByText("No analysis is open")).toBeNull();
   });
 
+  it("does not restore orphan file text after its recent metadata was deleted", async () => {
+    const actual = memoryStore();
+    const store: RecentStore = {
+      ...actual,
+      async text(id) {
+        return id === "orphan" ? demoText : null;
+      },
+    };
+    setRememberRecent(true);
+    setOpenPointer({ kind: "file", id: "orphan" });
+    await start("/files", store);
+    expect(await screen.findByText("No analysis is open")).toBeTruthy();
+    expect(openPointer()).toBeNull();
+  });
+
   it("starts with nothing open after the analysis was closed", async () => {
     const store = memoryStore();
     await start("/", store);

@@ -124,18 +124,17 @@ async function restore(
       };
     }
     case "file": {
-      // An opt-out recorded before the previous tab closed must also prevent
-      // restoring cached file content on the next application startup.
+      // The session pointer alone does not authorize restoring a file:
+      // older buggy versions could leave orphan text after deleting metadata.
       if (!rememberRecent()) return null;
-      const text = await store.text(pointer.id);
-      if (text === null) {
-        return null;
-      }
       const entry = (await store.list()).find((item) => item.id === pointer.id);
+      if (!entry) return null;
+      const text = await store.text(pointer.id);
+      if (text === null) return null;
       const loaded = parseArtifact(text);
       return {
         dna: loaded.artifact,
-        origin: { kind: "file", name: entry?.name ?? "analysis file" },
+        origin: { kind: "file", name: entry.name },
         warnings: loaded.warnings,
       };
     }
