@@ -207,10 +207,92 @@ pub fn layers(graph: &Graph, components: &[Vec<usize>]) -> Vec<u32> {
         .collect()
 }
 
+// Sum positive path counts in logarithmic space without exponentiating
+// the large counts themselves. NEG_INFINITY represents zero paths.
+fn log_add(left: f64, right: f64) -> f64 {
+    if left == f64::NEG_INFINITY {
+        return right;
+    }
+    if right == f64::NEG_INFINITY {
+        return left;
+    }
+    let high = left.max(right);
+    let low = left.min(right);
+    high + (low - high).exp().ln_1p()
+}
+
+// Recompute only a source whose shortest-path counts overflowed. BFS
+// order is a topological ordering of its shortest-path predecessor DAG.
+// Every predecessor is therefore finalized before the next log count.
+fn log_path_counts(order: &[usize], predecessors: &[Vec<usize>]) -> Vec<f64> {
+    let mut counts = vec![f64::NEG_INFINITY; predecessors.len()];
+    if let Some(&source) = order.first() {
+        counts[source] = 0.0;
+    }
+    for &node in order.iter().skip(1) {
+        let mut total = f64::NEG_INFINITY;
+        for &predecessor in &predecessors[node] {
+            total = log_add(total, counts[predecessor]);
+        }
+        counts[node] = total;
+    }
+    counts
+}
+
+// Accumulate one source's contributions into the unnormalized scores.
+// Keep the original arithmetic for finite path counts, so existing
+// ordinary graphs retain exactly the same floating-point results.
+fn accumulate_source(graph: &Graph, source: usize, centrality: &mut [f64]) {
+    let len = graph.len();
+    let mut stack = Vec::with_capacity(len);
+    let mut predecessors: Vec<Vec<usize>> = vec![Vec::new(); len];
+    let mut paths = vec![0.0f64; len];
+    let mut distance = vec![-1i64; len];
+    let mut overflowed = false;
+    paths[source] = 1.0;
+    distance[source] = 0;
+    let mut queue = VecDeque::from([source]);
+    while let Some(node) = queue.pop_front() {
+        stack.push(node);
+        for &next in graph.successors(node) {
+            if distance[next] < 0 {
+                distance[next] = distance[node] + 1;
+                queue.push_back(next);
+            }
+            if distance[next] == distance[node] + 1 {
+                paths[next] += paths[node];
+                overflowed |= !paths[next].is_finite();
+                predecessors[next].push(node);
+            }
+        }
+    }
+    // A ratio of infinity / infinity would yield NaN and contaminate
+    // upstream centrality. Log differences give the same path fractions
+    // without requiring the total number of shortest paths to fit in f64.
+    let logs = overflowed.then(|| log_path_counts(&stack, &predecessors));
+    let mut dependency = vec![0.0f64; len];
+    while let Some(node) = stack.pop() {
+        for &predecessor in &predecessors[node] {
+            let fraction = if let Some(counts) = &logs {
+                // The predecessor count cannot exceed the sum at node.
+                // Clamp a tiny positive log difference due to rounding.
+                (counts[predecessor] - counts[node]).min(0.0).exp()
+            } else {
+                paths[predecessor] / paths[node]
+            };
+            dependency[predecessor] += fraction * (1.0 + dependency[node]);
+        }
+        if node != source {
+            centrality[node] += dependency[node];
+        }
+    }
+}
+
 /// Normalized betweenness centrality for an unweighted directed graph (Brandes' algorithm).
 ///
 /// Values are divided by `(n - 1)(n - 2)`, the number of ordered pairs of other nodes, so
-/// they fall between 0 and 1.
+/// they fall between 0 and 1. Sources with exceptionally many shortest paths use log-domain
+/// path counts to avoid non-finite intermediate ratios.
 pub fn betweenness(graph: &Graph) -> Vec<f64> {
     let len = graph.len();
     let mut centrality = vec![0.0f64; len];
@@ -218,38 +300,14 @@ pub fn betweenness(graph: &Graph) -> Vec<f64> {
         return centrality;
     }
     for source in 0..len {
-        let mut stack = Vec::with_capacity(len);
-        let mut predecessors: Vec<Vec<usize>> = vec![Vec::new(); len];
-        let mut paths = vec![0.0f64; len];
-        let mut distance = vec![-1i64; len];
-        paths[source] = 1.0;
-        distance[source] = 0;
-        let mut queue = VecDeque::from([source]);
-        while let Some(node) = queue.pop_front() {
-            stack.push(node);
-            for &next in graph.successors(node) {
-                if distance[next] < 0 {
-                    distance[next] = distance[node] + 1;
-                    queue.push_back(next);
-                }
-                if distance[next] == distance[node] + 1 {
-                    paths[next] += paths[node];
-                    predecessors[next].push(node);
-                }
-            }
-        }
-        let mut dependency = vec![0.0f64; len];
-        while let Some(node) = stack.pop() {
-            for &predecessor in &predecessors[node] {
-                dependency[predecessor] +=
-                    paths[predecessor] / paths[node] * (1.0 + dependency[node]);
-            }
-            if node != source {
-                centrality[node] += dependency[node];
-            }
+        // Isolated/sink nodes cannot contribute any betweenness to others.
+        if !graph.successors(source).is_empty() {
+            accumulate_source(graph, source, &mut centrality);
         }
     }
-    let scale = ((len - 1) * (len - 2)) as f64;
+    // Multiply after conversion: usize multiplication could overflow
+    // on 32-bit targets, including WebAssembly, for large node counts.
+    let scale = (len - 1) as f64 * (len - 2) as f64;
     centrality.iter().map(|value| value / scale).collect()
 }
 
