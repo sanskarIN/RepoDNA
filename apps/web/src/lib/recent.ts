@@ -70,7 +70,11 @@ export function validRecentEntry(value: unknown): value is RecentEntry {
 export function newest(entries: readonly RecentEntry[]): RecentEntry[] {
   return entries
     .filter(validRecentEntry)
-    .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
+    // ISO dates with differing UTC offsets do not sort chronologically as strings.
+    .sort(
+      (a, b) =>
+        Date.parse(b.openedAt) - Date.parse(a.openedAt) || a.id.localeCompare(b.id),
+    )
     .slice(0, RECENT_LIMIT);
 }
 
@@ -86,6 +90,9 @@ export function memoryStore(): RecentStore {
       return texts.get(id) ?? null;
     },
     async add(entry, text) {
+      if (!validRecentEntry(entry)) {
+        throw new TypeError("Invalid recent-analysis metadata.");
+      }
       entries.set(entry.id, entry);
       if (text !== undefined) {
         texts.set(entry.id, text);
@@ -172,18 +179,42 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
       const db = await open();
       const row = (await request(db.transaction("texts").objectStore("texts").get(id))) as
         { id: string; text: string } | undefined;
-      return row?.text ?? null;
+      return typeof row?.text === "string" ? row.text : null;
     },
     async add(entry, text) {
+      if (!validRecentEntry(entry)) {
+        throw new TypeError("Invalid recent-analysis metadata.");
+      }
       const db = await open();
       const transaction = db.transaction(["recent", "texts"], "readwrite");
-      transaction.objectStore("recent").put(entry);
-      if (text !== undefined) {
-        transaction.objectStore("texts").put({ id: entry.id, text });
-      }
-      await done(transaction);
-      const keep = new Set(newest(await all()).map((item) => item.id));
-      await removeIds((await all()).map((item) => item.id).filter((id) => !keep.has(id)));
+      const recent = transaction.objectStore("recent");
+      const texts = transaction.objectStore("texts");
+
+      // Read, save, and evict in one transaction. A separate post-save prune
+      // could race with another tab's add/remove and delete its newer entry.
+      const completion = done(transaction);
+      const prune = request(
+        recent.getAll() as IDBRequest<RecentEntry[]>,
+      ).then((rows) => {
+        const keep = new Set(newest([...rows, entry]).map((item) => item.id));
+        recent.put(entry);
+        if (text !== undefined) {
+          texts.put({ id: entry.id, text });
+        }
+        // Purge damaged legacy metadata as well as normal expired entries.
+        for (const row of rows) {
+          if (row && typeof row.id === "string" && !keep.has(row.id)) {
+            recent.delete(row.id);
+            texts.delete(row.id);
+          }
+        }
+        // A newly opened but old-dated entry might not belong in the top five.
+        if (!keep.has(entry.id)) {
+          recent.delete(entry.id);
+          texts.delete(entry.id);
+        }
+      });
+      await Promise.all([completion, prune]);
     },
     async remove(id) {
       await removeIds([id]);
