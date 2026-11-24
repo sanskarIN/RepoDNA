@@ -27,6 +27,10 @@ behind it:
 The full list is in the [README](../README.md#supported-languages). Plugins can add
 languages; see [plugins](plugins.md#language-definitions).
 
+Import extraction is heuristic and bounded. Rust `use` trees are expanded through at most
+128 nested brace groups; deeper branches are omitted, while supported siblings remain
+visible. Missing imports in these cases do not establish that a dependency is unused.
+
 ## Complexity
 
 **Approximate cyclomatic complexity**, counted lexically: 1 plus the decision points
