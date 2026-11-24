@@ -11,7 +11,7 @@ use crate::complexity::{
     complexity_report, deep_nesting, function_signals, large_files, large_functions,
 };
 use crate::deadcode::{UsageContext, dead_code_candidates};
-use crate::duplication::detect_duplication;
+use crate::duplication::detect_duplication_cancellable;
 use crate::findings::quality_findings;
 use crate::maintainability::maintainability_signals;
 use crate::markers::marker_report;
@@ -76,7 +76,8 @@ pub fn analyze(
     cancel.check()?;
 
     report.duplication = if input.duplication {
-        let duplication = detect_duplication(files, thresholds.duplicate_min_tokens);
+        let duplication =
+            detect_duplication_cancellable(files, thresholds.duplicate_min_tokens, cancel)?;
         if duplication.status == SectionStatus::Partial {
             report.notes.push(
                 "Some files were not tokenized, so duplication results are partial.".to_owned(),
