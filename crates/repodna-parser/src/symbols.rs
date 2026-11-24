@@ -6,6 +6,7 @@
 //! function that contains it, so nested functions and closures are not double-counted.
 //! Results are approximations and are labeled as such everywhere they are shown.
 
+use std::collections::BinaryHeap;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -384,6 +385,81 @@ fn clean_name(name: &str) -> String {
         .to_owned()
 }
 
+// An interval's priority is its position in the old stable painting order.
+// Later-starting functions win; for equal starts, shorter extents win, and
+// exact ties retain the last symbol's position. This also preserves behavior
+// for crossing intervals produced by incomplete or malformed source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct OwnerInterval {
+    start: usize,
+    end: usize,
+    symbol: usize,
+}
+
+struct ComplexityOwners {
+    intervals: Vec<OwnerInterval>,
+    next: usize,
+    // Highest painting priority at the root. Ended intervals below the
+    // current owner are removed lazily when they reach the root.
+    active: BinaryHeap<usize>,
+}
+
+impl ComplexityOwners {
+    fn new(symbols: &[ParsedSymbol], line_count: usize) -> Self {
+        let mut intervals = symbols
+            .iter()
+            .enumerate()
+            .filter(|(_, symbol)| symbol.complexity.is_some())
+            .filter_map(|(index, symbol)| {
+                let start = (symbol.line as usize).checked_sub(1)?;
+                let end = (symbol.end_line as usize).min(line_count);
+                (start < end).then_some(OwnerInterval {
+                    start,
+                    end,
+                    symbol: index,
+                })
+            })
+            .collect::<Vec<_>>();
+        intervals.sort_unstable_by(|a, b| {
+            a.start
+                .cmp(&b.start)
+                .then_with(|| b.end.cmp(&a.end))
+                .then_with(|| {
+                    // Preserve the original ordering of unclamped ends.
+                    symbols[b.symbol].end_line.cmp(&symbols[a.symbol].end_line)
+                })
+                .then_with(|| a.symbol.cmp(&b.symbol))
+        });
+        Self {
+            intervals,
+            next: 0,
+            active: BinaryHeap::new(),
+        }
+    }
+
+    // Calls must use monotonically increasing line indices. It is safe to
+    // skip blank/comment lines and code lines with no decision points.
+    fn at(&mut self, line: usize) -> Option<usize> {
+        while let Some(interval) = self.intervals.get(self.next) {
+            if interval.start > line {
+                break;
+            }
+            if interval.end > line {
+                self.active.push(self.next);
+            }
+            self.next += 1;
+        }
+        while let Some(&priority) = self.active.peek() {
+            let interval = self.intervals[priority];
+            if interval.end > line {
+                return Some(interval.symbol);
+            }
+            self.active.pop();
+        }
+        None
+    }
+}
+
 /// Extracts symbols, function extents, complexity, and nesting.
 pub fn extract_symbols(spec: &LanguageSpec, lines: &[ScannedLine]) -> SymbolAnalysis {
     let mut symbols: Vec<ParsedSymbol> = Vec::new();
@@ -454,24 +530,10 @@ pub fn extract_symbols(spec: &LanguageSpec, lines: &[ScannedLine]) -> SymbolAnal
         }
     }
 
-    // Attribute each line's decision points to the innermost measurable function.
-    let mut owner: Vec<Option<usize>> = vec![None; lines.len()];
-    let mut order: Vec<usize> = (0..symbols.len())
-        .filter(|&i| symbols[i].complexity.is_some())
-        .collect();
-    order.sort_by(|&a, &b| {
-        symbols[a]
-            .line
-            .cmp(&symbols[b].line)
-            .then_with(|| symbols[b].end_line.cmp(&symbols[a].end_line))
-    });
-    for &symbol in &order {
-        let start = symbols[symbol].line as usize - 1;
-        let end = (symbols[symbol].end_line as usize).min(lines.len());
-        for slot in owner.iter_mut().take(end).skip(start) {
-            *slot = Some(symbol);
-        }
-    }
+    // Stream ownership rather than painting every function's entire extent.
+    // Each measurable symbol is inserted and removed at most once, using
+    // O(symbols) memory instead of allocating a slot for every source line.
+    let mut owners = ComplexityOwners::new(&symbols, lines.len());
     let mut module_complexity = 0u32;
     for (index, line) in lines.iter().enumerate() {
         if line.kind != LineKind::Code || spec.complexity.is_empty() {
@@ -481,7 +543,7 @@ pub fn extract_symbols(spec: &LanguageSpec, lines: &[ScannedLine]) -> SymbolAnal
         if decisions == 0 {
             continue;
         }
-        match owner[index] {
+        match owners.at(index) {
             Some(symbol) => {
                 if let Some(complexity) = symbols[symbol].complexity.as_mut() {
                     *complexity = complexity.saturating_add(decisions);
