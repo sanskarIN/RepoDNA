@@ -14,7 +14,7 @@ use std::fmt;
 use std::path::Path;
 
 use rayon::prelude::*;
-use repodna_core::cancel::CancellationToken;
+use repodna_core::cancel::{CancellationToken, Cancelled};
 use repodna_core::config::{Config, DEFAULT_IGNORE_PATTERNS, Stage, StageSet};
 use repodna_core::glob::GlobSet;
 use repodna_core::hash::StableHasher;
@@ -468,7 +468,7 @@ pub fn scan_files(
     let mut tokens_used = 0usize;
     for chunk in discovery.files.chunks(CHUNK) {
         cancel.check()?;
-        let work = || -> Result<Vec<Processed>, repodna_core::cancel::Cancelled> {
+        let work = || -> Result<Vec<Processed>, Cancelled> {
             chunk
                 .par_iter()
                 .map(|file| {
@@ -747,7 +747,7 @@ mod tests {
         let second = scan_files(dir.path(), &deep, &cancel).unwrap();
         assert_eq!((second.cache_hits, second.cache_misses), (1, 0));
         assert_eq!(first.files[0].analysis, second.files[0].analysis);
-        assert!(second.files[0].tokens.as_ref().is_some_and(|t| t.len() > 0));
+        assert!(second.files[0].tokens.as_ref().is_some_and(|t| !t.is_empty()));
         let fresh = scan_files(
             dir.path(),
             &ScanOptions { cache: None, ..deep },
@@ -772,6 +772,33 @@ mod tests {
         };
         let cancel = CancellationToken::new();
         cancel.cancel();
+        assert!(matches!(
+            scan_files(dir.path(), &options, &cancel),
+            Err(EngineError::Cancelled)
+        ));
+    }
+
+    #[test]
+    fn cancellation_on_last_progress_event_is_not_reported_as_success() {
+        let dir = tempfile::tempdir().unwrap();
+        write_tree(dir.path(), &[("src/lib.rs", "pub fn run() {}\n")]);
+        let config = Config::default();
+        let cancel = CancellationToken::new();
+        let trigger = cancel.clone();
+        let progress = Progress::new(move |event| {
+            if let ProgressEvent::Files { done, total } = event
+                && done == total
+            {
+                trigger.cancel();
+            }
+        });
+        let options = ScanOptions {
+            config: &config,
+            stages: all_stages(),
+            registry: LanguageRegistry::builtin(),
+            progress: &progress,
+            cache: None,
+        };
         assert!(matches!(
             scan_files(dir.path(), &options, &cancel),
             Err(EngineError::Cancelled)
