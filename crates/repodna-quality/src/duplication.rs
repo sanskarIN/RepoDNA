@@ -484,4 +484,83 @@ mod tests {
         assert_eq!(covered_lines(vec![(1, 3), (2, 5), (8, 8)]), 6);
         assert!(kgram_hashes(&hashes[..3], 5).is_empty());
     }
+
+    // Deliberately keep the simpler O(n * window) implementation as an
+    // independent oracle for exact selected hashes and their positions.
+    fn reference_winnow(kgrams: &[u64], window: usize) -> Vec<(u64, usize)> {
+        if kgrams.is_empty() {
+            return Vec::new();
+        }
+        let window = window.min(kgrams.len()).max(1);
+        let mut selected = Vec::new();
+        for start in 0..=kgrams.len() - window {
+            let mut best = start;
+            for position in start..start + window {
+                if kgrams[position] <= kgrams[best] {
+                    best = position;
+                }
+            }
+            if selected.last().is_none_or(|&(_, last)| last != best) {
+                selected.push((kgrams[best], best));
+            }
+        }
+        selected
+    }
+
+    #[test]
+    fn linear_winnowing_matches_every_small_ternary_hash_stream() {
+        // All streams of length 0..=8 over three hash values include
+        // ascending/descending runs, repeated minima and edge expiration.
+        for len in 0..=8 {
+            for mut encoded in 0..3usize.pow(len as u32) {
+                let mut hashes = Vec::with_capacity(len);
+                for _ in 0..len {
+                    hashes.push((encoded % 3) as u64);
+                    encoded /= 3;
+                }
+                for window in 0..=len + 2 {
+                    assert_eq!(
+                        winnow(&hashes, window),
+                        reference_winnow(&hashes, window),
+                        "hashes={hashes:?}, window={window}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn linear_winnowing_preserves_rightmost_ties_at_extreme_hash_values() {
+        let hashes = [u64::MAX, 0, 0, u64::MAX, 0, 0, u64::MAX];
+        for window in 0..=hashes.len() + 1 {
+            assert_eq!(
+                winnow(&hashes, window),
+                reference_winnow(&hashes, window)
+            );
+        }
+        assert_eq!(winnow(&[7, 7, 7, 7], 3), vec![(7, 2), (7, 3)]);
+        assert_eq!(winnow(&[u64::MAX], usize::MAX), vec![(u64::MAX, 0)]);
+    }
+
+    #[test]
+    fn linear_winnowing_handles_large_monotone_and_constant_streams() {
+        let hashes = (0..100_000u64).collect::<Vec<_>>();
+        let window = 16;
+        let selected = winnow(&hashes, window);
+        assert_eq!(selected.len(), hashes.len() - window + 1);
+        assert_eq!(selected.first(), Some(&(0, 0)));
+        assert_eq!(selected.last(), Some(&(99_984, 99_984)));
+
+        let descending = hashes.iter().rev().copied().collect::<Vec<_>>();
+        let selected = winnow(&descending, window);
+        assert_eq!(selected.len(), hashes.len() - window + 1);
+        assert_eq!(selected.first(), Some(&(99_984, 15)));
+        assert_eq!(selected.last(), Some(&(0, 99_999)));
+
+        let constant = vec![42; hashes.len()];
+        let selected = winnow(&constant, window);
+        assert_eq!(selected.len(), hashes.len() - window + 1);
+        assert_eq!(selected.first(), Some(&(42, 15)));
+        assert_eq!(selected.last(), Some(&(42, 99_999)));
+    }
 }
