@@ -72,8 +72,8 @@ behind tests and independent PR review:
 ## Next
 
 - **Lexical analysis for more languages.** Imports, symbols, and complexity for languages
-  that RepoDNA only counts lines for today, starting with Haskell, Erlang, Clojure, Julia,
-  F#, and OCaml.
+  that RepoDNA only counts lines for today, starting with Haskell, Erlang, Clojure, F#, and OCaml. Julia's initial lexical subset is implemented;
+  richer Julia method and import resolution remain follow-up work.
 - **Deeper import resolution** for more languages and build setups, so that the dependency
   graph misses fewer edges.
 - **Deeper pull request analysis.** Expand the existing `repodna ci --baseline`
