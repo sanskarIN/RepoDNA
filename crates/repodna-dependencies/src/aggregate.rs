@@ -240,7 +240,8 @@ pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
     // Index direct external registry declarations by their exact sibling
     // directory. Missing-lock diagnostics need only this small subset,
     // not every dependency in the repository for each lockfile.
-    let mut siblings: BTreeMap<(&str, &str), Vec<(&str, &str)>> = BTreeMap::new();
+    type SiblingIndex<'a> = BTreeMap<(&'a str, &'a str), Vec<(&'a str, &'a str)>>;
+    let mut siblings = SiblingIndex::new();
     for ((ecosystem, key), record) in &records {
         if record.source != "registry" || record.internal {
             continue;
@@ -313,7 +314,7 @@ pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
         if let Some(&index) = lock_indices.get(item.path) {
             analysis.report.lockfiles[index].missing_from_lock = missing;
         }
-        for (_, (display, versions)) in versions_by_name.iter().filter(|(_, (_, v))| v.len() > 1) {
+        for (display, versions) in versions_by_name.values().filter(|(_, v)| v.len() > 1) {
             if analysis.report.duplicates.len() >= MAX_DUPLICATES {
                 break;
             }
@@ -686,7 +687,10 @@ mod tests {
         assert_eq!(dependency("local-only").resolved, vec!["1.0.0"]);
         assert!(dependency("missing").resolved.is_empty());
         let lock = |path: &str| report.lockfiles.iter().find(|l| l.path == path).unwrap();
-        assert_eq!(lock("apps/web/package-lock.json").missing_from_lock, vec!["missing"]);
+        assert_eq!(
+            lock("apps/web/package-lock.json").missing_from_lock,
+            vec!["missing"]
+        );
         assert!(lock("apps/web-admin/package-lock.json").missing_from_lock.is_empty());
         assert!(lock("apps/package-lock.json").missing_from_lock.is_empty());
         assert_eq!(report.duplicates.len(), 1);
@@ -704,19 +708,37 @@ mod tests {
                 r#"{"name":"frontend","dependencies":{"serde":"1","z":"1","a":"1"}}"#,
             ),
             file("package-lock.json", r#"{"packages":{}}"#),
-            file("Cargo.toml", "[package]\nname = \"backend\"\n[dependencies]\nserde = \"1\"\n"),
-            file("Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n"),
+            file(
+                "Cargo.toml",
+                "[package]\nname = \"backend\"\n[dependencies]\nserde = \"1\"\n",
+            ),
+            file(
+                "Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n",
+            ),
             file(
                 "nested/package.json",
                 r#"{"name":"nested","dependencies":{"nested-only":"1"}}"#,
             ),
         ];
         let report = analyze(&files).report;
-        let npm = report.dependencies.iter().find(|d| d.ecosystem == "npm" && d.name == "serde").unwrap();
-        let cargo = report.dependencies.iter().find(|d| d.ecosystem == "cargo" && d.name == "serde").unwrap();
+        let npm = report
+            .dependencies
+            .iter()
+            .find(|d| d.ecosystem == "npm" && d.name == "serde")
+            .unwrap();
+        let cargo = report
+            .dependencies
+            .iter()
+            .find(|d| d.ecosystem == "cargo" && d.name == "serde")
+            .unwrap();
         assert!(npm.resolved.is_empty());
         assert_eq!(cargo.resolved, vec!["1.0.0"]);
-        let lock = report.lockfiles.iter().find(|l| l.path == "package-lock.json").unwrap();
+        let lock = report
+            .lockfiles
+            .iter()
+            .find(|l| l.path == "package-lock.json")
+            .unwrap();
         assert_eq!(lock.missing_from_lock, vec!["a", "serde", "z"]);
     }
 
@@ -739,7 +761,13 @@ mod tests {
         let result = analyze(&files);
         assert_eq!(result.packages.len(), 256);
         assert_eq!(result.report.direct_count, 257);
-        assert!(result.report.lockfiles.iter().all(|l| l.missing_from_lock.is_empty()));
+        assert!(
+            result
+                .report
+                .lockfiles
+                .iter()
+                .all(|l| l.missing_from_lock.is_empty())
+        );
         for dependency in &result.report.dependencies {
             if dependency.name == "common" {
                 assert_eq!(dependency.manifests.len(), 256);
