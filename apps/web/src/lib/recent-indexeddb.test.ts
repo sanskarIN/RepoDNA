@@ -21,16 +21,26 @@ function fakeIndexedDb() {
   };
   const transactions: Array<{ stores: string[]; mode: IDBTransactionMode }> = [];
 
-  function resultRequest<T>(result: T): IDBRequest<T> {
+  function resultRequest<T>(
+    result: T,
+    transaction?: { active: boolean },
+  ): IDBRequest<T> {
     const req = {
       result,
       error: null,
       onsuccess: null as IDBRequest<T>["onsuccess"],
       onerror: null as IDBRequest<T>["onerror"],
     };
-    queueMicrotask(() =>
-      req.onsuccess?.call(req as unknown as IDBRequest<T>, new Event("success")),
-    );
+    queueMicrotask(() => {
+      if (transaction) transaction.active = true;
+      try {
+        req.onsuccess?.call(req as unknown as IDBRequest<T>, new Event("success"));
+      } finally {
+        // The request event ends the transaction's active window. Promise
+        // .then callbacks are not permitted to add more IDB requests here.
+        if (transaction) transaction.active = false;
+      }
+    });
     return req as unknown as IDBRequest<T>;
   }
 
@@ -40,26 +50,41 @@ function fakeIndexedDb() {
       const stores = typeof names === "string" ? [names] : [...names];
       transactions.push({ stores, mode });
       const tx = {
+        active: true,
         oncomplete: null as IDBTransaction["oncomplete"],
         onerror: null as IDBTransaction["onerror"],
         onabort: null as IDBTransaction["onabort"],
         error: null,
         objectStore(name: keyof typeof rows) {
           const map = rows[name];
+          const active = () => {
+            if (!tx.active) {
+              throw new DOMException("Transaction is no longer active", "TransactionInactiveError");
+            }
+          };
           return {
-            getAll: () => resultRequest([...map.values()]),
-            get: (id: string) => resultRequest(map.get(id)),
+            getAll: () => {
+              active();
+              return resultRequest([...map.values()], tx);
+            },
+            get: (id: string) => {
+              active();
+              return resultRequest(map.get(id), tx);
+            },
             put: (record: { id: string }) => {
+              active();
               map.set(record.id, record);
-              return resultRequest(undefined);
+              return resultRequest(undefined, tx);
             },
             delete: (id: string) => {
+              active();
               map.delete(id);
-              return resultRequest(undefined);
+              return resultRequest(undefined, tx);
             },
             clear: () => {
+              active();
               map.clear();
-              return resultRequest(undefined);
+              return resultRequest(undefined, tx);
             },
           } as unknown as IDBObjectStore;
         },

@@ -192,7 +192,11 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
       // Read, save, and evict in one transaction. A separate post-save prune
       // could race with another tab's add/remove and delete its newer entry.
       const completion = done(transaction);
-      const prune = request(recent.getAll() as IDBRequest<RecentEntry[]>).then((rows) => {
+      const scan = recent.getAll() as IDBRequest<RecentEntry[]>;
+      // IDB transactions are active during request success handlers, but not
+      // in arbitrary later Promise continuations. Queue every write here.
+      scan.onsuccess = () => {
+        const rows = scan.result;
         // Reopening an existing ID replaces its old metadata. Counting both
         // revisions as separate candidates would evict a sixth entry early.
         const candidates = rows.filter((row) => row?.id !== entry.id);
@@ -213,8 +217,8 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
           recent.delete(entry.id);
           texts.delete(entry.id);
         }
-      });
-      await Promise.all([completion, prune]);
+      };
+      await completion;
     },
     async remove(id) {
       await removeIds([id]);
