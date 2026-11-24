@@ -42,6 +42,10 @@ impl RawImport {
 /// Maximum number of imports recorded per file, a guard against pathological inputs.
 const MAX_IMPORTS: usize = 2_000;
 
+/// Maximum nesting of a Rust use tree expanded by the lexical analyzer.
+/// Very deep trees are outside this heuristic's supported scope.
+const MAX_USE_TREE_DEPTH: usize = 128;
+
 /// Extracts imports from scanned lines.
 pub fn extract_imports(spec: &LanguageSpec, lines: &[ScannedLine]) -> Vec<RawImport> {
     let mut imports = match spec.import_extractor {
@@ -285,6 +289,10 @@ fn rebase_super(tree: &str, inline_depth: usize) -> String {
 
 /// Expands a Rust use tree such as `a::{b, c::{d, e as f}}` into full paths.
 fn expand_use_tree(prefix: &str, tree: &str, out: &mut Vec<String>) {
+    expand_use_tree_at_depth(prefix, tree, out, 0);
+}
+
+fn expand_use_tree_at_depth(prefix: &str, tree: &str, out: &mut Vec<String>, depth: usize) {
     let join = |head: &str| -> String {
         let head = head.trim_start_matches("::");
         if prefix.is_empty() {
@@ -308,6 +316,9 @@ fn expand_use_tree(prefix: &str, tree: &str, out: &mut Vec<String>) {
             }
         }
         Some(open) => {
+            if depth >= MAX_USE_TREE_DEPTH {
+                return;
+            }
             let head = tree[..open].trim_end_matches("::");
             let new_prefix = join(head);
             let Some(inner) = matching_brace_contents(&tree[open..]) else {
@@ -315,7 +326,7 @@ fn expand_use_tree(prefix: &str, tree: &str, out: &mut Vec<String>) {
             };
             for part in split_top_level(inner) {
                 if !part.is_empty() {
-                    expand_use_tree(&new_prefix, part, out);
+                    expand_use_tree_at_depth(&new_prefix, part, out, depth + 1);
                 }
             }
         }
@@ -441,7 +452,8 @@ fn python_imports(lines: &[ScannedLine]) -> Vec<RawImport> {
             } else {
                 while names_text.trim_end().ends_with('\\') && index + 1 < lines.len() {
                     index += 1;
-                    names_text = names_text.trim_end().trim_end_matches('\\').to_owned();
+                    let end = names_text.trim_end().trim_end_matches('\\').len();
+                    names_text.truncate(end);
                     names_text.push(' ');
                     names_text.push_str(&lines[index].code);
                 }
@@ -495,6 +507,91 @@ mod tests {
             .into_iter()
             .map(|(s, _)| s)
             .collect()
+    }
+
+    #[test]
+    fn rust_use_tree_expands_at_the_supported_depth_boundary() {
+        let depth = MAX_USE_TREE_DEPTH;
+        let tree = format!("{}Leaf{}", "outer::{".repeat(depth), "}".repeat(depth));
+        let mut paths = Vec::new();
+        expand_use_tree("", &tree, &mut paths);
+        assert_eq!(paths, vec![format!("{}Leaf", "outer::".repeat(depth))]);
+    }
+
+    #[test]
+    fn unsupported_rust_use_depth_does_not_discard_shallower_siblings() {
+        let depth = MAX_USE_TREE_DEPTH + 1;
+        let tree = format!(
+            "root::{{before,{}Leaf{},after}}",
+            "outer::{".repeat(depth),
+            "}".repeat(depth)
+        );
+        let mut paths = Vec::new();
+        expand_use_tree("", &tree, &mut paths);
+        assert_eq!(paths, vec!["root::before", "root::after"]);
+        let source = format!("use {tree};\nuse ordinary::Next;\n");
+        assert_eq!(
+            specifiers("rust", &source),
+            vec!["root::after", "root::before", "ordinary::Next"]
+        );
+    }
+
+    #[test]
+    fn rust_use_depth_budget_resets_for_independent_branches() {
+        let depth = MAX_USE_TREE_DEPTH - 1;
+        let branch = format!("{}Leaf{}", "nested::{".repeat(depth), "}".repeat(depth));
+        let tree = format!("root::{{a::{{{branch}}},b::{{{branch}}},plain}}");
+        let mut paths = Vec::new();
+        expand_use_tree("", &tree, &mut paths);
+        // Both a/b would exceed the limit by one; the ordinary sibling
+        // remains visible, and no incomplete prefix is emitted.
+        assert_eq!(paths, vec!["root::plain"]);
+        let branch = format!(
+            "{}Leaf{}",
+            "nested::{".repeat(depth - 1),
+            "}".repeat(depth - 1)
+        );
+        let tree = format!("root::{{a::{{{branch}}},b::{{{branch}}},plain}}");
+        paths.clear();
+        expand_use_tree("", &tree, &mut paths);
+        let suffix = format!("{}Leaf", "nested::".repeat(depth - 1));
+        assert_eq!(
+            paths,
+            vec![
+                format!("root::a::{suffix}"),
+                format!("root::b::{suffix}"),
+                "root::plain".into(),
+            ]
+        );
+    }
+
+    #[test]
+    fn python_continuation_preserves_names_aliases_and_first_line() {
+        let source = "from pkg import first, \\\n    second as alias, \\\n    third\nimport other\n";
+        let spec = LanguageRegistry::builtin().get("python").unwrap();
+        let parsed = extract_imports(spec, &scan(source, &spec.syntax).lines);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].line, 1);
+        assert_eq!(parsed[0].specifier, "pkg");
+        assert_eq!(parsed[0].names, vec!["first", "second", "third"]);
+        assert_eq!(parsed[1].line, 4);
+        assert_eq!(parsed[1].specifier, "other");
+    }
+
+    #[test]
+    fn python_long_continuation_retains_every_name_in_order() {
+        let mut source = String::from("from package import item0");
+        for index in 1..1_000 {
+            source.push_str(&format!(", \\\n    item{index}"));
+        }
+        source.push('\n');
+        let spec = LanguageRegistry::builtin().get("python").unwrap();
+        let parsed = extract_imports(spec, &scan(&source, &spec.syntax).lines);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].names.len(), 1_000);
+        for (index, name) in parsed[0].names.iter().enumerate() {
+            assert_eq!(name, &format!("item{index}"));
+        }
     }
 
     #[test]
