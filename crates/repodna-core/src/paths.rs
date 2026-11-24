@@ -34,6 +34,15 @@ pub fn normalize_relative(path: &str) -> Option<String> {
             other => segments.push(other),
         }
     }
+    // Removing dot/parent segments can expose a drive-qualified first
+    // component (e.g. ./C:/file or dir/../C:relative). Reject that final
+    // form as well, independently of the host operating system.
+    if segments
+        .first()
+        .is_some_and(|segment| has_windows_prefix(segment))
+    {
+        return None;
+    }
     Some(segments.join("/"))
 }
 
@@ -60,12 +69,21 @@ pub fn relative_to(root: &Path, path: &Path) -> Option<String> {
 }
 
 /// Joins `relative` onto the directory `base_dir` (both repository-relative) and normalizes
-/// the result. Returns `None` if the result would escape the repository root.
+/// the result. Returns `None` for rooted/drive-qualified inputs or if the result would
+/// escape the repository root. Parent segments in the child may refer to a directory
+/// above `base_dir` as long as they stay within the repository.
 pub fn join(base_dir: &str, relative: &str) -> Option<String> {
-    if base_dir.is_empty() {
-        normalize_relative(relative)
+    // Check the child before concatenation; otherwise a rooted path becomes
+    // a seemingly relative nested path merely because base_dir is nonempty.
+    let relative = relative.replace('\\', "/");
+    if relative.starts_with('/') || has_windows_prefix(relative.trim_start_matches("./")) {
+        return None;
+    }
+    let base = normalize_relative(base_dir)?;
+    if base.is_empty() {
+        normalize_relative(&relative)
     } else {
-        normalize_relative(&format!("{base_dir}/{relative}"))
+        normalize_relative(&format!("{base}/{relative}"))
     }
 }
 
