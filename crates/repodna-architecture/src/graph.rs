@@ -335,4 +335,128 @@ mod tests {
         assert!((centrality[4] - 4.0 / 12.0).abs() < 1e-9);
         assert!(centrality[..4].iter().all(|&c| c == 0.0));
     }
+
+    // Retain the previous graph-wide scratch algorithm as an independent
+    // compatibility oracle, including its first-start and BFS tie behavior.
+    fn reference_cycle(graph: &Graph, members: &[usize], max_starts: usize) -> Option<Vec<usize>> {
+        let in_component = |node: usize| members.binary_search(&node).is_ok();
+        let mut best: Option<Vec<usize>> = None;
+        for &start in members.iter().take(max_starts.max(1)) {
+            let mut parent = vec![usize::MAX; graph.len()];
+            let mut queue = VecDeque::from([start]);
+            let mut found = None;
+            'search: while let Some(node) = queue.pop_front() {
+                for &next in graph.successors(node) {
+                    if !in_component(next) {
+                        continue;
+                    }
+                    if next == start {
+                        found = Some(node);
+                        break 'search;
+                    }
+                    if parent[next] == usize::MAX && next != start {
+                        parent[next] = node;
+                        queue.push_back(next);
+                    }
+                }
+            }
+            if let Some(last) = found {
+                let mut path = vec![start];
+                let mut node = last;
+                let mut reversed = Vec::new();
+                while node != start {
+                    reversed.push(node);
+                    node = parent[node];
+                }
+                path.extend(reversed.into_iter().rev());
+                path.push(start);
+                if best
+                    .as_ref()
+                    .is_none_or(|current| path.len() < current.len())
+                {
+                    best = Some(path);
+                }
+            }
+        }
+        best
+    }
+
+    #[test]
+    fn component_local_cycle_matches_previous_search_exhaustively() {
+        let possible = (0..4)
+            .flat_map(|from| (0..4).map(move |to| (from, to)))
+            .filter(|(from, to)| from != to)
+            .collect::<Vec<_>>();
+        for mask in 0usize..(1 << possible.len()) {
+            let edges = possible
+                .iter()
+                .enumerate()
+                .filter_map(|(index, &edge)| ((mask >> index) & 1 == 1).then_some(edge))
+                .collect::<Vec<_>>();
+            let g = graph(4, &edges);
+            for component in strongly_connected_components(&g) {
+                for starts in [0, 1, 2, 4] {
+                    assert_eq!(
+                        shortest_cycle(&g, &component, starts),
+                        reference_cycle(&g, &component, starts),
+                        "mask={mask}, component={component:?}, starts={starts}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cycle_search_ignores_external_edges_and_handles_self_loops() {
+        let g = graph(
+            8,
+            &[(1, 4), (4, 6), (6, 1), (6, 6), (1, 0), (4, 7)],
+        );
+        let members = [1, 4, 6];
+        assert_eq!(shortest_cycle(&g, &members, 1), Some(vec![1, 4, 6, 1]));
+        assert_eq!(shortest_cycle(&g, &members, 3), Some(vec![6, 6]));
+        assert_eq!(shortest_cycle(&g, &[], 10), None);
+        assert_eq!(shortest_cycle(&g, &[2], 10), None);
+    }
+
+    #[test]
+    fn small_components_in_a_large_graph_keep_global_node_ids() {
+        let g = graph(
+            200_000,
+            &[(100_000, 199_999), (199_999, 100_000), (199_999, 5)],
+        );
+        assert_eq!(
+            shortest_cycle(&g, &[100_000, 199_999], 10),
+            Some(vec![100_000, 199_999, 100_000])
+        );
+    }
+
+    #[test]
+    fn layer_deduplication_handles_dense_edges_between_components() {
+        let mut g = Graph::new(102);
+        for node in 0..100 {
+            g.add_edge(node, (node + 1) % 100);
+            g.add_edge(node, 100);
+            g.add_edge(node, 101);
+        }
+        g.add_edge(100, 101);
+        g.finish();
+        let components = strongly_connected_components(&g);
+        let result = layers(&g, &components);
+        assert_eq!(components.len(), 3);
+        assert!(result[..100].iter().all(|&layer| layer == 2));
+        assert_eq!(&result[100..], &[1, 0]);
+    }
+
+    #[test]
+    fn layers_support_wide_dependency_fanout() {
+        let mut g = Graph::new(20_000);
+        for node in 1..g.len() {
+            g.add_edge(0, node);
+        }
+        g.finish();
+        let result = layers(&g, &strongly_connected_components(&g));
+        assert_eq!(result[0], 1);
+        assert!(result[1..].iter().all(|&layer| layer == 0));
+    }
 }
