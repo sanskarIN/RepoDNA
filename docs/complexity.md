@@ -21,11 +21,19 @@ behind it:
 
 | Capability | Languages | What is measured |
 |---|---|---|
-| Lexical | 25, including Rust, C, C++, C#, Java, Kotlin, Go, Python, JavaScript, TypeScript, PHP, Ruby, Swift, and Dart | Lines, comments, imports, symbols, functions, complexity, and nesting |
-| Line counting | 40, including HTML, CSS, JSON, YAML, TOML, Markdown, Dockerfile, Makefile, Haskell, and Julia | Lines of code, comments, and blanks |
+| Lexical | 26, including Rust, C, C++, C#, Java, Kotlin, Go, Python, JavaScript, TypeScript, PHP, Ruby, Swift, Dart, and Julia | Lines, comments, imports, symbols, functions, complexity, and nesting |
+| Line counting | 39, including HTML, CSS, JSON, YAML, TOML, Markdown, Dockerfile, Makefile, and Haskell | Lines of code, comments, and blanks |
 
 The full list is in the [README](../README.md#supported-languages). Plugins can add
 languages; see [plugins](plugins.md#language-definitions).
+
+Julia lexical analysis recognizes named long-form `function` declarations, common type,
+module and macro declarations, the first module in a `using`/`import` statement, and
+literal `include` paths. Function extents account for common `end` blocks and ignore
+indexing `end` and grouping delimiters. Short-form methods, multi-module import lists,
+full Unicode identifier grammar, interpolation, generated methods, dispatch and nested
+keyword blocks within grouping expressions are not fully modeled. As with other lexical
+analyzers, the metrics are estimates, not compiler results.
 
 Rust `use` trees are expanded through at most 128 nested brace groups; deeper branches
 are omitted while supported siblings remain visible. Missing imports in these cases do
