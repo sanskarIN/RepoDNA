@@ -49,10 +49,12 @@ described in "AI explanations" below.
   the start page and after a reload, and remembers in the tab's session storage which
   analysis that tab has open. You can remove them one by one on the start page, forget
   them all or turn this off in Settings, or clear the site's data in your browser.
-  When the browser blocks IndexedDB, RepoDNA uses temporary in-memory recent
-  history for that visit only; in that mode, files cannot be restored after a
-  reload. Turning retention off clears retained file data, including cleanup
-  on the next visit if an earlier asynchronous clear was interrupted.
+  If the browser does not expose IndexedDB when RepoDNA starts, it uses temporary
+  in-memory recent history for that visit only; in that mode, files cannot be
+  restored after a reload. If IndexedDB exists but a write fails, the current
+  file can still be explored, but its recent-history copy may not be saved.
+  Turning retention off clears retained files, with a follow-up clear on the
+  next visit if an earlier asynchronous deletion was interrupted.
 - Files you open in the web version are read in your browser and are not uploaded. When
   you analyze a folder or an archive there, the web version reads its files in your
   browser, with RepoDNA's analysis built as WebAssembly, and sends them nowhere. The

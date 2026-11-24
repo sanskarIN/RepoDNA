@@ -73,7 +73,8 @@ export function Settings() {
                 onChange={(event) => setRemember(event.target.checked)}
               />{" "}
               Keep the last {RECENT_LIMIT} analysis files I open in this browser, so that they open
-              again from the start page{recentCanReload ? " and after a reload" : " during this visit"}
+              again from the start page{" "}
+              {recentCanReload ? "and after a reload" : "during this visit"}
             </label>
           </fieldset>
           <p>
