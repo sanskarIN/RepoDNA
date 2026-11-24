@@ -48,7 +48,9 @@ jobs:
         run: |
           set -euo pipefail
           node packaging/release/check-version.mjs
-          if [ -n "$RELEASE_TAG" ]; then
+          # This finalization branch verifies publication-ready notes without
+          # publishing any release; the publish gate still requires a real tag.
+          if [ -n "$RELEASE_TAG" ] || [[ "$GITHUB_REF_NAME" == release/v1.5.3-final-qualification-* ]]; then
             node packaging/release/check-version.mjs --publish
           fi
       - id: version
@@ -726,6 +728,46 @@ jobs:
           name: trial-sha256sums
           path: dist/SHA256SUMS.txt
           if-no-files-found: error
+
+  trial-windows-qa:
+    name: Verify trial Windows packages against SHA-256 and version resources
+    needs: [prepare, trial-assets]
+    if: needs.prepare.outputs.publish == 'false' && needs.prepare.outputs.version == '1.5.3'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: trial-sha256sums
+          path: trial-checksums
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-Windows
+          path: trial-windows/x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-Windows-arm64
+          path: trial-windows/arm64
+      - name: Verify x64/ARM64 checksums and NSIS setup version resources
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($arch in @('x64', 'arm64')) {
+            & ./packaging/release/check-v1.5.3-windows-trial.ps1 `
+              -Architecture $arch `
+              -Directory "trial-windows/$arch" `
+              -ChecksumFile "trial-checksums/SHA256SUMS.txt" `
+              -Version $env:VERSION
+          }
+          Write-Output 'Verified four Windows trial packages against same-run checksums and NSIS metadata.'
+      # This checks the built files without executing them. Physical Windows
+      # installation, upgrade, launch and uninstall are still separate gates.
 
   publish:
     name: Publish the release
