@@ -10,6 +10,7 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
+use repodna_core::cancel::{CancellationToken, Cancelled};
 use repodna_core::hash::stable_id;
 use repodna_core::metric::round4;
 use repodna_core::model::SectionStatus;
@@ -186,6 +187,22 @@ fn covered_lines(mut ranges: Vec<(u32, u32)>) -> u64 {
 
 /// Detects duplicated code among non-test files with token streams.
 pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> DuplicationReport {
+    match detect_duplication_cancellable(files, min_tokens, &CancellationToken::new()) {
+        Ok(report) => report,
+        Err(_) => unreachable!("a private cancellation token cannot be cancelled"),
+    }
+}
+
+/// Detects duplicate code with cooperative cancellation between work units.
+///
+/// Cancellation returns an error instead of a misleading incomplete report.
+/// Sorting and extending one verified match remain indivisible work units.
+pub fn detect_duplication_cancellable(
+    files: &[QualityFile<'_>],
+    min_tokens: u32,
+    cancel: &CancellationToken,
+) -> Result<DuplicationReport, Cancelled> {
+    cancel.check()?;
     let min_tokens = min_tokens.max(10);
     let threshold = min_tokens as usize;
     let window = (threshold / 4).clamp(1, 16);
@@ -201,6 +218,7 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
     let mut streams: Vec<&TokenStream> = Vec::new();
     let mut untokenized = 0usize;
     for (position, file) in files.iter().enumerate().filter(|(_, file)| !file.test) {
+        cancel.check()?;
         match file.tokens {
             Some(tokens) => {
                 report.analyzed_lines += file.lines.code;
@@ -220,8 +238,12 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
     // Fingerprint index.
     let mut index: HashMap<u64, Vec<(u32, u32)>> = HashMap::new();
     for (stream, tokens) in streams.iter().enumerate() {
+        cancel.check()?;
         let kgrams = kgram_hashes(&tokens.hashes, k);
-        for (hash, position) in winnow(&kgrams, window) {
+        for (ordinal, (hash, position)) in winnow(&kgrams, window).into_iter().enumerate() {
+            if ordinal % 256 == 0 {
+                cancel.check()?;
+            }
             if let (Ok(stream), Ok(position)) = (u32::try_from(stream), u32::try_from(position)) {
                 index.entry(hash).or_default().push((stream, position));
             }
@@ -230,28 +252,32 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
 
     // Verified maximal matches.
     let mut matches: HashSet<Match> = HashSet::new();
-    let mut try_pair = |a: (u32, u32), b: (u32, u32)| {
+    let mut try_pair = |a: (u32, u32), b: (u32, u32)| -> Result<(), Cancelled> {
+        cancel.check()?;
         if a.0 == b.0 && (a.1.abs_diff(b.1) as usize) < k {
-            return;
+            return Ok(());
         }
         if let Some(found) = extend(&streams, a, b, k)
             && found.len >= min_tokens
+            && !matches.contains(&found)
             && !is_data(&streams[found.a as usize].hashes, found.a_start, found.len)
         {
             matches.insert(found);
         }
+        Ok(())
     };
     for entries in index.values_mut().filter(|entries| entries.len() > 1) {
+        cancel.check()?;
         entries.sort_unstable();
         if entries.len() > MAX_PAIRWISE {
             for &other in &entries[1..] {
-                try_pair(entries[0], other);
+                try_pair(entries[0], other)?;
             }
             continue;
         }
         for i in 0..entries.len() {
             for j in i + 1..entries.len() {
-                try_pair(entries[i], entries[j]);
+                try_pair(entries[i], entries[j])?;
             }
         }
     }
@@ -259,6 +285,7 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
     // Group identical sequences into clusters.
     let mut groups: HashMap<(u64, u32), BTreeSet<(u32, u32)>> = HashMap::new();
     for found in &matches {
+        cancel.check()?;
         let start = found.a_start as usize;
         let hashes = &streams[found.a as usize].hashes[start..start + found.len as usize];
         let group = groups.entry((sequence_key(hashes), found.len)).or_default();
@@ -281,6 +308,7 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
     let mut clusters = Vec::new();
     let mut line_ranges: BTreeMap<u32, Vec<(u32, u32)>> = BTreeMap::new();
     for (len, locations) in candidates {
+        cancel.check()?;
         let inside = |stream: u32, start: u32| {
             covered
                 .get(&stream)
@@ -294,6 +322,7 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
         }
         let mut occurrences = Vec::with_capacity(locations.len());
         for &(stream, start) in &locations {
+            cancel.check()?;
             covered
                 .entry(stream)
                 .or_default()
@@ -343,7 +372,8 @@ pub fn detect_duplication(files: &[QualityFile<'_>], min_tokens: u32) -> Duplica
     });
     clusters.truncate(MAX_CLUSTERS);
     report.clusters = clusters;
-    report
+    cancel.check()?;
+    Ok(report)
 }
 
 #[cfg(test)]
@@ -471,6 +501,29 @@ mod tests {
         assert!(report.clusters.is_empty(), "{:?}", report.clusters);
         assert!(is_data(&[1, 2, 1, 2, 1, 2], 0, 6));
         assert!(!is_data(&(0..20).collect::<Vec<u32>>(), 0, 20));
+    }
+
+    #[test]
+    fn cancellable_duplication_matches_existing_api() {
+        let analyzed = [
+            analyze("src/a.py", BLOCK, false),
+            analyze("src/b.py", BLOCK, false),
+        ];
+        let files = files(&analyzed);
+        let token = CancellationToken::new();
+        assert_eq!(
+            detect_duplication_cancellable(&files, 50, &token).unwrap(),
+            detect_duplication(&files, 50)
+        );
+        token.cancel();
+        assert_eq!(
+            detect_duplication_cancellable(&files, 50, &token),
+            Err(Cancelled)
+        );
+        assert_eq!(
+            detect_duplication_cancellable(&[], 50, &token),
+            Err(Cancelled)
+        );
     }
 
     #[test]
