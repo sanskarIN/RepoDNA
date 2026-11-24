@@ -20,6 +20,11 @@ unchanged; unrelated development features on `main` are not included.
   update its required `form_urlencoded` dependency from 1.2.2 to 1.2.3.
   The advisory affects the dependency; application-level reachability has not
   been confirmed.
+- Update the packaged desktop dependency `cookie` from 0.18.2 to 0.18.3
+  for [RUSTSEC-2026-0594](https://rustsec.org/advisories/RUSTSEC-2026-0594.html).
+  This addresses a private-cookie nonce-reuse vulnerability in processes
+  that fork. Reachability in the shipped desktop application has not been
+  established; no exception or advisory suppression is used.
 
 ### Fixed
 

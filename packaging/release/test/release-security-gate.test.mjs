@@ -58,3 +58,16 @@ test('v1.5.3 finalization trial runs native Windows CLI and installer integrity 
   assert.match(windows, /if: needs\.prepare\.outputs\.publish == 'false'/);
   assert.match(publish, /if: needs\.prepare\.outputs\.publish == 'true'/);
 });
+
+
+test('v1.5.3 desktop lockfile includes the patched cookie advisory fix', () => {
+  const locked = readFileSync('apps/desktop/src-tauri/Cargo.lock', 'utf8');
+  const cookieBlocks = locked.match(/\[\[package\]\]\r?\nname = "cookie"\r?\nversion = "[^"]+"\r?\nsource = "[^"]+"\r?\nchecksum = "[^"]+"/g) ?? [];
+  assert.equal(cookieBlocks.length, 1, 'expected one desktop cookie crate');
+  assert.match(cookieBlocks[0], /version = "0\.18\.3"/);
+  assert.match(
+    cookieBlocks[0],
+    /checksum = "d55f2d6c30eeec7d5c6f98bd4395d4abb1895629eab97ee6522d340623615f8a"/,
+  );
+  assert.doesNotMatch(locked, /name = "cookie"\r?\nversion = "0\.18\.2"/);
+});
