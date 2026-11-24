@@ -71,6 +71,7 @@ struct LineBuilder {
     comment: Vec<u8>,
     has_code: bool,
     has_comment: bool,
+    pending_comment_gap: bool,
 }
 
 impl LineBuilder {
@@ -92,7 +93,28 @@ impl LineBuilder {
         line
     }
 
+    // Block comments separate lexical tokens, even when there is no
+    // surrounding whitespace. Defer the gap until code resumes so
+    // comment-only and trailing-comment lines retain their old shape.
+    fn separate_after_comment(&mut self, next: u8) {
+        if std::mem::take(&mut self.pending_comment_gap)
+            && !next.is_ascii_whitespace()
+            && self.code.last().is_some_and(|byte| !byte.is_ascii_whitespace())
+        {
+            self.code.push(b' ');
+            self.masked.push(b' ');
+        }
+    }
+
+    fn begin_comment(&mut self) {
+        self.has_comment = true;
+        if self.comment.last().is_some_and(|byte| !byte.is_ascii_whitespace()) {
+            self.comment.push(b' ');
+        }
+    }
+
     fn push_code(&mut self, byte: u8) {
+        self.separate_after_comment(byte);
         self.code.push(byte);
         self.masked.push(byte);
         if !byte.is_ascii_whitespace() {
@@ -107,6 +129,7 @@ impl LineBuilder {
     }
 
     fn push_string_content(&mut self, byte: u8) {
+        self.separate_after_comment(byte);
         self.code.push(byte);
         self.masked.push(if byte == b'\t' { b'\t' } else { b' ' });
         if !byte.is_ascii_whitespace() {
@@ -162,6 +185,11 @@ pub fn scan(text: &str, syntax: &Syntax) -> ScannedFile {
     while index < bytes.len() {
         let byte = bytes[index];
         if byte == b'\n' {
+            // A blank physical line within a block comment is still a
+            // comment line. Closing-delimiter-only lines are comments too.
+            if matches!(state, State::Block { .. }) {
+                line.has_comment = true;
+            }
             if let State::Str { rule } = state
                 && !syntax.strings[rule].multiline
             {
@@ -184,7 +212,8 @@ pub fn scan(text: &str, syntax: &Syntax) -> ScannedFile {
                     .iter()
                     .position(|rule| starts_with(bytes, index, &rule.open))
                 {
-                    line.has_comment = true;
+                    line.begin_comment();
+                    line.pending_comment_gap = true;
                     index += syntax.block_comments[rule].open.len();
                     state = State::Block { rule, depth: 1 };
                     continue;
@@ -194,7 +223,7 @@ pub fn scan(text: &str, syntax: &Syntax) -> ScannedFile {
                     starts_with(bytes, index, &comment.token)
                         && (!comment.requires_boundary || boundary)
                 }) {
-                    line.has_comment = true;
+                    line.begin_comment();
                     index += comment.token.len();
                     while index < bytes.len() && bytes[index] != b'\n' {
                         if bytes[index] != b'\r' {
@@ -234,14 +263,19 @@ pub fn scan(text: &str, syntax: &Syntax) -> ScannedFile {
                 index += 1;
             }
             State::Block { rule, depth } => {
+                line.has_comment = true;
                 let comment = &syntax.block_comments[rule];
                 if comment.nested && starts_with(bytes, index, &comment.open) {
+                    line.begin_comment();
                     state = State::Block {
                         rule,
                         depth: depth + 1,
                     };
                     index += comment.open.len();
                 } else if starts_with(bytes, index, &comment.close) {
+                    if depth > 1 {
+                        line.begin_comment();
+                    }
                     index += comment.close.len();
                     state = if depth <= 1 {
                         State::Code
@@ -328,15 +362,30 @@ fn scan_rust_quote(bytes: &[u8], index: usize, line: &mut LineBuilder) -> usize 
     let next = bytes.get(index + 1).copied();
     let closing = match next {
         Some(b'\\') => {
-            // Escaped character literal: find the closing quote on the same line.
-            let mut cursor = index + 2;
-            while cursor < bytes.len() && bytes[cursor] != b'\n' && cursor < index + 16 {
-                if bytes[cursor] == b'\'' {
-                    break;
+            // Skip the escaped byte itself. In particular, the first
+            // apostrophe in '\'' is content, not the closing delimiter.
+            let after = match bytes.get(index + 2).copied() {
+                Some(b'x') => index + 5,
+                Some(b'u') if bytes.get(index + 3) == Some(&b'{') => {
+                    let mut cursor = index + 4;
+                    while bytes.get(cursor).is_some_and(|byte| {
+                        byte.is_ascii_hexdigit() || *byte == b'_'
+                    }) && cursor < index + 16
+                    {
+                        cursor += 1;
+                    }
+                    if bytes.get(cursor) == Some(&b'}') {
+                        cursor + 1
+                    } else {
+                        index + 1
+                    }
                 }
-                cursor += 1;
-            }
-            (bytes.get(cursor) == Some(&b'\'')).then_some(cursor)
+                Some(byte) if byte != b'\n' && byte != b'\r' => {
+                    index + 2 + utf8_width(byte)
+                }
+                _ => index + 1,
+            };
+            (bytes.get(after) == Some(&b'\'')).then_some(after)
         }
         Some(byte) if byte != b'\n' && byte != b'\'' => {
             let after = index + 1 + utf8_width(byte);
