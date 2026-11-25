@@ -680,6 +680,29 @@ mod tests {
     }
 
     #[test]
+    fn cached_analysis_keys_distinguish_language_rules_and_content() {
+        let registry = LanguageRegistry::builtin();
+        let rust = registry.get("rust").unwrap();
+        let python = registry.get("python").unwrap();
+        let fingerprint = language_fingerprint(rust);
+        let hash = [17; 32];
+        let rust_key = cache_key(&hash, &fingerprint);
+
+        // Compiling a lazy regex during analysis must not change a key.
+        let _ = analyze_source(rust, "fn run() {}");
+        assert_eq!(language_fingerprint(rust), fingerprint);
+        assert_eq!(cache_key(&hash, &fingerprint), rust_key);
+
+        // Identical file bytes must not share cached lexical analysis when
+        // their language definitions or plugin syntax differ.
+        assert_ne!(cache_key(&hash, &language_fingerprint(python)), rust_key);
+        let mut modified = rust.clone();
+        modified.syntax.line_comments.clear();
+        assert_ne!(cache_key(&hash, &language_fingerprint(&modified)), rust_key);
+        assert_ne!(cache_key(&[18; 32], &fingerprint), rust_key);
+    }
+
+    #[test]
     fn lexical_metrics_match_across_tokenization_profiles() {
         let files = [
             ("src/a.rs", "use crate::b;\npub fn a() { if true {} }\n"),
