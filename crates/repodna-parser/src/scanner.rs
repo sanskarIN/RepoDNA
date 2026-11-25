@@ -100,7 +100,10 @@ impl LineBuilder {
     fn separate_after_comment(&mut self, next: u8) {
         if std::mem::take(&mut self.pending_comment_gap)
             && !next.is_ascii_whitespace()
-            && self.code.last().is_some_and(|byte| !byte.is_ascii_whitespace())
+            && self
+                .code
+                .last()
+                .is_some_and(|byte| !byte.is_ascii_whitespace())
         {
             self.code.push(b' ');
             self.masked.push(b' ');
@@ -109,7 +112,11 @@ impl LineBuilder {
 
     fn begin_comment(&mut self) {
         self.has_comment = true;
-        if self.comment.last().is_some_and(|byte| !byte.is_ascii_whitespace()) {
+        if self
+            .comment
+            .last()
+            .is_some_and(|byte| !byte.is_ascii_whitespace())
+        {
             self.comment.push(b' ');
         }
     }
@@ -376,9 +383,10 @@ fn scan_rust_quote(bytes: &[u8], index: usize, line: &mut LineBuilder) -> usize 
                 Some(b'x') => index + 1,
                 Some(b'u') if bytes.get(index + 3) == Some(&b'{') => {
                     let mut cursor = index + 4;
-                    while bytes.get(cursor).is_some_and(|byte| {
-                        byte.is_ascii_hexdigit() || *byte == b'_'
-                    }) && cursor < index + 16
+                    while bytes
+                        .get(cursor)
+                        .is_some_and(|byte| byte.is_ascii_hexdigit() || *byte == b'_')
+                        && cursor < index + 16
                     {
                         cursor += 1;
                     }
@@ -388,9 +396,7 @@ fn scan_rust_quote(bytes: &[u8], index: usize, line: &mut LineBuilder) -> usize 
                         index + 1
                     }
                 }
-                Some(byte) if byte != b'\n' && byte != b'\r' => {
-                    index + 2 + utf8_width(byte)
-                }
+                Some(byte) if byte != b'\n' && byte != b'\r' => index + 2 + utf8_width(byte),
                 _ => index + 1,
             };
             (bytes.get(after) == Some(&b'\'')).then_some(after)
@@ -625,7 +631,8 @@ mod tests {
 
     #[test]
     fn rust_escaped_apostrophe_and_other_character_literals_mask_correctly() {
-        let source = r#"let a = '\''; let b = '\\'; let c = '\x41'; let d = '\u{1F600}'; let e = 'é';"#;
+        let source =
+            r#"let a = '\''; let b = '\\'; let c = '\x41'; let d = '\u{1F600}'; let e = 'é';"#;
         let scanned = scan(source, &rust_like());
         let line = &scanned.lines[0];
         assert_eq!(line.code, source);

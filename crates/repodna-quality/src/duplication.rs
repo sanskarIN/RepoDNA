@@ -241,7 +241,7 @@ pub fn detect_duplication_cancellable(
         cancel.check()?;
         let kgrams = kgram_hashes(&tokens.hashes, k);
         for (ordinal, (hash, position)) in winnow(&kgrams, window).into_iter().enumerate() {
-            if ordinal % 256 == 0 {
+            if ordinal.is_multiple_of(256) {
                 cancel.check()?;
             }
             if let (Ok(stream), Ok(position)) = (u32::try_from(stream), u32::try_from(position)) {
@@ -586,10 +586,7 @@ mod tests {
     fn linear_winnowing_preserves_rightmost_ties_at_extreme_hash_values() {
         let hashes = [u64::MAX, 0, 0, u64::MAX, 0, 0, u64::MAX];
         for window in 0..=hashes.len() + 1 {
-            assert_eq!(
-                winnow(&hashes, window),
-                reference_winnow(&hashes, window)
-            );
+            assert_eq!(winnow(&hashes, window), reference_winnow(&hashes, window));
         }
         assert_eq!(winnow(&[7, 7, 7, 7], 3), vec![(7, 2), (7, 3)]);
         assert_eq!(winnow(&[u64::MAX], usize::MAX), vec![(u64::MAX, 0)]);

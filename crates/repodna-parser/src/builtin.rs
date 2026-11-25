@@ -1525,14 +1525,13 @@ fn other_programming() -> Vec<LanguageSpec> {
             1,
             ImportKind::Import,
         ),
-        import(
-            r#"^\s*include\s*\(\s*"([^"]+)""#,
-            1,
-            ImportKind::Include,
-        ),
+        import(r#"^\s*include\s*\(\s*"([^"\\$]+)"\s*\)"#, 1, ImportKind::Include),
     ];
-    julia.complexity =
-        ComplexityRules::new(&["if", "elseif", "for", "while", "catch"], &["&&", "||"], true);
+    julia.complexity = ComplexityRules::new(
+        &["if", "elseif", "for", "while", "catch"],
+        &["&&", "||"],
+        true,
+    );
     let fsharp = line_count(
         "fsharp",
         "F#",

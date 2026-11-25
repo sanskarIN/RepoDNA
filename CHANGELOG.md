@@ -16,6 +16,10 @@ tag and commit analysis and counts-only exports remain development-only.
 
 ### Added
 
+- Add initial Julia lexical analysis, including long-form function extents,
+  declarations and simple literal imports; full dispatch and short-form methods
+  remain out of scope (#322).
+
 - Report exact worst, expected and best retrieval metrics under equal-score
   evidence ordering for frozen native ranker evaluations; no runtime scoring
   or checkpoint format change (#305).
@@ -42,6 +46,15 @@ tag and commit analysis and counts-only exports remain development-only.
   aggregate counts without publishing reviewer annotations (#251).
 
 ### Fixed
+
+- Index dependency lockfile joins and package boundaries to avoid repeated
+  repository-wide scans while preserving workspace scope and version unions (#317).
+- Preserve lexical token boundaries around block comments and recognize bounded
+  Rust character escapes; invalidate obsolete per-file cache entries (#318).
+- Reuse repository-level ranking scores for balanced retrieval and stability
+  diagnostics without changing checkpoint weights or output meanings (#319).
+- Skip token generation when the selected analysis stages do not need it, and
+  check cancellation throughout the file pass (#320).
 
 - Precompute pairwise ranker feature differences instead of repeatedly
   extracting features in every training epoch (#306).

@@ -57,7 +57,7 @@ fn mix(mut value: u64) -> u64 {
 fn signature(hashes: &[u32], cancel: &CancellationToken) -> Result<[u64; PERMUTATIONS], Cancelled> {
     let mut signature = [u64::MAX; PERMUTATIONS];
     for (index, window) in hashes.windows(SHINGLE).enumerate() {
-        if index % CHECK_INTERVAL == 0 {
+        if index.is_multiple_of(CHECK_INTERVAL) {
             cancel.check()?;
         }
         let shingle = window
@@ -79,7 +79,9 @@ fn equal_slots(a: &[u64; PERMUTATIONS], b: &[u64; PERMUTATIONS]) -> usize {
 
 fn band_keys(signature: &[u64; PERMUTATIONS]) -> [u64; BANDS] {
     let mut keys = [0; BANDS];
-    for (key, rows) in keys.iter_mut().zip(signature.chunks_exact(ROWS)) {
+    let (rows, remainder) = signature.as_chunks::<ROWS>();
+    debug_assert!(remainder.is_empty());
+    for (key, rows) in keys.iter_mut().zip(rows) {
         *key = rows.iter().fold(0u64, |hash, &value| mix(hash ^ value));
     }
     keys
@@ -204,7 +206,7 @@ pub fn detect_similarity_cancellable(
         for (position, &i) in members.iter().enumerate() {
             for &j in &members[position + 1..] {
                 comparisons += 1;
-                if comparisons % CHECK_INTERVAL == 0 {
+                if comparisons.is_multiple_of(CHECK_INTERVAL) {
                     cancel.check()?;
                 }
                 let (a, b) = (&candidates[i], &candidates[j]);
@@ -363,10 +365,16 @@ mod tests {
         assert_eq!(report.status, SectionStatus::Partial);
         assert_eq!(report.similar_files.len(), MAX_PAIRS);
         assert!(
-            report.notes.iter().any(|note| note.contains("16 language-specific"))
+            report
+                .notes
+                .iter()
+                .any(|note| note.contains("16 language-specific"))
         );
         assert!(
-            report.notes.iter().any(|note| note.contains("48 bucket memberships"))
+            report
+                .notes
+                .iter()
+                .any(|note| note.contains("48 bucket memberships"))
         );
         assert!(report.notes.iter().any(|note| note.starts_with("1225 ")));
         assert_eq!(report, detect_similarity(&files, 1.0));

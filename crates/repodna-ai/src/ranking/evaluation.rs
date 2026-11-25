@@ -499,7 +499,12 @@ fn sort_by_relevance(model: &RankerModel, query: &str, group: &mut [&LabeledEvid
     let query_terms = super::terms(query);
     let mut scored = group
         .iter()
-        .map(|&item| (model.relevance_with_terms(&query_terms, &item.evidence), item))
+        .map(|&item| {
+            (
+                model.relevance_with_terms(&query_terms, &item.evidence),
+                item,
+            )
+        })
         .collect::<Vec<_>>();
     scored.sort_by(|(left, _), (right, _)| right.total_cmp(left));
     for (slot, (_, item)) in group.iter_mut().zip(scored) {
@@ -750,8 +755,7 @@ mod tests {
                 }
                 for k in [1, 2, 5, 10, 100] {
                     let (count, expected) = reference_repository_scores(&ranker, &holdout, k);
-                    let (actual_count, actual) =
-                        repository_scores(&ranker, &holdout, k).unwrap();
+                    let (actual_count, actual) = repository_scores(&ranker, &holdout, k).unwrap();
                     assert_eq!(actual_count, count);
                     assert_eq!(actual.len(), expected.len());
                     for (left, right) in actual.iter().zip(&expected) {
@@ -797,8 +801,7 @@ mod tests {
         assert!(!serialized.contains("private-question"));
         assert!(evaluate_repository_diagnostics(&model(), &[], 5).is_err());
         assert!(
-            evaluate_repository_diagnostics(&model(), std::slice::from_ref(&negative), 0)
-                .is_err()
+            evaluate_repository_diagnostics(&model(), std::slice::from_ref(&negative), 0).is_err()
         );
         assert!(
             evaluate_repository_diagnostics(&model(), &[negative.clone(), negative], 5).is_err()

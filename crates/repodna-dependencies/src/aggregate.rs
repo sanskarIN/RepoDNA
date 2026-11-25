@@ -397,7 +397,10 @@ pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
     let mut manifests_by_path: BTreeMap<&str, Vec<&ParsedManifest>> = BTreeMap::new();
     for item in &parsed {
         if let Some(manifest) = &item.manifest {
-            manifests_by_path.entry(item.path).or_default().push(manifest);
+            manifests_by_path
+                .entry(item.path)
+                .or_default()
+                .push(manifest);
         }
     }
     for ((ecosystem, _), (name, manifest)) in &declared {
@@ -850,7 +853,11 @@ mod tests {
             lock("apps/web/package-lock.json").missing_from_lock,
             vec!["missing"]
         );
-        assert!(lock("apps/web-admin/package-lock.json").missing_from_lock.is_empty());
+        assert!(
+            lock("apps/web-admin/package-lock.json")
+                .missing_from_lock
+                .is_empty()
+        );
         assert!(lock("apps/package-lock.json").missing_from_lock.is_empty());
         assert_eq!(report.duplicates.len(), 1);
         assert_eq!(report.duplicates[0].versions, vec!["1.1.0", "1.2.0"]);
@@ -953,9 +960,18 @@ mod tests {
                 "beta/member/Cargo.toml",
                 "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\nlocal.workspace = true\n",
             ),
-            file("alpha/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"1.9.0\"\n"),
-            file("beta/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"2.1.0\"\n"),
-            file("beta/member/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"2.2.0\"\n"),
+            file(
+                "alpha/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"1.9.0\"\n",
+            ),
+            file(
+                "beta/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"2.1.0\"\n",
+            ),
+            file(
+                "beta/member/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"2.2.0\"\n",
+            ),
         ];
         let report = analyze(&files).report;
         let serde = report

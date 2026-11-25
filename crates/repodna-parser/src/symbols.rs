@@ -355,10 +355,21 @@ fn julia_body(lines: &[ScannedLine], start_line: usize) -> Body {
                     if !qualified {
                         let opens = matches!(
                             word,
-                            "function" | "macro" | "module" | "baremodule" | "struct"
-                                | "if" | "for" | "while" | "let" | "begin" | "try"
-                                | "quote" | "do"
-                        ) || (word == "type" && matches!(previous, "abstract" | "primitive"));
+                            "function"
+                                | "macro"
+                                | "module"
+                                | "baremodule"
+                                | "struct"
+                                | "if"
+                                | "for"
+                                | "while"
+                                | "let"
+                                | "begin"
+                                | "try"
+                                | "quote"
+                                | "do"
+                        ) || (word == "type"
+                            && matches!(previous, "abstract" | "primitive"));
                         if opens {
                             depth = depth.saturating_add(1);
                             max_depth = max_depth.max(depth);

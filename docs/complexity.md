@@ -29,7 +29,8 @@ languages; see [plugins](plugins.md#language-definitions).
 
 Julia lexical analysis recognizes named long-form `function` declarations, common type,
 module and macro declarations, the first module in a `using`/`import` statement, and
-literal `include` paths. Function extents account for common `end` blocks and ignore
+simple literal `include` paths (not concatenated, escaped or interpolated paths).
+Function extents account for common `end` blocks and ignore
 indexing `end` and grouping delimiters. Short-form methods, multi-module import lists,
 full Unicode identifier grammar, interpolation, generated methods, dispatch and nested
 keyword blocks within grouping expressions are not fully modeled. As with other lexical

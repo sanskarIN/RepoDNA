@@ -340,7 +340,34 @@ mod tests {
         assert_eq!(analysis.symbols[0].complexity, Some(1));
         assert_eq!(analysis.markers.len(), 1);
         assert!(!tokens.is_empty());
-        assert_eq!(registry.detect_shebang("#!/usr/bin/env julia").unwrap().id, "julia");
+        assert_eq!(
+            registry.detect_shebang("#!/usr/bin/env julia").unwrap().id,
+            "julia"
+        );
+    }
+
+    #[test]
+    fn julia_include_only_records_a_simple_literal_path() {
+        let analysis = analyze(
+            "julia",
+            concat!(
+                "include(\"simple.jl\")\n",
+                "include ( \"folder/with space.jl\" ) # comment\n",
+                "include(\"prefix.jl\" * suffix)\n",
+                "include(\"$directory/generated.jl\")\n",
+                "include(\"escaped\\nname.jl\")\n",
+                "include(mapexpr, \"transformed.jl\")\n",
+                "# include(\"comment.jl\")\n",
+            ),
+        );
+        assert_eq!(
+            analysis
+                .imports
+                .iter()
+                .map(|import| (import.specifier.as_str(), import.line))
+                .collect::<Vec<_>>(),
+            vec![("simple.jl", 1), ("folder/with space.jl", 2)]
+        );
     }
 
     #[test]
