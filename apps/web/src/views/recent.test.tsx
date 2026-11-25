@@ -201,7 +201,7 @@ describe("recent analyses", () => {
     const store = memoryStore();
     await start("/", store);
     await openFile("another-tab.json");
-    await waitFor(() => expect(openPointer()?.kind).toBe("file");
+    await waitFor(() => expect(openPointer()?.kind).toBe("file"));
     await act(async () => {
       window.localStorage.setItem("repodna-remember-recent", "off");
       window.dispatchEvent(
