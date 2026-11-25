@@ -176,10 +176,17 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
     },
     async text(id) {
       const db = await open();
-      const row = (await request(db.transaction("texts").objectStore("texts").get(id))) as
-        | { id: string; text: string }
-        | undefined;
-      return typeof row?.text === "string" ? row.text : null;
+      // Read metadata and text in one snapshot. A stale UI row cannot make
+      // orphan or corrupted text appear to be a retained analysis.
+      const transaction = db.transaction(["recent", "texts"]);
+      const [entry, row] = await Promise.all([
+        request(transaction.objectStore("recent").get(id)) as Promise<unknown>,
+        request(transaction.objectStore("texts").get(id)) as Promise<
+          { id: unknown; text: unknown } | undefined
+        >,
+      ]);
+      if (!validRecentEntry(entry) || entry.id !== id) return null;
+      return row?.id === id && typeof row.text === "string" ? row.text : null;
     },
     async add(entry, text) {
       if (!validRecentEntry(entry)) {

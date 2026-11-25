@@ -16,6 +16,12 @@ tag and commit analysis and counts-only exports remain development-only.
 
 ### Added
 
+- Report exact worst, expected and best retrieval metrics under equal-score
+  evidence ordering for frozen native ranker evaluations; no runtime scoring
+  or checkpoint format change (#305).
+- Bound similar-file results to the top 100 with language-specific candidate
+  buckets, cooperative cancellation, and explicit partial coverage (#312).
+
 - Accept explicit remote branch, tag, and full commit SHA selections in the
   CLI, local server, and desktop form; verify checked-out revisions, support
   GitHub `/commit/<full-SHA>` links, and preview `/tree/` candidates without
@@ -36,6 +42,19 @@ tag and commit analysis and counts-only exports remain development-only.
   aggregate counts without publishing reviewer annotations (#251).
 
 ### Fixed
+
+- Precompute pairwise ranker feature differences instead of repeatedly
+  extracting features in every training epoch (#306).
+- Resolve inherited Cargo dependencies in the selected workspace, rather
+  than a global shared declaration table (#307).
+- Reduce dependency-cycle search scratch memory and deduplicate condensed
+  graph edges without repeated linear membership scans (#308).
+- Select rightmost duplicate-code fingerprint minima in linear time (#309).
+- Reject rooted child paths and drive prefixes exposed by normalization
+  before recording repository-relative entrypoints and references (#310).
+- Keep dependency graph centrality finite for overflowing shortest-path
+  counts using a log-domain fallback, and avoid integer overflow in the
+  normalization denominator (#311).
 
 - Patch the desktop dependency lockfile to `url` 2.5.9 and
   `form_urlencoded` 1.2.3 for RUSTSEC-2026-0592 (#296). This is a

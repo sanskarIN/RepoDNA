@@ -27,6 +27,10 @@ behind it:
 The full list is in the [README](../README.md#supported-languages). Plugins can add
 languages; see [plugins](plugins.md#language-definitions).
 
+Rust `use` trees are expanded through at most 128 nested brace groups; deeper branches
+are omitted while supported siblings remain visible. Missing imports in these cases do
+not establish that a dependency is unused.
+
 ## Complexity
 
 **Approximate cyclomatic complexity**, counted lexically: 1 plus the decision points
@@ -65,9 +69,13 @@ duplicated. Rules: `quality.duplicate-block` and `quality.duplication-ratio`.
 
 Each file is reduced to the set of its 5-token shingles. A 64-value MinHash signature
 estimates the Jaccard similarity of two files, and locality-sensitive hashing (16 bands of 4
-values) finds candidate pairs without comparing every pair. Pairs at or above `similarity`
-(0.8) are reported as `quality.similar-files`: copies that have drifted apart, generated
-variants, or templates.
+values) finds candidate pairs without comparing every pair. Buckets are separated by
+language and retain at most 50 files in input order. If a bucket is capped or an eligible
+file lacks tokens, the similarity section is partial and records the limitation. The engine
+compares each retained candidate pair once and keeps the 100 highest-scoring pairs, with
+deterministic path ordering for equal scores. A partial or approximate result cannot
+establish the absence of similar files. Pairs at or above `similarity` (0.8) are reported
+as `quality.similar-files`: copies that have drifted apart, generated variants, or templates.
 
 ## Markers
 

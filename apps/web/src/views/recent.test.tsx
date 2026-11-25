@@ -77,6 +77,67 @@ describe("recent analyses", () => {
     expect(openPointer()).toBeNull();
   });
 
+  it("does not restore cached JSON whose analysis ID differs from the saved metadata", async () => {
+    const store = memoryStore();
+    await store.add(
+      {
+        id: "different-from-demo-id",
+        name: "mismatched.json",
+        repository: "test",
+        generatedAt: "2026-11-23T00:00:00Z",
+        openedAt: "2026-11-24T00:00:00Z",
+        size: demoText.length,
+      },
+      demoText,
+    );
+    setRememberRecent(true);
+    setOpenPointer({ kind: "file", id: "different-from-demo-id" });
+    await start("/files", store);
+    expect(await screen.findByText("No analysis is open")).toBeTruthy();
+    expect(openPointer()).toBeNull();
+  });
+
+  it("discards a reload restore when another tab disables retention during the read", async () => {
+    const actual = memoryStore();
+    await start("/", actual);
+    await openFile("pending-restore.json");
+    await waitFor(() => expect(openPointer()?.kind).toBe("file"));
+    cleanup();
+
+    let release!: (text: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    let began!: () => void;
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const store: RecentStore = {
+      ...actual,
+      text() {
+        began();
+        return pending;
+      },
+    };
+    await start("/files", store);
+    await started;
+    await act(async () => {
+      window.localStorage.setItem("repodna-remember-recent", "off");
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "repodna-remember-recent",
+          newValue: "off",
+          storageArea: window.localStorage,
+        }),
+      );
+      release(demoText);
+      await pending;
+    });
+    expect(await screen.findByText("No analysis is open")).toBeTruthy();
+    expect(openPointer()).toBeNull();
+    await waitFor(async () => expect(await actual.list()).toEqual([]));
+  });
+
   it("starts with nothing open after the analysis was closed", async () => {
     const store = memoryStore();
     await start("/", store);

@@ -130,8 +130,9 @@ async function restore(
       const entry = (await store.list()).find((item) => item.id === pointer.id);
       if (!entry) return null;
       const text = await store.text(pointer.id);
-      if (text === null) return null;
+      if (text === null || !rememberRecent()) return null;
       const loaded = parseArtifact(text);
+      if (loaded.artifact.analysisMetadata.id !== pointer.id) return null;
       return {
         dna: loaded.artifact,
         origin: { kind: "file", name: entry.name },
@@ -216,17 +217,21 @@ export function AppProvider({
       // A reload keeps the analysis the tab had open.
       const pointer = openedAtStart ? null : openPointer();
       if (pointer) {
+        const selection = selectionEpoch.current;
         try {
           const restored = await restore(pointer, detected?.backend ?? null, store);
-          if (!cancelled) {
-            if (restored) {
+          if (!cancelled && selection === selectionEpoch.current) {
+            if (restored && (pointer.kind !== "file" || rememberRecent())) {
+              selectedFileId.current = pointer.kind === "file" ? pointer.id : null;
               setDataset(restored);
             } else {
               setOpenPointer(null);
             }
           }
         } catch {
-          setOpenPointer(null);
+          if (!cancelled && selection === selectionEpoch.current) {
+            setOpenPointer(null);
+          }
         }
       }
       if (!cancelled) {
@@ -328,6 +333,9 @@ export function AppProvider({
           throw new Error(`${entry.name} is no longer kept in this browser.`);
         }
         const loaded = parseArtifact(text);
+        if (loaded.artifact.analysisMetadata.id !== entry.id) {
+          throw new Error(`${entry.name} does not match its saved analysis metadata.`);
+        }
         open(
           {
             dna: loaded.artifact,
@@ -349,10 +357,16 @@ export function AppProvider({
   );
   const clearFilePointer = useCallback((id?: string) => {
     const pointer = openPointer();
-    if (pointer?.kind === "file" && (id === undefined || pointer.id === id)) {
+    const matchesPointer = pointer?.kind === "file" && (id === undefined || pointer.id === id);
+    if (matchesPointer) {
       setOpenPointer(null);
     }
-    if (id === undefined || selectedFileId.current === id || pendingRecentId.current === id) {
+    if (
+      matchesPointer ||
+      id === undefined ||
+      selectedFileId.current === id ||
+      pendingRecentId.current === id
+    ) {
       selectionEpoch.current += 1;
       pendingRecentId.current = null;
       pendingRecentSelection.current = null;

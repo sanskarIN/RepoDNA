@@ -1,0 +1,101 @@
+name: Windows engine trial
+
+# Only the dedicated same-repository trial PR can run this workflow.
+# No release tags, publishing credentials, or package publication.
+on:
+  pull_request:
+    branches: [integration/engine-trial-20261124]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-engine-trial-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  windows-x64:
+    name: Windows x64 trial installer
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'trial/windows-engine-20261124'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            apps/desktop/src-tauri
+      - name: Verify source and locked dependency metadata
+        shell: pwsh
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:EXPECTED_SHA) {
+            throw 'Trial source commit mismatch'
+          }
+          cargo metadata --locked --format-version 1 | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Workspace lockfile check failed' }
+          cargo metadata --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --format-version 1 | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop lockfile check failed' }
+          node packaging/release/check-version.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Release metadata consistency check failed' }
+      - name: Test modified Rust engines
+        run: cargo test --locked -p repodna-core -p repodna-parser -p repodna-dependencies -p repodna-architecture -p repodna-quality -p repodna-ai -p repodna-engine
+      - name: Install web dependencies
+        run: npm ci
+      - name: Build web assets for desktop tests
+        run: npm run build -w @repodna/web
+      - name: Test desktop
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol --locked
+      - name: Build Windows x64 NSIS installer
+        run: npm run bundle -w @repodna/desktop -- --bundles nsis --target x86_64-pc-windows-msvc
+      - name: Validate installer and generate trial manifest
+        shell: pwsh
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content -LiteralPath apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $directory = 'apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis'
+          & ./packaging/desktop/check-installer-metadata.ps1 -Directory $directory -Version $version -Architecture x64
+          $name = "RepoDNA_${version}_x64-setup.exe"
+          $installer = Join-Path $directory $name
+          $out = Join-Path $env:RUNNER_TEMP 'repodna-windows-trial'
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          Copy-Item -LiteralPath $installer -Destination $out
+          $copy = Join-Path $out $name
+          $digest = (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$digest  $name" | Set-Content -LiteralPath (Join-Path $out 'SHA256SUMS.txt') -Encoding ascii
+          $record = [ordered]@{
+            sourceCommit = $env:EXPECTED_SHA
+            version = $version
+            architecture = 'x64'
+            file = $name
+            bytes = (Get-Item -LiteralPath $copy).Length
+            sha256 = $digest
+            workflowRun = $env:GITHUB_RUN_ID
+            release = $false
+            signatureStatus = (Get-AuthenticodeSignature -FilePath $copy).Status.ToString()
+          }
+          $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $out 'TRIAL-BUILD.json') -Encoding utf8
+      - name: Upload tested Windows trial
+        uses: actions/upload-artifact@v7
+        with:
+          name: repodna-windows-x64-engine-trial
+          path: ${{ runner.temp }}/repodna-windows-trial/
+          if-no-files-found: error
+          retention-days: 14

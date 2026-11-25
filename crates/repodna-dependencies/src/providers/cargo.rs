@@ -87,6 +87,7 @@ impl EcosystemProvider for Cargo {
         let mut manifest = ParsedManifest::default();
         if let Some(package) = table.get("package").and_then(toml::Value::as_table) {
             manifest.package_name = as_str(package.get("name"));
+            manifest.workspace_root = as_str(package.get("workspace"));
             manifest.package_version = as_str(package.get("version"));
             manifest.description = as_str(package.get("description"));
             if let Some(rust) = as_str(package.get("rust-version")) {

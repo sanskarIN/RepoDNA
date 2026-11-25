@@ -209,6 +209,25 @@ describe("local recent-analysis persistence integrity", () => {
     expect(await indexed.text("valid")).toBeNull();
   });
 
+  it("reads only matching, valid metadata and text from a single readonly snapshot", async () => {
+    const fake = fakeIndexedDb();
+    const store = indexedDbStore(fake.factory);
+    fake.rows.texts.set("orphan", { id: "orphan", text: "private text" });
+    const before = fake.transactions.length;
+    expect(await store.text("orphan")).toBeNull();
+    expect(fake.transactions.slice(before)).toEqual([
+      { stores: ["recent", "texts"], mode: "readonly" },
+    ]);
+
+    await store.add(entry("valid", "2026-11-02T00:00:00Z"), "saved");
+    expect(await store.text("valid")).toBe("saved");
+    fake.rows.texts.set("valid", { id: "another", text: "wrong" });
+    expect(await store.text("valid")).toBeNull();
+    fake.rows.texts.set("valid", { id: "valid", text: "saved" });
+    fake.rows.recent.set("valid", { ...entry("valid", "invalid"), size: -1 });
+    expect(await store.text("valid")).toBeNull();
+  });
+
   it("removes both stores together and clears retained data", async () => {
     const fake = fakeIndexedDb();
     const store = indexedDbStore(fake.factory);
