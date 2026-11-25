@@ -361,12 +361,8 @@ export function AppProvider({
     if (matchesPointer) {
       setOpenPointer(null);
     }
-    if (
-      matchesPointer ||
-      id === undefined ||
-      selectedFileId.current === id ||
-      pendingRecentId.current === id
-    ) {
+    const matchesSelection = selectedFileId.current === id || pendingRecentId.current === id;
+    if (matchesPointer || id === undefined || matchesSelection) {
       selectionEpoch.current += 1;
       pendingRecentId.current = null;
       pendingRecentSelection.current = null;

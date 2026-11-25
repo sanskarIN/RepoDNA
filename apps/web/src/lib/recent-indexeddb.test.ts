@@ -86,10 +86,9 @@ function fakeIndexedDb() {
           } as unknown as IDBObjectStore;
         },
       };
-      setTimeout(
-        () => tx.oncomplete?.call(tx as unknown as IDBTransaction, new Event("complete")),
-        0,
-      );
+      setTimeout(() => {
+        tx.oncomplete?.call(tx as unknown as IDBTransaction, new Event("complete"));
+      }, 0);
       return tx as unknown as IDBTransaction;
     },
   };
@@ -137,9 +136,8 @@ describe("local recent-analysis persistence integrity", () => {
         entry("analysis-" + day, `2026-11-${String(day).padStart(2, "0")}T00:00:00Z`),
         "content " + day,
       );
-      expect(fake.transactions.slice(before)).toEqual([
-        { stores: ["recent", "texts"], mode: "readwrite" },
-      ]);
+      const expected = [{ stores: ["recent", "texts"], mode: "readwrite" }];
+      expect(fake.transactions.slice(before)).toEqual(expected);
     }
     expect(fake.rows.recent.size).toBe(RECENT_LIMIT);
     expect(fake.rows.texts.size).toBe(RECENT_LIMIT);
@@ -215,9 +213,8 @@ describe("local recent-analysis persistence integrity", () => {
     fake.rows.texts.set("orphan", { id: "orphan", text: "private text" });
     const before = fake.transactions.length;
     expect(await store.text("orphan")).toBeNull();
-    expect(fake.transactions.slice(before)).toEqual([
-      { stores: ["recent", "texts"], mode: "readonly" },
-    ]);
+    const expected = [{ stores: ["recent", "texts"], mode: "readonly" }];
+    expect(fake.transactions.slice(before)).toEqual(expected);
 
     await store.add(entry("valid", "2026-11-02T00:00:00Z"), "saved");
     expect(await store.text("valid")).toBe("saved");
