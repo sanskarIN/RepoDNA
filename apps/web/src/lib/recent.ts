@@ -177,11 +177,10 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
       // Read metadata and text in one snapshot. A stale UI row cannot make
       // orphan or corrupted text appear to be a retained analysis.
       const transaction = db.transaction(["recent", "texts"]);
+      type StoredText = { id: unknown; text: unknown };
       const [entry, row] = await Promise.all([
-        request(transaction.objectStore("recent").get(id)) as Promise<unknown>,
-        request(transaction.objectStore("texts").get(id)) as Promise<
-          { id: unknown; text: unknown } | undefined
-        >,
+        request<unknown>(transaction.objectStore("recent").get(id)),
+        request<StoredText | undefined>(transaction.objectStore("texts").get(id)),
       ]);
       if (!validRecentEntry(entry) || entry.id !== id) return null;
       return row?.id === id && typeof row.text === "string" ? row.text : null;
