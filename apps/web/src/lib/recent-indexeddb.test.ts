@@ -21,10 +21,7 @@ function fakeIndexedDb() {
   };
   const transactions: Array<{ stores: string[]; mode: IDBTransactionMode }> = [];
 
-  function resultRequest<T>(
-    result: T,
-    transaction?: { active: boolean },
-  ): IDBRequest<T> {
+  function resultRequest<T>(result: T, transaction?: { active: boolean }): IDBRequest<T> {
     const req = {
       result,
       error: null,
@@ -146,9 +143,13 @@ describe("local recent-analysis persistence integrity", () => {
     }
     expect(fake.rows.recent.size).toBe(RECENT_LIMIT);
     expect(fake.rows.texts.size).toBe(RECENT_LIMIT);
-    expect((await store.list()).map((item) => item.id)).toEqual(
-      ["analysis-7", "analysis-6", "analysis-5", "analysis-4", "analysis-3"],
-    );
+    expect((await store.list()).map((item) => item.id)).toEqual([
+      "analysis-7",
+      "analysis-6",
+      "analysis-5",
+      "analysis-4",
+      "analysis-3",
+    ]);
     expect(await store.text("analysis-1")).toBeNull();
     expect(await store.text("analysis-7")).toBe("content 7");
   });
