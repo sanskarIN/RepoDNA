@@ -177,7 +177,8 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
     async text(id) {
       const db = await open();
       const row = (await request(db.transaction("texts").objectStore("texts").get(id))) as
-        { id: string; text: string } | undefined;
+        | { id: string; text: string }
+        | undefined;
       return typeof row?.text === "string" ? row.text : null;
     },
     async add(entry, text) {
