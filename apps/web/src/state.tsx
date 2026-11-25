@@ -253,8 +253,7 @@ export function AppProvider({
       const selection = ++selectionEpoch.current;
       pendingRecentId.current = null;
       pendingRecentSelection.current = null;
-      selectedFileId.current =
-        next.origin.kind === "file" ? next.dna.analysisMetadata.id : null;
+      selectedFileId.current = next.origin.kind === "file" ? next.dna.analysisMetadata.id : null;
       setDataset(next);
       const keep =
         remember &&
@@ -353,11 +352,7 @@ export function AppProvider({
     if (pointer?.kind === "file" && (id === undefined || pointer.id === id)) {
       setOpenPointer(null);
     }
-    if (
-      id === undefined ||
-      selectedFileId.current === id ||
-      pendingRecentId.current === id
-    ) {
+    if (id === undefined || selectedFileId.current === id || pendingRecentId.current === id) {
       selectionEpoch.current += 1;
       pendingRecentId.current = null;
       pendingRecentSelection.current = null;
