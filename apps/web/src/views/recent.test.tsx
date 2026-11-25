@@ -5,7 +5,13 @@ import { act } from "react";
 import { describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../App";
-import { memoryStore, setRememberRecent, type RecentStore } from "../lib/recent";
+import {
+  memoryStore,
+  openPointer,
+  setOpenPointer,
+  setRememberRecent,
+  type RecentStore,
+} from "../lib/recent";
 import demoText from "../../public/demo/repodna.json?raw";
 
 async function start(path: string, store: RecentStore) {
@@ -49,6 +55,41 @@ describe("recent analyses", () => {
     await start("/files", store);
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Files");
     expect(screen.queryByText("No analysis is open")).toBeNull();
+  });
+
+  it("does not restore orphan file text after its recent metadata was deleted", async () => {
+    const actual = memoryStore();
+    const store: RecentStore = {
+      ...actual,
+      async text(id) {
+        return id === "orphan" ? demoText : null;
+      },
+    };
+    setRememberRecent(true);
+    setOpenPointer({ kind: "file", id: "orphan" });
+    await start("/files", store);
+    expect(await screen.findByText("No analysis is open")).toBeTruthy();
+    expect(openPointer()).toBeNull();
+  });
+
+  it("does not restore cached JSON whose analysis ID differs from the saved metadata", async () => {
+    const store = memoryStore();
+    await store.add(
+      {
+        id: "different-from-demo-id",
+        name: "mismatched.json",
+        repository: "test",
+        generatedAt: "2026-11-23T00:00:00Z",
+        openedAt: "2026-11-24T00:00:00Z",
+        size: demoText.length,
+      },
+      demoText,
+    );
+    setRememberRecent(true);
+    setOpenPointer({ kind: "file", id: "different-from-demo-id" });
+    await start("/files", store);
+    expect(await screen.findByText("No analysis is open")).toBeTruthy();
+    expect(openPointer()).toBeNull();
   });
 
   it("starts with nothing open after the analysis was closed", async () => {

@@ -6,6 +6,21 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-11-26
+
+A focused maintenance update based on the published v1.5.3 source.
+
+### Fixed
+
+- Save recent-analysis metadata, file text and retention eviction in a single
+  IndexedDB transaction, avoiding interleaved pruning of newer records.
+- Sort retained analyses by actual timestamps, preserve distinct entries on
+  refresh and reject malformed stored metadata and mismatched analysis IDs.
+- Require valid saved metadata and matching file text before restoring an
+  analysis, and honor disabled retention during reload.
+- Run native Windows CLI smoke tests and installer checksum/resource checks
+  for unpublished release trials beyond v1.5.3.
+
 ## [1.5.3] - 2026-11-24
 
 RepoDNA v1.5.3 is a focused security and Windows installer metadata
