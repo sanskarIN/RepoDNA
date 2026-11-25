@@ -12,6 +12,7 @@ mod pairwise;
 mod provenance;
 mod scores;
 mod thresholds;
+mod ties;
 
 pub use annotation::{AnnotationExample, annotation_template, finish_annotations};
 
@@ -29,6 +30,7 @@ pub use pair_ordering::PairOrderingEvaluation;
 pub use pairwise::PAIRWISE_MODEL_FORMAT;
 pub use provenance::{checkpoint_fingerprint, family_manifest_fingerprint};
 pub use scores::{RelevanceScoreBin, RelevanceScoreEvaluation, SCORE_BIN_COUNT};
+pub use ties::{TieAwareEvaluation, TieMetricRange, evaluate_tie_aware};
 
 use crate::context::{EvidenceItem, EvidenceKind};
 use serde::{Deserialize, Serialize};

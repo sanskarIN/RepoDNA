@@ -58,6 +58,9 @@ pub struct ParsedManifest {
     pub workspace_members: Vec<String>,
     /// Workspace tool, e.g. `cargo-workspace`, when this manifest declares a workspace.
     pub workspace_tool: Option<String>,
+    /// Explicit workspace root directory relative to this package, if declared.
+    /// Preserved as written until aggregation can resolve it within the repository.
+    pub workspace_root: Option<String>,
     /// Toolchain or runtime requirements, e.g. `("Go", "1.22")`.
     pub requirements: Vec<(String, String)>,
     /// Entrypoints declared by the manifest, as paths relative to the manifest's directory.

@@ -544,3 +544,65 @@ fn frozen_task_metrics_reject_incomplete_conflicting_and_unknown_manifests() {
         assert!(result.stdout.is_empty(), "partial JSON for case {index}");
     }
 }
+
+#[test]
+fn frozen_tie_diagnostics_are_invariant_when_runtime_ties_reverse() {
+    let dir = tempfile::tempdir().unwrap();
+    let checkpoint = dir.path().join("constant.json");
+    // Deliberate synthetic constant checkpoint; this is not evidence of
+    // training accuracy. It makes every candidate score exactly equal.
+    assert!(train(&checkpoint).status.success());
+    let mut model: serde_json::Value =
+        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    model["weights"] = serde_json::json!(vec![0.0; repodna_ai::ranking::FEATURE_COUNT]);
+    fs::write(&checkpoint, serde_json::to_vec(&model).unwrap()).unwrap();
+    let before = fs::read(&checkpoint).unwrap();
+
+    let original = fixture("holdout.demo.json");
+    let mut samples: Vec<serde_json::Value> =
+        serde_json::from_slice(&fs::read(&original).unwrap()).unwrap();
+    samples.reverse();
+    let reversed = dir.path().join("reversed.json");
+    fs::write(&reversed, serde_json::to_vec(&samples).unwrap()).unwrap();
+
+    let mut reports = Vec::new();
+    for test in [&original, &reversed] {
+        let output = evaluate(&checkpoint, &fixture("train.demo.json"), test);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let tie = &report["tieAwareRetrieval"];
+        assert_eq!(tie["k"], 5);
+        assert_eq!(tie["totalQueries"], 2);
+        assert_eq!(tie["evaluatedQueries"], 2);
+        assert_eq!(tie["unanswerableQueries"], 0);
+        assert_eq!(tie["mixedTieQueriesAtK"], 2);
+        assert_eq!(tie["cutoffSensitiveQueries"], 0);
+        let low = tie["ndcgAtK"]["worst"].as_f64().unwrap();
+        let high = tie["ndcgAtK"]["best"].as_f64().unwrap();
+        let expected = tie["ndcgAtK"]["expected"].as_f64().unwrap();
+        assert!((low - 1.0 / 3.0_f64.log2()).abs() < 1e-12);
+        assert!((high - 1.0).abs() < 1e-12);
+        assert!((expected - (low + high) / 2.0).abs() < 1e-12);
+        for key in ["worst", "expected", "best"] {
+            assert!((tie["precisionAtK"][key].as_f64().unwrap() - 0.2).abs() < 1e-12);
+            assert_eq!(tie["recallAtK"][key], 1.0);
+        }
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(!text.contains("synthetic-gamma"));
+        assert!(!text.contains("What build commands exist?"));
+        reports.push(report);
+    }
+    assert_eq!(
+        reports[0]["tieAwareRetrieval"],
+        reports[1]["tieAwareRetrieval"]
+    );
+    assert!(
+        reports[0]["retrieval"]["ndcgAtK"].as_f64().unwrap()
+            > reports[1]["retrieval"]["ndcgAtK"].as_f64().unwrap()
+    );
+    assert_eq!(before, fs::read(&checkpoint).unwrap());
+}
