@@ -323,7 +323,84 @@ static END_WORD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\bend\b").unwrap_or_else(|error| panic!("invalid pattern: {error}"))
 });
 
+// Julia block keywords are meaningful outside grouping delimiters.
+// In particular, A[end] and comprehensions cannot close a function.
+static JULIA_BODY_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"[\p{L}\p{N}_!]+|[()\[\]{}]").expect("valid Julia body token pattern")
+});
+
+fn julia_body(lines: &[ScannedLine], start_line: usize) -> Body {
+    let mut depth = 0u32;
+    let mut max_depth = 0u32;
+    let mut delimiters = Vec::new();
+    for (line_index, line) in lines.iter().enumerate().skip(start_line) {
+        let text = &line.masked;
+        let mut previous = "";
+        for token in JULIA_BODY_TOKEN.find_iter(text) {
+            let word = token.as_str();
+            match word {
+                "(" => delimiters.push(")"),
+                "[" => delimiters.push("]"),
+                "{" => delimiters.push("}"),
+                ")" | "]" | "}" => {
+                    if delimiters.pop() != Some(word) {
+                        return Body::Declaration;
+                    }
+                }
+                _ if delimiters.is_empty() => {
+                    // Ignore property names, quoted symbols and macro names
+                    // adjacent to their punctuation, not control-flow words.
+                    let qualified = token.start() > 0
+                        && matches!(text.as_bytes()[token.start() - 1], b'.' | b':' | b'@');
+                    if !qualified {
+                        let opens = matches!(
+                            word,
+                            "function"
+                                | "macro"
+                                | "module"
+                                | "baremodule"
+                                | "struct"
+                                | "if"
+                                | "for"
+                                | "while"
+                                | "let"
+                                | "begin"
+                                | "try"
+                                | "quote"
+                                | "do"
+                        ) || (word == "type"
+                            && matches!(previous, "abstract" | "primitive"));
+                        if opens {
+                            depth = depth.saturating_add(1);
+                            max_depth = max_depth.max(depth);
+                        } else if word == "end" {
+                            if depth == 0 {
+                                return Body::Declaration;
+                            }
+                            depth -= 1;
+                            if depth == 0 {
+                                return Body::Braces {
+                                    end: line_index,
+                                    nesting: max_depth.saturating_sub(1),
+                                };
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+            previous = word;
+        }
+    }
+    // Missing closing keywords do not attribute the remainder of the file
+    // to an apparently complete function.
+    Body::Declaration
+}
+
 fn keyword_body(language: &str, lines: &[ScannedLine], start_line: usize) -> Body {
+    if language == "julia" {
+        return julia_body(lines, start_line);
+    }
     if language == "ruby" && RUBY_ENDLESS_DEF.is_match(&lines[start_line].masked) {
         return Body::Expression { end: start_line };
     }
@@ -711,6 +788,133 @@ mod tests {
         assert_eq!(outer.complexity, Some(3));
         assert_eq!(inner.complexity, Some(3));
         assert_eq!(analysis.module_complexity, 1);
+    }
+
+    #[test]
+    fn julia_long_form_functions_measure_nested_blocks_and_indexing_end() {
+        let source = concat!(
+            "module Example\n",
+            "mutable struct Counter\n",
+            "    value::Int\n",
+            "end\n",
+            "function update!(items)\n",
+            "    values = [x for x in items if x > 0]\n",
+            "    last = items[end]\n",
+            "    if last > 0\n",
+            "        for value in values\n",
+            "            last += value\n",
+            "        end\n",
+            "    elseif last < 0\n",
+            "        last = 0\n",
+            "    end\n",
+            "    return last\n",
+            "end\n",
+            "function Base.show(io, counter)\n",
+            "    print(io, counter.value)\n",
+            "end\n",
+            "end\n",
+        );
+        let result = analyze("julia", source);
+        let symbols = summary(&result);
+        assert_eq!(symbols.len(), 4);
+        assert_eq!(symbols[0].0, "Example");
+        assert_eq!(symbols[0].1, SymbolKind::Module);
+        assert_eq!(symbols[1].0, "Counter");
+        assert_eq!(symbols[1].1, SymbolKind::Struct);
+        assert_eq!(
+            symbols[2],
+            ("update!".into(), SymbolKind::Function, 5, 16, Some(6))
+        );
+        assert_eq!(
+            symbols[3],
+            ("Base.show".into(), SymbolKind::Function, 17, 19, Some(1))
+        );
+        assert_eq!(result.max_nesting, 2);
+    }
+
+    #[test]
+    fn julia_nested_functions_own_their_decisions_and_inline_end() {
+        let source = concat!(
+            "function outer(x)\n",
+            "    function inner(y)\n",
+            "        if y > 0; return y; end\n",
+            "        return 0\n",
+            "    end\n",
+            "    if x > 0 && x < 10\n",
+            "        return inner(x)\n",
+            "    end\n",
+            "end\n",
+            "function single(); return 1; end\n",
+        );
+        let result = analyze("julia", source);
+        let symbols = summary(&result);
+        assert_eq!(
+            symbols,
+            vec![
+                ("outer".into(), SymbolKind::Function, 1, 9, Some(3)),
+                ("inner".into(), SymbolKind::Function, 2, 5, Some(2)),
+                ("single".into(), SymbolKind::Function, 10, 10, Some(1)),
+            ]
+        );
+    }
+
+    #[test]
+    fn julia_ignores_keywords_in_comments_strings_and_grouped_expressions() {
+        let source = concat!(
+            "function κόσμος(x)\n",
+            "    #= function bogus(); end #= nested =# =#\n",
+            "    value = \"end if for\"\n",
+            "    command = \x60echo end\x60\n",
+            "    last = x[end]\n",
+            "    symbol = :end\n",
+            "    transposed = x'\n",
+            "    character = ']'\n",
+            "    return last\n",
+            "end\n",
+        );
+        let result = analyze("julia", source);
+        assert_eq!(result.symbols.len(), 1);
+        let symbol = &result.symbols[0];
+        assert_eq!(symbol.name, "κόσμος");
+        assert_eq!(symbol.end_line, 10);
+        assert_eq!(symbol.complexity, Some(1));
+    }
+
+    #[test]
+    fn julia_unclosed_function_does_not_claim_the_rest_of_the_file() {
+        let result = analyze(
+            "julia",
+            "function incomplete(x)\n    if x > 0\n        return x\n",
+        );
+        assert_eq!(result.symbols.len(), 1);
+        assert_eq!(result.symbols[0].end_line, 1);
+        assert_eq!(result.symbols[0].complexity, None);
+        assert_eq!(result.module_complexity, 1);
+    }
+
+    #[test]
+    fn julia_do_blocks_try_and_quoted_blocks_have_balanced_extents() {
+        let result = analyze(
+            "julia",
+            concat!(
+                "function work(items)\n",
+                "    map(items) do item\n",
+                "        try\n",
+                "            quote\n",
+                "                item\n",
+                "            end\n",
+                "        catch error\n",
+                "            nothing\n",
+                "        end\n",
+                "    end\n",
+                "end\n",
+                "function next(); return 2; end\n",
+            ),
+        );
+        assert_eq!(result.symbols[0].end_line, 11);
+        assert_eq!(result.symbols[0].nesting, Some(3));
+        assert_eq!(result.symbols[0].complexity, Some(2));
+        assert_eq!(result.symbols[1].end_line, 12);
     }
 
     #[test]

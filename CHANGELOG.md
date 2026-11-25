@@ -16,6 +16,10 @@ tag and commit analysis and counts-only exports remain development-only.
 
 ### Added
 
+- Add initial Julia lexical analysis, including long-form function extents,
+  declarations and simple literal imports; full dispatch and short-form methods
+  remain out of scope (#322).
+
 - Report exact worst, expected and best retrieval metrics under equal-score
   evidence ordering for frozen native ranker evaluations; no runtime scoring
   or checkpoint format change (#305).

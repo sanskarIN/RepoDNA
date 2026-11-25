@@ -433,15 +433,15 @@ leaves out the repository's remote URL. See [DNA cards](docs/dna-cards.md).
 65 languages are built in. Each is labeled with the depth of analysis behind it, and
 [plugins](docs/plugins.md#language-definitions) can add more.
 
-**Lexical analysis** (lines, comments, imports, symbols, and complexity), 25 languages:
-C, C#, C++, Dart, Elixir, Go, Groovy, Java, JavaScript, Kotlin, Lua, Objective-C, Perl, PHP,
+**Lexical analysis** (lines, comments, imports, symbols, and complexity), 26 languages:
+C, C#, C++, Dart, Elixir, Go, Groovy, Java, JavaScript, Julia, Kotlin, Lua, Objective-C, Perl, PHP,
 PowerShell, Python, R, Ruby, Rust, Scala, Shell, Solidity, SQL, Swift, and TypeScript.
 
-**Line counting** (code, comment, and blank lines), 40 languages:
+**Line counting** (code, comment, and blank lines), 39 languages:
 
 | Kind | Languages |
 |---|---|
-| Programming | Assembly, Batchfile, Clojure, Erlang, F#, Fortran, Haskell, Julia, OCaml, Shader (GLSL/HLSL), Visual Basic |
+| Programming | Assembly, Batchfile, Clojure, Erlang, F#, Fortran, Haskell, OCaml, Shader (GLSL/HLSL), Visual Basic |
 | Markup and styles | HTML, Vue, Svelte, Astro, templates (Handlebars, EJS, ERB, Jinja, Twig, Liquid, Nunjucks), CSS, SCSS, Less |
 | Data and configuration | JSON, YAML, TOML, XML, SVG, INI, CSV, Protocol Buffers, GraphQL, HCL / Terraform, Nix, Jupyter Notebook |
 | Documentation | Markdown, reStructuredText, AsciiDoc, TeX, plain text |

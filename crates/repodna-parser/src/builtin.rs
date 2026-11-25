@@ -1470,17 +1470,71 @@ fn other_programming() -> Vec<LanguageSpec> {
             ..Syntax::default()
         },
     );
-    let julia = line_count(
+    let mut julia = lexical(
         "julia",
         "Julia",
-        LanguageKind::Programming,
         &["jl"],
         Syntax {
             line_comments: vec![line("#")],
             block_comments: vec![block("#=", "=#", true)],
-            strings: vec![StringRule::multiline("\"\"\""), StringRule::simple("\"")],
+            strings: vec![
+                StringRule::multiline("\"\"\""),
+                StringRule::multiline("\""),
+                StringRule::multiline("\x60"),
+            ],
+            // Shared conservative character-literal recognition also
+            // avoids treating a standalone adjoint apostrophe as a string.
+            rust_char_literals: true,
             ..Syntax::default()
         },
+        BodyStyle::EndKeyword,
+    );
+    julia.shebangs = names(&["julia"]);
+    // Capture long-form named methods, not arbitrary calls or short-form
+    // assignment expressions. Julia dispatch resolution is out of scope.
+    julia.functions = vec![symbol(
+        r"^\s*function\s+((?:[\p{L}_][\p{L}\p{N}_]*\.)*[\p{L}_][\p{L}\p{N}_]*!?)\s*(?:\{[^{}]*\}\s*)?\(",
+        1,
+        SymbolKind::Function,
+    )];
+    julia.types = vec![
+        symbol(
+            r"^\s*(?:baremodule|module)\s+([\p{L}_][\p{L}\p{N}_]*)",
+            1,
+            SymbolKind::Module,
+        ),
+        symbol(
+            r"^\s*(?:mutable\s+)?struct\s+([\p{L}_][\p{L}\p{N}_]*)",
+            1,
+            SymbolKind::Struct,
+        ),
+        symbol(
+            r"^\s*(?:abstract|primitive)\s+type\s+([\p{L}_][\p{L}\p{N}_]*)",
+            1,
+            SymbolKind::Type,
+        ),
+        symbol(
+            r"^\s*macro\s+([\p{L}_][\p{L}\p{N}_]*!?)",
+            1,
+            SymbolKind::Macro,
+        ),
+    ];
+    julia.imports = vec![
+        import(
+            r"^\s*(?:using|import)\s+(\.*[\p{L}_][\p{L}\p{N}_]*(?:\.[\p{L}_][\p{L}\p{N}_]*)*)",
+            1,
+            ImportKind::Import,
+        ),
+        import(
+            r#"^\s*include\s*\(\s*"([^"\\$]+)"\s*\)"#,
+            1,
+            ImportKind::Include,
+        ),
+    ];
+    julia.complexity = ComplexityRules::new(
+        &["if", "elseif", "for", "while", "catch"],
+        &["&&", "||"],
+        true,
     );
     let fsharp = line_count(
         "fsharp",
@@ -1654,6 +1708,7 @@ mod tests {
             .collect();
         for id in [
             "rust",
+            "julia",
             "c",
             "cpp",
             "csharp",
