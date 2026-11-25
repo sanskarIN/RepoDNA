@@ -960,9 +960,18 @@ mod tests {
                 "beta/member/Cargo.toml",
                 "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\nlocal.workspace = true\n",
             ),
-            file("alpha/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"1.9.0\"\n"),
-            file("beta/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"2.1.0\"\n"),
-            file("beta/member/Cargo.lock", "[[package]]\nname = \"serde\"\nversion = \"2.2.0\"\n"),
+            file(
+                "alpha/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"1.9.0\"\n",
+            ),
+            file(
+                "beta/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"2.1.0\"\n",
+            ),
+            file(
+                "beta/member/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"2.2.0\"\n",
+            ),
         ];
         let report = analyze(&files).report;
         let serde = report

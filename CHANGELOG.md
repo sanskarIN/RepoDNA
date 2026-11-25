@@ -43,6 +43,15 @@ tag and commit analysis and counts-only exports remain development-only.
 
 ### Fixed
 
+- Index dependency lockfile joins and package boundaries to avoid repeated
+  repository-wide scans while preserving workspace scope and version unions (#317).
+- Preserve lexical token boundaries around block comments and recognize bounded
+  Rust character escapes; invalidate obsolete per-file cache entries (#318).
+- Reuse repository-level ranking scores for balanced retrieval and stability
+  diagnostics without changing checkpoint weights or output meanings (#319).
+- Skip token generation when the selected analysis stages do not need it, and
+  check cancellation throughout the file pass (#320).
+
 - Precompute pairwise ranker feature differences instead of repeatedly
   extracting features in every training epoch (#306).
 - Resolve inherited Cargo dependencies in the selected workspace, rather
