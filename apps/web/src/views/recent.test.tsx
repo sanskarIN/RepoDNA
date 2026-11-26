@@ -227,6 +227,47 @@ describe("recent analyses", () => {
     expect(openPointer()).toBeNull();
   });
 
+  it("does not delete a recent analysis repaired after a stale missing-text read", async () => {
+    const actual = memoryStore();
+    const saved: RecentEntry = {
+      id: "repair",
+      name: "repair.json",
+      repository: "test",
+      generatedAt: "2026-11-23T00:00:00Z",
+      openedAt: "2026-11-24T00:00:00Z",
+      size: demoText.length,
+    };
+    await actual.add(saved);
+    let release!: (text: string | null) => void;
+    const pending = new Promise<string | null>((resolve) => {
+      release = resolve;
+    });
+    const read = vi.fn(() => pending);
+    const remove = vi.fn(actual.remove);
+    const prune = vi.fn(actual.removeIfMissing!);
+    const store: RecentStore = {
+      ...actual,
+      text: read,
+      remove,
+      removeIfMissing: prune,
+    };
+    await start("/", store);
+    const section = await screen.findByRole("region", { name: "Recent analyses" });
+    await act(async () => {
+      fireEvent.click(within(section).getByRole("button", { name: "Open" }));
+    });
+    await waitFor(() => expect(read).toHaveBeenCalledWith(saved.id));
+    await actual.add(saved, demoText);
+    await act(async () => {
+      release(null);
+      await pending;
+    });
+    await waitFor(() => expect(prune).toHaveBeenCalledWith(saved.id));
+    expect(remove).not.toHaveBeenCalled();
+    expect(await actual.text(saved.id)).toBe(demoText);
+    expect(await actual.list()).toEqual([saved]);
+  });
+
   it("removes an analysis from the list", async () => {
     const store = memoryStore();
     await start("/", store);

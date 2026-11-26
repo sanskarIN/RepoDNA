@@ -325,8 +325,19 @@ export function AppProvider({
           return;
         }
         if (text === null) {
-          await enqueueWrite(() => store.remove(entry.id));
+          // The original read is stale by the time the queued write runs.
+          // Never delete a repaired record (or use an unconditional fallback).
+          await enqueueWrite(async () => {
+            await store.removeIfMissing?.(entry.id);
+          });
           refresh();
+          if (
+            selection !== selectionEpoch.current ||
+            retention !== retentionEpoch.current ||
+            !rememberRecent()
+          ) {
+            return;
+          }
           throw new Error(`${entry.name} is no longer kept in this browser.`);
         }
         const loaded = parseArtifact(text);

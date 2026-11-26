@@ -224,6 +224,46 @@ describe("local recent-analysis persistence integrity", () => {
     expect(await store.text("valid")).toBeNull();
   });
 
+  it("rechecks missing text in one write transaction before deleting a record", async () => {
+    const fake = fakeIndexedDb();
+    const store = indexedDbStore(fake.factory);
+    const saved = entry("repair", "2026-11-02T00:00:00Z");
+    await store.add(saved);
+    expect(await store.text(saved.id)).toBeNull();
+    // Simulate a different writer repairing the row before cleanup starts.
+    await store.add(saved, "repaired");
+    const before = fake.transactions.length;
+    await store.removeIfMissing?.(saved.id);
+    const expected = [{ stores: ["recent", "texts"], mode: "readwrite" }];
+    expect(fake.transactions.slice(before)).toEqual(expected);
+    expect(await store.text(saved.id)).toBe("repaired");
+
+    fake.rows.texts.set(saved.id, { id: saved.id, text: 42 });
+    await store.removeIfMissing?.(saved.id);
+    expect(fake.rows.recent.has(saved.id)).toBe(false);
+    expect(fake.rows.texts.has(saved.id)).toBe(false);
+
+    fake.rows.texts.set("orphan", { id: "orphan", text: "old" });
+    await store.removeIfMissing?.("orphan");
+    expect(fake.rows.texts.has("orphan")).toBe(false);
+  });
+
+  it("preserves repaired records and removes missing text in the memory store", async () => {
+    const store = memoryStore();
+    const saved = entry("repair", "2026-11-02T00:00:00Z");
+    await store.add(saved);
+    expect(await store.text(saved.id)).toBeNull();
+    await store.add(saved, "");
+    await store.removeIfMissing?.(saved.id);
+    expect(await store.text(saved.id)).toBe("");
+    expect(await store.list()).toEqual([saved]);
+
+    const missing = entry("missing", "2026-11-03T00:00:00Z");
+    await store.add(missing);
+    await store.removeIfMissing?.(missing.id);
+    expect(await store.list()).toEqual([saved]);
+  });
+
   it("removes both stores together and clears retained data", async () => {
     const fake = fakeIndexedDb();
     const store = indexedDbStore(fake.factory);
