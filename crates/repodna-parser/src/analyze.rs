@@ -17,7 +17,7 @@ use crate::tokens::{Token, tokenize};
 
 /// Version of the per-file analysis output. Bump whenever results for the same input can
 /// change, so cached results are invalidated.
-pub const ANALYZER_VERSION: u32 = 3;
+pub const ANALYZER_VERSION: u32 = 4;
 
 /// Maximum string-literal file references recorded per file.
 const MAX_REFERENCES: usize = 500;
@@ -281,6 +281,34 @@ mod tests {
 
     fn analyze(language: &str, source: &str) -> FileAnalysis {
         analyze_source(LanguageRegistry::builtin().get(language).unwrap(), source)
+    }
+
+    #[test]
+    fn comments_between_lexical_keywords_do_not_hide_functions_or_imports() {
+        let analysis = analyze(
+            "rust",
+            "use/**/crate::util;\npub/**/fn/**/compute() {\n    if/**/true { return; }\n}\n",
+        );
+        assert_eq!(analysis.imports.len(), 1);
+        assert_eq!(analysis.imports[0].specifier, "crate::util");
+        assert_eq!(analysis.symbols.len(), 1);
+        assert_eq!(analysis.symbols[0].name, "compute");
+        assert_eq!(analysis.symbols[0].complexity, Some(2));
+    }
+
+    #[test]
+    fn comment_gap_keeps_reference_quote_offsets_aligned() {
+        let analysis = analyze(
+            "javascript",
+            "const file =/**/'./views/item.html';\nconst other = \"fake './ignore.json'\";\n",
+        );
+        assert_eq!(
+            analysis.references,
+            vec![RawReference {
+                path: "./views/item.html".into(),
+                line: 1,
+            }]
+        );
     }
 
     #[test]

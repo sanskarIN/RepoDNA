@@ -286,89 +286,128 @@ pub fn analyze(files: &[DependencyFile<'_>]) -> DependencyAnalysis {
             if record.requirement.is_none() {
                 record.requirement = dependency.requirement.clone();
             }
-            if !record.manifests.iter().any(|m| m == item.path) {
+            // Parsed manifests are in ascending path order.
+            if record.manifests.last().is_none_or(|m| m != item.path) {
                 record.manifests.push(item.path.to_owned());
             }
         }
     }
 
-    // Lockfiles: resolved versions, consistency, and duplicates.
+    // Index direct external registry declarations by their exact sibling
+    // directory. Missing-lock diagnostics need only this small subset,
+    // not every dependency in the repository for each lockfile.
+    type SiblingIndex<'a> = BTreeMap<(&'a str, &'a str), Vec<(&'a str, &'a str)>>;
+    let mut siblings = SiblingIndex::new();
+    for ((ecosystem, key), record) in &records {
+        if record.source != "registry" || record.internal {
+            continue;
+        }
+        for manifest in &record.manifests {
+            let entries = siblings
+                .entry((*ecosystem, paths::parent(manifest)))
+                .or_default();
+            let pair = (key.as_str(), record.name.as_str());
+            if entries.last() != Some(&pair) {
+                entries.push(pair);
+            }
+        }
+    }
+
+    // Keep resolved versions separately until the borrowed sibling index
+    // is no longer needed. Ordered sets avoid repeated linear version
+    // membership checks and produce the same sorted report.
+    let mut resolved_versions: BTreeMap<(&str, &str), BTreeSet<String>> = BTreeMap::new();
     let mut locked: BTreeSet<(&str, String, String)> = BTreeSet::new();
+    // Reverse insertion preserves the original first-record lookup
+    // even if an input path appears more than once.
+    let lock_indices: BTreeMap<String, usize> = analysis
+        .report
+        .lockfiles
+        .iter()
+        .enumerate()
+        .rev()
+        .map(|(index, lock)| (lock.path.clone(), index))
+        .collect();
     for item in &parsed {
         let Some(lockfile) = &item.lockfile else {
             continue;
         };
         let directory = paths::parent(item.path);
-        let mut versions_by_name: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        let mut versions_by_name: BTreeMap<String, (&str, BTreeSet<String>)> = BTreeMap::new();
         for (name, version) in &lockfile.packages {
+            let normalized = name.to_lowercase();
             versions_by_name
-                .entry(name.to_lowercase())
-                .or_default()
+                .entry(normalized.clone())
+                .or_insert_with(|| (name.as_str(), BTreeSet::new()))
+                .1
                 .insert(version.clone());
-            locked.insert((item.ecosystem, name.to_lowercase(), version.clone()));
+            locked.insert((item.ecosystem, normalized, version.clone()));
         }
-        for record in records
-            .values_mut()
-            .filter(|r| r.ecosystem == item.ecosystem)
-        {
-            let covered = record
+        // Probe only names actually present in this lockfile. Preserve
+        // the existing directory-containment rule for resolved versions.
+        for (name, (_, versions)) in &versions_by_name {
+            let Some((key, record)) = records.get_key_value(&(item.ecosystem, name.clone())) else {
+                continue;
+            };
+            if record
                 .manifests
                 .iter()
-                .any(|manifest| paths::is_within(paths::parent(manifest), directory));
-            if covered && let Some(versions) = versions_by_name.get(&record.name.to_lowercase()) {
-                for version in versions {
-                    if !record.resolved.contains(version) {
-                        record.resolved.push(version.clone());
-                    }
-                }
+                .any(|manifest| paths::is_within(paths::parent(manifest), directory))
+            {
+                resolved_versions
+                    .entry((key.0, key.1.as_str()))
+                    .or_default()
+                    .extend(versions.iter().cloned());
             }
         }
-        let missing: Vec<String> = records
-            .values()
-            .filter(|record| {
-                record.ecosystem == item.ecosystem
-                    && record.source == "registry"
-                    && !record.internal
-                    && record
-                        .manifests
-                        .iter()
-                        .any(|manifest| paths::parent(manifest) == directory)
-                    && !versions_by_name.contains_key(&record.name.to_lowercase())
-            })
-            .map(|record| record.name.clone())
+        let missing = siblings
+            .get(&(item.ecosystem, directory))
+            .into_iter()
+            .flatten()
+            .filter(|(key, _)| !versions_by_name.contains_key(*key))
+            .map(|(_, display)| (*display).to_owned())
             .collect();
-        if let Some(lock_record) = analysis
-            .report
-            .lockfiles
-            .iter_mut()
-            .find(|l| l.path == item.path)
-        {
-            lock_record.missing_from_lock = missing;
+        if let Some(&index) = lock_indices.get(item.path) {
+            analysis.report.lockfiles[index].missing_from_lock = missing;
         }
-        for (name, versions) in versions_by_name.iter().filter(|(_, v)| v.len() > 1) {
+        for (display, versions) in versions_by_name.values().filter(|(_, v)| v.len() > 1) {
             if analysis.report.duplicates.len() >= MAX_DUPLICATES {
                 break;
             }
-            let display = lockfile
-                .packages
-                .iter()
-                .find(|(n, _)| n.to_lowercase() == *name)
-                .map_or_else(|| name.clone(), |(n, _)| n.clone());
             analysis.report.duplicates.push(DuplicateVersions {
                 ecosystem: item.ecosystem.to_owned(),
-                name: display,
+                name: (*display).to_owned(),
                 versions: versions.iter().cloned().collect(),
                 lockfile: item.path.to_owned(),
             });
         }
     }
+    let resolved_versions: BTreeMap<(&str, String), BTreeSet<String>> = resolved_versions
+        .into_iter()
+        .map(|((ecosystem, name), versions)| ((ecosystem, name.to_owned()), versions))
+        .collect();
+    for (key, versions) in resolved_versions {
+        if let Some(record) = records.get_mut(&key) {
+            record.resolved = versions.into_iter().collect();
+        }
+    }
 
-    // Package boundaries with their internal dependencies.
+    // Package boundaries with their internal dependencies. Index parsed
+    // manifests once, preserving multiple entries for the same path.
+    let mut manifests_by_path: BTreeMap<&str, Vec<&ParsedManifest>> = BTreeMap::new();
+    for item in &parsed {
+        if let Some(manifest) = &item.manifest {
+            manifests_by_path
+                .entry(item.path)
+                .or_default()
+                .push(manifest);
+        }
+    }
     for ((ecosystem, _), (name, manifest)) in &declared {
-        let internal_dependencies = parsed
-            .iter()
-            .filter(|item| item.path == manifest)
-            .filter_map(|item| item.manifest.as_ref())
+        let internal_dependencies = manifests_by_path
+            .get(manifest.as_str())
+            .into_iter()
+            .flatten()
             .flat_map(|parsed| parsed.dependencies.iter())
             .filter(|dependency| {
                 declared.contains_key(&(*ecosystem, dependency.name.to_lowercase()))
@@ -765,6 +804,200 @@ mod tests {
         assert_eq!(failed.status, ParseStatus::Failed);
         assert!(failed.message.is_some());
         assert_eq!(analyze(&files[..2]).report.status, SectionStatus::Analyzed);
+    }
+
+    #[test]
+    fn indexed_lockfile_join_preserves_directory_boundaries_and_version_union() {
+        let files = [
+            file(
+                "apps/web/package.json",
+                r#"{"name":"web","dependencies":{"Shared":"^1","local-only":"1","missing":"1","git-only":"git+https://example.test/a.git"}}"#,
+            ),
+            file(
+                "apps/web/package-lock.json",
+                r#"{"packages":{"node_modules/shared":{"version":"1.1.0"},"node_modules/local-only":{"version":"1.0.0"},"node_modules/a/node_modules/shared":{"version":"1.2.0"}}}"#,
+            ),
+            file(
+                "apps/web-admin/package.json",
+                r#"{"name":"admin","dependencies":{"shared":"2","admin-only":"1"}}"#,
+            ),
+            file(
+                "apps/web-admin/package-lock.json",
+                r#"{"packages":{"node_modules/shared":{"version":"2.0.0"},"node_modules/admin-only":{"version":"1.0.0"},"node_modules/missing":{"version":"99.0.0"}}}"#,
+            ),
+            file(
+                "apps/package-lock.json",
+                r#"{"packages":{"node_modules/shared":{"version":"1.0.0"},"node_modules/local-only":{"version":"1.0.0"}}}"#,
+            ),
+            file(
+                "unrelated/package-lock.json",
+                r#"{"packages":{"node_modules/shared":{"version":"99.0.0"}}}"#,
+            ),
+        ];
+        let report = analyze(&files).report;
+        let dependency = |name: &str| {
+            report
+                .dependencies
+                .iter()
+                .find(|d| d.name.eq_ignore_ascii_case(name))
+                .unwrap()
+        };
+        assert_eq!(
+            dependency("shared").resolved,
+            vec!["1.0.0", "1.1.0", "1.2.0", "2.0.0"]
+        );
+        assert_eq!(dependency("local-only").resolved, vec!["1.0.0"]);
+        assert!(dependency("missing").resolved.is_empty());
+        let lock = |path: &str| report.lockfiles.iter().find(|l| l.path == path).unwrap();
+        assert_eq!(
+            lock("apps/web/package-lock.json").missing_from_lock,
+            vec!["missing"]
+        );
+        assert!(
+            lock("apps/web-admin/package-lock.json")
+                .missing_from_lock
+                .is_empty()
+        );
+        assert!(lock("apps/package-lock.json").missing_from_lock.is_empty());
+        assert_eq!(report.duplicates.len(), 1);
+        assert_eq!(report.duplicates[0].versions, vec!["1.1.0", "1.2.0"]);
+        let mut reversed = files;
+        reversed.reverse();
+        assert_eq!(report, analyze(&reversed).report);
+    }
+
+    #[test]
+    fn indexed_lockfile_join_isolated_by_ecosystem_and_exact_sibling_directory() {
+        let files = [
+            file(
+                "package.json",
+                r#"{"name":"frontend","dependencies":{"serde":"1","z":"1","a":"1"}}"#,
+            ),
+            file("package-lock.json", r#"{"packages":{}}"#),
+            file(
+                "Cargo.toml",
+                "[package]\nname = \"backend\"\n[dependencies]\nserde = \"1\"\n",
+            ),
+            file(
+                "Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n",
+            ),
+            file(
+                "nested/package.json",
+                r#"{"name":"nested","dependencies":{"nested-only":"1"}}"#,
+            ),
+        ];
+        let report = analyze(&files).report;
+        let npm = report
+            .dependencies
+            .iter()
+            .find(|d| d.ecosystem == "npm" && d.name == "serde")
+            .unwrap();
+        let cargo = report
+            .dependencies
+            .iter()
+            .find(|d| d.ecosystem == "cargo" && d.name == "serde")
+            .unwrap();
+        assert!(npm.resolved.is_empty());
+        assert_eq!(cargo.resolved, vec!["1.0.0"]);
+        let lock = report
+            .lockfiles
+            .iter()
+            .find(|l| l.path == "package-lock.json")
+            .unwrap();
+        assert_eq!(lock.missing_from_lock, vec!["a", "serde", "z"]);
+    }
+
+    #[test]
+    fn indexed_joins_handle_many_disjoint_packages_without_cross_attribution() {
+        let mut owned = Vec::new();
+        for index in 0..256 {
+            let dir = format!("packages/p{index:03}");
+            let name = format!("dep{index:03}");
+            owned.push((
+                format!("{dir}/package.json"),
+                format!(r#"{{"name":"p{index:03}","dependencies":{{"{name}":"1","common":"1"}}}}"#),
+            ));
+            owned.push((
+                format!("{dir}/package-lock.json"),
+                format!(r#"{{"packages":{{"node_modules/{name}":{{"version":"1.0.0"}},"node_modules/common":{{"version":"1.0.{index}"}}}}}}"#),
+            ));
+        }
+        let files: Vec<_> = owned.iter().map(|(p, c)| file(p, c)).collect();
+        let result = analyze(&files);
+        assert_eq!(result.packages.len(), 256);
+        assert_eq!(result.report.direct_count, 257);
+        assert!(
+            result
+                .report
+                .lockfiles
+                .iter()
+                .all(|l| l.missing_from_lock.is_empty())
+        );
+        for dependency in &result.report.dependencies {
+            if dependency.name == "common" {
+                assert_eq!(dependency.manifests.len(), 256);
+                assert_eq!(dependency.resolved.len(), 256);
+            } else {
+                assert_eq!(dependency.manifests.len(), 1);
+                assert_eq!(dependency.resolved, vec!["1.0.0"]);
+            }
+        }
+    }
+
+    #[test]
+    fn indexed_lockfile_joins_respect_inherited_workspace_source_and_scope() {
+        let files = [
+            file(
+                "alpha/Cargo.toml",
+                "[workspace]\n[workspace.dependencies]\nserde = \"1\"\n",
+            ),
+            file(
+                "beta/Cargo.toml",
+                "[workspace]\n[workspace.dependencies]\nserde = \"2\"\nlocal = { path = \"local\" }\n",
+            ),
+            file(
+                "beta/member/Cargo.toml",
+                "[package]\nname = \"member\"\n[dependencies]\nserde.workspace = true\nlocal.workspace = true\n",
+            ),
+            file(
+                "alpha/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"1.9.0\"\n",
+            ),
+            file(
+                "beta/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"2.1.0\"\n",
+            ),
+            file(
+                "beta/member/Cargo.lock",
+                "[[package]]\nname = \"serde\"\nversion = \"2.2.0\"\n",
+            ),
+        ];
+        let report = analyze(&files).report;
+        let serde = report
+            .dependencies
+            .iter()
+            .find(|d| d.name == "serde")
+            .unwrap();
+        assert_eq!(serde.requirement.as_deref(), Some("2"));
+        assert_eq!(serde.resolved, vec!["2.1.0", "2.2.0"]);
+        assert_eq!(serde.source, "registry");
+        let local = report
+            .dependencies
+            .iter()
+            .find(|d| d.name == "local")
+            .unwrap();
+        assert!(local.internal);
+        assert_eq!(local.source, "path");
+        assert!(
+            report
+                .lockfiles
+                .iter()
+                .all(|lock| lock.missing_from_lock.is_empty())
+        );
+        let mut reverse = files;
+        reverse.reverse();
+        assert_eq!(report, analyze(&reverse).report);
     }
 
     #[test]
