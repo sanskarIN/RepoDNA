@@ -81,6 +81,11 @@ jobs:
           }
           try {
             await page.goto(base + "#/");
+            const announcement = page.getByRole("dialog", { name: "What's New in RepoDNA v1.5.4" });
+            await announcement.getByRole("button", { name: "Continue to RepoDNA" }).click();
+            await announcement.waitFor({ state: "hidden" });
+            assert.equal(await page.evaluate(() => localStorage.getItem("repodna-whats-new-seen")), "1.5.4");
+            pass("First-run announcement is dismissible and records the correct release version");
             for (let i = 1; i <= 6; i++) {
               const copy = structuredClone(fixture);
               const id = randomUUID();
@@ -154,7 +159,7 @@ jobs:
             await browser.close();
           }
           JS
-          node acceptance.mjs | tee browser-acceptance.log
+          node acceptance.mjs 2>&1 | tee browser-acceptance.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:
