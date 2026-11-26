@@ -50,7 +50,7 @@ jobs:
           node packaging/release/check-version.mjs
           # This finalization branch verifies publication-ready notes without
           # publishing any release; the publish gate still requires a real tag.
-          if [ -n "$RELEASE_TAG" ] || [[ "$GITHUB_REF_NAME" == release/v1.5.3-final-qualification-* ]]; then
+          if [ -n "$RELEASE_TAG" ] || [[ "$GITHUB_REF_NAME" == release/v*-final-qualification-* ]]; then
             node packaging/release/check-version.mjs --publish
           fi
       - id: version
@@ -732,7 +732,7 @@ jobs:
   trial-native-windows-cli:
     name: Run native Windows CLI trial (${{ matrix.arch }})
     needs: [prepare, cli]
-    if: needs.prepare.outputs.publish == 'false' && needs.prepare.outputs.version == '1.5.3'
+    if: needs.prepare.outputs.publish == 'false'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -790,7 +790,7 @@ jobs:
   trial-windows-qa:
     name: Verify trial Windows packages against SHA-256 and version resources
     needs: [prepare, trial-assets]
-    if: needs.prepare.outputs.publish == 'false' && needs.prepare.outputs.version == '1.5.3'
+    if: needs.prepare.outputs.publish == 'false'
     runs-on: windows-latest
     permissions:
       contents: read

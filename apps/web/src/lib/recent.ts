@@ -68,10 +68,13 @@ export function validRecentEntry(value: unknown): value is RecentEntry {
 
 /** Newest first, at most `RECENT_LIMIT`; silently ignore damaged records. */
 export function newest(entries: readonly RecentEntry[]): RecentEntry[] {
-  return entries
-    .filter(validRecentEntry)
-    .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
-    .slice(0, RECENT_LIMIT);
+  return (
+    entries
+      .filter(validRecentEntry)
+      // Compare timestamps rather than their potentially different UTC offsets.
+      .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt) || a.id.localeCompare(b.id))
+      .slice(0, RECENT_LIMIT)
+  );
 }
 
 /** Keeps entries and texts in memory: for tests, and browsers without IndexedDB. */
@@ -86,6 +89,9 @@ export function memoryStore(): RecentStore {
       return texts.get(id) ?? null;
     },
     async add(entry, text) {
+      if (!validRecentEntry(entry)) {
+        throw new TypeError("Invalid recent-analysis metadata.");
+      }
       entries.set(entry.id, entry);
       if (text !== undefined) {
         texts.set(entry.id, text);
@@ -170,20 +176,58 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
     },
     async text(id) {
       const db = await open();
-      const row = (await request(db.transaction("texts").objectStore("texts").get(id))) as
-        { id: string; text: string } | undefined;
-      return row?.text ?? null;
+      // Read metadata and text in one snapshot. A stale UI row cannot make
+      // orphan or corrupted text appear to be a retained analysis.
+      const transaction = db.transaction(["recent", "texts"]);
+      type StoredText = { id: unknown; text: unknown };
+      const [entry, row] = await Promise.all([
+        request<unknown>(transaction.objectStore("recent").get(id)),
+        request<StoredText | undefined>(transaction.objectStore("texts").get(id)),
+      ]);
+      if (!validRecentEntry(entry) || entry.id !== id) return null;
+      return row?.id === id && typeof row.text === "string" ? row.text : null;
     },
     async add(entry, text) {
+      if (!validRecentEntry(entry)) {
+        throw new TypeError("Invalid recent-analysis metadata.");
+      }
       const db = await open();
       const transaction = db.transaction(["recent", "texts"], "readwrite");
-      transaction.objectStore("recent").put(entry);
-      if (text !== undefined) {
-        transaction.objectStore("texts").put({ id: entry.id, text });
-      }
-      await done(transaction);
-      const keep = new Set(newest(await all()).map((item) => item.id));
-      await removeIds((await all()).map((item) => item.id).filter((id) => !keep.has(id)));
+      const recent = transaction.objectStore("recent");
+      const texts = transaction.objectStore("texts");
+
+      // Read, save, and evict in one transaction. A separate post-save prune
+      // could race with another tab's add/remove and delete its newer entry.
+      const completion = done(transaction);
+      const scan = recent.getAll() as IDBRequest<RecentEntry[]>;
+      // IDB transactions are active during request success handlers, but not
+      // in arbitrary later Promise continuations. Queue every write here.
+      scan.onsuccess = () => {
+        const rows = scan.result;
+        // Reopening an existing ID replaces its old metadata. Counting both
+        // revisions as separate candidates would evict a sixth entry early.
+        const candidates = rows.filter((row) => row?.id !== entry.id);
+        const keep = new Set(newest([...candidates, entry]).map((item) => item.id));
+        recent.put(entry);
+        if (text !== undefined) {
+          texts.put({ id: entry.id, text });
+        }
+        // Purge damaged legacy metadata as well as normal expired entries.
+        for (const row of rows) {
+          // A legacy row can have a valid IndexedDB key of the wrong TS type
+          // (e.g. a number). It must not be retained just because it is hidden.
+          if (row && row.id !== undefined && !keep.has(row.id)) {
+            recent.delete(row.id);
+            texts.delete(row.id);
+          }
+        }
+        // A newly opened but old-dated entry might not belong in the top five.
+        if (!keep.has(entry.id)) {
+          recent.delete(entry.id);
+          texts.delete(entry.id);
+        }
+      };
+      await completion;
     },
     async remove(id) {
       await removeIds([id]);

@@ -38,13 +38,13 @@ test('tag publications refuse provisional changelog wording before platform buil
   );
   // Finalization branch trials also check finalized notes, but never set TAG.
   assert.match(prepare, /if \[ -n "\$RELEASE_TAG" \] \|\|/);
-  assert.match(prepare, /release\/v1\.5\.3-final-qualification-\*/);
+  assert.match(prepare, /release\/v\*-final-qualification-\*/);
   assert.match(prepare, /node packaging\/release\/check-version\.mjs --publish/);
   assert.match(prepare, /if \[ -n "\$TAG" \]; then/);
   assert.match(prepare, /publish=false/);
 });
 
-test('v1.5.3 finalization trial runs native Windows CLI and installer integrity gates', () => {
+test('every unpublished release trial runs native Windows CLI and installer integrity gates', () => {
   const native = job('trial-native-windows-cli');
   const windows = job('trial-windows-qa');
   const publish = job('publish');
@@ -57,6 +57,8 @@ test('v1.5.3 finalization trial runs native Windows CLI and installer integrity 
   assert.match(windows, /check-v1\.5\.3-windows-trial\.ps1/);
   assert.match(windows, /if: needs\.prepare\.outputs\.publish == 'false'/);
   assert.match(publish, /if: needs\.prepare\.outputs\.publish == 'true'/);
+  assert.doesNotMatch(native, /outputs\.version\s*==/);
+  assert.doesNotMatch(windows, /outputs\.version\s*==/);
 });
 
 

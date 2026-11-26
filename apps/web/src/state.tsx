@@ -120,15 +120,16 @@ async function restore(
       };
     }
     case "file": {
-      const text = await store.text(pointer.id);
-      if (text === null) {
-        return null;
-      }
+      if (!rememberRecent()) return null;
       const entry = (await store.list()).find((item) => item.id === pointer.id);
+      if (!entry) return null;
+      const text = await store.text(pointer.id);
+      if (text === null || !rememberRecent()) return null;
       const loaded = parseArtifact(text);
+      if (loaded.artifact.analysisMetadata.id !== pointer.id) return null;
       return {
         dna: loaded.artifact,
-        origin: { kind: "file", name: entry?.name ?? "analysis file" },
+        origin: { kind: "file", name: entry.name },
         warnings: loaded.warnings,
       };
     }
@@ -249,6 +250,9 @@ export function AppProvider({
         throw new Error(`${entry.name} is no longer kept in this browser.`);
       }
       const loaded = parseArtifact(text);
+      if (loaded.artifact.analysisMetadata.id !== entry.id) {
+        throw new Error(`${entry.name} does not match its saved analysis metadata.`);
+      }
       open(
         {
           dna: loaded.artifact,

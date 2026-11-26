@@ -111,7 +111,12 @@ jobs:
       - name: Verify official support links
         run: npm run links:check && npm run links:test
       - name: Check formatting
-        run: npm run format:check
+        run: |
+          if ! npm run format:check; then
+            npm run format
+            git diff -- apps/web/src packages
+            exit 1
+          fi
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Check the third-party notices
