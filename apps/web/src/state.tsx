@@ -283,20 +283,17 @@ export function AppProvider({
         void enqueueWrite(async () => {
           if (epoch !== retentionEpoch.current || !rememberRecent()) return;
           await store.add(entry, source.text);
-        }).then(
-          () => {
-            if (
-              epoch === retentionEpoch.current &&
-              selection === selectionEpoch.current &&
-              store.persistsAcrossReload !== false &&
-              rememberRecent()
-            ) {
-              setOpenPointer(pointerFor(next, true));
-            }
-            refresh();
-          },
-          refresh,
-        );
+        }).then(() => {
+          if (
+            epoch === retentionEpoch.current &&
+            selection === selectionEpoch.current &&
+            store.persistsAcrossReload !== false &&
+            rememberRecent()
+          ) {
+            setOpenPointer(pointerFor(next, true));
+          }
+          refresh();
+        }, refresh);
       }
     },
     [remember, store, refresh, enqueueWrite],

@@ -70,11 +70,13 @@ export function validRecentEntry(value: unknown): value is RecentEntry {
 
 /** Newest first, at most `RECENT_LIMIT`; silently ignore damaged records. */
 export function newest(entries: readonly RecentEntry[]): RecentEntry[] {
-  return entries
-    .filter(validRecentEntry)
-    // ISO dates with differing UTC offsets do not sort chronologically as strings.
-    .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt) || a.id.localeCompare(b.id))
-    .slice(0, RECENT_LIMIT);
+  return (
+    entries
+      .filter(validRecentEntry)
+      // ISO dates with differing UTC offsets do not sort chronologically as strings.
+      .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt) || a.id.localeCompare(b.id))
+      .slice(0, RECENT_LIMIT)
+  );
 }
 
 /** Keeps entries and texts in memory: for tests, and browsers without IndexedDB. */
