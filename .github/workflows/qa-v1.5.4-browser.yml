@@ -1,0 +1,163 @@
+name: v1.5.4 browser acceptance (isolated QA)
+on:
+  push:
+    branches: ["qa/v1.5.4-browser-20261126"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CANDIDATE_SHA: 22dfb95688908abad9164b1c2b874a0dd27a9007
+      CANDIDATE_RUN: "45799827465"
+      WEB_ARTIFACT_ID: "15106094167"
+    steps:
+      - name: Verify artifact provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" --jq .head_sha | grep -Fx "$CANDIDATE_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/jobs?per_page=100" --jq '.jobs[] | select(.name == "Web interface") | .conclusion' | grep -Fx success
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/artifacts?per_page=100" --jq '.artifacts[] | select(.name == "web-dist" and .expired == false) | .id' | grep -Fx "$WEB_ARTIFACT_ID"
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: 45799827465
+          name: web-dist
+          path: ${{ runner.temp }}/repodna-web
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Test the candidate in a real browser
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/browser-qa"
+          cd "$RUNNER_TEMP/browser-qa"
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          test -s "$RUNNER_TEMP/repodna-web/index.html"
+          test -s "$RUNNER_TEMP/repodna-web/demo/repodna.json"
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory "$RUNNER_TEMP/repodna-web" > server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8765/ -o /dev/null; then break; fi
+            sleep 1
+          done
+          cat > acceptance.mjs <<'JS'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          import { join } from "node:path";
+          import { randomUUID } from "node:crypto";
+          import { chromium } from "playwright";
+
+          const base = "http://127.0.0.1:8765/";
+          const fixture = JSON.parse(await readFile(join(process.env.RUNNER_TEMP, "repodna-web/demo/repodna.json"), "utf8"));
+          const browser = await chromium.launch({ channel: "chrome", headless: true });
+          const checks = [];
+          const pass = (name) => { checks.push(name); console.log("PASS:", name); };
+          const context = await browser.newContext();
+          const page = await context.newPage();
+          const names = [];
+          const ids = [];
+          async function go(route) {
+            await page.evaluate(hash => { location.hash = hash; }, "#" + route);
+            await page.waitForURL(url => url.hash === "#" + route);
+          }
+          async function rows() {
+            const section = page.getByRole("region", { name: "Recent analyses" });
+            return section.locator("li .path").allTextContents();
+          }
+          async function expectRows(expected) {
+            await page.waitForFunction(expected => {
+              const section = document.querySelector('section[aria-labelledby="recent-title"]');
+              const actual = section ? [...section.querySelectorAll("li .path")].map(node => node.textContent) : [];
+              return JSON.stringify(actual) === JSON.stringify(expected);
+            }, expected);
+            assert.deepEqual(await rows(), expected);
+          }
+          try {
+            await page.goto(base + "#/");
+            for (let i = 1; i <= 6; i++) {
+              const copy = structuredClone(fixture);
+              const id = randomUUID();
+              const name = "acceptance-" + i + ".json";
+              copy.analysisMetadata.id = id;
+              names.unshift(name);
+              ids.unshift(id);
+              await page.getByLabel("Open an analysis file", { exact: true }).setInputFiles({
+                name, mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)),
+              });
+              await page.waitForURL(url => url.hash === "#/overview");
+              await go("/");
+              await expectRows(names.slice(0, 5));
+            }
+            pass("Six distinct analysis uploads retain the newest five");
+            const section = page.getByRole("region", { name: "Recent analyses" });
+            await section.getByRole("listitem").filter({ hasText: names[2] }).getByRole("button", { name: "Open", exact: true }).click();
+            await page.waitForURL(url => url.hash === "#/overview");
+            await go("/");
+            const refreshed = [names[2], names[0], names[1], names[3], names[4]];
+            await expectRows(refreshed);
+            pass("Reopening at capacity preserves five distinct records and refreshes recency");
+            await go("/files");
+            await page.reload();
+            await page.getByRole("heading", { name: "Files", exact: true, level: 1 }).waitFor();
+            assert.equal(await page.getByText("No analysis is open", { exact: true }).count(), 0);
+            pass("Retained file restores after a real reload");
+            await go("/");
+            await section.getByRole("button", { name: "Remove " + names[1] + " from recent analyses" }).click();
+            await expectRows(refreshed.filter(name => name !== names[1]));
+            pass("Explicit deletion removes the selected entry only");
+            const other = await context.newPage();
+            await other.goto(base + "#/");
+            const otherSection = other.getByRole("region", { name: "Recent analyses" });
+            await otherSection.getByText(names[0], { exact: true }).waitFor();
+            assert.equal(await otherSection.getByText(names[1], { exact: true }).count(), 0);
+            pass("Independent same-origin page observes committed deletion");
+            await other.close();
+            await go("/settings");
+            const keep = page.getByRole("checkbox", { name: /Keep the last \d+ analysis files/ });
+            await keep.uncheck();
+            await page.getByText("None kept.", { exact: true }).waitFor();
+            await page.reload();
+            await keep.waitFor();
+            assert.equal(await keep.isChecked(), false);
+            await page.getByText("None kept.", { exact: true }).waitFor();
+            const count = await page.evaluate(async () => {
+              const db = await new Promise((resolve, reject) => {
+                const r = indexedDB.open("repodna", 1);
+                r.onsuccess = () => resolve(r.result);
+                r.onerror = () => reject(r.error);
+              });
+              const result = await new Promise((resolve, reject) => {
+                const tx = db.transaction(["recent", "texts"]);
+                const a = tx.objectStore("recent").count();
+                const b = tx.objectStore("texts").count();
+                tx.oncomplete = () => resolve([a.result, b.result]);
+                tx.onabort = () => reject(tx.error);
+                tx.onerror = () => reject(tx.error);
+              });
+              db.close();
+              return result;
+            });
+            assert.deepEqual(count, [0, 0]);
+            await go("/files");
+            await page.reload();
+            await page.getByText("No analysis is open", { exact: true }).waitFor();
+            pass("Retention opt-out persists and both IndexedDB object stores are empty");
+            console.log(JSON.stringify({ candidate: process.env.CANDIDATE_SHA, artifact: process.env.WEB_ARTIFACT_ID, checks }, null, 2));
+          } finally {
+            await browser.close();
+          }
+          JS
+          node acceptance.mjs | tee browser-acceptance.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: v1.5.4-browser-acceptance-log
+          path: ${{ runner.temp }}/browser-qa/browser-acceptance.log
+          if-no-files-found: warn
