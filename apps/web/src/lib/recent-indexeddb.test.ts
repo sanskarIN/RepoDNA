@@ -120,10 +120,9 @@ describe("local recent-analysis persistence integrity", () => {
     const newer = entry("newer", "2026-11-24T00:30:00+00:30");
     expect(newest([older, newer]).map((item) => item.id)).toEqual(["newer", "older"]);
     expect(
-      newest([
-        entry("z", "2026-11-24T00:00:00Z"),
-        entry("a", "2026-11-24T01:00:00+01:00"),
-      ]).map((item) => item.id),
+      newest([entry("z", "2026-11-24T00:00:00Z"), entry("a", "2026-11-24T01:00:00+01:00")]).map(
+        (item) => item.id,
+      ),
     ).toEqual(["a", "z"]);
   });
 
