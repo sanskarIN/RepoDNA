@@ -1,0 +1,198 @@
+name: v1.5.5 hosted Windows installer smoke (isolated QA)
+on:
+  push:
+    branches: ["qa/v1.5.5-windows-20261128"]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  provenance:
+    name: Wait for exact native trial installers
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      x64: ${{ steps.wait.outputs.x64 }}
+      arm64: ${{ steps.wait.outputs.arm64 }}
+    steps:
+      - id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: 0508a2f4ef3c89cb7ae5766231ea2db3715dd930
+          CANDIDATE_RUN: "46100587917"
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" --jq .head_sha | grep -Fx "$CANDIDATE_SHA"
+          for attempt in $(seq 1 220); do
+            jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/jobs?per_page=100")
+            x64_status=$(jq -r '.jobs[] | select(.name == "Desktop (Windows)") | .conclusion // ""' <<< "$jobs")
+            arm64_status=$(jq -r '.jobs[] | select(.name == "Desktop (Windows-arm64)") | .conclusion // ""' <<< "$jobs")
+            for status in "$x64_status" "$arm64_status"; do
+              if [ -n "$status" ] && [ "$status" != success ]; then
+                echo "Candidate native desktop job failed: $status" >&2
+                exit 1
+              fi
+            done
+            artifacts=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/artifacts?per_page=100")
+            x64=$(jq -r '.artifacts[] | select(.name == "desktop-Windows" and .expired == false) | .id' <<< "$artifacts")
+            arm64=$(jq -r '.artifacts[] | select(.name == "desktop-Windows-arm64" and .expired == false) | .id' <<< "$artifacts")
+            if [ "$x64_status" = success ] && [ "$arm64_status" = success ] && [[ "$x64" =~ ^[0-9]+$ ]] && [[ "$arm64" =~ ^[0-9]+$ ]]; then
+              printf 'x64=%s\narm64=%s\n' "$x64" "$arm64" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for candidate native installers" >&2
+          exit 1
+  installers:
+    needs: provenance
+    name: Installer smoke (${{ matrix.arch }}, ${{ matrix.kind }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arch: x64, kind: msi, runner: windows-latest, artifact: desktop-Windows, native: X64}
+          - {arch: x64, kind: nsis, runner: windows-latest, artifact: desktop-Windows, native: X64}
+          - {arch: arm64, kind: msi, runner: windows-11-arm, artifact: desktop-Windows-arm64, native: Arm64}
+          - {arch: arm64, kind: nsis, runner: windows-11-arm, artifact: desktop-Windows-arm64, native: Arm64}
+    env:
+      CANDIDATE_SHA: 0508a2f4ef3c89cb7ae5766231ea2db3715dd930
+      CANDIDATE_RUN: "46100587917"
+      ARCH: ${{ matrix.arch }}
+      KIND: ${{ matrix.kind }}
+      ARTIFACT_NAME: ${{ matrix.artifact }}
+      ARTIFACT_ID: ${{ matrix.arch == 'x64' && needs.provenance.outputs.x64 || needs.provenance.outputs.arm64 }}
+      NATIVE_ARCH: ${{ matrix.native }}
+    steps:
+      - name: Verify native architecture and exact trial artifact provenance
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString() -cne $env:NATIVE_ARCH) {
+            throw 'Unexpected runner architecture'
+          }
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:CANDIDATE_RUN" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $run.head_sha -cne $env:CANDIDATE_SHA) { throw 'Wrong candidate SHA' }
+          $response = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:CANDIDATE_RUN/artifacts?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read trial artifacts' }
+          $matching = @($response.artifacts | Where-Object { $_.name -ceq $env:ARTIFACT_NAME -and -not $_.expired })
+          if ($matching.Count -ne 1 -or [string]$matching[0].id -cne $env:ARTIFACT_ID) { throw 'Wrong artifact' }
+          Write-Host "Exact candidate $env:CANDIDATE_SHA artifact $env:ARTIFACT_ID architecture $env:NATIVE_ARCH"
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: 46100587917
+          name: ${{ matrix.artifact }}
+          path: ${{ runner.temp }}/repodna-installers
+      - name: Clean install, native process smoke, uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'repodna-installers'
+          $log = Join-Path $env:RUNNER_TEMP 'repodna-installer-qa'
+          New-Item -ItemType Directory -Path $log -Force | Out-Null
+          $roots = @(
+            'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+            'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+          )
+          function Products {
+            @(Get-ItemProperty -Path $roots -ErrorAction SilentlyContinue |
+              Where-Object { $_.DisplayName -ceq 'RepoDNA' })
+          }
+          function Run-Installer([string]$file, [string]$arguments, [int[]]$allowed = @(0)) {
+            $p = Start-Process -FilePath $file -ArgumentList $arguments -Wait -PassThru
+            if ($p.ExitCode -notin $allowed) {
+              throw "Installer command failed: $file exit=$($p.ExitCode)"
+            }
+          }
+          function Resolve-InstalledExecutable($entry) {
+            $folders = @()
+            if ($entry.InstallLocation) { $folders += $entry.InstallLocation.Trim('"') }
+            if ($entry.DisplayIcon) {
+              $icon = ([string]$entry.DisplayIcon -replace ',\s*-?\d+$','').Trim('"')
+              if (Test-Path -LiteralPath $icon -PathType Leaf) { $folders += Split-Path -Parent $icon }
+            }
+            $folders += @(
+              (Join-Path $env:LOCALAPPDATA 'RepoDNA'),
+              (Join-Path $env:LOCALAPPDATA 'Programs\RepoDNA'),
+              (Join-Path $env:ProgramFiles 'RepoDNA')
+            )
+            if (${env:ProgramFiles(x86)}) { $folders += Join-Path ${env:ProgramFiles(x86)} 'RepoDNA' }
+            foreach ($folder in ($folders | Select-Object -Unique)) {
+              if (-not (Test-Path -LiteralPath $folder -PathType Container)) { continue }
+              foreach ($name in @('repodna-desktop.exe','RepoDNA.exe')) {
+                $candidate = Join-Path $folder $name
+                if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+              }
+            }
+            throw 'Installed RepoDNA executable not found in registered or standard product directories'
+          }
+          if ((Products).Count -ne 0) { throw 'Disposable runner already contains RepoDNA' }
+          $installer = if ($env:KIND -eq 'msi') {
+            Join-Path $dir "RepoDNA_1.5.5_$($env:ARCH)_en-US.msi"
+          } else {
+            Join-Path $dir "RepoDNA_1.5.5_$($env:ARCH)-setup.exe"
+          }
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Missing installer' }
+          Get-FileHash -LiteralPath $installer -Algorithm SHA256 |
+            Format-List | Out-String | Tee-Object -FilePath (Join-Path $log 'installer-hash.txt')
+          $app = $null
+          $installedExe = $null
+          $entry = $null
+          try {
+            if ($env:KIND -eq 'msi') {
+              Run-Installer 'msiexec.exe' ('/i "' + $installer + '" /qn /norestart /L*v "' + (Join-Path $log 'install-msi.log') + '"')
+            } else {
+              Run-Installer $installer '/S'
+            }
+            $entries = @(Products)
+            if ($entries.Count -ne 1) { throw "Expected one registered RepoDNA product, found $($entries.Count)" }
+            $entry = $entries[0]
+            if ([string]$entry.DisplayVersion -cne '1.5.5') { throw "Wrong installed version: $($entry.DisplayVersion)" }
+            $installedExe = Resolve-InstalledExecutable $entry
+            $info = (Get-Item -LiteralPath $installedExe).VersionInfo
+            if ($info.CompanyName -cne 'RepoDNA') { throw "Wrong installed CompanyName: $($info.CompanyName)" }
+            $bytes = [IO.File]::ReadAllBytes($installedExe)
+            $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+            $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            $expected = if ($env:ARCH -eq 'arm64') { 0xaa64 } else { 0x8664 }
+            if ($machine -ne $expected) { throw "Wrong installed executable PE machine: $machine" }
+            Write-Host "Installed version $($entry.DisplayVersion), company $($info.CompanyName), native PE $machine"
+            $app = Start-Process -FilePath $installedExe -PassThru
+            Start-Sleep -Seconds 8
+            $app.Refresh()
+            if ($app.HasExited) { throw "Installed desktop process exited early: $($app.ExitCode)" }
+            Write-Host 'Native installed desktop process survived launch smoke'
+          } finally {
+            if ($app -and -not $app.HasExited) {
+              [void]$app.CloseMainWindow()
+              if (-not $app.WaitForExit(5000)) { Stop-Process -Id $app.Id -Force }
+            }
+            if ($env:KIND -eq 'msi') {
+              if ((Products).Count -gt 0) {
+                Run-Installer 'msiexec.exe' ('/x "' + $installer + '" /qn /norestart /L*v "' + (Join-Path $log 'uninstall-msi.log') + '"')
+              }
+            } elseif ((Products).Count -gt 0) {
+              $registered = @(Products)[0]
+              $command = [string]$registered.UninstallString
+              if ($command -match '^"([^"]+)"') { $uninstaller = $Matches[1] }
+              elseif ($command -match '^(.+?\.exe)(?:\s|$)') { $uninstaller = $Matches[1] }
+              else { throw 'Cannot resolve registered NSIS uninstaller executable' }
+              if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) { throw 'Missing NSIS uninstaller' }
+              Run-Installer $uninstaller '/S'
+            }
+          }
+          if ((Products).Count -ne 0) { throw 'RepoDNA uninstall registry entry remains' }
+          if ($installedExe -and (Test-Path -LiteralPath $installedExe)) { throw 'Installed desktop executable remains after uninstall' }
+          Write-Host 'PASS: Hosted clean install, native process smoke and uninstall'
+          Write-Host 'NOT physical-device QA; no interactive UI, data-retention or upgrade result claimed.'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: hosted-windows-${{ matrix.arch }}-${{ matrix.kind }}-logs
+          path: ${{ runner.temp }}/repodna-installer-qa
+          if-no-files-found: warn
