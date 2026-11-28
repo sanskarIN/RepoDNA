@@ -162,6 +162,40 @@ describe("desktop remote reference discovery", () => {
     expect(startScan).toHaveBeenCalledWith(url, "standard", selected);
   });
 
+  it("queries beyond the initial truncated listing only on explicit request", async () => {
+    const discover = vi.fn(async () => listing);
+    discover
+      .mockResolvedValueOnce({ references: listing.references.slice(0, 2), truncated: true })
+      .mockResolvedValueOnce({ references: [listing.references[2]!], truncated: false });
+    const { startScan } = desktop(discover);
+    window.location.hash = "#/";
+    await act(async () => {
+      render(<App store={memoryStore()} />);
+    });
+    const input = await screen.findByLabelText("Repository to analyze");
+    fireEvent.change(input, { target: { value: url } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Find branches and tags" }));
+    });
+    const kind = screen.getByLabelText("Reference type");
+    const filter = screen.getByLabelText("Filter names");
+    fireEvent.change(kind, { target: { value: "tag" } });
+    fireEvent.change(filter, { target: { value: "audio" } });
+    expect(discover).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Search remote references" }));
+    });
+    expect(discover).toHaveBeenLastCalledWith(url, { kind: "tag", search: "audio" });
+    const choice = screen.getByLabelText("Choose a reference");
+    fireEvent.change(choice, { target: { value: "feat/audio" } });
+    fireEvent.click(screen.getByRole("button", { name: "Use selected reference" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    });
+    const revision = { kind: "tag", value: "feat/audio" };
+    expect(startScan).toHaveBeenCalledWith(url, "standard", revision);
+  });
+
   it("discards choices when the source changes while discovery is pending", async () => {
     let finish: (value: SourceReferences) => void = () => undefined;
     const pending = new Promise<SourceReferences>((resolve) => {

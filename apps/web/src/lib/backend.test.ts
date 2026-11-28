@@ -328,6 +328,20 @@ describe("remote reference listings", () => {
     }
   });
 
+  it("sends native search parameters separately from the repository URL", async () => {
+    const result = { references: [tag], truncated: false };
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(result), { status: 200 }),
+    );
+    const input = "https://github.com/org/repo";
+    const query = { kind: "tag" as const, search: "audio" };
+    const backend = new ServerBackend("local-token");
+    await expect(backend.listRemoteReferences(input, query)).resolves.toEqual(result);
+    const [url, init] = spy.mock.calls[0] ?? [];
+    expect(url).toBe("/api/remote-references");
+    expect(JSON.parse(String(init?.body))).toEqual({ input, ...query });
+  });
+
   it("uses an authenticated POST body and never puts the URL in the API path", async () => {
     const result = { references: [branch], truncated: false };
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(

@@ -507,6 +507,10 @@ fn remote_reference_endpoint_enforces_session_origin_and_url_policy() {
         r#"{"input":"/local/project"}"#,
         r#"{"input":""}"#,
         r#"{"input":false}"#,
+        r#"{"input":"https://github.com/org/repo","kind":false}"#,
+        r#"{"input":"https://github.com/org/repo","kind":"commit"}"#,
+        r#"{"input":"https://github.com/org/repo","search":123}"#,
+        r#"{"input":"https://github.com/org/repo","search":"a\u0000b"}"#,
         r#"{"input":"https://github.com/org/repohttps://user:synthetic-secret@github.com/a/b"}"#,
         "{",
     ] {

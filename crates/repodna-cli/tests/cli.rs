@@ -169,6 +169,15 @@ fn remote_refs_cli_validates_sources_and_has_help_without_network() {
         assert_eq!(code(&output), 3, "{}", stderr(&output));
         assert!(stdout(&output).is_empty());
     }
+    let long = "a".repeat(513);
+    let invalid_search = env.run(&[
+        "remote-refs",
+        "https://github.com/org/repo",
+        "--search",
+        &long,
+    ]);
+    assert_eq!(code(&invalid_search), 3);
+    assert!(stderr(&invalid_search).contains("reference search"));
     let bad = env.run(&[
         "remote-refs",
         "https://github.com/org/repo",

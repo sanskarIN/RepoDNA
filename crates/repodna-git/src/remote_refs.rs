@@ -428,6 +428,17 @@ mod tests {
             annotated_object
         );
         assert_ne!(annotated_object, first);
+        let query = RemoteRefQuery::new(Some(RemoteRefKind::Tag), Some("runtime")).unwrap();
+        let only_tags = discover_with_runner(
+            &runner,
+            &repo.path().to_string_lossy(),
+            &query,
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert_eq!(only_tags.refs.len(), 1);
+        assert_eq!(only_tags.refs[0].kind, RemoteRefKind::Tag);
+        assert_eq!(only_tags.refs[0].object, second);
         assert_eq!(repo.git(&["show-ref"]), before);
         assert_eq!(repo.git(&["rev-parse", "HEAD"]).trim(), second);
         assert!(repo.git(&["status", "--porcelain"]).is_empty());
