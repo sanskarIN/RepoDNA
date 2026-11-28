@@ -315,3 +315,18 @@ not cryptographic attestation or independent proof of site authenticity.
 During a Pages rollout, the previously published manifest may remain visible
 until the new deployment completes. Check both the live manifest and the
 latest completed deployment before reporting an update as live.
+
+
+### Browsing older stored analyses (development)
+
+Open **History** beside a saved repository. The native backends return up to
+50 analyses per request, newest timestamp first, with analysis ID breaking
+same-second ties. Select **Load older analyses** to continue and **Open record**
+to view that exact analysis rather than the latest one. The cursor remains valid
+if the boundary record is deleted; new records above it are visible after
+refreshing the history. Older backends still support their original limited
+repository-details list.
+
+The native development build upgrades the SQLite index to schema version 2 to
+support this query. Use a separate data directory when testing alongside an
+older stable build, which will refuse to open a newer schema.

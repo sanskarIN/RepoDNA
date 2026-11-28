@@ -1,10 +1,10 @@
 //! Database schema and migrations.
 //!
 //! The schema version is kept in SQLite's `user_version`. Each migration runs in its own
-//! transaction together with the version update, so a failed upgrade rolls back and leaves
-//! the previous version's data untouched.
+//! writer transaction together with the version update, so a failed upgrade rolls back and leaves
+//! the previous version's data untouched. Concurrent openers serialize migrations.
 
-use rusqlite::Connection;
+use rusqlite::{Connection, TransactionBehavior};
 
 use crate::StoreError;
 
@@ -93,7 +93,10 @@ pub fn configure(connection: &Connection) -> Result<(), StoreError> {
 
 /// Upgrades the database to [`SCHEMA_VERSION`] and returns the version it started from.
 pub fn migrate(connection: &mut Connection) -> Result<i64, StoreError> {
-    let current = version(connection)?;
+    // Read the version under the same writer lock as the migrations. Two
+    // clients opening an old database must not both try to create an index.
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let current = version(&transaction)?;
     if current > SCHEMA_VERSION {
         return Err(StoreError::NewerSchema {
             found: current,
@@ -102,11 +105,10 @@ pub fn migrate(connection: &mut Connection) -> Result<i64, StoreError> {
     }
     let applied = usize::try_from(current).unwrap_or(0);
     for (index, sql) in MIGRATIONS.iter().enumerate().skip(applied) {
-        let transaction = connection.transaction()?;
         transaction.execute_batch(sql)?;
         transaction.pragma_update(None, "user_version", index as i64 + 1)?;
-        transaction.commit()?;
     }
+    transaction.commit()?;
     Ok(current)
 }
 
@@ -129,6 +131,27 @@ mod tests {
             )
             .unwrap();
         assert_eq!(tables, 5);
+    }
+
+    #[test]
+    fn migrates_existing_v1_history_without_losing_rows() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        configure(&connection).unwrap();
+        connection.execute_batch(MIGRATIONS[0]).unwrap();
+        connection.pragma_update(None, "user_version", 1).unwrap();
+        connection.execute(
+            "INSERT INTO repositories VALUES ('repo', 'name', 'path', 'local-directory', 1, 2)",
+            [],
+        ).unwrap();
+        assert_eq!(migrate(&mut connection).unwrap(), 1);
+        assert_eq!(version(&connection).unwrap(), SCHEMA_VERSION);
+        let count: i64 = connection.query_row("SELECT COUNT(*) FROM repositories", [], |row| row.get(0)).unwrap();
+        assert_eq!(count, 1);
+        let index: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'scans_history_keyset'",
+            [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(index, 1);
     }
 
     #[test]

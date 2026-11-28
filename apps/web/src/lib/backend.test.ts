@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  checkHistoryPage,
   checkScanJob,
   checkScanJobs,
   checkSourceReferences,
@@ -378,6 +379,43 @@ describe("native analysis recovery", () => {
     await expect(backend.listJobs()).resolves.toEqual([validJob]);
     const [url, init] = spy.mock.calls[0] ?? [];
     expect(url).toBe("/api/scans");
+    expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
+  });
+});
+
+describe("paginated stored history", () => {
+  it("accepts a bounded page with the requested repository identity", () => {
+    const page = { repositoryId: "repo-1", scans: [validScan], nextCursor: "next" };
+    expect(checkHistoryPage(page, "repo-1")).toEqual(page);
+    expect(checkHistoryPage({ ...page, scans: [], nextCursor: null }, "repo-1").scans).toEqual([]);
+  });
+
+  it("rejects malformed, duplicate and nonadvancing history pages", () => {
+    const page = { repositoryId: "repo-1", scans: [validScan], nextCursor: "next" };
+    for (const invalid of [
+      { ...page, repositoryId: "repo-2" },
+      { ...page, scans: [validScan, validScan] },
+      { ...page, scans: Array.from({ length: 101 }, (_, i) => ({ ...validScan, id: String(i) })) },
+      { ...page, scans: [], nextCursor: "next" },
+      { ...page, nextCursor: "" },
+      { ...page, nextCursor: "x".repeat(201) },
+      { ...page, nextCursor: undefined },
+      { ...page, scans: [{ ...validScan, files: -1 }] },
+    ]) {
+      expect(() => checkHistoryPage(invalid, "repo-1")).toThrow(/invalid history page/);
+    }
+    expect(() => checkHistoryPage(page, "repo-1", "next")).toThrow(/invalid history page/);
+  });
+
+  it("encodes the history cursor and authenticates the exact repository request", async () => {
+    const page = { repositoryId: "repo /1", scans: [validScan], nextCursor: null };
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(page), { status: 200 }));
+    const backend = new ServerBackend("local-token");
+    await expect(backend.history("repo /1", "v1:a:123:scan")).resolves.toEqual(page);
+    const [url, init] = spy.mock.calls[0] ?? [];
+    expect(url).toBe("/api/repositories/repo%20%2F1/history?limit=50&after=v1%3Aa%3A123%3Ascan");
     expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
   });
 });

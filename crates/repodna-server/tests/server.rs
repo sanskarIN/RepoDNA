@@ -344,6 +344,62 @@ fn protects_the_api_and_serves_analyses() {
 }
 
 #[test]
+fn repository_history_pages_enforce_authentication_identity_and_limits() {
+    let (_home, _source, paths) = analyzed_home();
+    let store = paths.open_store().unwrap();
+    let repository = store.repositories().unwrap().remove(0);
+    let original = store.scans(&repository.id, 1).unwrap().remove(0);
+    let dna = store.load(&original).unwrap();
+    let location = repodna_store::RepositoryLocation {
+        kind: repository.kind,
+        location: repository.location.clone(),
+    };
+    for id in ["history-a", "history-b", "history-c"] {
+        let mut copy = dna.clone();
+        copy.analysis_metadata.id = id.to_owned();
+        store.record(&copy, &location).unwrap();
+    }
+    let running = Running::start(paths, None);
+    let address = running.address();
+    let token = running.server.token().to_owned();
+    let auth = [("X-RepoDNA-Token", token.as_str())];
+    let endpoint = format!("/api/repositories/{}/history", repository.id);
+    assert_eq!(send(address, "GET", &endpoint, &[], "").status, 401);
+    for query in ["?limit=0", "?limit=101", "?limit=-1", "?after=invalid"] {
+        let reply = send(address, "GET", &format!("{endpoint}{query}"), &auth, "");
+        assert_eq!(reply.status, 400, "{}", reply.body);
+    }
+    let first = send(address, "GET", &format!("{endpoint}?limit=2"), &auth, "");
+    assert_eq!(first.status, 200, "{}", first.body);
+    let first = first.json();
+    assert_eq!(first["repositoryId"], repository.id);
+    assert_eq!(first["scans"].as_array().unwrap().len(), 2);
+    let cursor = first["nextCursor"].as_str().unwrap();
+    let second = send(
+        address,
+        "GET",
+        &format!("{endpoint}?limit=2&after={cursor}"),
+        &auth,
+        "",
+    );
+    assert_eq!(second.status, 200, "{}", second.body);
+    let second = second.json();
+    assert!(second["nextCursor"].is_null());
+    let ids = first["scans"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .chain(second["scans"].as_array().unwrap())
+        .map(|scan| scan["id"].as_str().unwrap())
+        .collect::<std::collections::HashSet<_>>();
+    assert_eq!(ids.len(), 4);
+    let foreign = format!("{endpoint}?after=v1:000000000000:0:history-a");
+    assert_eq!(send(address, "GET", &foreign, &auth, "").status, 400);
+    let alias = format!("/api/repositories/{}/history", repository.name);
+    assert_eq!(send(address, "GET", &alias, &auth, "").status, 404);
+}
+
+#[test]
 fn deleting_saved_scans_requires_authentication_and_exact_ownership() {
     let (_home, source, paths) = analyzed_home();
     let store = paths.open_store().unwrap();

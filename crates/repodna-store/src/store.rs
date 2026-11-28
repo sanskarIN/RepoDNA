@@ -116,6 +116,9 @@ pub struct HistoryCursor {
 impl HistoryCursor {
     /// Decode the versioned transport representation.
     pub fn decode(value: &str) -> Result<Self, StoreError> {
+        if value.len() > 200 {
+            return Err(StoreError::Invalid("history cursor is too long".into()));
+        }
         let fields: Vec<&str> = value.split(':').collect();
         if fields.len() != 4
             || fields[0] != "v1"
