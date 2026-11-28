@@ -134,6 +134,8 @@ export interface Backend {
   /** User-requested network discovery, optional for native backends. */
   listRemoteReferences?(input: string): Promise<SourceReferences>;
   job(id: string): Promise<JobState>;
+  /** Recent native jobs available for reattaching to an analysis. */
+  listJobs?(): Promise<JobState[]>;
   cancelJob(id: string): Promise<void>;
   /** A link to a generated report (server only). */
   reportUrl(id: string, format: ReportFormat, options?: ReportOptions): string | null;
@@ -233,6 +235,28 @@ function isJobState(value: unknown, allowed: readonly JobState["status"][]): val
     typeof value.startedAt === "string" &&
     isNullableString(value.finishedAt)
   );
+}
+
+const JOB_STATUSES = ["running", "completed", "failed", "cancelled"] as const;
+
+/** Validate a native job and, when supplied, the requested identity. */
+export function checkScanJob(value: unknown, id?: string): JobState {
+  if (!isJobState(value, JOB_STATUSES) || (id !== undefined && value.id !== id)) {
+    throw new BackendError("The backend returned an invalid scan job.", 200);
+  }
+  return value;
+}
+
+/** Keep list validation bounded and reject duplicate job identities. */
+export function checkScanJobs(value: unknown): JobState[] {
+  if (!Array.isArray(value) || value.length > 50) {
+    throw new BackendError("The backend returned an invalid scan job list.", 200);
+  }
+  const jobs = value.map((item: unknown) => checkScanJob(item));
+  if (new Set(jobs.map((job) => job.id)).size !== jobs.length) {
+    throw new BackendError("The backend returned duplicate scan job IDs.", 200);
+  }
+  return jobs;
 }
 
 const TOKEN_KEY = "repodna-token";
@@ -402,6 +426,10 @@ export class ServerBackend implements Backend {
       throw new BackendError("The server returned an invalid scan job.", 200);
     }
     return value;
+  }
+
+  async listJobs(): Promise<JobState[]> {
+    return checkScanJobs(await this.request<unknown>("scans"));
   }
 
   async cancelJob(id: string): Promise<void> {

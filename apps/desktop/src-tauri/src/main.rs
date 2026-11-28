@@ -140,6 +140,11 @@ fn start_scan(
 }
 
 #[tauri::command]
+fn list_jobs(desktop: State<'_, Desktop>) -> Reply<Vec<JobState>> {
+    Ok(desktop.library()?.jobs.list())
+}
+
+#[tauri::command]
 fn get_job(desktop: State<'_, Desktop>, id: String) -> Reply<JobState> {
     desktop
         .library()?
@@ -400,6 +405,7 @@ fn main() {
             start_scan,
             list_remote_references,
             get_job,
+            list_jobs,
             cancel_job,
             pick_directory,
             save_report,

@@ -115,7 +115,7 @@ export function useScanJob(
     }, delay);
   }
 
-  const start = async (input: string, profile: string, revision?: RemoteRevision) => {
+  const launch = async (operation: () => Promise<JobState>, expectedId?: string) => {
     // State updates are asynchronous: the ref guards a second submission even
     // before React has rendered the disabled button.
     if (!backend || !mounted.current || active.current) return;
@@ -133,8 +133,11 @@ export function useScanJob(
     setStarting(true);
     setPaused(false);
     try {
-      const next = await backend.startScan(input, profile, revision);
+      const next = await operation();
       if (!current(scan)) return;
+      if (expectedId !== undefined && expectedId !== next.id) {
+        throw new Error("The backend returned a different analysis job.");
+      }
       scan.id = next.id;
       accept(scan, next);
     } catch (reason) {
@@ -144,6 +147,12 @@ export function useScanJob(
       setError(message(reason));
     }
   };
+
+  const start = (input: string, profile: string, revision?: RemoteRevision) =>
+    backend ? launch(() => backend.startScan(input, profile, revision)) : Promise.resolve();
+
+  const attach = (id: string) =>
+    backend ? launch(() => backend.job(id), id) : Promise.resolve();
 
   const resume = () => {
     const scan = active.current;
@@ -183,6 +192,7 @@ export function useScanJob(
     error,
     pollError,
     start,
+    attach,
     resume,
     stop,
   };

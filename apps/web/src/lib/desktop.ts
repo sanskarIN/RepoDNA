@@ -3,7 +3,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { checkArtifact, type RepositoryDna } from "@repodna/schema";
-import { checkSourceReferences } from "./backend";
+import { checkScanJob, checkScanJobs, checkSourceReferences } from "./backend";
 import type {
   Backend,
   JobState,
@@ -58,8 +58,12 @@ export class DesktopBackend implements Backend {
     });
   }
 
-  job(id: string): Promise<JobState> {
-    return invoke<JobState>("get_job", { id });
+  async job(id: string): Promise<JobState> {
+    return checkScanJob(await invoke<unknown>("get_job", { id }), id);
+  }
+
+  async listJobs(): Promise<JobState[]> {
+    return checkScanJobs(await invoke<unknown>("list_jobs"));
   }
 
   async cancelJob(id: string): Promise<void> {

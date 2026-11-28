@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import { bytes, date, thousands } from "@repodna/visualization";
 import { BrowserScan, useEngine } from "../components/BrowserAnalysis";
 import { RemoteRefPicker } from "../components/RemoteRefPicker";
+import { ScanRecovery } from "../components/ScanRecovery";
 import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../components/common";
 import { droppedFolder, isArchive } from "../engine/input";
 import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
@@ -264,6 +265,16 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             </ul>
           ) : null}
         </div>
+      ) : null}
+      {backend.listJobs ? (
+        <ScanRecovery
+          load={() => backend.listJobs!()}
+          onChoose={(id) => {
+            setError(null);
+            void scan.attach(id);
+          }}
+          disabled={running}
+        />
       ) : null}
       {scan.pollError ? (
         <div role="status">

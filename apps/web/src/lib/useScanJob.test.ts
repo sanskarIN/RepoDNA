@@ -41,8 +41,12 @@ async function advance(ms: number) {
 }
 
 describe("native analysis lifecycle", () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it("blocks concurrent starts before a native job ID arrives", async () => {
     const service = backend();
@@ -129,6 +133,38 @@ describe("native analysis lifecycle", () => {
     await advance(10_000);
     expect(done).not.toHaveBeenCalled();
     expect(service.job).toHaveBeenCalledTimes(1);
+  });
+
+  it("reattaches to a live native job without submitting another analysis", async () => {
+    const service = backend();
+    const done = vi.fn();
+    service.job
+      .mockResolvedValueOnce(job("running", "job-existing"))
+      .mockResolvedValueOnce({
+        ...job("completed", "job-existing"),
+        repositoryId: "saved-repo",
+        scanId: "saved-scan",
+      });
+    const { result, unmount } = renderHook(() => useScanJob(service, done));
+    await act(async () => result.current.attach("job-existing"));
+    expect(service.startScan).not.toHaveBeenCalled();
+    expect(result.current.job?.id).toBe("job-existing");
+    expect(result.current.busy).toBe(true);
+    await advance(400);
+    expect(done).toHaveBeenCalledWith("saved-repo", "saved-scan");
+    expect(service.job.mock.calls.every(([id]) => id === "job-existing")).toBe(true);
+    unmount();
+  });
+
+  it("rejects a stale recovery entry with a mismatched job identity", async () => {
+    const service = backend();
+    service.job.mockResolvedValueOnce(job("running", "wrong-job"));
+    const { result, unmount } = renderHook(() => useScanJob(service, vi.fn()));
+    await act(async () => result.current.attach("job-existing"));
+    expect(result.current.error).toContain("different analysis job");
+    expect(result.current.busy).toBe(false);
+    expect(result.current.job).toBeNull();
+    unmount();
   });
 
   it("clears a failed start and permits another submission", async () => {
