@@ -1,9 +1,9 @@
 import { useState } from "react";
-import type { RemoteRevision, SourceReference, SourceReferences } from "../lib/backend";
+import type { RemoteRevision, SourceReference, SourceReferences, SourceRefQuery } from "../lib/backend";
 
 interface Props {
   input: string;
-  discover: (input: string) => Promise<SourceReferences>;
+  discover: (input: string, query?: SourceRefQuery) => Promise<SourceReferences>;
   disabled: boolean;
   onSelect: (revision: RemoteRevision) => void;
 }
@@ -12,7 +12,7 @@ type Status =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; listing: SourceReferences };
+  | { kind: "ready"; listing: SourceReferences; scope?: SourceRefQuery };
 
 const DISPLAY_LIMIT = 150;
 
@@ -24,11 +24,12 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
 
-  const load = async () => {
+  const load = async (scope?: SourceRefQuery) => {
     setStatus({ kind: "loading" });
     setSelected("");
     try {
-      setStatus({ kind: "ready", listing: await discover(input) });
+      const listing = scope ? await discover(input, scope) : await discover(input);
+      setStatus({ kind: "ready", listing, scope });
     } catch (error) {
       setStatus({
         kind: "error",
@@ -42,6 +43,7 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
     (reference) =>
       reference.kind === kind && reference.name.toLowerCase().includes(query.trim().toLowerCase()),
   );
+  const scope = status.kind === "ready" ? status.scope : undefined;
   const visible = matching.slice(0, DISPLAY_LIMIT);
   const choice = visible.find((reference) => reference.name === selected);
 
@@ -87,11 +89,19 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
               id="remote-reference-filter"
               value={query}
               disabled={disabled}
+              maxLength={512}
               onChange={(event) => {
                 setQuery(event.target.value);
                 setSelected("");
               }}
             />
+            <button
+              type="button"
+              disabled={disabled || new TextEncoder().encode(query.trim()).length > 512}
+              onClick={() => void load({ kind, search: query.trim() })}
+            >
+              Search remote references
+            </button>
             <label htmlFor="remote-reference-choice">Choose a reference</label>
             <select
               id="remote-reference-choice"
@@ -119,8 +129,13 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
           <p role="status">
             {matching.length} matching {kind === "branch" ? "branches" : "tags"}.
             {matching.length > DISPLAY_LIMIT ? " Filter names to see more matches." : ""}
-            {listing.truncated ? " Listing limited; other names can be entered manually." : ""}
+            {listing.truncated ? " Listing limited; search the remote or enter a name manually." : ""}
           </p>
+          {scope ? (
+            <p className="muted">
+              Remote search scope: {scope.kind ?? "all"} · {scope.search || "all names"}.
+            </p>
+          ) : null}
           {choice ? (
             <p className="muted">
               Advertised object: <code>{choice.object}</code>

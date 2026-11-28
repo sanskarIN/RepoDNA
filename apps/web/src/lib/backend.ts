@@ -47,6 +47,11 @@ export interface SourceReference {
   object: string;
 }
 
+export interface SourceRefQuery {
+  kind?: "branch" | "tag";
+  search?: string;
+}
+
 export interface SourceReferences {
   references: SourceReference[];
   truncated: boolean;
@@ -132,7 +137,7 @@ export interface Backend {
   deleteScan(repositoryId: string, scanId: string): Promise<void>;
   startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState>;
   /** User-requested network discovery, optional for native backends. */
-  listRemoteReferences?(input: string): Promise<SourceReferences>;
+  listRemoteReferences?(input: string, query?: SourceRefQuery): Promise<SourceReferences>;
   job(id: string): Promise<JobState>;
   /** Recent native jobs available for reattaching to an analysis. */
   listJobs?(): Promise<JobState[]>;
@@ -395,11 +400,11 @@ export class ServerBackend implements Backend {
     );
   }
 
-  async listRemoteReferences(input: string): Promise<SourceReferences> {
+  async listRemoteReferences(input: string, query?: SourceRefQuery): Promise<SourceReferences> {
     const value = await this.request<unknown>("remote-references", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input }),
+      body: JSON.stringify({ input, ...query }),
     });
     return checkSourceReferences(value);
   }

@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 use repodna_app::{
     AnalyzeOptions, AppPaths, SourceReferences, artifact_file_name, report_bundle,
-    requested_revision, source_references, write_bundle,
+    requested_revision, source_references_matching, write_bundle,
 };
 use repodna_core::CancellationToken;
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
@@ -103,10 +103,20 @@ fn load_artifact(desktop: State<'_, Desktop>, id: String, scan: Option<String>) 
 // This is invoked only by an explicit UI action. Keep Git's bounded network
 // operation off the desktop UI thread and never return the submitted URL.
 #[tauri::command]
-async fn list_remote_references(input: String) -> Reply<SourceReferences> {
+async fn list_remote_references(
+    input: String,
+    kind: Option<String>,
+    search: Option<String>,
+) -> Reply<SourceReferences> {
     tauri::async_runtime::spawn_blocking(move || {
-        source_references(&input, Default::default(), &CancellationToken::new())
-            .map_err(message)
+        source_references_matching(
+            &input,
+            Default::default(),
+            kind.as_deref(),
+            search.as_deref(),
+            &CancellationToken::new(),
+        )
+        .map_err(message)
     })
     .await
     .map_err(message)?

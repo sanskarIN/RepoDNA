@@ -100,8 +100,8 @@ The desktop and local server also offer **Find branches and tags** on demand.
 Git contacts only the submitted remote using the normal native clone URL
 policy. The listing has a 20-second Git command timeout, a 16 MiB output
 budget and a 2,000-reference result cap. Results are sorted by namespace and
-name; filtering occurs after that cap, so an absent name in a limited list
-does not prove that the reference does not exist. Manual reference selection
+name; namespace and substring filters apply before that cap. An absent
+name in a limited result does not prove that the reference does not exist. Manual reference selection
 remains available. An annotated tag's advertised object can be a tag object,
 not a commit. Analysis resolves and verifies the actual checkout separately.
 

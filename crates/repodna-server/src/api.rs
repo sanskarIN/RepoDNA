@@ -3,7 +3,9 @@
 
 use std::io::Read;
 
-use repodna_app::{AnalyzeOptions, AppPaths, ErrorKind, requested_revision, source_references};
+use repodna_app::{
+    AnalyzeOptions, AppPaths, ErrorKind, requested_revision, source_references_matching,
+};
 use repodna_core::CancellationToken;
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
@@ -198,9 +200,24 @@ fn remote_references(state: &State, request: &mut Request) -> Reply {
     else {
         return error(400, "input must be a remote Git URL");
     };
-    match source_references(
+    let optional_text = |key: &str| match value.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(text)) => Ok(Some(text.as_str())),
+        _ => Err(error(400, "reference kind and search must be strings")),
+    };
+    let kind = match optional_text("kind") {
+        Ok(kind) => kind,
+        Err(reply) => return reply,
+    };
+    let search = match optional_text("search") {
+        Ok(search) => search,
+        Err(reply) => return reply,
+    };
+    match source_references_matching(
         input,
         state.template.fetch.url_policy,
+        kind,
+        search,
         &CancellationToken::new(),
     ) {
         Ok(listing) => json(200, &json!(listing)),

@@ -14,6 +14,7 @@ import type {
   ScanSummary,
   Session,
   SourceReferences,
+  SourceRefQuery,
 } from "./backend";
 
 export class DesktopBackend implements Backend {
@@ -44,8 +45,14 @@ export class DesktopBackend implements Backend {
     await invoke("delete_scan", { id, scan });
   }
 
-  async listRemoteReferences(input: string): Promise<SourceReferences> {
-    return checkSourceReferences(await invoke<unknown>("list_remote_references", { input }));
+  async listRemoteReferences(input: string, query?: SourceRefQuery): Promise<SourceReferences> {
+    return checkSourceReferences(
+      await invoke<unknown>("list_remote_references", {
+        input,
+        kind: query?.kind ?? null,
+        search: query?.search ?? null,
+      }),
+    );
   }
 
   startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {

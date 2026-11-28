@@ -220,7 +220,9 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           key={input.trim()}
           input={input.trim()}
           disabled={running}
-          discover={(value) => backend.listRemoteReferences!(value)}
+          discover={(value, query) =>
+            query ? backend.listRemoteReferences!(value, query) : backend.listRemoteReferences!(value)
+          }
           onSelect={(revision) => {
             setRevisionKind(revision.kind);
             setRevisionValue(revision.value);
