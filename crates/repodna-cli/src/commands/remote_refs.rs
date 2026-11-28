@@ -34,13 +34,8 @@ pub fn run(ctx: &Ctx, cmd: &RemoteRefsCmd) -> Result<(), AppError> {
         RemoteRefFilter::Branch => Some("branch"),
         RemoteRefFilter::Tag => Some("tag"),
     };
-    let listing = source_references_matching(
-        &cmd.input,
-        policy,
-        kind,
-        cmd.search.as_deref(),
-        &ctx.cancel,
-    )?;
+    let listing =
+        source_references_matching(&cmd.input, policy, kind, cmd.search.as_deref(), &ctx.cancel)?;
     if cmd.json {
         print(&to_json(&listing)?)
     } else {
@@ -79,7 +74,9 @@ mod tests {
     #[test]
     fn renders_filtered_list_without_hiding_truncation() {
         let mut result = listing();
-        result.references.retain(|reference| reference.kind == "tag");
+        result
+            .references
+            .retain(|reference| reference.kind == "tag");
         assert_eq!(result.references.len(), 1);
         assert_eq!(result.references[0].kind, "tag");
         assert!(result.truncated);

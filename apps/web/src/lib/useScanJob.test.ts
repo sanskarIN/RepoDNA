@@ -138,13 +138,11 @@ describe("native analysis lifecycle", () => {
   it("reattaches to a live native job without submitting another analysis", async () => {
     const service = backend();
     const done = vi.fn();
-    service.job
-      .mockResolvedValueOnce(job("running", "job-existing"))
-      .mockResolvedValueOnce({
-        ...job("completed", "job-existing"),
-        repositoryId: "saved-repo",
-        scanId: "saved-scan",
-      });
+    service.job.mockResolvedValueOnce(job("running", "job-existing")).mockResolvedValueOnce({
+      ...job("completed", "job-existing"),
+      repositoryId: "saved-repo",
+      scanId: "saved-scan",
+    });
     const { result, unmount } = renderHook(() => useScanJob(service, done));
     await act(async () => result.current.attach("job-existing"));
     expect(service.startScan).not.toHaveBeenCalled();

@@ -396,9 +396,7 @@ mod tests {
         let jobs = Jobs::default();
         let mut ids = Vec::new();
         for index in 0..KEEP_FINISHED + 3 {
-            let job = jobs
-                .start_worker(format!("job {index}"), |_| {})
-                .unwrap();
+            let job = jobs.start_worker(format!("job {index}"), |_| {}).unwrap();
             assert_eq!(wait(&jobs, &job.id).status, JobStatus::Failed);
             ids.push(job.id);
         }

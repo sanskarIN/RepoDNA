@@ -330,9 +330,9 @@ describe("remote reference listings", () => {
 
   it("sends native search parameters separately from the repository URL", async () => {
     const result = { references: [tag], truncated: false };
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify(result), { status: 200 }),
-    );
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(result), { status: 200 }));
     const input = "https://github.com/org/repo";
     const query = { kind: "tag" as const, search: "audio" };
     const backend = new ServerBackend("local-token");
@@ -344,9 +344,9 @@ describe("remote reference listings", () => {
 
   it("uses an authenticated POST body and never puts the URL in the API path", async () => {
     const result = { references: [branch], truncated: false };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify(result), { status: 200 }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(result), { status: 200 }));
     const input = "https://github.com/org/repo/tree/feat/audio";
     const backend = new ServerBackend("local-token");
     await expect(backend.listRemoteReferences(input)).resolves.toEqual(result);
@@ -371,9 +371,9 @@ describe("native analysis recovery", () => {
   });
 
   it("lists native jobs through the authenticated scans endpoint", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify([validJob]), { status: 200 }),
-    );
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify([validJob]), { status: 200 }));
     const backend = new ServerBackend("local-token");
     await expect(backend.listJobs()).resolves.toEqual([validJob]);
     const [url, init] = spy.mock.calls[0] ?? [];

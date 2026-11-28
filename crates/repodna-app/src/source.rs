@@ -82,21 +82,22 @@ pub fn source_references_matching(
         Some("tag") => Some(RemoteRefKind::Tag),
         Some(_) => return Err(AppError::input("reference kind must be all, branch or tag")),
     };
-    let query = RemoteRefQuery::new(kind, search)
-        .map_err(|error| AppError::input(error.to_string()))?;
+    let query =
+        RemoteRefQuery::new(kind, search).map_err(|error| AppError::input(error.to_string()))?;
     if !looks_like_url(input) {
         return Err(AppError::input(
             "a remote Git URL is required to list references",
         ));
     }
-    let listing = discover_remote_refs_matching(input, policy, &query, cancel).map_err(|error| {
-        let message = error.to_string();
-        match error {
-            GitError::InvalidUrl(_) => AppError::input(message),
-            GitError::Cancelled => AppError::cancelled(),
-            _ => AppError::external(message),
-        }
-    })?;
+    let listing =
+        discover_remote_refs_matching(input, policy, &query, cancel).map_err(|error| {
+            let message = error.to_string();
+            match error {
+                GitError::InvalidUrl(_) => AppError::input(message),
+                GitError::Cancelled => AppError::cancelled(),
+                _ => AppError::external(message),
+            }
+        })?;
     Ok(SourceReferences {
         references: listing
             .refs
@@ -161,10 +162,7 @@ mod tests {
     #[test]
     fn rejects_invalid_query_before_contacting_git() {
         let cancel = CancellationToken::new();
-        for (kind, search) in [
-            (Some("commit"), None),
-            (Some("tag"), Some("a\ncontrol")),
-        ] {
+        for (kind, search) in [(Some("commit"), None), (Some("tag"), Some("a\ncontrol"))] {
             let error = source_references_matching(
                 "https://github.com/org/repo",
                 UrlPolicy::default(),

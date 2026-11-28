@@ -48,8 +48,8 @@ export function ScanRecovery({ load, onChoose, disabled }: Props) {
         {listing.kind === "loading" ? "Finding analyses…" : "Find recent analyses"}
       </button>
       <p className="muted">
-        Reconnect to jobs still known by this native process. Restarting it clears the job list,
-        but saved analysis results remain in the repository library.
+        Reconnect to jobs still known by this native process. Restarting it clears the job list, but
+        saved analysis results remain in the repository library.
       </p>
       {listing.kind === "error" ? <p role="alert">{listing.message}</p> : null}
       {listing.kind === "ready" ? (

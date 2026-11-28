@@ -1,5 +1,10 @@
 import { useState } from "react";
-import type { RemoteRevision, SourceReference, SourceReferences, SourceRefQuery } from "../lib/backend";
+import type {
+  RemoteRevision,
+  SourceReference,
+  SourceReferences,
+  SourceRefQuery,
+} from "../lib/backend";
 
 interface Props {
   input: string;
@@ -129,7 +134,9 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
           <p role="status">
             {matching.length} matching {kind === "branch" ? "branches" : "tags"}.
             {matching.length > DISPLAY_LIMIT ? " Filter names to see more matches." : ""}
-            {listing.truncated ? " Listing limited; search the remote or enter a name manually." : ""}
+            {listing.truncated
+              ? " Listing limited; search the remote or enter a name manually."
+              : ""}
           </p>
           {scope ? (
             <p className="muted">
