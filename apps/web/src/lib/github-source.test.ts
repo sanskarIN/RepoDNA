@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { githubSourceHint } from "./github-source";
+import { githubSourceHint, repositoryInputError } from "./github-source";
 
 describe("GitHub browser URL preview", () => {
   it("recognizes the exact Sonumio branch without truncating slash names", () => {
@@ -116,5 +116,43 @@ describe("GitHub browser URL preview", () => {
     expect(
       githubSourceHint("https://github.com/org/repo/commit/" + "a".repeat(40) + "/extra"),
     ).toBeNull();
+  });
+});
+
+describe("Repository input validation", () => {
+  const branch = "https://github.com/sanskarIN/latebrake/tree/feat/experimental-six-car-runtime";
+
+  it("blocks the exact concatenated LateBrake URL and preserves the valid branch", () => {
+    for (const input of [branch + branch, branch + " " + branch]) {
+      expect(repositoryInputError(input)).toContain("Multiple repository URLs");
+      expect(githubSourceHint(input)).toBeNull();
+    }
+    expect(repositoryInputError(branch)).toBeNull();
+    expect(githubSourceHint(branch)).toEqual({
+      repository: "sanskarIN/latebrake",
+      reference: "feat/experimental-six-car-runtime",
+      kind: "tree",
+    });
+  });
+
+  it("does not echo credentials from a second pasted URL", () => {
+    const invalid = repositoryInputError(
+      branch + "https://user:secret@github.com/org/repo",
+    );
+    expect(invalid).toContain("Multiple repository URLs");
+    expect(invalid).not.toContain("secret");
+  });
+
+  it("leaves local paths, normal remotes and URL query parameters alone", () => {
+    for (const input of [
+      "C:\\Users\\developer\\My project",
+      "/home/user/my project",
+      "git@github.com:org/repo.git",
+      "https://github.com/org/repo.git",
+      "https://github.com/org/repo?next=https://example.org/",
+      "https://github.com/org/repo#https://example.org/",
+    ]) {
+      expect(repositoryInputError(input)).toBeNull();
+    }
   });
 });
