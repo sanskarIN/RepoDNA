@@ -6,6 +6,24 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.5.5] - 2026-11-28
+
+A focused maintenance update based on the published v1.5.4 source.
+
+### Fixed
+
+- Save a browser reload pointer only after recent-analysis persistence succeeds;
+  do not advertise reload restoration when only volatile memory is available.
+- Serialize local recent-analysis saves and deletion, discard stale reads and
+  selection requests, and finish interrupted retention opt-out on startup.
+- Synchronize retention preference changes between browser tabs and prevent
+  cancelled recent-analysis opens from navigating to the Overview page.
+- Recheck missing analysis text within the deletion transaction so a stale read
+  cannot remove a record repaired by a newer save.
+
+These changes coordinate writes within each tab and synchronize preferences
+between tabs; they do not establish a cross-tab transactional deletion guarantee.
+
 ## [1.5.4] - 2026-11-26
 
 A focused maintenance update based on the published v1.5.3 source.

@@ -26,12 +26,16 @@ export interface RecentEntry {
 
 /** Where recent analyses are kept. */
 export interface RecentStore {
+  /** False for transient browser fallbacks; injected stores may omit this flag. */
+  readonly persistsAcrossReload?: boolean;
   list(): Promise<RecentEntry[]>;
   /** The text of an entry, or null when it is gone. */
   text(id: string): Promise<string | null>;
   /** Adds or refreshes an entry and keeps only the newest `RECENT_LIMIT`. */
   add(entry: RecentEntry, text?: string): Promise<void>;
   remove(id: string): Promise<void>;
+  /** Remove an unreadable record only if it is still unreadable when cleanup runs. */
+  removeIfMissing?(id: string): Promise<void>;
   clear(): Promise<void>;
 }
 
@@ -40,7 +44,7 @@ export const RECENT_LIMIT = 5;
 export const RECENT_MAX_BYTES = 64 * 1024 * 1024;
 
 const OPEN_KEY = "repodna-open";
-const REMEMBER_KEY = "repodna-remember-recent";
+export const REMEMBER_KEY = "repodna-remember-recent";
 
 /**
  * Stored metadata is external input, even when it comes from IndexedDB. Corrupted or
@@ -71,7 +75,7 @@ export function newest(entries: readonly RecentEntry[]): RecentEntry[] {
   return (
     entries
       .filter(validRecentEntry)
-      // Compare timestamps rather than their potentially different UTC offsets.
+      // ISO dates with differing UTC offsets do not sort chronologically as strings.
       .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt) || a.id.localeCompare(b.id))
       .slice(0, RECENT_LIMIT)
   );
@@ -108,6 +112,12 @@ export function memoryStore(): RecentStore {
       entries.delete(id);
       texts.delete(id);
     },
+    async removeIfMissing(id) {
+      if (!validRecentEntry(entries.get(id)) || !texts.has(id)) {
+        entries.delete(id);
+        texts.delete(id);
+      }
+    },
     async clear() {
       entries.clear();
       texts.clear();
@@ -130,6 +140,14 @@ function done(transaction: IDBTransaction): Promise<void> {
     transaction.onabort = () =>
       reject(transaction.error ?? new Error("The browser storage could not be written."));
   });
+}
+
+/** A text row is readable only alongside valid metadata with the same key. */
+function readableText(id: string, entry: unknown, value: unknown): string | null {
+  if (!validRecentEntry(entry) || entry.id !== id) return null;
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  return row.id === id && typeof row.text === "string" ? row.text : null;
 }
 
 /** Keeps recent analyses in IndexedDB: entries in one store, the file texts in another. */
@@ -179,13 +197,11 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
       // Read metadata and text in one snapshot. A stale UI row cannot make
       // orphan or corrupted text appear to be a retained analysis.
       const transaction = db.transaction(["recent", "texts"]);
-      type StoredText = { id: unknown; text: unknown };
       const [entry, row] = await Promise.all([
         request<unknown>(transaction.objectStore("recent").get(id)),
-        request<StoredText | undefined>(transaction.objectStore("texts").get(id)),
+        request<unknown>(transaction.objectStore("texts").get(id)),
       ]);
-      if (!validRecentEntry(entry) || entry.id !== id) return null;
-      return row?.id === id && typeof row.text === "string" ? row.text : null;
+      return readableText(id, entry, row);
     },
     async add(entry, text) {
       if (!validRecentEntry(entry)) {
@@ -232,6 +248,26 @@ export function indexedDbStore(factory: IDBFactory): RecentStore {
     async remove(id) {
       await removeIds([id]);
     },
+    async removeIfMissing(id) {
+      const db = await open();
+      const transaction = db.transaction(["recent", "texts"], "readwrite");
+      const recent = transaction.objectStore("recent");
+      const texts = transaction.objectStore("texts");
+      const completion = done(transaction);
+      const metadata = recent.get(id);
+      metadata.onsuccess = () => {
+        const text = texts.get(id);
+        text.onsuccess = () => {
+          // A new save may have repaired the row after the original read.
+          // Recheck under the write lock before deleting either store.
+          if (readableText(id, metadata.result, text.result) === null) {
+            recent.delete(id);
+            texts.delete(id);
+          }
+        };
+      };
+      await completion;
+    },
     async clear() {
       const db = await open();
       const transaction = db.transaction(["recent", "texts"], "readwrite");
@@ -251,7 +287,9 @@ export function browserStore(): RecentStore {
   } catch {
     // Some browsers refuse storage in private windows; fall through to memory.
   }
-  return memoryStore();
+  // With IndexedDB unavailable, this store is session-only. The UI must not
+  // write a file pointer to sessionStorage that a reload cannot resolve.
+  return { ...memoryStore(), persistsAcrossReload: false };
 }
 
 // Keep Settings effective for the current tab when storage is blocked.
