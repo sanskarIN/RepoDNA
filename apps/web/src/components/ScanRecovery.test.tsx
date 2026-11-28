@@ -26,9 +26,9 @@ describe("recent native analyses", () => {
     });
     expect(screen.getByText("/project · Running")).toBeTruthy();
     expect(screen.getByText("/project · Completed")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Monitor analysis job-1/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Monitor analysis/ }));
     expect(choose).toHaveBeenCalledWith("job-1");
-    fireEvent.click(screen.getByRole("button", { name: /View analysis status job-2/ }));
+    fireEvent.click(screen.getByRole("button", { name: /View analysis status/ }));
     expect(choose).toHaveBeenCalledWith("job-2");
   });
 

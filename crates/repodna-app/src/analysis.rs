@@ -10,7 +10,9 @@ use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::InputKind;
 use repodna_core::time::Timestamp;
 use repodna_engine::{AnalysisCache, AnalysisRequest, FetchOptions, InputSpec, Progress, analyze};
-use repodna_git::url::{UrlPolicy, looks_like_url, resolve_clone_target, sanitize_url, validate_clone_url};
+use repodna_git::url::{
+    UrlPolicy, looks_like_url, resolve_clone_target, sanitize_url, validate_clone_url,
+};
 use repodna_plugin::load_enabled;
 use repodna_store::{FindingChanges, RepositoryLocation, ScanRecord, Store};
 
@@ -389,10 +391,8 @@ mod input_display_tests {
     fn github_browser_references_share_the_same_stored_repository_identity() {
         let mut dna = RepositoryDna::new(Default::default(), Default::default());
         dna.analysis_metadata.input.kind = InputKind::GitUrl;
-        let plain = repository_location(
-            &InputSpec::Url("https://github.com/org/repo".into()),
-            &dna,
-        );
+        let plain =
+            repository_location(&InputSpec::Url("https://github.com/org/repo".into()), &dna);
         for input in [
             "https://github.com/org/repo/tree/feature/runtime",
             "https://github.com/org/repo/tree/main/src",

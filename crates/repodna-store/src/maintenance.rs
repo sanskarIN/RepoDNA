@@ -103,7 +103,11 @@ fn artifact_files(paths: &StorePaths) -> Vec<(PathBuf, String)> {
 
 fn read_location(directory: &Path) -> Option<(RepositoryLocation, String)> {
     let descriptor = directory.join(REPOSITORY_FILE);
-    if !fs::symlink_metadata(&descriptor).ok()?.file_type().is_file() {
+    if !fs::symlink_metadata(&descriptor)
+        .ok()?
+        .file_type()
+        .is_file()
+    {
         return None;
     }
     let text = fs::read_to_string(descriptor).ok()?;
@@ -175,14 +179,17 @@ impl Store {
                     problems.push(format!("Database integrity: {row}"));
                 }
             }
-            let mut scans = connection.prepare("SELECT id, repository_id, artifact FROM scans ORDER BY id")?;
+            let mut scans =
+                connection.prepare("SELECT id, repository_id, artifact FROM scans ORDER BY id")?;
             scans
                 .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
                 .collect::<Result<_, _>>()?
         };
         for (id, repository, artifact) in &indexed {
             if checked_artifact_name(repository, id).as_ref().ok() != Some(artifact) {
-                problems.push(format!("The artifact path of scan {id} does not match its identity."));
+                problems.push(format!(
+                    "The artifact path of scan {id} does not match its identity."
+                ));
                 continue;
             }
             if !self.paths.home().join(artifact).is_file() {
@@ -228,7 +235,9 @@ impl Store {
                     } else {
                         loaded.artifact.analysis_metadata.id.clone()
                     };
-                    if checked_artifact_name(&location.id(), &scan_id).as_ref().ok()
+                    if checked_artifact_name(&location.id(), &scan_id)
+                        .as_ref()
+                        .ok()
                         != Some(&relative)
                     {
                         skipped.push(relative);
@@ -347,7 +356,9 @@ mod tests {
     fn repair_skips_mismatched_artifact_identity_and_continues() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(StorePaths::new(dir.path())).unwrap();
-        let scan = store.record(&artifact("valid-id", 1, &[]), &location()).unwrap();
+        let scan = store
+            .record(&artifact("valid-id", 1, &[]), &location())
+            .unwrap();
         let path = store.artifact_path(&scan);
         fs::copy(&path, path.with_file_name("wrong-id.json")).unwrap();
         let report = store.rebuild_index().unwrap();

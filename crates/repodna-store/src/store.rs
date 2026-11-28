@@ -178,7 +178,9 @@ pub(crate) fn parse_kind(id: &str) -> InputKind {
 pub(crate) fn valid_scan_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 128
-        && id.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
         && !is_reserved_windows_name(id)
 }
 
@@ -201,7 +203,9 @@ pub(crate) fn checked_artifact_name(
         || !repository_id.bytes().all(|byte| byte.is_ascii_hexdigit())
         || !valid_scan_id(scan_id)
     {
-        return Err(StoreError::Invalid("invalid stored repository or analysis identifier".into()));
+        return Err(StoreError::Invalid(
+            "invalid stored repository or analysis identifier".into(),
+        ));
     }
     Ok(format!("artifacts/{repository_id}/{scan_id}.json"))
 }
@@ -213,9 +217,8 @@ fn check_scan_owner(
 ) -> Result<(), StoreError> {
     // Compare case-insensitively too: distinct SQLite IDs must not name the
     // same artifact on a case-insensitive filesystem.
-    let mut statement = transaction.prepare(
-        "SELECT id, repository_id FROM scans WHERE id = ?1 COLLATE NOCASE",
-    )?;
+    let mut statement =
+        transaction.prepare("SELECT id, repository_id FROM scans WHERE id = ?1 COLLATE NOCASE")?;
     let rows = statement.query_map([scan_id], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
     })?;
@@ -223,7 +226,8 @@ fn check_scan_owner(
         let (existing, owner) = row?;
         if existing != scan_id || owner != repository_id {
             return Err(StoreError::Invalid(
-                "analysis identifier belongs to another stored analysis; no data was replaced".into(),
+                "analysis identifier belongs to another stored analysis; no data was replaced"
+                    .into(),
             ));
         }
     }
@@ -400,7 +404,9 @@ impl Store {
         let repository_id = location.id();
         let expected = checked_artifact_name(&repository_id, &scan_id)?;
         if artifact != expected {
-            return Err(StoreError::Invalid("stored artifact path does not match its identity".into()));
+            return Err(StoreError::Invalid(
+                "stored artifact path does not match its identity".into(),
+            ));
         }
         check_scan_owner(transaction, &repository_id, &scan_id)?;
         let metadata = &dna.analysis_metadata;
@@ -542,7 +548,9 @@ impl Store {
 
     fn validate_artifact_path(&self, scan: &ScanRecord) -> Result<(), StoreError> {
         if scan.artifact != checked_artifact_name(&scan.repository_id, &scan.id)? {
-            return Err(StoreError::Invalid("stored artifact path does not match its identity".into()));
+            return Err(StoreError::Invalid(
+                "stored artifact path does not match its identity".into(),
+            ));
         }
         Ok(())
     }
@@ -858,7 +866,10 @@ pub(crate) mod tests {
             .unwrap_err();
         assert!(error.to_string().contains("belongs to another"));
         assert_eq!(store.scan("same-id").unwrap().unwrap(), original);
-        assert_eq!(fs::read(store.artifact_path(&original)).unwrap(), original_bytes);
+        assert_eq!(
+            fs::read(store.artifact_path(&original)).unwrap(),
+            original_bytes
+        );
         assert!(!store.paths().artifacts().join(other.id()).exists());
         assert_eq!(store.repositories().unwrap().len(), 1);
     }
@@ -867,12 +878,29 @@ pub(crate) mod tests {
     fn rejects_unsafe_or_case_conflicting_ids_before_writing() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(StorePaths::new(dir.path())).unwrap();
-        for id in ["../outside", "a/b", "a\\b", "C:relative", "CON", "aux", "space name"] {
-            assert!(store.record(&artifact(id, 1, &[]), &location()).is_err(), "{id}");
+        for id in [
+            "../outside",
+            "a/b",
+            "a\\b",
+            "C:relative",
+            "CON",
+            "aux",
+            "space name",
+        ] {
+            assert!(
+                store.record(&artifact(id, 1, &[]), &location()).is_err(),
+                "{id}"
+            );
         }
         assert!(!store.paths().artifacts().exists());
-        let original = store.record(&artifact("Scan-One", 1, &[]), &location()).unwrap();
-        assert!(store.record(&artifact("scan-one", 2, &[]), &location()).is_err());
+        let original = store
+            .record(&artifact("Scan-One", 1, &[]), &location())
+            .unwrap();
+        assert!(
+            store
+                .record(&artifact("scan-one", 2, &[]), &location())
+                .is_err()
+        );
         assert_eq!(store.scan("Scan-One").unwrap().unwrap(), original);
         assert_eq!(store.scans(&location().id(), 10).unwrap().len(), 1);
     }
@@ -881,13 +909,18 @@ pub(crate) mod tests {
     fn rejects_mismatched_indexed_paths_before_reading_or_deleting() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(StorePaths::new(dir.path())).unwrap();
-        let original = store.record(&artifact("safe-id", 1, &[]), &location()).unwrap();
+        let original = store
+            .record(&artifact("safe-id", 1, &[]), &location())
+            .unwrap();
         let outside = dir.path().join("unrelated.json");
         fs::write(&outside, b"keep").unwrap();
-        store.lock().execute(
-            "UPDATE scans SET artifact = ?1 WHERE id = ?2",
-            params!["unrelated.json", original.id],
-        ).unwrap();
+        store
+            .lock()
+            .execute(
+                "UPDATE scans SET artifact = ?1 WHERE id = ?2",
+                params!["unrelated.json", original.id],
+            )
+            .unwrap();
         let changed = store.scan("safe-id").unwrap().unwrap();
         assert!(store.load(&changed).is_err());
         assert!(store.delete_scan("safe-id").is_err());
@@ -928,9 +961,16 @@ pub(crate) mod tests {
     fn deleting_last_indexed_scan_preserves_unindexed_artifacts() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(StorePaths::new(dir.path())).unwrap();
-        let indexed = store.record(&artifact("indexed", 1, &[]), &location()).unwrap();
-        let unindexed = store.record(&artifact("unindexed", 2, &[]), &location()).unwrap();
-        store.lock().execute("DELETE FROM scans WHERE id = ?1", [&unindexed.id]).unwrap();
+        let indexed = store
+            .record(&artifact("indexed", 1, &[]), &location())
+            .unwrap();
+        let unindexed = store
+            .record(&artifact("unindexed", 2, &[]), &location())
+            .unwrap();
+        store
+            .lock()
+            .execute("DELETE FROM scans WHERE id = ?1", [&unindexed.id])
+            .unwrap();
         assert!(store.delete_scan(&indexed.id).unwrap());
         assert!(!store.artifact_path(&indexed).exists());
         assert!(store.artifact_path(&unindexed).is_file());
