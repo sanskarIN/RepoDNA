@@ -24,8 +24,8 @@ use repodna_core::model::structure::{FileCategory, FileRecord, LineCounts, SkipR
 use repodna_core::paths;
 use repodna_dependencies::is_dependency_file;
 use repodna_discovery::{
-    ClassificationOverrides, DiscoveredFile, DiscoveryOptions, LinguistAttributes, ReadOutcome,
-    classify, discover, looks_generated, read_file,
+    ClassificationOverrides, DiscoveredFile, DiscoveryOptions, LinguistAttributeCollector,
+    LinguistAttributes, ReadOutcome, classify, discover, looks_generated, read_file,
 };
 use repodna_parser::{
     ANALYZER_VERSION, FileAnalysis, LanguageRegistry, LanguageSpec, analyze_and_tokenize,
@@ -188,10 +188,14 @@ pub fn classification_overrides_with(
 const MAX_ATTRIBUTES_BYTES: u64 = 256 * 1024;
 
 /// Reads the linguist attributes of every discovered `.gitattributes` file.
-fn linguist_attributes(files: &[DiscoveredFile]) -> (LinguistAttributes, Vec<String>) {
-    let mut attributes = LinguistAttributes::default();
+fn linguist_attributes(
+    files: &[DiscoveredFile],
+    cancel: &CancellationToken,
+) -> Result<(LinguistAttributes, Vec<String>), Cancelled> {
+    let mut collector = LinguistAttributeCollector::default();
     let mut used = Vec::new();
     for file in files {
+        cancel.check()?;
         if paths::file_name(&file.path) != ".gitattributes" {
             continue;
         }
@@ -201,13 +205,12 @@ fn linguist_attributes(files: &[DiscoveredFile]) -> (LinguistAttributes, Vec<Str
         let Some(text) = content.text.as_deref() else {
             continue;
         };
-        let before = attributes.clone();
-        attributes.add_file(paths::parent(&file.path), text);
-        if attributes != before {
+        if collector.add_file(paths::parent(&file.path), text) {
             used.push(file.path.clone());
         }
     }
-    (attributes, used)
+    cancel.check()?;
+    Ok((collector.finish(), used))
 }
 
 /// Counts lines of a file without a known language: blank lines and everything else.
@@ -429,13 +432,15 @@ pub fn scan_files(
     })?;
 
     // Linguist attributes can only be read once the `.gitattributes` files are found.
-    let (attributes, attribute_files) = linguist_attributes(&discovery.files);
+    let (attributes, attribute_files) = linguist_attributes(&discovery.files, cancel)?;
     if !attributes.is_empty() {
         overrides = classification_overrides_with(config, &attributes)?;
         for file in &mut discovery.files {
+            cancel.check()?;
             file.classification = classify(&file.path, file.language_kind, &overrides);
         }
     }
+    cancel.check()?;
 
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
@@ -606,6 +611,33 @@ mod tests {
         assert_eq!(find("src/main.ts"), (FileCategory::Source, false, false));
         assert_eq!(find("Cargo.lock"), (FileCategory::Lockfile, false, false));
         assert_eq!(result.attribute_files, vec![".gitattributes"]);
+    }
+
+    #[test]
+    fn attributes_report_only_files_that_add_rules() {
+        let result = scan(
+            &[
+                (".gitattributes", "*.js linguist-generated\n"),
+                ("a/.gitattributes", "*.txt text eol=lf\n"),
+                (
+                    "b/.gitattributes",
+                    "*.js linguist-generated\n*.js linguist-generated\n",
+                ),
+                ("b/main.js", "const x = 1;\n"),
+            ],
+            all_stages(),
+        );
+        assert_eq!(
+            result.attribute_files,
+            vec![".gitattributes", "b/.gitattributes"]
+        );
+    }
+
+    #[test]
+    fn cancelled_attribute_collection_returns_an_error_even_with_no_files() {
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+        assert!(matches!(linguist_attributes(&[], &cancel), Err(Cancelled)));
     }
 
     #[test]

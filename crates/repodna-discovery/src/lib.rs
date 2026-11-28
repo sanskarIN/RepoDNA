@@ -15,7 +15,7 @@ pub mod walk;
 pub use archive::{
     ArchiveError, ArchiveKind, ArchiveLimits, ExtractedArchive, detect_archive, extract,
 };
-pub use attributes::LinguistAttributes;
+pub use attributes::{LinguistAttributeCollector, LinguistAttributes};
 pub use classify::{Classification, ClassificationOverrides, classify};
 pub use content::{FileContent, ReadOutcome, looks_binary, looks_generated, read_file};
 pub use walk::{DiscoveredFile, Discovery, DiscoveryError, DiscoveryOptions, discover};
