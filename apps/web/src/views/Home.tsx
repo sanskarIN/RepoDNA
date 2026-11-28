@@ -473,12 +473,13 @@ export function Home() {
   }, []);
 
   /** Runs `task` with the page marked busy, and shows its error if it fails. */
-  const opening = async (name: string, task: () => Promise<void>, failure?: string) => {
+  const opening = async (name: string, task: () => Promise<void | boolean>, failure?: string) => {
     setError(null);
     setBusy(name);
     try {
-      await task();
-      navigate("/overview");
+      if ((await task()) !== false) {
+        navigate("/overview");
+      }
     } catch (reason) {
       setError(failure ? `${failure}: ${message(reason)}` : message(reason));
     } finally {

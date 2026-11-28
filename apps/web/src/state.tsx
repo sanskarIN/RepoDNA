@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -19,6 +20,7 @@ import {
   browserStore,
   openPointer,
   rememberRecent,
+  REMEMBER_KEY,
   RECENT_MAX_BYTES,
   setOpenPointer,
   setRememberRecent,
@@ -59,8 +61,11 @@ export interface AppState {
   recent: RecentEntry[];
   /** Whether recent analyses are kept in this browser. */
   remember: boolean;
+  /** Whether this store can reopen a retained file after a page reload. */
+  recentCanReload: boolean;
   setRemember(on: boolean): void;
-  openRecent(entry: RecentEntry): Promise<void>;
+  /** False when the request was superseded or cancelled without opening an analysis. */
+  openRecent(entry: RecentEntry): Promise<boolean>;
   forget(id: string): void;
   forgetAll(): void;
   theme: Theme;
@@ -120,6 +125,8 @@ async function restore(
       };
     }
     case "file": {
+      // The session pointer alone does not authorize restoring a file:
+      // older buggy versions could leave orphan text after deleting metadata.
       if (!rememberRecent()) return null;
       const entry = (await store.list()).find((item) => item.id === pointer.id);
       if (!entry) return null;
@@ -155,13 +162,40 @@ export function AppProvider({
   const [signInNeeded, setSignInNeeded] = useState(false);
   const [dataset, setDataset] = useState<Dataset | null>(initial);
   const [store] = useState<RecentStore>(() => givenStore ?? browserStore());
+  const recentCanReload = store.persistsAcrossReload !== false;
   const [recent, setRecent] = useState<RecentEntry[]>([]);
   const [remember, setRememberState] = useState(rememberRecent);
+  // Serialize recent-history writes in this tab, including clearing history.
+  // This prevents a pending file save from resurrecting data after opt-out.
+  const writeQueue = useRef<Promise<void>>(Promise.resolve());
+  const retentionEpoch = useRef(0);
+  const selectionEpoch = useRef(0);
+  const selectedFileId = useRef<string | null>(null);
+  const pendingRecentId = useRef<string | null>(null);
+  const pendingRecentSelection = useRef<number | null>(null);
+  const refreshSequence = useRef(0);
+  const enqueueWrite = useCallback((write: () => Promise<void>): Promise<void> => {
+    const pending = writeQueue.current.then(write);
+    // A failed write must not permanently block a later delete/clear.
+    writeQueue.current = pending.catch(() => {});
+    return pending;
+  }, []);
   // An analysis given at start replaces the one a reloaded tab had open.
   const [openedAtStart] = useState(initial !== null);
 
   const refresh = useCallback(() => {
-    store.list().then(setRecent, () => setRecent([]));
+    const sequence = ++refreshSequence.current;
+    void store.list().then(
+      (entries) => {
+        // A slower earlier read must not repopulate data after a later clear.
+        if (sequence === refreshSequence.current) {
+          setRecent(rememberRecent() ? entries : []);
+        }
+      },
+      () => {
+        if (sequence === refreshSequence.current) setRecent([]);
+      },
+    );
   }, [store]);
 
   useEffect(() => {
@@ -184,17 +218,21 @@ export function AppProvider({
       // A reload keeps the analysis the tab had open.
       const pointer = openedAtStart ? null : openPointer();
       if (pointer) {
+        const selection = selectionEpoch.current;
         try {
           const restored = await restore(pointer, detected?.backend ?? null, store);
-          if (!cancelled) {
-            if (restored) {
+          if (!cancelled && selection === selectionEpoch.current) {
+            if (restored && (pointer.kind !== "file" || rememberRecent())) {
+              selectedFileId.current = pointer.kind === "file" ? pointer.id : null;
               setDataset(restored);
             } else {
               setOpenPointer(null);
             }
           }
         } catch {
-          setOpenPointer(null);
+          if (!cancelled && selection === selectionEpoch.current) {
+            setOpenPointer(null);
+          }
         }
       }
       if (!cancelled) {
@@ -202,87 +240,204 @@ export function AppProvider({
       }
     };
     void start();
-    refresh();
+    if (rememberRecent()) {
+      refresh();
+    } else {
+      // Retention could have been disabled just before a tab closed, before
+      // its asynchronous deletion committed. Finish the clear on startup.
+      setRecent([]);
+      void enqueueWrite(() => store.clear()).then(refresh, refresh);
+    }
     return () => {
       cancelled = true;
+      refreshSequence.current += 1;
     };
-  }, [store, refresh, openedAtStart]);
+  }, [store, refresh, enqueueWrite, openedAtStart]);
 
   const open = useCallback(
     (next: Dataset, source?: SourceFile) => {
+      const selection = ++selectionEpoch.current;
+      pendingRecentId.current = null;
+      pendingRecentSelection.current = null;
+      selectedFileId.current = next.origin.kind === "file" ? next.dna.analysisMetadata.id : null;
       setDataset(next);
       const keep =
         remember &&
+        rememberRecent() &&
         next.origin.kind === "file" &&
         source !== undefined &&
         source.size <= RECENT_MAX_BYTES;
-      setOpenPointer(pointerFor(next, keep));
+      // File pointers must not outlive their saved text. Set one only when
+      // persistence succeeds for the still-selected analysis.
+      setOpenPointer(pointerFor(next, false));
       if (keep && source && next.origin.kind === "file") {
+        const epoch = retentionEpoch.current;
         const metadata = next.dna.analysisMetadata;
-        store
-          .add(
-            {
-              id: metadata.id,
-              name: next.origin.name,
-              repository: next.dna.identity.name,
-              generatedAt: metadata.generatedAt,
-              openedAt: new Date().toISOString(),
-              size: source.size,
-            },
-            source.text,
-          )
-          .then(refresh, refresh);
+        const entry: RecentEntry = {
+          id: metadata.id,
+          name: next.origin.name,
+          repository: next.dna.identity.name,
+          generatedAt: metadata.generatedAt,
+          openedAt: new Date().toISOString(),
+          size: source.size,
+        };
+        void enqueueWrite(async () => {
+          if (epoch !== retentionEpoch.current || !rememberRecent()) return;
+          await store.add(entry, source.text);
+        }).then(() => {
+          if (
+            epoch === retentionEpoch.current &&
+            selection === selectionEpoch.current &&
+            store.persistsAcrossReload !== false &&
+            rememberRecent()
+          ) {
+            setOpenPointer(pointerFor(next, true));
+          }
+          refresh();
+        }, refresh);
       }
     },
-    [remember, store, refresh],
+    [remember, store, refresh, enqueueWrite],
   );
   const close = useCallback(() => {
+    selectionEpoch.current += 1;
+    selectedFileId.current = null;
+    pendingRecentId.current = null;
+    pendingRecentSelection.current = null;
     setDataset(null);
     setOpenPointer(null);
   }, []);
 
   const openRecent = useCallback(
-    async (entry: RecentEntry) => {
-      const text = await store.text(entry.id);
-      if (text === null) {
-        await store.remove(entry.id);
-        refresh();
-        throw new Error(`${entry.name} is no longer kept in this browser.`);
+    async (entry: RecentEntry): Promise<boolean> => {
+      // A slow storage read must not reopen a file deleted in the meantime,
+      // override a newer selection, or re-enable a disabled retention choice.
+      const selection = ++selectionEpoch.current;
+      const retention = retentionEpoch.current;
+      pendingRecentId.current = entry.id;
+      pendingRecentSelection.current = selection;
+      try {
+        const text = await store.text(entry.id);
+        if (
+          selection !== selectionEpoch.current ||
+          retention !== retentionEpoch.current ||
+          !rememberRecent()
+        ) {
+          return false;
+        }
+        if (text === null) {
+          // The original read is stale by the time the queued write runs.
+          // Never delete a repaired record (or use an unconditional fallback).
+          await enqueueWrite(async () => {
+            await store.removeIfMissing?.(entry.id);
+          });
+          refresh();
+          if (
+            selection !== selectionEpoch.current ||
+            retention !== retentionEpoch.current ||
+            !rememberRecent()
+          ) {
+            return false;
+          }
+          throw new Error(`${entry.name} is no longer kept in this browser.`);
+        }
+        const loaded = parseArtifact(text);
+        if (loaded.artifact.analysisMetadata.id !== entry.id) {
+          throw new Error(`${entry.name} does not match its saved analysis metadata.`);
+        }
+        open(
+          {
+            dna: loaded.artifact,
+            origin: { kind: "file", name: entry.name },
+            warnings: loaded.warnings,
+          },
+          { text, size: entry.size },
+        );
+        return true;
+      } catch (reason) {
+        // A cancelled request must not navigate or show an obsolete error,
+        // even if its storage operation rejected rather than resolving.
+        if (
+          selection !== selectionEpoch.current ||
+          retention !== retentionEpoch.current ||
+          !rememberRecent()
+        ) {
+          return false;
+        }
+        throw reason;
+      } finally {
+        // Two overlapping reads may refer to the same ID. The older read
+        // must never clear the newer read's pending selection marker.
+        if (pendingRecentSelection.current === selection) {
+          pendingRecentId.current = null;
+          pendingRecentSelection.current = null;
+        }
       }
-      const loaded = parseArtifact(text);
-      if (loaded.artifact.analysisMetadata.id !== entry.id) {
-        throw new Error(`${entry.name} does not match its saved analysis metadata.`);
-      }
-      open(
-        {
-          dna: loaded.artifact,
-          origin: { kind: "file", name: entry.name },
-          warnings: loaded.warnings,
-        },
-        { text, size: entry.size },
-      );
     },
-    [store, open, refresh],
+    [store, open, refresh, enqueueWrite],
   );
+  const clearFilePointer = useCallback((id?: string) => {
+    const pointer = openPointer();
+    const matchesPointer = pointer?.kind === "file" && (id === undefined || pointer.id === id);
+    if (matchesPointer) {
+      setOpenPointer(null);
+    }
+    const matchesSelection = selectedFileId.current === id || pendingRecentId.current === id;
+    if (matchesPointer || id === undefined || matchesSelection) {
+      selectionEpoch.current += 1;
+      pendingRecentId.current = null;
+      pendingRecentSelection.current = null;
+    }
+  }, []);
   const forget = useCallback(
     (id: string) => {
-      store.remove(id).then(refresh, refresh);
+      clearFilePointer(id);
+      void enqueueWrite(() => store.remove(id)).then(refresh, refresh);
     },
-    [store, refresh],
+    [store, refresh, enqueueWrite, clearFilePointer],
   );
   const forgetAll = useCallback(() => {
-    store.clear().then(refresh, refresh);
-  }, [store, refresh]);
+    retentionEpoch.current += 1;
+    clearFilePointer();
+    refreshSequence.current += 1;
+    setRecent([]);
+    void enqueueWrite(() => store.clear()).then(refresh, refresh);
+  }, [store, refresh, enqueueWrite, clearFilePointer]);
   const setRemember = useCallback(
     (on: boolean) => {
       setRememberRecent(on);
       setRememberState(on);
       if (!on) {
-        store.clear().then(refresh, refresh);
+        retentionEpoch.current += 1;
+        clearFilePointer();
+        refreshSequence.current += 1;
+        setRecent([]);
+        void enqueueWrite(() => store.clear()).then(refresh, refresh);
       }
     },
-    [store, refresh],
+    [store, refresh, enqueueWrite, clearFilePointer],
   );
+
+  useEffect(() => {
+    // localStorage preference changes are broadcast to other same-origin tabs.
+    // Keep the UI in sync, and finish any pending file removal in this tab.
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== REMEMBER_KEY && event.key !== null) return;
+      const enabled = rememberRecent();
+      setRememberState(enabled);
+      if (enabled) {
+        refresh();
+      } else {
+        retentionEpoch.current += 1;
+        clearFilePointer();
+        refreshSequence.current += 1;
+        setRecent([]);
+        void enqueueWrite(() => store.clear()).then(refresh, refresh);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [store, refresh, enqueueWrite, clearFilePointer]);
 
   const value = useMemo<AppState>(
     () => ({
@@ -296,6 +451,7 @@ export function AppProvider({
       close,
       recent,
       remember,
+      recentCanReload,
       setRemember,
       openRecent,
       forget,
@@ -315,6 +471,7 @@ export function AppProvider({
       close,
       recent,
       remember,
+      recentCanReload,
       setRemember,
       openRecent,
       forget,

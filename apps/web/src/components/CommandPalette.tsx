@@ -61,7 +61,9 @@ export function CommandPalette({ mode, onClose }: { mode: "all" | "open"; onClos
           kind: "Recent analysis",
           run: () => {
             openRecent(entry).then(
-              () => navigate("/overview"),
+              (opened) => {
+                if (opened) navigate("/overview");
+              },
               () => navigate("/"),
             );
           },
