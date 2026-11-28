@@ -1,5 +1,8 @@
 //! User-requested, bounded remote reference discovery for native clients.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use repodna_core::CancellationToken;
 use repodna_git::GitError;
 use repodna_git::remote_refs::{RemoteRefKind, RemoteRefQuery, discover_remote_refs_matching};
@@ -7,6 +10,31 @@ use repodna_git::url::{UrlPolicy, looks_like_url};
 use serde::Serialize;
 
 use crate::AppError;
+
+/// A process-local, nonblocking admission gate for remote reference discovery.
+/// Rejected callers never queue additional Git processes.
+#[derive(Debug, Clone, Default)]
+pub struct DiscoveryGate(Arc<AtomicBool>);
+
+/// A held discovery slot. Dropping the slot releases it, including on errors.
+#[derive(Debug)]
+pub struct DiscoveryPermit(Arc<AtomicBool>);
+
+impl DiscoveryGate {
+    /// Acquire the one available discovery slot without blocking.
+    pub fn try_acquire(&self) -> Option<DiscoveryPermit> {
+        self.0
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .ok()
+            .map(|_| DiscoveryPermit(Arc::clone(&self.0)))
+    }
+}
+
+impl Drop for DiscoveryPermit {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
 
 /// A selectable remote branch or tag, without the submitted remote URL.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -90,6 +118,31 @@ pub fn source_references_matching(
 mod tests {
     use super::*;
     use crate::ErrorKind;
+
+    #[test]
+    fn discovery_gate_rejects_concurrent_requests_and_releases_on_drop() {
+        let gate = DiscoveryGate::default();
+        let clone = gate.clone();
+        let permit = gate.try_acquire().unwrap();
+        assert!(clone.try_acquire().is_none());
+        let other = DiscoveryGate::default();
+        assert!(other.try_acquire().is_some());
+        drop(permit);
+        assert!(clone.try_acquire().is_some());
+        assert!(gate.try_acquire().is_some());
+    }
+
+    #[test]
+    fn discovery_gate_is_released_when_a_worker_unwinds() {
+        let gate = DiscoveryGate::default();
+        let clone = gate.clone();
+        let worker = std::thread::spawn(move || {
+            let _permit = clone.try_acquire().unwrap();
+            panic!("synthetic discovery worker failure");
+        });
+        assert!(worker.join().is_err());
+        assert!(gate.try_acquire().is_some());
+    }
 
     #[test]
     fn rejects_local_input_and_invalid_remotes_without_git() {

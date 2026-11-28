@@ -4,7 +4,8 @@
 use std::io::Read;
 
 use repodna_app::{
-    AnalyzeOptions, AppPaths, ErrorKind, requested_revision, source_references_matching,
+    AnalyzeOptions, AppPaths, DiscoveryGate, ErrorKind, requested_revision,
+    source_references_matching,
 };
 use repodna_core::CancellationToken;
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
@@ -43,6 +44,8 @@ pub struct State {
     pub assets: Assets,
     /// Background analyses.
     pub jobs: Jobs,
+    /// Limit concurrent discovery requests to one per server.
+    pub discovery: DiscoveryGate,
     /// Allow starting analyses through the API.
     pub allow_scans: bool,
     /// Configuration for analyses started through the API.
@@ -212,6 +215,12 @@ fn remote_references(state: &State, request: &mut Request) -> Reply {
     let search = match optional_text("search") {
         Ok(search) => search,
         Err(reply) => return reply,
+    };
+    let Some(_permit) = state.discovery.try_acquire() else {
+        return error(
+            429,
+            "a remote reference search is already running; retry after it finishes",
+        );
     };
     match source_references_matching(
         input,

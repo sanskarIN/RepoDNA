@@ -12,7 +12,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use repodna_app::{
-    AnalyzeOptions, AppPaths, SourceReferences, artifact_file_name, report_bundle,
+    AnalyzeOptions, AppPaths, DiscoveryGate, SourceReferences, artifact_file_name, report_bundle,
     requested_revision, source_references_matching, write_bundle,
 };
 use repodna_core::CancellationToken;
@@ -40,6 +40,7 @@ struct Library {
     paths: AppPaths,
     store: Store,
     jobs: Jobs,
+    discovery: DiscoveryGate,
 }
 
 /// The library, or why it could not be opened (shown by the page instead of crashing).
@@ -53,6 +54,7 @@ impl Desktop {
                 paths,
                 store,
                 jobs: Jobs::default(),
+                discovery: DiscoveryGate::default(),
             })
         });
         Self(opened.map_err(|error| format!("Local storage could not be opened: {error}")))
@@ -104,11 +106,20 @@ fn load_artifact(desktop: State<'_, Desktop>, id: String, scan: Option<String>) 
 // operation off the desktop UI thread and never return the submitted URL.
 #[tauri::command]
 async fn list_remote_references(
+    desktop: State<'_, Desktop>,
     input: String,
     kind: Option<String>,
     search: Option<String>,
 ) -> Reply<SourceReferences> {
+    let permit = desktop
+        .library()?
+        .discovery
+        .try_acquire()
+        .ok_or_else(|| {
+            "a remote reference search is already running; retry after it finishes".to_owned()
+        })?;
     tauri::async_runtime::spawn_blocking(move || {
+        let _permit = permit;
         source_references_matching(
             &input,
             Default::default(),

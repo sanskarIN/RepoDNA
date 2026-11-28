@@ -90,6 +90,7 @@ impl Server {
             port: address.port(),
             assets: Assets::choose(options.web_dir),
             jobs: jobs::Jobs::default(),
+            discovery: Default::default(),
             allow_scans: options.allow_scans,
             template: options.template,
         };
