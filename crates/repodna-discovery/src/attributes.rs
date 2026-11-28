@@ -9,6 +9,8 @@
 //! [`repodna_core::glob`]): a pattern without a slash matches at any depth below the
 //! `.gitattributes` file, and one with a slash is relative to it.
 
+use std::collections::HashSet;
+
 /// Paths marked by linguist attributes, as repository-relative glob patterns.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LinguistAttributes {
@@ -35,49 +37,104 @@ impl LinguistAttributes {
     /// Adds the linguist attributes of one `.gitattributes` file located in `directory`
     /// (repository-relative, empty for the root).
     pub fn add_file(&mut self, directory: &str, text: &str) {
-        for line in text.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') || line.starts_with("[attr]") {
-                continue;
+        visit_patterns(directory, text, |kind, glob| {
+            let list = kind.list(self);
+            if !list.iter().any(|existing| existing == glob) {
+                list.push(glob.to_owned());
             }
-            let mut fields = line.split_whitespace();
-            let Some(pattern) = fields.next() else {
-                continue;
+        });
+    }
+}
+
+/// Collects rules across many attribute files without repeatedly scanning prior rules.
+///
+/// Insertion order is preserved within each category. Membership indexes are
+/// temporary and are dropped when collection finishes.
+#[derive(Debug, Default)]
+pub struct LinguistAttributeCollector {
+    attributes: LinguistAttributes,
+    seen: HashSet<(AttributeKind, String)>,
+}
+
+impl LinguistAttributeCollector {
+    /// Adds one file, returning whether it contributed a previously unseen rule.
+    pub fn add_file(&mut self, directory: &str, text: &str) -> bool {
+        let mut changed = false;
+        visit_patterns(directory, text, |kind, glob| {
+            if self.seen.insert((kind, glob.to_owned())) {
+                kind.list(&mut self.attributes).push(glob.to_owned());
+                changed = true;
+            }
+        });
+        changed
+    }
+
+    /// Returns the ordered rules, releasing the temporary membership index.
+    pub fn finish(self) -> LinguistAttributes {
+        self.attributes
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum AttributeKind {
+    Generated,
+    Vendored,
+    Documentation,
+    FirstParty,
+}
+
+impl AttributeKind {
+    fn list(self, attributes: &mut LinguistAttributes) -> &mut Vec<String> {
+        match self {
+            Self::Generated => &mut attributes.generated,
+            Self::Vendored => &mut attributes.vendored,
+            Self::Documentation => &mut attributes.documentation,
+            Self::FirstParty => &mut attributes.first_party,
+        }
+    }
+}
+
+fn visit_patterns(directory: &str, text: &str, mut visit: impl FnMut(AttributeKind, &str)) {
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') || line.starts_with("[attr]") {
+            continue;
+        }
+        let mut fields = line.split_whitespace();
+        let Some(pattern) = fields.next() else {
+            continue;
+        };
+        // Quoted patterns (with escapes) and negated patterns are not valid for
+        // attributes in the forms RepoDNA supports; skip them rather than guess.
+        if pattern.starts_with('"') || pattern.starts_with('!') {
+            continue;
+        }
+        let glob = to_glob(directory, pattern);
+        for attribute in fields {
+            let (name, value) = match attribute.split_once('=') {
+                Some((name, value)) => (name, Some(value)),
+                None => (attribute, None),
             };
-            // Quoted patterns (with escapes) and negated patterns are not valid for
-            // attributes in the forms RepoDNA supports; skip them rather than guess.
-            if pattern.starts_with('"') || pattern.starts_with('!') {
-                continue;
-            }
-            let glob = to_glob(directory, pattern);
-            for attribute in fields {
-                let (name, value) = match attribute.split_once('=') {
-                    Some((name, value)) => (name, Some(value)),
-                    None => (attribute, None),
-                };
-                let (name, set) = match name.strip_prefix('-') {
-                    Some(name) => (name, false),
-                    None if name.starts_with('!') => continue,
-                    None => (name, value.is_none_or(|v| !matches!(v, "false" | "0"))),
-                };
-                let list = match (name, set) {
-                    (_, false)
-                        if matches!(
-                            name,
-                            "linguist-generated" | "linguist-vendored" | "linguist-documentation"
-                        ) =>
-                    {
-                        &mut self.first_party
-                    }
-                    ("linguist-generated", true) => &mut self.generated,
-                    ("linguist-vendored", true) => &mut self.vendored,
-                    ("linguist-documentation", true) => &mut self.documentation,
-                    _ => continue,
-                };
-                if !list.contains(&glob) {
-                    list.push(glob.clone());
+            let (name, set) = match name.strip_prefix('-') {
+                Some(name) => (name, false),
+                None if name.starts_with('!') => continue,
+                None => (name, value.is_none_or(|v| !matches!(v, "false" | "0"))),
+            };
+            let kind = match (name, set) {
+                (_, false)
+                    if matches!(
+                        name,
+                        "linguist-generated" | "linguist-vendored" | "linguist-documentation"
+                    ) =>
+                {
+                    AttributeKind::FirstParty
                 }
-            }
+                ("linguist-generated", true) => AttributeKind::Generated,
+                ("linguist-vendored", true) => AttributeKind::Vendored,
+                ("linguist-documentation", true) => AttributeKind::Documentation,
+                _ => continue,
+            };
+            visit(kind, &glob);
         }
     }
 }
@@ -121,6 +178,54 @@ mod tests {
             vec!["/vendor/ours/**", "/web/**/legacy.js"]
         );
         assert!(!attributes.is_empty());
+    }
+
+    #[test]
+    fn collector_preserves_category_order_and_reports_only_new_rules() {
+        let files = [
+            (
+                "",
+                "*.js linguist-generated linguist-vendored\n*.js linguist-generated\n",
+            ),
+            ("", "*.js linguist-vendored\n*.js linguist-generated\n"),
+            ("", "*.js -linguist-generated -linguist-vendored\n"),
+            (
+                "nested",
+                "*.js linguist-generated\n*.md linguist-documentation\n",
+            ),
+            ("nested", "*.md linguist-documentation\n"),
+            ("", "*.txt text eol=lf\n"),
+        ];
+        let mut direct = LinguistAttributes::default();
+        let mut collector = LinguistAttributeCollector::default();
+        for ((directory, text), expected) in files
+            .into_iter()
+            .zip([true, false, true, true, false, false])
+        {
+            let before = direct.clone();
+            direct.add_file(directory, text);
+            assert_eq!(direct != before, expected);
+            assert_eq!(collector.add_file(directory, text), expected);
+        }
+        assert_eq!(collector.finish(), direct);
+    }
+
+    #[test]
+    fn collector_matches_direct_insertion_for_many_nested_files() {
+        let mut direct = LinguistAttributes::default();
+        let mut collector = LinguistAttributeCollector::default();
+        for index in 0..512 {
+            let directory = format!("packages/p{}", index % 256);
+            let text = "gen/** linguist-generated\n*.js linguist-vendored\nREADME.md linguist-documentation\n/src/main.js -linguist-generated\n";
+            direct.add_file(&directory, text);
+            assert_eq!(collector.add_file(&directory, text), index < 256);
+        }
+        let collected = collector.finish();
+        assert_eq!(collected.generated.len(), 256);
+        assert_eq!(collected.vendored.len(), 256);
+        assert_eq!(collected.documentation.len(), 256);
+        assert_eq!(collected.first_party.len(), 256);
+        assert_eq!(collected, direct);
     }
 
     #[test]
