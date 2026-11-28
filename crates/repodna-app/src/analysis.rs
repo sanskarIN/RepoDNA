@@ -126,6 +126,11 @@ pub fn run_analysis(
     cancel: &CancellationToken,
 ) -> Result<AnalysisOutcome, AppError> {
     let spec = InputSpec::detect(&options.input);
+    if options.fetch.revision.is_some() && !matches!(&spec, InputSpec::Url(_)) {
+        return Err(AppError::input(
+            "explicit branch, tag and commit selection requires a remote Git URL",
+        ));
+    }
     if options.fetch.revision.is_some() && !matches!(spec, InputSpec::Url(_)) {
         return Err(AppError::input(
             "branch, tag, and commit selection require a remote Git URL",
