@@ -463,6 +463,18 @@ pub fn validate_clone_url(input: &str, policy: UrlPolicy) -> Result<String, GitE
     if url.is_empty() {
         return reject("empty");
     }
+    // A pasted browser URL can be accidentally appended to an existing URL.
+    // Check before formatting any error: sanitizing only the first authority
+    // would leave credentials from a second URL exposed in diagnostics.
+    // Query/fragment parameters may legitimately contain another URL.
+    if let Some((_, remainder)) = without_query(url).split_once("://")
+        && remainder.contains("://")
+    {
+        return Err(GitError::InvalidUrl(
+            "multiple repository URLs detected; clear the input and paste one repository or branch URL"
+                .to_owned(),
+        ));
+    }
     if url.starts_with('-') {
         return reject("looks like a command-line option");
     }
@@ -566,6 +578,38 @@ mod tests {
         ] {
             assert!(invalid.validate().is_err());
         }
+    }
+
+    #[test]
+    fn rejects_concatenated_remote_urls_without_echoing_credentials() {
+        let branch =
+            "https://github.com/sanskarIN/latebrake/tree/feat/experimental-six-car-runtime";
+        for bad in [
+            format!("{branch}{branch}"),
+            format!("{branch} {branch}"),
+            "https://github.com/org/repo.githttps://user:secret@github.com/org/other".to_owned(),
+            "https://github.com/org/repo.gitssh://git@other.example.org/repo".to_owned(),
+        ] {
+            let error = resolve_clone_target(&bad, PUBLIC).unwrap_err().to_string();
+            assert!(error.contains("multiple repository URLs"), "{error}");
+            assert!(!error.contains("secret"), "{error}");
+            assert!(!error.contains("github.com"), "{error}");
+        }
+        let target = resolve_clone_target(branch, PUBLIC).unwrap();
+        assert_eq!(
+            target.repository_url,
+            "https://github.com/sanskarIN/latebrake"
+        );
+        assert_eq!(
+            target.branch.as_deref(),
+            Some("feat/experimental-six-car-runtime")
+        );
+        let target = resolve_clone_target(
+            "https://github.com/org/repo?next=https://example.org/",
+            PUBLIC,
+        )
+        .unwrap();
+        assert_eq!(target.repository_url, "https://github.com/org/repo");
     }
 
     #[test]

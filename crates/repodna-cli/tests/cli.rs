@@ -139,6 +139,44 @@ fn rejects_encoded_git_hostnames_before_network_access() {
 }
 
 #[test]
+fn malformed_remote_input_does_not_expose_credentials_in_cli_progress() {
+    let env = Env::new();
+    let url = concat!(
+        "https://github.com/org/repo/tree/feature/runtime",
+        "https://user:synthetic-secret@github.com/org/repo"
+    );
+    let output = env.run(&["analyze", url, "--no-store"]);
+    assert_eq!(code(&output), 3, "{}", stderr(&output));
+    let diagnostic = stderr(&output);
+    assert!(diagnostic.contains("multiple repository URLs"));
+    assert!(!diagnostic.contains("synthetic-secret"));
+    assert!(!stdout(&output).contains("synthetic-secret"));
+}
+
+#[test]
+fn analysis_view_commands_do_not_echo_invalid_remote_credentials() {
+    let env = Env::new();
+    let url = concat!(
+        "https://github.com/org/repo/tree/feature/runtime",
+        "https://user:synthetic-secret@github.com/org/repo"
+    );
+    for command in ["show", "architecture", "history", "dependencies", "ci"] {
+        let output = if command == "show" {
+            env.run(&[command, url, "--no-store", "--section", "summary"])
+        } else {
+            env.run(&[command, url, "--no-store"])
+        };
+        assert_eq!(code(&output), 3, "{command}: {}", stderr(&output));
+        assert!(
+            stderr(&output).contains("multiple repository URLs"),
+            "{command}"
+        );
+        assert!(!stderr(&output).contains("synthetic-secret"), "{command}");
+        assert!(!stdout(&output).contains("synthetic-secret"), "{command}");
+    }
+}
+
+#[test]
 fn prints_version_help_and_usage_errors() {
     let env = Env::new();
     let version = env.run(&["version"]);

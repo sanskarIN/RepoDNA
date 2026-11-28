@@ -57,9 +57,20 @@ function validCommitSha(reference: string): boolean {
   return /^(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})$/.test(reference);
 }
 
+/** Match native validation without echoing possibly credential-bearing pasted URLs. */
+export function repositoryInputError(input: string): string | null {
+  const path = input.trim().split(/[?#]/)[0] ?? "";
+  const firstScheme = path.indexOf("://");
+  if (firstScheme >= 0 && path.indexOf("://", firstScheme + 3) >= 0) {
+    return "Multiple repository URLs detected. Clear the field and paste one repository or branch URL.";
+  }
+  return null;
+}
+
 export function githubSourceHint(input: string): GitHubSourceHint | null {
   try {
     const source = input.trim();
+    if (repositoryInputError(source)) return null;
     // URL() normalizes /./ and /../ before we can validate the tree path.
     // Reject those raw segments, including their encoded spellings, first.
     const rawPath = source.split(/[?#]/)[0] ?? "";

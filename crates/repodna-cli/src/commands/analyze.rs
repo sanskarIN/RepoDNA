@@ -215,11 +215,12 @@ pub fn run(ctx: &Ctx, cmd: &AnalyzeCmd) -> Result<(), AppError> {
         cmd.tag.as_deref(),
         cmd.commit.as_deref(),
     )?;
+    let display = options.display_input();
     ctx.note(&format!(
         "{} {} · analyzing {}",
         ctx.err.bold("RepoDNA"),
         env!("CARGO_PKG_VERSION"),
-        cmd.input
+        display
     ));
     let result = run_analysis(&ctx.paths, &options, ctx.progress(), &ctx.cancel);
     if let Some(reporter) = &ctx.reporter {
@@ -241,7 +242,7 @@ pub fn run(ctx: &Ctx, cmd: &AnalyzeCmd) -> Result<(), AppError> {
                 ctx.note(&ctx.err.dim(&format!(
                     "Stored as analysis {}. `repodna report {}` writes the full report.",
                     &scan.id[..scan.id.len().min(12)],
-                    cmd.input
+                    display
                 )));
             }
         }

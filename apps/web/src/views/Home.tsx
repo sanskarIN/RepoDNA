@@ -5,7 +5,7 @@ import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../componen
 import { droppedFolder, isArchive } from "../engine/input";
 import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
 import type { JobState, RemoteRevision, RepositorySummary, ScanSummary } from "../lib/backend";
-import { githubSourceHint } from "../lib/github-source";
+import { githubSourceHint, repositoryInputError } from "../lib/github-source";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
 import { REPOSITORY } from "../lib/links";
@@ -71,6 +71,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
 
   const start = async () => {
     setError(null);
+    const invalidInput = repositoryInputError(input);
+    if (invalidInput) {
+      setError(invalidInput);
+      return;
+    }
     try {
       const revision =
         revisionKind === "auto" ? undefined : { kind: revisionKind, value: revisionValue.trim() };
@@ -84,6 +89,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
 
   const running = job?.status === "running";
   const hint = githubSourceHint(input);
+  const inputError = repositoryInputError(input);
   const revisionReady = revisionKind === "auto" || revisionValue.trim().length > 0;
   return (
     <section className="panel" aria-labelledby="scan-title">
@@ -97,7 +103,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         className="filters"
         onSubmit={(event) => {
           event.preventDefault();
-          if (input.trim() && revisionReady && !running) {
+          if (input.trim() && !inputError && revisionReady && !running) {
             void start();
           }
         }}
@@ -109,7 +115,12 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           id="scan-input"
           type="text"
           value={input}
-          onChange={(event) => setInput(event.target.value)}
+          onChange={(event) => {
+            setInput(event.target.value);
+            setError(null);
+          }}
+          aria-invalid={inputError ? true : undefined}
+          aria-describedby={inputError ? "scan-input-error" : undefined}
           placeholder="/path/to/repository or https://github.com/owner/repo"
           style={{ flex: "1 1 320px" }}
         />
@@ -162,6 +173,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
               const picked = await backend.pickDirectory?.();
               if (picked) {
                 setInput(picked);
+                setError(null);
               }
             }}
           >
@@ -186,7 +198,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         <button
           type="submit"
           className="primary"
-          disabled={!input.trim() || !revisionReady || running}
+          disabled={!input.trim() || !!inputError || !revisionReady || running}
         >
           {running ? "Analyzing…" : "Analyze"}
         </button>
@@ -196,6 +208,20 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           </button>
         ) : null}
       </form>
+      {inputError ? (
+        <div id="scan-input-error" role="alert">
+          <p>{inputError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setInput("");
+              setError(null);
+            }}
+          >
+            Clear repository input
+          </button>
+        </div>
+      ) : null}
       <p className="muted" id="scan-revision-help">
         {hint
           ? `GitHub ${hint.repository}: ${hint.kind === "tree" ? "branch or tag candidate" : "commit candidate"} ${hint.reference}. `
