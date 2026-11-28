@@ -163,7 +163,10 @@ describe("desktop remote reference discovery", () => {
   it("discards choices when the source changes while discovery is pending", async () => {
     let finish: (value: SourceReferences) => void = () => undefined;
     const discover = vi.fn(
-      () => new Promise<SourceReferences>((resolve) => { finish = resolve; }),
+      () =>
+        new Promise<SourceReferences>((resolve) => {
+          finish = resolve;
+        }),
     );
     desktop(discover);
     window.location.hash = "#/";
@@ -197,9 +200,13 @@ describe("desktop remote reference discovery", () => {
     const revisionKind = screen.getByLabelText("Source revision") as HTMLSelectElement;
     fireEvent.change(revisionKind, { target: { value: "branch" } });
     fireEvent.change(screen.getByLabelText("Branch name"), { target: { value: "--invalid" } });
-    expect((screen.getByRole("button", { name: "Analyze" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Analyze" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
     fireEvent.change(screen.getByLabelText("Branch name"), { target: { value: "feat/audio" } });
-    expect((screen.getByRole("button", { name: "Analyze" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Analyze" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
     fireEvent.change(input, { target: { value: "/local/project" } });
     expect(revisionKind.value).toBe("auto");
     expect(revisionKind.disabled).toBe(true);

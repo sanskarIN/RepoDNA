@@ -62,7 +62,9 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
       </p>
       {status.kind === "loading" ? <p role="status">Reading remote references…</p> : null}
       {status.kind === "error" ? (
-        <p role="alert">Could not list remote references: {status.message}. Enter a name manually.</p>
+        <p role="alert">
+          Could not list remote references: {status.message}. Enter a name manually.
+        </p>
       ) : null}
       {listing ? (
         <>

@@ -50,17 +50,18 @@ pub struct RemoteRefs {
 }
 
 fn parse_line(line: &[u8]) -> Option<RemoteRef> {
-    let line = std::str::from_utf8(line).ok()?.trim_end_matches(['\r', '\n']);
+    let line = std::str::from_utf8(line)
+        .ok()?
+        .trim_end_matches(['\r', '\n']);
     let (object, reference) = line.split_once('\t')?;
     if !matches!(object.len(), 40 | 64) || !object.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
     }
     let (kind, name) = if let Some(name) = reference.strip_prefix("refs/heads/") {
         (RemoteRefKind::Branch, name)
-    } else if let Some(name) = reference.strip_prefix("refs/tags/") {
-        (RemoteRefKind::Tag, name)
     } else {
-        return None;
+        let name = reference.strip_prefix("refs/tags/")?;
+        (RemoteRefKind::Tag, name)
     };
     let requested = match kind {
         RemoteRefKind::Branch => RequestedRevision::Branch(name.to_owned()),
@@ -219,7 +220,11 @@ mod tests {
         assert_eq!(forward, reversed);
         assert!(forward.truncated);
         assert_eq!(
-            forward.refs.iter().map(|r| r.name.as_str()).collect::<Vec<_>>(),
+            forward
+                .refs
+                .iter()
+                .map(|r| r.name.as_str())
+                .collect::<Vec<_>>(),
             vec!["a", "b"]
         );
     }
@@ -232,11 +237,7 @@ mod tests {
         ]
         .concat();
         assert!(matches!(
-            parse_listing(
-                &mut Cursor::new(text),
-                &CancellationToken::new(),
-                10
-            ),
+            parse_listing(&mut Cursor::new(text), &CancellationToken::new(), 10),
             Err(GitError::Parse(_))
         ));
     }
@@ -255,11 +256,7 @@ mod tests {
             Err(GitError::Cancelled)
         ));
         assert!(matches!(
-            discover_remote_refs(
-                "https://github.com/org/repo",
-                UrlPolicy::default(),
-                &cancel
-            ),
+            discover_remote_refs("https://github.com/org/repo", UrlPolicy::default(), &cancel),
             Err(GitError::Cancelled)
         ));
     }

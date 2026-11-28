@@ -515,7 +515,10 @@ fn remote_reference_endpoint_enforces_session_origin_and_url_policy() {
         assert!(!response.body.contains("synthetic-secret"));
     }
     let oversized = "x".repeat(65 * 1024);
-    assert_eq!(send(address, "POST", endpoint, &auth, &oversized).status, 413);
+    assert_eq!(
+        send(address, "POST", endpoint, &auth, &oversized).status,
+        413
+    );
     drop(running);
 
     let disabled = Running::start_with_scans(paths, None, false);

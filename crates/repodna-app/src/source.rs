@@ -38,7 +38,9 @@ pub fn source_references(
     cancel: &CancellationToken,
 ) -> Result<SourceReferences, AppError> {
     if !looks_like_url(input) {
-        return Err(AppError::input("a remote Git URL is required to list references"));
+        return Err(AppError::input(
+            "a remote Git URL is required to list references",
+        ));
     }
     let listing = discover_remote_refs(input, policy, cancel).map_err(|error| {
         let message = error.to_string();
@@ -88,12 +90,8 @@ mod tests {
     fn cancellation_is_reported_without_network() {
         let cancel = CancellationToken::new();
         cancel.cancel();
-        let error = source_references(
-            "https://github.com/org/repo",
-            UrlPolicy::default(),
-            &cancel,
-        )
-        .unwrap_err();
+        let error = source_references("https://github.com/org/repo", UrlPolicy::default(), &cancel)
+            .unwrap_err();
         assert_eq!(error.kind, ErrorKind::Cancelled);
     }
 }

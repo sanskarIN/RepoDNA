@@ -169,7 +169,12 @@ fn remote_refs_cli_validates_sources_and_has_help_without_network() {
         assert_eq!(code(&output), 3, "{}", stderr(&output));
         assert!(stdout(&output).is_empty());
     }
-    let bad = env.run(&["remote-refs", "https://github.com/org/repo", "--kind", "commit"]);
+    let bad = env.run(&[
+        "remote-refs",
+        "https://github.com/org/repo",
+        "--kind",
+        "commit",
+    ]);
     assert_eq!(code(&bad), 2);
 }
 
@@ -181,7 +186,11 @@ fn analysis_view_commands_do_not_echo_invalid_remote_credentials() {
         "https://user:synthetic-secret@github.com/org/repo"
     );
     for command in ["show", "architecture", "history", "dependencies", "ci"] {
-        let output = env.run(&[command, url, "--no-store"]);
+        let output = if command == "show" {
+            env.run(&[command, url, "--no-store", "--section", "summary"])
+        } else {
+            env.run(&[command, url, "--no-store"])
+        };
         assert_eq!(code(&output), 3, "{command}: {}", stderr(&output));
         assert!(
             stderr(&output).contains("multiple repository URLs"),

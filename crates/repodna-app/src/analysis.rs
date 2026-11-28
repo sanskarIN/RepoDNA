@@ -366,7 +366,10 @@ mod input_display_tests {
     #[test]
     fn display_input_preserves_local_paths_and_redacts_remote_authorities() {
         for (input, expected) in [
-            ("C:\\Users\\developer\\project", "C:\\Users\\developer\\project"),
+            (
+                "C:\\Users\\developer\\project",
+                "C:\\Users\\developer\\project",
+            ),
             ("/home/dev/my repository", "/home/dev/my repository"),
             (
                 "https://user:synthetic-secret@github.com/org/repo?token=hidden#private",
@@ -380,10 +383,7 @@ mod input_display_tests {
                 "https://%6cocalhost/org/repo",
                 "invalid remote repository URL",
             ),
-            (
-                "git@github.com:org/repo.git",
-                "git@github.com:org/repo.git",
-            ),
+            ("git@github.com:org/repo.git", "git@github.com:org/repo.git"),
         ] {
             let options = AnalyzeOptions {
                 input: input.to_owned(),
