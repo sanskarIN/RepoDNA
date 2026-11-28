@@ -784,6 +784,257 @@ jobs:
           & $exe analyze $sample --profile quick --no-store --quiet
           if ($LASTEXITCODE -ne 0) { throw "Native CLI analysis failed: $LASTEXITCODE" }
           Write-Output "Native Windows $native CLI launch and local analysis passed."
+      - name: Reproduce the reported LateBrake branch URL on native Windows
+        # This live, mutable external ref is only a v1.5.6 qualification fixture.
+        # Do not make future releases depend on the lifetime of this branch.
+        if: startsWith(github.ref_name, 'release/v1.5.6-')
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path 'trial-unpacked' "repodna-$env:VERSION-$env:TARGET/repodna.exe"
+          $remote = 'https://github.com/sanskarIN/latebrake.git'
+          $branch = 'refs/heads/feat/experimental-six-car-runtime'
+          $url = 'https://github.com/sanskarIN/latebrake/tree/feat/experimental-six-car-runtime'
+          function Get-AdvertisedRevision {
+            $listing = & git ls-remote --exit-code --heads -- $remote $branch
+            if ($LASTEXITCODE -ne 0 -or @($listing).Count -ne 1) {
+              throw 'LateBrake qualification branch is unavailable'
+            }
+            $parts = $listing -split "\t"
+            if ($parts.Count -ne 2 -or $parts[1] -cne $branch -or $parts[0] -notmatch '^[0-9a-f]{40}      # They do not install or launch the GUI desktop app.
+
+  trial-windows-qa:
+    name: Verify trial Windows packages against SHA-256 and version resources
+    needs: [prepare, trial-assets]
+    if: needs.prepare.outputs.publish == 'false'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: trial-sha256sums
+          path: trial-checksums
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-Windows
+          path: trial-windows/x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-Windows-arm64
+          path: trial-windows/arm64
+      - name: Verify x64/ARM64 checksums and NSIS setup version resources
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($arch in @('x64', 'arm64')) {
+            & ./packaging/release/check-v1.5.3-windows-trial.ps1 `
+              -Architecture $arch `
+              -Directory "trial-windows/$arch" `
+              -ChecksumFile "trial-checksums/SHA256SUMS.txt" `
+              -Version $env:VERSION
+          }
+          Write-Output 'Verified four Windows trial packages against same-run checksums and NSIS metadata.'
+      # This checks the built files without executing them. Physical Windows
+      # installation, upgrade, launch and uninstall are still separate gates.
+
+  publish:
+    name: Publish the release
+    needs: [prepare, security, web, cli, desktop, winget, release-assets, container, web-image, npm]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag && format('refs/tags/{0}', needs.prepare.outputs.tag) || github.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: winget-manifests
+          path: dist
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Release notes
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          # Whether the npm job can publish to npmjs.com as well as GitHub Packages.
+          NPMJS: ${{ secrets.NPM_TOKEN != '' || vars.NPM_TRUSTED_PUBLISHING == 'true' }}
+        run: |
+          set -euo pipefail
+          # The version's section of the changelog, without the link definitions at its end.
+          awk -v version="$VERSION" '
+            index($0, "## [" version "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found && /^\[[^]]+\]: / { next }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          # Links in the changelog are relative to the repository; on the release page they
+          # point at the files of this release instead.
+          perl -pi -e 's{\]\((?![a-z][a-z0-9+.-]*:|#|/)([^)\s]+)\)}{](https://github.com/sanskarIN/RepoDNA/blob/$ENV{TAG}/$1)}g' notes.md
+          # Screenshots, when the images branch has them for this release, shown from there.
+          images="https://github.com/sanskarIN/RepoDNA/blob/images"
+          raw="https://raw.githubusercontent.com/sanskarIN/RepoDNA/images"
+          shots="screenshots/$TAG"
+          if git fetch --quiet --depth 1 origin images &&
+            git cat-file -e "FETCH_HEAD:$shots/desktop/overview-light.png" 2>/dev/null; then
+            image() { # path, description, width
+              if git cat-file -e "FETCH_HEAD:$1" 2>/dev/null; then
+                printf '<a href="%s/%s"><img src="%s/%s" alt="%s" width="%s"></a>\n' "$images" "$1" "$raw" "$1" "$2" "$3"
+              fi
+            }
+            {
+              printf '\n## Screenshots\n\n'
+              # The promo image and the documentation site, for the releases that have them.
+              promo=$(image "media/$TAG/promo/launch-16x9.png" "RepoDNA $VERSION on a desktop and a phone" 800)
+              if [ -n "$promo" ]; then
+                printf '%s\n\n' "$promo"
+              fi
+              image "$shots/desktop/overview-light.png" "The overview in RepoDNA $VERSION" 400
+              image "$shots/desktop/architecture-dark.png" "The module map in RepoDNA $VERSION" 400
+              printf '\n'
+              docs=$(image "$shots/docs-site/index-light.png" "The documentation site of RepoDNA $VERSION" 400)
+              if [ -n "$docs" ]; then
+                printf '%s\n\n' "$docs"
+              fi
+              image "$shots/phone/overview-light.png" "The overview on a phone, in the light theme" 190
+              image "$shots/phone/menu-dark.png" "The navigation menu on a phone, in the dark theme" 190
+              image "$shots/phone/history-dark.png" "History on a phone, in the dark theme" 190
+              image "$shots/phone/hotspots-light.png" "Hotspots on a phone, in the light theme" 190
+              printf '\nEvery screenshot of this release is in [screenshots/%s](%s/screenshots/README.md#%s)' "$TAG" "$images" "${VERSION//./}"
+              if git cat-file -e "FETCH_HEAD:media/$TAG" 2>/dev/null; then
+                printf ', and its promo images and Project DNA cards are in the [media kit](%s/media/README.md)' "$images"
+              fi
+              printf '.\n'
+            } >> notes.md
+          fi
+          cat >> notes.md <<'EOF'
+
+          ## Downloads
+
+          - `repodna-<version>-<target>`: the `repodna` command line, with the web interface of
+            `repodna serve` built in. The Linux builds are static and run on any distribution.
+          - `repodna-<version>-wasm32-wasip1.zip`: RepoDNA's analysis, reports, and cards as
+            WebAssembly, the program the web version runs, for WASI runtimes:
+            `wasmtime run --dir .::/my-project repodna.wasm analyze /my-project` (without Git
+            history).
+          - `RepoDNA_<version>_amd64.deb`, `RepoDNA-<version>-1.x86_64.rpm`,
+            `RepoDNA_<version>_universal.dmg`, `RepoDNA_<version>_x64_en-US.msi`,
+            `RepoDNA_<version>_x64-setup.exe`, and for Windows on Arm
+            `RepoDNA_<version>_arm64_en-US.msi` and `RepoDNA_<version>_arm64-setup.exe`: the
+            desktop app.
+          - `ghcr.io/sanskarin/repodna:<version>`: a container image with the command line and
+            Git, for CI jobs: `docker run --rm -v "$PWD:/work" ghcr.io/sanskarin/repodna analyze .`
+          - `ghcr.io/sanskarin/repodna-web:<version>`: the web interface, served on port 8080, for
+            your own network: `docker run --rm -p 8080:8080 ghcr.io/sanskarin/repodna-web`
+          EOF
+          if [ "$NPMJS" = true ]; then
+            cat >> notes.md <<'EOF'
+          - npm packages on npmjs.com and GitHub Packages: `npm install --global @sanskarin/repodna`
+            installs the command line, with one package per platform;
+            `npx @sanskarin/repodna-web` runs the web interface on this machine;
+            `npx @sanskarin/repodna-wasm analyze .` analyzes with the WebAssembly program, on any
+            system Node.js runs on, and runs it in browsers too;
+            `@sanskarin/repodna-schema` and `@sanskarin/repodna-visualization` are the TypeScript
+            libraries.
+          EOF
+          else
+            cat >> notes.md <<'EOF'
+          - npm packages on GitHub Packages: `@sanskarin/repodna` (the command line, with one
+            package per platform), `@sanskarin/repodna-web` (the web interface),
+            `@sanskarin/repodna-wasm` (the WebAssembly analysis), `@sanskarin/repodna-schema`, and
+            `@sanskarin/repodna-visualization`. Installing them needs a GitHub token; see the
+            installation guide.
+          EOF
+          fi
+          cat >> notes.md <<'EOF'
+          - `repodna-<version>-winget-manifests.zip`: WinGet community manifests for
+            the Windows desktop app (`Sanskar.RepoDNA`) and CLI (`Sanskar.RepoDNA.CLI`).
+            After Microsoft accepts the manifests, install and upgrade through `winget`.
+          - `SHA256SUMS.txt`: checksums of every file.
+          - Web version: https://sanskarin.github.io/RepoDNA/ — analyze a folder or an archive, or open analyses and the demo, in your browser: nothing to install, nothing uploaded.
+
+          EOF
+          echo "The binaries are not code-signed, so macOS and Windows ask for confirmation the first time they start; see the [installation guide](https://github.com/sanskarIN/RepoDNA/blob/$TAG/docs/installation.md)." >> notes.md
+          printf '\nMore open-source projects by Sanskar, the creator of RepoDNA: https://sanskarin.github.io\n' >> notes.md
+          sed -i "s/<version>/$VERSION/g" notes.md
+          cat notes.md
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" dist/* --verify-tag --title "RepoDNA $VERSION" --notes-file notes.md
+          fi
+
+  catalog:
+    name: Queue Microsoft WinGet community submission
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch the independently validated WinGet submission workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Publishing through the GITHUB_TOKEN does not recursively run other
+          # workflows from its release event; workflow_dispatch does.
+          # The submission workflow uses the latest main branch and only attempts
+          # external Microsoft PRs when owner-provided authorization is available.
+          gh workflow run winget-submit.yml --repo "$GITHUB_REPOSITORY" --ref main --field "tag=$TAG"
+) {
+              throw 'Unexpected Git branch advertisement'
+            }
+            return $parts[0]
+          }
+          $before = Get-AdvertisedRevision
+          $env:REPODNA_HOME = Join-Path $env:RUNNER_TEMP 'repodna-remote-release-smoke'
+          $json = & $exe analyze $url --profile standard --clone-depth 1 --max-commits 1 --no-store --no-user-config --no-project-config --format json --quiet
+          if ($LASTEXITCODE -ne 0) { throw "Remote branch analysis failed: $LASTEXITCODE" }
+          $artifact = ($json -join "`n") | ConvertFrom-Json
+          $after = Get-AdvertisedRevision
+          if ($before -cne $after) { throw 'LateBrake branch changed during qualification; retry the trial' }
+          if ($artifact.tool.version -cne $env:VERSION -or
+              $artifact.identity.name -ine 'latebrake' -or
+              $artifact.analysisMetadata.input.kind -cne 'git-url' -or
+              $artifact.analysisMetadata.revision -cne $before -or
+              $artifact.structure.totalFiles -le 0) {
+            throw 'Branch analysis artifact does not match the advertised revision, repository or version'
+          }
+          Write-Output "Verified LateBrake branch checkout $before on packaged native CLI."
       # These smoke tests exercise the actual x64/ARM64 Windows executables.
       # They do not install or launch the GUI desktop app.
 
