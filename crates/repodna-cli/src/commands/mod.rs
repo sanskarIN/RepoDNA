@@ -117,7 +117,7 @@ impl Ctx {
                 "{} {} · analyzing {}",
                 self.err.bold("RepoDNA"),
                 env!("CARGO_PKG_VERSION"),
-                target
+                template.display_input()
             ));
         }
         let loaded = repodna_app::load_target(

@@ -174,6 +174,25 @@ fn remote_refs_cli_validates_sources_and_has_help_without_network() {
 }
 
 #[test]
+fn analysis_view_commands_do_not_echo_invalid_remote_credentials() {
+    let env = Env::new();
+    let url = concat!(
+        "https://github.com/org/repo/tree/feature/runtime",
+        "https://user:synthetic-secret@github.com/org/repo"
+    );
+    for command in ["show", "architecture", "history", "dependencies", "ci"] {
+        let output = env.run(&[command, url, "--no-store"]);
+        assert_eq!(code(&output), 3, "{command}: {}", stderr(&output));
+        assert!(
+            stderr(&output).contains("multiple repository URLs"),
+            "{command}"
+        );
+        assert!(!stderr(&output).contains("synthetic-secret"), "{command}");
+        assert!(!stdout(&output).contains("synthetic-secret"), "{command}");
+    }
+}
+
+#[test]
 fn prints_version_help_and_usage_errors() {
     let env = Env::new();
     let version = env.run(&["version"]);
