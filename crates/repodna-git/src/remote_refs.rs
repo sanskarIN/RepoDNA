@@ -204,7 +204,10 @@ fn discover_with_runner(
     query: &RemoteRefQuery,
     cancel: &CancellationToken,
 ) -> Result<RemoteRefs, GitError> {
-    let mut result = None;
+    run_advertisement(runner, &remote_args(repository, query), query, cancel)
+}
+
+fn remote_args<'a>(repository: &'a str, query: &RemoteRefQuery) -> Vec<&'a str> {
     let namespaces: &[&str] = match query.kind {
         Some(RemoteRefKind::Branch) => &["--heads"],
         Some(RemoteRefKind::Tag) => &["--tags"],
@@ -213,15 +216,20 @@ fn discover_with_runner(
     let mut args = vec!["ls-remote", "--refs"];
     args.extend_from_slice(namespaces);
     args.extend(["--", repository]);
-    runner.stream(
-        None,
-        &args,
-        cancel,
-        |reader| {
-            result = Some(parse_listing(reader, cancel, MAX_SELECTABLE_REFS, query)?);
-            Ok(())
-        },
-    )?;
+    args
+}
+
+fn run_advertisement(
+    runner: &GitRunner,
+    args: &[&str],
+    query: &RemoteRefQuery,
+    cancel: &CancellationToken,
+) -> Result<RemoteRefs, GitError> {
+    let mut result = None;
+    runner.stream(None, args, cancel, |reader| {
+        result = Some(parse_listing(reader, cancel, MAX_SELECTABLE_REFS, query)?);
+        Ok(())
+    })?;
     result.ok_or_else(|| GitError::Parse("remote reference listing was unavailable".to_owned()))
 }
 
@@ -229,6 +237,19 @@ fn discover_with_runner(
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    // Production GitRunner denies file transport. Permit it only for our
+    // self-created local fixtures, with an explicit test-only override.
+    fn discover_fixture(
+        runner: &GitRunner,
+        repository: &str,
+        query: &RemoteRefQuery,
+        cancel: &CancellationToken,
+    ) -> Result<RemoteRefs, GitError> {
+        let mut args = vec!["-c", "protocol.file.allow=always"];
+        args.extend(remote_args(repository, query));
+        run_advertisement(runner, &args, query, cancel)
+    }
 
     fn record(object: char, reference: &str) -> String {
         format!("{}\t{reference}\n", object.to_string().repeat(40))
@@ -404,7 +425,7 @@ mod tests {
         let annotated_object = repo.git(&["rev-parse", "refs/tags/release/annotated"]);
         let annotated_object = annotated_object.trim();
         let runner = GitRunner::detect().unwrap().with_timeout(DISCOVERY_TIMEOUT);
-        let listing = discover_with_runner(
+        let listing = discover_fixture(
             &runner,
             &repo.path().to_string_lossy(),
             &RemoteRefQuery::default(),
@@ -429,7 +450,7 @@ mod tests {
         );
         assert_ne!(annotated_object, first);
         let query = RemoteRefQuery::new(Some(RemoteRefKind::Tag), Some("runtime")).unwrap();
-        let only_tags = discover_with_runner(
+        let only_tags = discover_fixture(
             &runner,
             &repo.path().to_string_lossy(),
             &query,
@@ -445,6 +466,24 @@ mod tests {
     }
 
     #[test]
+    fn production_discovery_never_enables_local_file_transport() {
+        use repodna_testkit::{GitRepo, git_available};
+
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        let runner = GitRunner::detect().unwrap().with_timeout(DISCOVERY_TIMEOUT);
+        let result = discover_with_runner(
+            &runner,
+            &repo.path().to_string_lossy(),
+            &RemoteRefQuery::default(),
+            &CancellationToken::new(),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn a_valid_empty_git_repository_returns_an_empty_listing() {
         use repodna_testkit::{GitRepo, git_available};
 
@@ -453,7 +492,7 @@ mod tests {
         }
         let repo = GitRepo::new();
         let runner = GitRunner::detect().unwrap().with_timeout(DISCOVERY_TIMEOUT);
-        let listing = discover_with_runner(
+        let listing = discover_fixture(
             &runner,
             &repo.path().to_string_lossy(),
             &RemoteRefQuery::default(),
@@ -475,7 +514,7 @@ mod tests {
         let missing = root.path().join("does-not-exist");
         let runner = GitRunner::detect().unwrap().with_timeout(DISCOVERY_TIMEOUT);
         assert!(
-            discover_with_runner(
+            discover_fixture(
                 &runner,
                 &missing.to_string_lossy(),
                 &RemoteRefQuery::default(),
