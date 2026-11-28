@@ -136,9 +136,7 @@ describe("Repository input validation", () => {
   });
 
   it("does not echo credentials from a second pasted URL", () => {
-    const invalid = repositoryInputError(
-      branch + "https://user:secret@github.com/org/repo",
-    );
+    const invalid = repositoryInputError(branch + "https://user:secret@github.com/org/repo");
     expect(invalid).toContain("Multiple repository URLs");
     expect(invalid).not.toContain("secret");
   });
