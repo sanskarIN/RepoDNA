@@ -624,18 +624,16 @@ impl Store {
                 [&scan.repository_id],
             )?;
         }
-        transaction.commit()?;
-        drop(connection);
-
+        // Keep the writer lock until the old file is gone. Otherwise another
+        // process can record the same scan between commit and file removal.
+        remove_file(&self.artifact_path(&scan))?;
         if remaining == 0 {
             let directory = self.paths.artifacts().join(&scan.repository_id);
-            if directory.is_dir() {
-                fs::remove_dir_all(&directory)
-                    .map_err(|source| StoreError::io(&directory, source))?;
-            }
-        } else {
-            remove_file(&self.artifact_path(&scan))?;
+            // Do not discard unindexed artifacts when deleting one indexed scan.
+            // A later repair may still recover those other analyses.
+            remove_descriptor_if_empty(&directory)?;
         }
+        transaction.commit()?;
         Ok(true)
     }
 
@@ -645,9 +643,9 @@ impl Store {
         if id.len() != 12 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return Ok(false);
         }
-        let removed = self
-            .lock()
-            .execute("DELETE FROM repositories WHERE id = ?1", [id])?;
+        let mut connection = self.lock();
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let removed = transaction.execute("DELETE FROM repositories WHERE id = ?1", [id])?;
         if removed == 0 {
             return Ok(false);
         }
@@ -655,7 +653,28 @@ impl Store {
         if directory.is_dir() {
             fs::remove_dir_all(&directory).map_err(|source| StoreError::io(&directory, source))?;
         }
+        transaction.commit()?;
         Ok(removed > 0)
+    }
+}
+
+fn remove_descriptor_if_empty(directory: &Path) -> Result<(), StoreError> {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(source) => return Err(StoreError::io(directory, source)),
+    };
+    for entry in entries {
+        let entry = entry.map_err(|source| StoreError::io(directory, source))?;
+        if entry.file_name() != REPOSITORY_FILE {
+            return Ok(());
+        }
+    }
+    remove_file(&directory.join(REPOSITORY_FILE))?;
+    match fs::remove_dir(directory) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(source) => Err(StoreError::io(directory, source)),
     }
 }
 
@@ -862,6 +881,50 @@ pub(crate) mod tests {
         assert!(store.delete_scan("safe-id").is_err());
         assert_eq!(fs::read(outside).unwrap(), b"keep");
         assert!(store.artifact_path(&original).exists());
+    }
+
+    #[test]
+    fn separate_connections_cannot_replace_a_scan_owned_by_another_repository() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = StorePaths::new(dir.path());
+        let first = Store::open(paths.clone()).unwrap();
+        let second = Store::open(paths).unwrap();
+        let other = RepositoryLocation {
+            kind: InputKind::LocalDirectory,
+            location: "/work/other".into(),
+        };
+        let barrier = std::sync::Barrier::new(2);
+        let (a, b) = std::thread::scope(|scope| {
+            let left = scope.spawn(|| {
+                barrier.wait();
+                first.record(&artifact("same-id", 1, &[]), &location())
+            });
+            let right = scope.spawn(|| {
+                barrier.wait();
+                second.record(&artifact("same-id", 2, &[]), &other)
+            });
+            (left.join().unwrap(), right.join().unwrap())
+        });
+        assert_ne!(a.is_ok(), b.is_ok());
+        let winner = a.or(b).unwrap();
+        assert_eq!(first.repositories().unwrap().len(), 1);
+        assert_eq!(first.scan("same-id").unwrap().unwrap(), winner);
+        assert!(first.artifact_path(&winner).is_file());
+    }
+
+    #[test]
+    fn deleting_last_indexed_scan_preserves_unindexed_artifacts() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(StorePaths::new(dir.path())).unwrap();
+        let indexed = store.record(&artifact("indexed", 1, &[]), &location()).unwrap();
+        let unindexed = store.record(&artifact("unindexed", 2, &[]), &location()).unwrap();
+        store.lock().execute("DELETE FROM scans WHERE id = ?1", [&unindexed.id]).unwrap();
+        assert!(store.delete_scan(&indexed.id).unwrap());
+        assert!(!store.artifact_path(&indexed).exists());
+        assert!(store.artifact_path(&unindexed).is_file());
+        assert_eq!(store.unindexed_artifact_count().unwrap(), 1);
+        assert_eq!(store.rebuild_index().unwrap().0, 1);
+        assert!(store.scan(&unindexed.id).unwrap().is_some());
     }
 
     #[test]
