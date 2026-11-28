@@ -98,7 +98,7 @@ describe("native analysis lifecycle", () => {
     unmount();
   });
 
-  it("waits for a terminal cancellation and allows retry after a rejected request", async () => {
+  it("waits for cancellation and retries a rejected request", async () => {
     const service = backend();
     service.cancelJob.mockRejectedValueOnce(new Error("connection lost"));
     const { result, unmount } = renderHook(() => useScanJob(service, vi.fn()));
@@ -156,7 +156,7 @@ describe("native analysis lifecycle", () => {
     unmount();
   });
 
-  it("reports an error opening a completed result without starting another scan", async () => {
+  it("reports a completed result opening error without starting another scan", async () => {
     const service = backend();
     const done = vi.fn(async () => {
       throw new Error("saved result unavailable");
@@ -194,7 +194,7 @@ describe("native analysis lifecycle", () => {
     unmount();
   });
 
-  it("does not navigate for mismatched job IDs or a completed scan without storage", async () => {
+  it("does not navigate for mismatched IDs or results without storage", async () => {
     const service = backend();
     const done = vi.fn();
     service.job

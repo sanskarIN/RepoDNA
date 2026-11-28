@@ -279,8 +279,8 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
       {scan.pollError ? (
         <div role="status">
           <p>
-            {scan.paused ? "Progress updates paused." : "Retrying progress updates."}{" "}
-            The analysis may still be running: {scan.pollError}
+            {scan.paused ? "Progress updates paused." : "Retrying progress updates."} The analysis
+            may still be running: {scan.pollError}
           </p>
           {scan.paused ? (
             <button type="button" onClick={scan.resume}>

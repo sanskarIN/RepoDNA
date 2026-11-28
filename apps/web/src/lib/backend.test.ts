@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { checkScanJob, checkScanJobs, checkSourceReferences, ServerBackend, takeToken } from "./backend";
+import {
+  checkScanJob,
+  checkScanJobs,
+  checkSourceReferences,
+  ServerBackend,
+  takeToken,
+} from "./backend";
 
 const originalUrl = window.location.href;
 
@@ -345,9 +351,8 @@ describe("native analysis recovery", () => {
     expect(checkScanJobs([])).toEqual([]);
     expect(() => checkScanJobs([validJob, validJob])).toThrow(/duplicate scan job IDs/);
     expect(() => checkScanJobs(Array(51).fill(validJob))).toThrow(/invalid scan job list/);
-    expect(() => checkScanJobs([validJob, { ...validJob, status: "unknown" }])).toThrow(
-      /invalid scan job/,
-    );
+    const invalid = { ...validJob, status: "unknown" };
+    expect(() => checkScanJobs([validJob, invalid])).toThrow(/invalid scan job/);
     expect(() => checkScanJob(validJob, "wrong-id")).toThrow(/invalid scan job/);
   });
 

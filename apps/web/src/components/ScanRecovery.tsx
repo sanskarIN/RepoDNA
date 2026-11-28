@@ -62,7 +62,7 @@ export function ScanRecovery({ load, onChoose, disabled }: Props) {
                 </span>{" "}
                 <button type="button" disabled={disabled} onClick={() => onChoose(job.id)}>
                   {job.status === "running" ? "Monitor analysis" : "View analysis status"}
-                  <span className="visually-hidden"> {job.id}</span>
+                  <span className="visually-hidden">{` ${job.id}`}</span>
                 </button>
               </li>
             ))}
