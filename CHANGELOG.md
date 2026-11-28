@@ -43,6 +43,8 @@ tag and commit analysis and counts-only exports remain development-only.
 
 ### Fixed
 
+- Collect Linguist attribute rules using indexed membership while preserving insertion
+  order, and honor cancellation during attribute discovery and reclassification.
 - Index dependency lockfile joins and package boundaries to avoid repeated
   repository-wide scans while preserving workspace scope and version unions (#317).
 - Preserve lexical token boundaries around block comments and recognize bounded
