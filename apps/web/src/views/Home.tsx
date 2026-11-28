@@ -5,7 +5,7 @@ import { RemoteRefPicker } from "../components/RemoteRefPicker";
 import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../components/common";
 import { droppedFolder, isArchive } from "../engine/input";
 import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
-import type { JobState, RemoteRevision, RepositorySummary, ScanSummary } from "../lib/backend";
+import type { RemoteRevision, RepositorySummary, ScanSummary } from "../lib/backend";
 import {
   githubSourceHint,
   looksLikeRemoteSource,
@@ -14,6 +14,7 @@ import {
 } from "../lib/github-source";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
+import { useScanJob } from "../lib/useScanJob";
 import { REPOSITORY } from "../lib/links";
 import type { RecentEntry } from "../lib/recent";
 import { href, navigate } from "../lib/router";
@@ -40,60 +41,26 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   const [profile, setProfile] = useState("standard");
   const [revisionKind, setRevisionKind] = useState<RemoteRevision["kind"] | "auto">("auto");
   const [revisionValue, setRevisionValue] = useState("");
-  const [job, setJob] = useState<JobState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const timer = useRef<number | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timer.current !== null) {
-        window.clearTimeout(timer.current);
-      }
-    },
-    [],
-  );
+  const scan = useScanJob(backend, onDone);
 
   if (!backend || !session?.allowScans) {
     return null;
   }
 
-  const poll = (id: string) => {
-    timer.current = window.setTimeout(async () => {
-      try {
-        const next = await backend.job(id);
-        setJob(next);
-        if (next.status === "running") {
-          poll(id);
-        } else if (next.status === "completed" && next.repositoryId) {
-          onDone(next.repositoryId, next.scanId ?? undefined);
-        } else if (next.status === "failed") {
-          setError(next.error ?? "The analysis failed.");
-        }
-      } catch (reason) {
-        setError(message(reason));
-      }
-    }, 400);
-  };
-
-  const start = async () => {
+  const start = () => {
     setError(null);
     const invalidInput = repositoryInputError(input);
     if (invalidInput) {
       setError(invalidInput);
       return;
     }
-    try {
-      const revision =
-        revisionKind === "auto" ? undefined : { kind: revisionKind, value: revisionValue.trim() };
-      const started = await backend.startScan(input.trim(), profile, revision);
-      setJob(started);
-      poll(started.id);
-    } catch (reason) {
-      setError(message(reason));
-    }
+    const revision =
+      revisionKind === "auto" ? undefined : { kind: revisionKind, value: revisionValue.trim() };
+    void scan.start(input.trim(), profile, revision);
   };
 
-  const running = job?.status === "running";
+  const { job, busy: running } = scan;
   const hint = githubSourceHint(input);
   const inputError = repositoryInputError(input);
   const remoteInput = looksLikeRemoteSource(input);
@@ -116,7 +83,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         onSubmit={(event) => {
           event.preventDefault();
           if (input.trim() && !inputError && revisionReady && !running) {
-            void start();
+            start();
           }
         }}
       >
@@ -127,6 +94,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           id="scan-input"
           type="text"
           value={input}
+          disabled={running}
           onChange={(event) => {
             setInput(event.target.value);
             setRevisionKind("auto");
@@ -183,13 +151,18 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         {backend.pickDirectory ? (
           <button
             type="button"
+            disabled={running}
             onClick={async () => {
-              const picked = await backend.pickDirectory?.();
-              if (picked) {
-                setInput(picked);
-                setRevisionKind("auto");
-                setRevisionValue("");
-                setError(null);
+              try {
+                const picked = await backend.pickDirectory?.();
+                if (picked) {
+                  setInput(picked);
+                  setRevisionKind("auto");
+                  setRevisionValue("");
+                  setError(null);
+                }
+              } catch (reason) {
+                setError(message(reason));
               }
             }}
           >
@@ -202,6 +175,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         <select
           id="scan-profile"
           value={profile}
+          disabled={running}
           aria-describedby="scan-profile-help"
           onChange={(event) => setProfile(event.target.value)}
         >
@@ -216,11 +190,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           className="primary"
           disabled={!input.trim() || !!inputError || !revisionReady || running}
         >
-          {running ? "Analyzing…" : "Analyze"}
+          {scan.starting ? "Starting…" : running ? "Analyzing…" : "Analyze"}
         </button>
         {running && job ? (
-          <button type="button" onClick={() => void backend.cancelJob(job.id)}>
-            Stop
+          <button type="button" disabled={scan.cancelling} onClick={() => void scan.stop()}>
+            {scan.cancelling ? "Stopping…" : "Stop"}
           </button>
         ) : null}
       </form>
@@ -282,9 +256,29 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             ) : null}
           </ul>
           {job.status === "cancelled" ? <Note>The analysis was stopped.</Note> : null}
+          {job.warnings.length ? (
+            <ul className="evidence">
+              {job.warnings.map((warning, index) => (
+                <li key={index}>{warning}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
-      {error ? <ErrorBox>{error}</ErrorBox> : null}
+      {scan.pollError ? (
+        <div role="status">
+          <p>
+            {scan.paused ? "Progress updates paused." : "Retrying progress updates."}{" "}
+            The analysis may still be running: {scan.pollError}
+          </p>
+          {scan.paused ? (
+            <button type="button" onClick={scan.resume}>
+              Resume progress updates
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {error || scan.error ? <ErrorBox>{error ?? scan.error}</ErrorBox> : null}
     </section>
   );
 }
