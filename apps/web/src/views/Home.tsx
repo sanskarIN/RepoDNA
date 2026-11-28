@@ -177,8 +177,8 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
       ) : null}
       {hint ? (
         <p className="muted">
-          {`GitHub ${hint.repository}: ${hint.kind === "tree" ? "branch or tag candidate" : "commit candidate"} ${hint.reference}.`}
-          {" "}RepoDNA verifies the requested revision and analyzes the whole repository.
+          {`GitHub ${hint.repository}: ${hint.kind === "tree" ? "branch or tag candidate" : "commit candidate"} ${hint.reference}.`}{" "}
+          RepoDNA verifies the requested revision and analyzes the whole repository.
         </p>
       ) : null}
       <p className="muted" id="scan-profile-help">
