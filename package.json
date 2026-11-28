@@ -29,10 +29,10 @@
     "format:check": "prettier --check \"apps/web/src/**/*.{ts,tsx,css}\" \"packages/*/src/**/*.ts\" \"packages/*/test/**/*.ts\""
   },
   "devDependencies": {
-    "marked": "18.2.1",
+    "marked": "18.3.0",
     "prettier": "3.10.1",
     "typescript": "7.0.2",
-    "vitest": "5.1.0"
+    "vitest": "5.1.1"
   },
   "engines": {
     "node": ">=20.19"
