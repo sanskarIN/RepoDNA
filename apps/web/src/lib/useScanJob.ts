@@ -26,7 +26,10 @@ function clearTimer(scan: ActiveScan) {
 /** A single-flight native scan with bounded polling retries and manual recovery.
  * Leaving the view stops its polling, not the analysis in the native process.
  */
-export function useScanJob(backend: Backend | null, onDone: OpenResult) {
+export function useScanJob(
+  backend: Pick<Backend, "startScan" | "job" | "cancelJob"> | null,
+  onDone: OpenResult,
+) {
   const [job, setJob] = useState<JobState | null>(null);
   const [starting, setStarting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
