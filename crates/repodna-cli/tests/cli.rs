@@ -161,7 +161,11 @@ fn analysis_view_commands_do_not_echo_invalid_remote_credentials() {
         "https://user:synthetic-secret@github.com/org/repo"
     );
     for command in ["show", "architecture", "history", "dependencies", "ci"] {
-        let output = env.run(&[command, url, "--no-store"]);
+        let output = if command == "show" {
+            env.run(&[command, url, "--no-store", "--section", "summary"])
+        } else {
+            env.run(&[command, url, "--no-store"])
+        };
         assert_eq!(code(&output), 3, "{command}: {}", stderr(&output));
         assert!(
             stderr(&output).contains("multiple repository URLs"),
