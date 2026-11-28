@@ -809,21 +809,35 @@ jobs:
             }
             return $parts[0]
           }
-          $before = Get-AdvertisedRevision
           $env:REPODNA_HOME = Join-Path $env:RUNNER_TEMP 'repodna-remote-release-smoke'
-          $json = & $exe analyze $url --profile standard --clone-depth 1 --max-commits 1 --no-store --no-user-config --no-project-config --format json --quiet
-          if ($LASTEXITCODE -ne 0) { throw "Remote branch analysis failed: $LASTEXITCODE" }
-          $artifact = ($json -join "`n") | ConvertFrom-Json
-          $after = Get-AdvertisedRevision
-          if ($before -cne $after) { throw 'LateBrake branch changed during qualification; retry the trial' }
-          if ($artifact.tool.version -cne $env:VERSION -or
-              $artifact.identity.name -ine 'latebrake' -or
-              $artifact.analysisMetadata.input.kind -cne 'git-url' -or
-              $artifact.analysisMetadata.revision -cne $before -or
-              $artifact.structure.totalFiles -le 0) {
-            throw 'Branch analysis artifact does not match the advertised revision, repository or version'
+          $verified = $false
+          # A concurrently updated branch invalidates the comparison, not the build.
+          # Repeat only this specific race, never a failure on a stable advertised ref.
+          for ($attempt = 1; $attempt -le 5; $attempt++) {
+            $before = Get-AdvertisedRevision
+            $json = & $exe analyze $url --profile standard --clone-depth 1 --max-commits 1 --no-store --no-user-config --no-project-config --format json --quiet
+            $analysisExit = $LASTEXITCODE
+            $after = Get-AdvertisedRevision
+            if ($before -cne $after) {
+              Write-Warning "LateBrake moved during trial attempt $attempt; repeating against the current branch."
+              continue
+            }
+            if ($analysisExit -ne 0) { throw "Remote branch analysis failed: $analysisExit" }
+            $artifact = ($json -join "`n") | ConvertFrom-Json
+            if ($artifact.tool.version -cne $env:VERSION -or
+                $artifact.identity.name -ine 'latebrake' -or
+                $artifact.analysisMetadata.input.kind -cne 'git-url' -or
+                $artifact.analysisMetadata.revision -cne $before -or
+                $artifact.structure.totalFiles -le 0) {
+              throw 'Branch analysis artifact does not match the advertised revision, repository or version'
+            }
+            Write-Output "Verified LateBrake branch checkout $before on packaged native CLI."
+            $verified = $true
+            break
           }
-          Write-Output "Verified LateBrake branch checkout $before on packaged native CLI."
+          if (-not $verified) {
+            throw 'LateBrake branch changed on all five qualification attempts; no stable verification obtained'
+          }
       # These smoke tests exercise the actual x64/ARM64 Windows executables.
       # They do not install or launch the GUI desktop app.
 
