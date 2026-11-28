@@ -11,7 +11,7 @@ repodna <command> [options] [target]
 
 - [Targets](#targets)
 - [Options shared by most commands](#options-shared-by-most-commands)
-- [Analyze](#analyze): `analyze`, `ci`
+- [Analyze](#analyze): `analyze`, `ci`, `remote-refs`
 - [Explore in the terminal](#explore-in-the-terminal): `show`, `architecture`, `dependencies`,
   `history`, `hotspots`, `timeline`, `findings`
 - [Reports and sharing](#reports-and-sharing): `report`, `card`, `badge`, `onboarding`,
@@ -85,6 +85,29 @@ Privacy presets, used by `--privacy` on the commands that print or write output:
 See [privacy](privacy.md) for details.
 
 ## Analyze
+
+### `repodna remote-refs` (development)
+
+List advertised branches and tags without cloning or writing an analysis.
+
+```sh
+repodna remote-refs https://github.com/owner/repo
+repodna remote-refs https://github.com/owner/repo --kind branch --search feature/
+repodna remote-refs https://github.com/owner/repo --kind tag --json
+```
+
+The desktop and local server also offer **Find branches and tags** on demand.
+Git contacts only the submitted remote using the normal native clone URL
+policy. The listing has a 20-second Git command timeout, a 16 MiB output
+budget and a 2,000-reference result cap. Results are sorted by namespace and
+name; filtering occurs after that cap, so an absent name in a limited list
+does not prove that the reference does not exist. Manual reference selection
+remains available. An annotated tag's advertised object can be a tag object,
+not a commit. Analysis resolves and verifies the actual checkout separately.
+
+The command supports explicit `--allow-private-hosts` and
+`--allow-insecure-urls` overrides, just like native analysis. Credentials
+should be configured through Git rather than placed in a URL.
 
 ### `repodna analyze` (alias `scan`)
 

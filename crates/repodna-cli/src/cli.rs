@@ -192,6 +192,8 @@ pub enum Command {
     /// Analyze a repository and store the result.
     #[command(visible_alias = "scan")]
     Analyze(AnalyzeCmd),
+    /// List advertised remote branches and tags without cloning.
+    RemoteRefs(RemoteRefsCmd),
     /// Write reports: a bundle (HTML, Markdown, JSON, card, CSV) or one format.
     Report(ReportCmd),
     /// Show the inferred architecture.
@@ -290,6 +292,39 @@ pub struct AnalyzeCmd {
     /// How the analysis runs.
     #[command(flatten)]
     pub analysis: AnalysisArgs,
+}
+
+/// Which advertised reference namespaces to display.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum RemoteRefFilter {
+    /// Both branches and tags.
+    All,
+    /// Branches only.
+    Branch,
+    /// Tags only.
+    Tag,
+}
+
+/// `repodna remote-refs`.
+#[derive(Debug, Args)]
+pub struct RemoteRefsCmd {
+    /// Remote Git repository or GitHub branch/commit browser URL.
+    pub input: String,
+    /// Restrict results to one reference namespace.
+    #[arg(long, value_enum, default_value_t = RemoteRefFilter::All)]
+    pub kind: RemoteRefFilter,
+    /// Filter names by a case-insensitive substring.
+    #[arg(long, value_name = "TEXT")]
+    pub search: Option<String>,
+    /// Print a machine-readable JSON listing instead of text.
+    #[arg(long)]
+    pub json: bool,
+    /// Explicitly permit private or special-use remote hosts.
+    #[arg(long)]
+    pub allow_private_hosts: bool,
+    /// Explicitly permit unencrypted HTTP or Git protocols.
+    #[arg(long)]
+    pub allow_insecure_urls: bool,
 }
 
 /// Report formats.

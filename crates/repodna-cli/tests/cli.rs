@@ -154,6 +154,26 @@ fn malformed_remote_input_does_not_expose_credentials_in_cli_progress() {
 }
 
 #[test]
+fn remote_refs_cli_validates_sources_and_has_help_without_network() {
+    let env = Env::new();
+    let help = env.run(&["remote-refs", "--help"]);
+    assert_eq!(code(&help), 0);
+    assert!(stdout(&help).contains("--kind"));
+    assert!(stdout(&help).contains("--search"));
+    for input in [
+        "/local/path",
+        "https://127.0.0.1/org/repo",
+        "https://github.com/org/repo/pull/1",
+    ] {
+        let output = env.run(&["remote-refs", input, "--json"]);
+        assert_eq!(code(&output), 3, "{}", stderr(&output));
+        assert!(stdout(&output).is_empty());
+    }
+    let bad = env.run(&["remote-refs", "https://github.com/org/repo", "--kind", "commit"]);
+    assert_eq!(code(&bad), 2);
+}
+
+#[test]
 fn prints_version_help_and_usage_errors() {
     let env = Env::new();
     let version = env.run(&["version"]);

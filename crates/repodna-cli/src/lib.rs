@@ -20,7 +20,7 @@ use repodna_core::CancellationToken;
 use crate::cli::{Cli, Command};
 use crate::commands::views::View;
 use crate::commands::{
-    Ctx, analyze, ci, compare, doctor, explain, manage, plugins, report, serve, views,
+    Ctx, analyze, ci, compare, doctor, explain, manage, plugins, remote_refs, report, serve, views,
 };
 use crate::progress::Reporter;
 use crate::term::Style;
@@ -28,6 +28,7 @@ use crate::term::Style;
 fn dispatch(ctx: &Ctx, command: &Command) -> Result<(), AppError> {
     match command {
         Command::Analyze(cmd) => analyze::run(ctx, cmd),
+        Command::RemoteRefs(cmd) => remote_refs::run(ctx, cmd),
         Command::Report(cmd) => report::run_report(ctx, cmd),
         Command::Architecture(cmd) => views::run_view(ctx, cmd, View::Architecture),
         Command::Dependencies(cmd) => views::run_view(ctx, cmd, View::Dependencies),
