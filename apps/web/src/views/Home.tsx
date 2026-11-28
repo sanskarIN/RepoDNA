@@ -148,7 +148,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             </option>
           ))}
         </select>
-        <button type="submit" className="primary" disabled={!input.trim() || !!inputError || running}>
+        <button
+          type="submit"
+          className="primary"
+          disabled={!input.trim() || !!inputError || running}
+        >
           {running ? "Analyzing…" : "Analyze"}
         </button>
         {running && job ? (
