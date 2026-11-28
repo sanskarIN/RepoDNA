@@ -582,7 +582,8 @@ mod tests {
 
     #[test]
     fn rejects_concatenated_remote_urls_without_echoing_credentials() {
-        let branch = "https://github.com/sanskarIN/latebrake/tree/feat/experimental-six-car-runtime";
+        let branch =
+            "https://github.com/sanskarIN/latebrake/tree/feat/experimental-six-car-runtime";
         for bad in [
             format!("{branch}{branch}"),
             format!("{branch} {branch}"),
@@ -595,7 +596,10 @@ mod tests {
             assert!(!error.contains("github.com"), "{error}");
         }
         let target = resolve_clone_target(branch, PUBLIC).unwrap();
-        assert_eq!(target.repository_url, "https://github.com/sanskarIN/latebrake");
+        assert_eq!(
+            target.repository_url,
+            "https://github.com/sanskarIN/latebrake"
+        );
         assert_eq!(
             target.branch.as_deref(),
             Some("feat/experimental-six-car-runtime")
