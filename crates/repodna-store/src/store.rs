@@ -11,7 +11,7 @@ use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::InputKind;
 use repodna_core::severity::Severity;
 use repodna_core::time::Timestamp;
-use rusqlite::{Connection, OptionalExtension, Row, params};
+use rusqlite::{Connection, OptionalExtension, Row, Transaction, TransactionBehavior, params};
 
 use crate::schema::{configure, migrate};
 use crate::{StoreError, StorePaths};
@@ -174,6 +174,53 @@ pub(crate) fn parse_kind(id: &str) -> InputKind {
     }
 }
 
+/// Stored identifiers are portable filename components, not arbitrary paths.
+pub(crate) fn valid_scan_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        && !["CON", "PRN", "AUX", "NUL", "COM0", "COM1", "COM2", "COM3", "COM4", "COM5",
+            "COM6", "COM7", "COM8", "COM9", "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
+            "LPT6", "LPT7", "LPT8", "LPT9"].contains(&id.to_ascii_uppercase().as_str())
+}
+
+pub(crate) fn checked_artifact_name(
+    repository_id: &str,
+    scan_id: &str,
+) -> Result<String, StoreError> {
+    if repository_id.len() != 12
+        || !repository_id.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !valid_scan_id(scan_id)
+    {
+        return Err(StoreError::Invalid("invalid stored repository or analysis identifier".into()));
+    }
+    Ok(format!("artifacts/{repository_id}/{scan_id}.json"))
+}
+
+fn check_scan_owner(
+    transaction: &Transaction<'_>,
+    repository_id: &str,
+    scan_id: &str,
+) -> Result<(), StoreError> {
+    // Compare case-insensitively too: distinct SQLite IDs must not name the
+    // same artifact on a case-insensitive filesystem.
+    let mut statement = transaction.prepare(
+        "SELECT id, repository_id FROM scans WHERE id = ?1 COLLATE NOCASE",
+    )?;
+    let rows = statement.query_map([scan_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    for row in rows {
+        let (existing, owner) = row?;
+        if existing != scan_id || owner != repository_id {
+            return Err(StoreError::Invalid(
+                "analysis identifier belongs to another stored analysis; no data was replaced".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn count(value: usize) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
@@ -296,7 +343,10 @@ impl Store {
         } else {
             metadata.id.clone()
         };
-        let artifact = format!("artifacts/{repository_id}/{scan_id}.json");
+        let artifact = checked_artifact_name(&repository_id, &scan_id)?;
+        let mut connection = self.lock();
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        check_scan_owner(&transaction, &repository_id, &scan_id)?;
         let path = self.paths.home().join(&artifact);
         write_artifact(&path, dna, false)?;
         let descriptor = serde_json::json!({
@@ -310,7 +360,9 @@ impl Store {
             .join(&repository_id)
             .join(REPOSITORY_FILE);
         write_atomic(&descriptor_path, format!("{descriptor:#}\n").as_bytes())?;
-        self.index(dna, location, artifact, scan_id)
+        let record = self.index_in(&transaction, dna, location, artifact, scan_id)?;
+        transaction.commit()?;
+        Ok(record)
     }
 
     /// Indexes an artifact that is already stored at `artifact` (relative to the home).
@@ -321,7 +373,27 @@ impl Store {
         artifact: String,
         scan_id: String,
     ) -> Result<ScanRecord, StoreError> {
+        let mut connection = self.lock();
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let record = self.index_in(&transaction, dna, location, artifact, scan_id)?;
+        transaction.commit()?;
+        Ok(record)
+    }
+
+    fn index_in(
+        &self,
+        transaction: &Transaction<'_>,
+        dna: &RepositoryDna,
+        location: &RepositoryLocation,
+        artifact: String,
+        scan_id: String,
+    ) -> Result<ScanRecord, StoreError> {
         let repository_id = location.id();
+        let expected = checked_artifact_name(&repository_id, &scan_id)?;
+        if artifact != expected {
+            return Err(StoreError::Invalid("stored artifact path does not match its identity".into()));
+        }
+        check_scan_owner(transaction, &repository_id, &scan_id)?;
         let metadata = &dna.analysis_metadata;
         let path = self.paths.home().join(&artifact);
         let artifact_bytes = fs::metadata(&path)
@@ -349,8 +421,6 @@ impl Store {
             artifact,
             artifact_bytes,
         };
-        let mut connection = self.lock();
-        let transaction = connection.transaction()?;
         let generated = record.generated_at.unix();
         transaction.execute(
             "INSERT INTO repositories (id, name, location, kind, first_scanned_at, last_scanned_at)
@@ -418,7 +488,6 @@ impl Store {
                 ])?;
             }
         }
-        transaction.commit()?;
         Ok(record)
     }
 
@@ -480,8 +549,16 @@ impl Store {
         })
     }
 
+    fn validate_artifact_path(&self, scan: &ScanRecord) -> Result<(), StoreError> {
+        if scan.artifact != checked_artifact_name(&scan.repository_id, &scan.id)? {
+            return Err(StoreError::Invalid("stored artifact path does not match its identity".into()));
+        }
+        Ok(())
+    }
+
     /// Loads a stored artifact.
     pub fn load(&self, scan: &ScanRecord) -> Result<RepositoryDna, StoreError> {
+        self.validate_artifact_path(scan)?;
         Ok(read_artifact(&self.artifact_path(scan))?.artifact)
     }
 
@@ -524,8 +601,9 @@ impl Store {
         let Some(scan) = self.scan(id)? else {
             return Ok(false);
         };
+        self.validate_artifact_path(&scan)?;
         let mut connection = self.lock();
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         transaction.execute("DELETE FROM scans WHERE id = ?1", [&scan.id])?;
         let remaining: i64 = transaction.query_row(
             "SELECT COUNT(*) FROM scans WHERE repository_id = ?1",
@@ -564,6 +642,9 @@ impl Store {
     /// Removes a repository, its scans, and their artifacts. Returns `false` when it did
     /// not exist.
     pub fn delete_repository(&self, id: &str) -> Result<bool, StoreError> {
+        if id.len() != 12 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Ok(false);
+        }
         let removed = self
             .lock()
             .execute("DELETE FROM repositories WHERE id = ?1", [id])?;
@@ -727,6 +808,60 @@ pub(crate) mod tests {
         let scans = store.scans(&location().id(), 10).unwrap();
         let ids: Vec<&str> = scans.iter().map(|s| s.id.as_str()).collect();
         assert_eq!(ids, vec!["0000ffff", "ffff0000"]);
+    }
+
+    #[test]
+    fn refuses_cross_repository_scan_id_collision_without_overwriting_either_repository() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(StorePaths::new(dir.path())).unwrap();
+        let original = store
+            .record(&artifact("same-id", 1, &["original.rs"]), &location())
+            .unwrap();
+        let original_bytes = fs::read(store.artifact_path(&original)).unwrap();
+        let other = RepositoryLocation {
+            kind: InputKind::LocalDirectory,
+            location: "/work/other".into(),
+        };
+        let error = store
+            .record(&artifact("same-id", 2, &["other.rs"]), &other)
+            .unwrap_err();
+        assert!(error.to_string().contains("belongs to another"));
+        assert_eq!(store.scan("same-id").unwrap().unwrap(), original);
+        assert_eq!(fs::read(store.artifact_path(&original)).unwrap(), original_bytes);
+        assert!(!store.paths().artifacts().join(other.id()).exists());
+        assert_eq!(store.repositories().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn rejects_unsafe_or_case_conflicting_ids_before_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(StorePaths::new(dir.path())).unwrap();
+        for id in ["../outside", "a/b", "a\\b", "C:relative", "CON", "aux", "space name"] {
+            assert!(store.record(&artifact(id, 1, &[]), &location()).is_err(), "{id}");
+        }
+        assert!(!store.paths().artifacts().exists());
+        let original = store.record(&artifact("Scan-One", 1, &[]), &location()).unwrap();
+        assert!(store.record(&artifact("scan-one", 2, &[]), &location()).is_err());
+        assert_eq!(store.scan("Scan-One").unwrap().unwrap(), original);
+        assert_eq!(store.scans(&location().id(), 10).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn rejects_mismatched_indexed_paths_before_reading_or_deleting() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(StorePaths::new(dir.path())).unwrap();
+        let original = store.record(&artifact("safe-id", 1, &[]), &location()).unwrap();
+        let outside = dir.path().join("unrelated.json");
+        fs::write(&outside, b"keep").unwrap();
+        store.lock().execute(
+            "UPDATE scans SET artifact = ?1 WHERE id = ?2",
+            params!["unrelated.json", original.id],
+        ).unwrap();
+        let changed = store.scan("safe-id").unwrap().unwrap();
+        assert!(store.load(&changed).is_err());
+        assert!(store.delete_scan("safe-id").is_err());
+        assert_eq!(fs::read(outside).unwrap(), b"keep");
+        assert!(store.artifact_path(&original).exists());
     }
 
     #[test]
