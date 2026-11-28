@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use repodna_core::cancel::CancellationToken;
 use repodna_core::config::{Config, Stage, StageSet, apply_suppressions};
 use repodna_core::finding::{Finding, FindingCategory, normalize_findings};
-use repodna_core::hash::stable_id;
+use repodna_core::hash::StableHasher;
 use repodna_core::model::SectionStatus;
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::identity::RepositoryIdentity;
@@ -41,7 +41,7 @@ use crate::deps::{
 };
 use crate::fingerprint::{fingerprint, metrics};
 use crate::history::{GitStage, git_findings, run_git_stage};
-use crate::input::{FetchOptions, InputSpec, prepare_input};
+use crate::input::{FetchOptions, InputSpec, prepare_input, source_scope};
 use crate::insights::build_insights;
 use crate::progress::{Progress, ProgressEvent};
 use crate::scan::{AnalysisCache, ScanOptions, scan_files};
@@ -817,6 +817,7 @@ pub fn analyze(
     let (revision, dirty) = git_stage.as_ref().map_or((None, None), |stage| {
         (stage.state.head.clone(), stage.state.dirty)
     });
+    let revision = revision.or_else(|| prepared.verified_revision.clone());
     if let Some(stage) = git_stage {
         dna.git = stage.report;
     }
@@ -913,12 +914,20 @@ pub fn analyze(
     }
     let config_hash = config.hash();
     let generated = now.to_rfc3339();
-    let run_id = stable_id(&[
-        dna.fingerprint.dna_hash.as_str(),
-        generated.as_str(),
-        config_hash.as_str(),
-        config.analysis.profile.id(),
-    ]);
+    // A content fingerprint identifies a snapshot, not a particular analysis
+    // of that snapshot. Scope the run ID to the source and actual revision.
+    let scope = source_scope(&request.input, request.fetch.url_policy);
+    let mut identity = StableHasher::new();
+    identity
+        .str_field("repodna-analysis-v2")
+        .str_field(&scope)
+        .str_field(&dna.fingerprint.dna_hash)
+        .str_field(&generated)
+        .str_field(&config_hash)
+        .str_field(config.analysis.profile.id())
+        .str_field(revision.as_deref().unwrap_or(""))
+        .str_field(&request.fetch.clone_depth.map_or_else(String::new, |depth| depth.to_string()));
+    let run_id = identity.finish_hex()[..32].to_owned();
     let partial = recorder.runs.iter().any(|run| {
         matches!(
             run.status,
@@ -1129,6 +1138,23 @@ mod tests {
         let mut sorted = dna.findings.clone();
         normalize_findings(&mut sorted);
         assert_eq!(sorted, dna.findings);
+    }
+
+    #[test]
+    fn identical_content_in_distinct_sources_has_distinct_analysis_ids() {
+        let root = tempfile::tempdir().unwrap();
+        let first = root.path().join("first").join("widget");
+        let second = root.path().join("second").join("widget");
+        write_tree(&first, PROJECT);
+        write_tree(&second, PROJECT);
+        let cancel = CancellationToken::new();
+        let a = analyze(&request(&first, AnalysisProfile::Quick), &cancel).unwrap();
+        let b = analyze(&request(&second, AnalysisProfile::Quick), &cancel).unwrap();
+        assert_eq!(a.fingerprint.dna_hash, b.fingerprint.dna_hash);
+        assert_ne!(a.analysis_metadata.id, b.analysis_metadata.id);
+        assert_eq!(a.analysis_metadata.id.len(), 32);
+        let repeated = analyze(&request(&first, AnalysisProfile::Quick), &cancel).unwrap();
+        assert_eq!(a.analysis_metadata.id, repeated.analysis_metadata.id);
     }
 
     #[test]

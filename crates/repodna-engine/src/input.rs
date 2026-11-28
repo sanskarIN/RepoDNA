@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use repodna_core::cancel::CancellationToken;
+use repodna_core::hash::StableHasher;
 use repodna_core::model::metadata::{InputInfo, InputKind};
 use repodna_discovery::{ArchiveLimits, ExtractedArchive, detect_archive, extract};
 use repodna_git::url::{
@@ -39,6 +40,31 @@ impl InputSpec {
     }
 }
 
+/// Compute the source scope for analysis identifiers, not the content fingerprint.
+/// Never include credentials or raw local paths in the resulting identifier.
+pub(crate) fn source_scope(spec: &InputSpec, policy: UrlPolicy) -> String {
+    let mut hash = StableHasher::new();
+    match spec {
+        InputSpec::Directory(path) | InputSpec::Archive(path) => {
+            let kind = if matches!(spec, InputSpec::Directory(_)) {
+                "directory"
+            } else {
+                "archive"
+            };
+            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+            hash.str_field(kind).field(canonical.as_os_str().as_encoded_bytes());
+        }
+        InputSpec::Url(url) => {
+            let source = resolve_clone_target(url, policy).map_or_else(
+                |_| sanitize_url(url),
+                |target| sanitize_url(&target.repository_url),
+            );
+            hash.str_field("remote").str_field(&source);
+        }
+    }
+    hash.finish_hex()
+}
+
 /// How remote inputs are fetched.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FetchOptions {
@@ -59,6 +85,8 @@ pub struct PreparedInput {
     pub git_root: Option<PathBuf>,
     /// Where the input came from, for the artifact (never an absolute local path).
     pub info: InputInfo,
+    /// Exact commit checked out during remote preparation, even without history analysis.
+    pub verified_revision: Option<String>,
     /// Repository name guessed from the input.
     pub name: String,
     /// `true` when the network was used (cloning).
@@ -142,6 +170,7 @@ pub fn prepare_input(
                     kind,
                     display: name.clone(),
                 },
+                verified_revision: None,
                 name,
                 network_used: false,
                 notes,
@@ -203,6 +232,7 @@ pub fn prepare_input(
                     kind: InputKind::GitUrl,
                     display: sanitize_url(url),
                 },
+                verified_revision: Some(checked_out),
                 name,
                 network_used: true,
                 notes,
@@ -256,6 +286,47 @@ fn github_tree_selection_note(candidate: &str) -> String {
     format!(
         "GitHub tree URL requested {candidate}. RepoDNA resolves slash-containing paths against advertised branches and tags and verifies any trailing directory; the full repository is analyzed."
     )
+}
+
+#[cfg(test)]
+mod source_scope_tests {
+    use super::*;
+
+    #[test]
+    fn scopes_remote_urls_to_the_repository_without_credentials_or_browser_references() {
+        let policy = UrlPolicy::default();
+        let root = InputSpec::Url("https://github.com/org/repo".to_owned());
+        let expected = source_scope(&root, policy);
+        for url in [
+            "https://github.com/org/repo/tree/feature/runtime",
+            "https://github.com/org/repo/commit/0123456789abcdef0123456789abcdef01234567",
+            "https://user:synthetic-secret@github.com/org/repo/tree/main",
+        ] {
+            assert_eq!(source_scope(&InputSpec::Url(url.to_owned()), policy), expected);
+        }
+        assert_ne!(
+            source_scope(&InputSpec::Url("https://github.com/other/repo".into()), policy),
+            expected
+        );
+        assert_eq!(expected.len(), 64);
+    }
+
+    #[test]
+    fn distinguishes_local_sources_but_normalizes_equivalent_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let first = root.path().join("first");
+        let second = root.path().join("second");
+        std::fs::create_dir_all(&first).unwrap();
+        std::fs::create_dir_all(&second).unwrap();
+        let policy = UrlPolicy::default();
+        let scope = |path: PathBuf| source_scope(&InputSpec::Directory(path), policy);
+        assert_eq!(scope(first.clone()), scope(first.join(".")));
+        assert_ne!(scope(first.clone()), scope(second));
+        assert_ne!(
+            scope(first.clone()),
+            source_scope(&InputSpec::Archive(first), policy)
+        );
+    }
 }
 
 #[cfg(test)]
