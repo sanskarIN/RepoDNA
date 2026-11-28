@@ -1,22 +1,10 @@
 //! List advertised remote branches and tags without cloning or creating analyses.
 
-use repodna_app::{AppError, SourceReferences, source_references};
+use repodna_app::{AppError, SourceReferences, source_references_matching};
 use repodna_git::url::UrlPolicy;
 
 use super::{Ctx, print, to_json};
 use crate::cli::{RemoteRefFilter, RemoteRefsCmd};
-
-fn filter(listing: &mut SourceReferences, kind: RemoteRefFilter, search: Option<&str>) {
-    let query = search.unwrap_or_default().trim().to_lowercase();
-    listing.references.retain(|reference| {
-        let matches_kind = match kind {
-            RemoteRefFilter::All => true,
-            RemoteRefFilter::Branch => reference.kind == "branch",
-            RemoteRefFilter::Tag => reference.kind == "tag",
-        };
-        matches_kind && reference.name.to_lowercase().contains(&query)
-    });
-}
 
 fn render(listing: &SourceReferences) -> String {
     let mut out = String::from("Kind\tName\tAdvertised object\n");
@@ -41,8 +29,18 @@ pub fn run(ctx: &Ctx, cmd: &RemoteRefsCmd) -> Result<(), AppError> {
         allow_private_hosts: cmd.allow_private_hosts,
         allow_insecure: cmd.allow_insecure_urls,
     };
-    let mut listing = source_references(&cmd.input, policy, &ctx.cancel)?;
-    filter(&mut listing, cmd.kind, cmd.search.as_deref());
+    let kind = match cmd.kind {
+        RemoteRefFilter::All => None,
+        RemoteRefFilter::Branch => Some("branch"),
+        RemoteRefFilter::Tag => Some("tag"),
+    };
+    let listing = source_references_matching(
+        &cmd.input,
+        policy,
+        kind,
+        cmd.search.as_deref(),
+        &ctx.cancel,
+    )?;
     if cmd.json {
         print(&to_json(&listing)?)
     } else {
@@ -79,9 +77,9 @@ mod tests {
     }
 
     #[test]
-    fn filters_by_namespace_and_case_insensitive_substring_without_hiding_truncation() {
+    fn renders_filtered_list_without_hiding_truncation() {
         let mut result = listing();
-        filter(&mut result, RemoteRefFilter::Tag, Some(" AUDIO "));
+        result.references.retain(|reference| reference.kind == "tag");
         assert_eq!(result.references.len(), 1);
         assert_eq!(result.references[0].kind, "tag");
         assert!(result.truncated);
@@ -94,7 +92,7 @@ mod tests {
     #[test]
     fn distinguishes_empty_results_from_complete_advertisement() {
         let mut result = listing();
-        filter(&mut result, RemoteRefFilter::Branch, Some("not present"));
+        result.references.clear();
         assert!(result.references.is_empty());
         let output = render(&result);
         assert!(output.contains("No matching references"));

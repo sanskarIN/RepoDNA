@@ -2,7 +2,7 @@
 
 use repodna_core::CancellationToken;
 use repodna_git::GitError;
-use repodna_git::remote_refs::{RemoteRefKind, discover_remote_refs};
+use repodna_git::remote_refs::{RemoteRefKind, RemoteRefQuery, discover_remote_refs_matching};
 use repodna_git::url::{UrlPolicy, looks_like_url};
 use serde::Serialize;
 
@@ -37,12 +37,31 @@ pub fn source_references(
     policy: UrlPolicy,
     cancel: &CancellationToken,
 ) -> Result<SourceReferences, AppError> {
+    source_references_matching(input, policy, None, None, cancel)
+}
+
+/// Search remote references by namespace and substring before the result cap.
+pub fn source_references_matching(
+    input: &str,
+    policy: UrlPolicy,
+    kind: Option<&str>,
+    search: Option<&str>,
+    cancel: &CancellationToken,
+) -> Result<SourceReferences, AppError> {
+    let kind = match kind {
+        None | Some("all") => None,
+        Some("branch") => Some(RemoteRefKind::Branch),
+        Some("tag") => Some(RemoteRefKind::Tag),
+        Some(_) => return Err(AppError::input("reference kind must be all, branch or tag")),
+    };
+    let query = RemoteRefQuery::new(kind, search)
+        .map_err(|error| AppError::input(error.to_string()))?;
     if !looks_like_url(input) {
         return Err(AppError::input(
             "a remote Git URL is required to list references",
         ));
     }
-    let listing = discover_remote_refs(input, policy, cancel).map_err(|error| {
+    let listing = discover_remote_refs_matching(input, policy, &query, cancel).map_err(|error| {
         let message = error.to_string();
         match error {
             GitError::InvalidUrl(_) => AppError::input(message),
@@ -82,6 +101,25 @@ mod tests {
         ] {
             let error = source_references(input, UrlPolicy::default(), &CancellationToken::new())
                 .unwrap_err();
+            assert_eq!(error.kind, ErrorKind::Input);
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_query_before_contacting_git() {
+        let cancel = CancellationToken::new();
+        for (kind, search) in [
+            (Some("commit"), None),
+            (Some("tag"), Some("a\ncontrol")),
+        ] {
+            let error = source_references_matching(
+                "https://github.com/org/repo",
+                UrlPolicy::default(),
+                kind,
+                search,
+                &cancel,
+            )
+            .unwrap_err();
             assert_eq!(error.kind, ErrorKind::Input);
         }
     }

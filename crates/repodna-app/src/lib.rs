@@ -28,7 +28,7 @@ pub use export::{
     write_file,
 };
 pub use paths::AppPaths;
-pub use source::{SourceReference, SourceReferences, source_references};
+pub use source::{SourceReference, SourceReferences, source_references, source_references_matching};
 
 /// An explicit source revision selected by the user.
 pub use repodna_git::url::RequestedRevision;

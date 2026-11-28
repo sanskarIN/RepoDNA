@@ -49,6 +49,34 @@ pub struct RemoteRefs {
     pub truncated: bool,
 }
 
+/// Filters applied before the result cap, not to an already truncated list.
+#[derive(Debug, Clone, Default)]
+pub struct RemoteRefQuery {
+    kind: Option<RemoteRefKind>,
+    search: String,
+}
+
+impl RemoteRefQuery {
+    /// Accept a namespace and a bounded case-insensitive search substring.
+    pub fn new(kind: Option<RemoteRefKind>, search: Option<&str>) -> Result<Self, GitError> {
+        let search = search.unwrap_or_default().trim();
+        if search.len() > 512 || search.chars().any(char::is_control) {
+            return Err(GitError::InvalidUrl(
+                "remote reference search is too long or contains control characters".to_owned(),
+            ));
+        }
+        Ok(Self {
+            kind,
+            search: search.to_lowercase(),
+        })
+    }
+
+    fn matches(&self, reference: &RemoteRef) -> bool {
+        self.kind.is_none_or(|kind| kind == reference.kind)
+            && (self.search.is_empty() || reference.name.to_lowercase().contains(&self.search))
+    }
+}
+
 fn parse_line(line: &[u8]) -> Option<RemoteRef> {
     let line = std::str::from_utf8(line)
         .ok()?
@@ -79,6 +107,7 @@ fn parse_listing(
     reader: &mut dyn BufRead,
     cancel: &CancellationToken,
     limit: usize,
+    query: &RemoteRefQuery,
 ) -> Result<RemoteRefs, GitError> {
     let mut retained = BTreeMap::<(RemoteRefKind, String), String>::new();
     let mut truncated = false;
@@ -105,6 +134,9 @@ fn parse_listing(
         let Some(reference) = parse_line(&line) else {
             continue;
         };
+        if !query.matches(&reference) {
+            continue;
+        }
         let key = (reference.kind, reference.name);
         if let Some(previous) = retained.get(&key) {
             if previous != &reference.object {
@@ -142,12 +174,25 @@ pub fn discover_remote_refs(
     policy: UrlPolicy,
     cancel: &CancellationToken,
 ) -> Result<RemoteRefs, GitError> {
+    discover_remote_refs_matching(input, policy, &RemoteRefQuery::default(), cancel)
+}
+
+/// Discover matching references before applying the result count limit.
+///
+/// The byte and timeout limits cover the entire Git advertisement, including
+/// nonmatching entries, so an untrusted remote cannot evade the resource budget.
+pub fn discover_remote_refs_matching(
+    input: &str,
+    policy: UrlPolicy,
+    query: &RemoteRefQuery,
+    cancel: &CancellationToken,
+) -> Result<RemoteRefs, GitError> {
     let target = resolve_clone_target(input, policy)?;
     if cancel.is_cancelled() {
         return Err(GitError::Cancelled);
     }
     let runner = GitRunner::detect()?.with_timeout(DISCOVERY_TIMEOUT);
-    discover_with_runner(&runner, &target.repository_url, cancel)
+    discover_with_runner(&runner, &target.repository_url, query, cancel)
 }
 
 // The only production caller has already validated the remote. Keeping the
@@ -156,15 +201,24 @@ pub fn discover_remote_refs(
 fn discover_with_runner(
     runner: &GitRunner,
     repository: &str,
+    query: &RemoteRefQuery,
     cancel: &CancellationToken,
 ) -> Result<RemoteRefs, GitError> {
     let mut result = None;
+    let namespaces: &[&str] = match query.kind {
+        Some(RemoteRefKind::Branch) => &["--heads"],
+        Some(RemoteRefKind::Tag) => &["--tags"],
+        None => &["--heads", "--tags"],
+    };
+    let mut args = vec!["ls-remote", "--refs"];
+    args.extend_from_slice(namespaces);
+    args.extend(["--", repository]);
     runner.stream(
         None,
-        &["ls-remote", "--refs", "--heads", "--tags", "--", repository],
+        &args,
         cancel,
         |reader| {
-            result = Some(parse_listing(reader, cancel, MAX_SELECTABLE_REFS)?);
+            result = Some(parse_listing(reader, cancel, MAX_SELECTABLE_REFS, query)?);
             Ok(())
         },
     )?;
@@ -185,6 +239,7 @@ mod tests {
             &mut Cursor::new(text.as_bytes()),
             &CancellationToken::new(),
             limit,
+            &RemoteRefQuery::default(),
         )
         .unwrap()
     }
@@ -234,6 +289,45 @@ mod tests {
     }
 
     #[test]
+    fn filters_before_the_result_limit_and_distinguishes_namespaces() {
+        let mut advertisement = String::new();
+        for index in 0..MAX_SELECTABLE_REFS + 100 {
+            advertisement.push_str(&record('a', &format!("refs/heads/branch-{index:05}")));
+        }
+        advertisement.push_str(&record('b', "refs/tags/Release/Audio"));
+        advertisement.push_str(&record('c', "refs/heads/zz-audio"));
+        let query = RemoteRefQuery::new(Some(RemoteRefKind::Tag), Some(" AUDIO ")).unwrap();
+        let result = parse_listing(
+            &mut Cursor::new(&advertisement),
+            &CancellationToken::new(),
+            1,
+            &query,
+        )
+        .unwrap();
+        assert!(!result.truncated);
+        assert_eq!(result.refs.len(), 1);
+        assert_eq!(result.refs[0].name, "Release/Audio");
+
+        let query = RemoteRefQuery::new(None, Some("audio")).unwrap();
+        let result = parse_listing(
+            &mut Cursor::new(advertisement),
+            &CancellationToken::new(),
+            1,
+            &query,
+        )
+        .unwrap();
+        assert!(result.truncated);
+        assert_eq!(result.refs[0].name, "zz-audio");
+    }
+
+    #[test]
+    fn query_rejects_unbounded_or_control_bearing_search() {
+        assert!(RemoteRefQuery::new(None, Some(&"a".repeat(513))).is_err());
+        assert!(RemoteRefQuery::new(None, Some("a\0b")).is_err());
+        assert!(RemoteRefQuery::new(None, Some(" release/日本 ")).is_ok());
+    }
+
+    #[test]
     fn rejects_conflicting_duplicate_records() {
         let text = [
             record('a', "refs/heads/main"),
@@ -241,7 +335,12 @@ mod tests {
         ]
         .concat();
         assert!(matches!(
-            parse_listing(&mut Cursor::new(text), &CancellationToken::new(), 10),
+            parse_listing(
+                &mut Cursor::new(text),
+                &CancellationToken::new(),
+                10,
+                &RemoteRefQuery::default()
+            ),
             Err(GitError::Parse(_))
         ));
     }
@@ -250,13 +349,23 @@ mod tests {
     fn rejects_oversized_records_and_honors_cancellation() {
         let mut oversized = Cursor::new(vec![b'x'; MAX_LINE + 1]);
         assert!(matches!(
-            parse_listing(&mut oversized, &CancellationToken::new(), 2),
+            parse_listing(
+                &mut oversized,
+                &CancellationToken::new(),
+                2,
+                &RemoteRefQuery::default()
+            ),
             Err(GitError::Parse(_))
         ));
         let cancel = CancellationToken::new();
         cancel.cancel();
         assert!(matches!(
-            parse_listing(&mut Cursor::new(b""), &cancel, 2),
+            parse_listing(
+                &mut Cursor::new(b""),
+                &cancel,
+                2,
+                &RemoteRefQuery::default()
+            ),
             Err(GitError::Cancelled)
         ));
         assert!(matches!(
@@ -298,6 +407,7 @@ mod tests {
         let listing = discover_with_runner(
             &runner,
             &repo.path().to_string_lossy(),
+            &RemoteRefQuery::default(),
             &CancellationToken::new(),
         )
         .unwrap();
@@ -335,6 +445,7 @@ mod tests {
         let listing = discover_with_runner(
             &runner,
             &repo.path().to_string_lossy(),
+            &RemoteRefQuery::default(),
             &CancellationToken::new(),
         )
         .unwrap();
@@ -356,6 +467,7 @@ mod tests {
             discover_with_runner(
                 &runner,
                 &missing.to_string_lossy(),
+                &RemoteRefQuery::default(),
                 &CancellationToken::new()
             )
             .is_err()
@@ -370,7 +482,8 @@ mod tests {
             parse_listing(
                 &mut Cursor::new(input),
                 &CancellationToken::new(),
-                MAX_SELECTABLE_REFS
+                MAX_SELECTABLE_REFS,
+                &RemoteRefQuery::default()
             ),
             Err(GitError::Parse(_))
         ));
