@@ -147,17 +147,21 @@ pub fn discover_remote_refs(
         return Err(GitError::Cancelled);
     }
     let runner = GitRunner::detect()?.with_timeout(DISCOVERY_TIMEOUT);
+    discover_with_runner(&runner, &target.repository_url, cancel)
+}
+
+// The only production caller has already validated the remote. Keeping the
+// transport boundary separate allows real Git fixtures without allowing file URLs
+// in the public discovery API.
+fn discover_with_runner(
+    runner: &GitRunner,
+    repository: &str,
+    cancel: &CancellationToken,
+) -> Result<RemoteRefs, GitError> {
     let mut result = None;
     runner.stream(
         None,
-        &[
-            "ls-remote",
-            "--refs",
-            "--heads",
-            "--tags",
-            "--",
-            &target.repository_url,
-        ],
+        &["ls-remote", "--refs", "--heads", "--tags", "--", repository],
         cancel,
         |reader| {
             result = Some(parse_listing(reader, cancel, MAX_SELECTABLE_REFS)?);
@@ -258,6 +262,116 @@ mod tests {
         assert!(matches!(
             discover_remote_refs("https://github.com/org/repo", UrlPolicy::default(), &cancel),
             Err(GitError::Cancelled)
+        ));
+    }
+
+    #[test]
+    fn reads_actual_git_advertisements_without_modifying_the_repository() {
+        use repodna_testkit::{GitRepo, git_available};
+
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        repo.write("src/main.rs", "fn main() {}");
+        let first = repo.commit(
+            "first",
+            "Test",
+            "test@example.invalid",
+            "2025-01-01T00:00:00Z",
+        );
+        repo.tag("release/lightweight", None);
+        repo.git(&["tag", "-a", "release/annotated", "-m", "release"]);
+        repo.write("src/main.rs", "fn main() { println!(\"second\"); }");
+        let second = repo.commit(
+            "second",
+            "Test",
+            "test@example.invalid",
+            "2025-01-02T00:00:00Z",
+        );
+        repo.git(&["branch", "feature/runtime"]);
+        repo.git(&["tag", "feature/runtime"]);
+        let before = repo.git(&["show-ref"]);
+        let annotated_object = repo.git(&["rev-parse", "refs/tags/release/annotated"]);
+        let runner = GitRunner::detect().unwrap().with_timeout(DISCOVERY_TIMEOUT);
+        let listing = discover_with_runner(
+            &runner,
+            &repo.path().to_string_lossy(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert!(!listing.truncated);
+        let lookup = |kind, name: &str| {
+            listing
+                .refs
+                .iter()
+                .find(|reference| reference.kind == kind && reference.name == name)
+                .map(|reference| reference.object.as_str())
+                .unwrap()
+        };
+        assert_eq!(lookup(RemoteRefKind::Branch, "feature/runtime"), second);
+        assert_eq!(lookup(RemoteRefKind::Tag, "feature/runtime"), second);
+        assert_eq!(lookup(RemoteRefKind::Tag, "release/lightweight"), first);
+        assert_eq!(
+            lookup(RemoteRefKind::Tag, "release/annotated"),
+            annotated_object
+        );
+        assert_ne!(annotated_object, first);
+        assert_eq!(repo.git(&["show-ref"]), before);
+        assert_eq!(repo.git(&["rev-parse", "HEAD"]), second);
+        assert!(repo.git(&["status", "--porcelain"]).is_empty());
+    }
+
+    #[test]
+    fn a_valid_empty_git_repository_returns_an_empty_listing() {
+        use repodna_testkit::{GitRepo, git_available};
+
+        if !git_available() {
+            return;
+        }
+        let repo = GitRepo::new();
+        let runner = GitRunner::detect().unwrap().with_timeout(DISCOVERY_TIMEOUT);
+        let listing = discover_with_runner(
+            &runner,
+            &repo.path().to_string_lossy(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert!(listing.refs.is_empty());
+        assert!(!listing.truncated);
+    }
+
+    #[test]
+    fn missing_repository_is_a_git_failure_not_an_empty_listing() {
+        use repodna_testkit::git_available;
+
+        if !git_available() {
+            return;
+        }
+        let root = tempfile::tempdir().unwrap();
+        let missing = root.path().join("does-not-exist");
+        let runner = GitRunner::detect().unwrap().with_timeout(DISCOVERY_TIMEOUT);
+        assert!(
+            discover_with_runner(
+                &runner,
+                &missing.to_string_lossy(),
+                &CancellationToken::new()
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn total_advertisement_budget_applies_even_to_ignored_records() {
+        let line = "x".repeat(MAX_LINE - 1) + "\n";
+        let input = line.repeat(MAX_BYTES / MAX_LINE + 1);
+        assert!(matches!(
+            parse_listing(
+                &mut Cursor::new(input),
+                &CancellationToken::new(),
+                MAX_SELECTABLE_REFS
+            ),
+            Err(GitError::Parse(_))
         ));
     }
 
