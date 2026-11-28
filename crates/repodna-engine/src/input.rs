@@ -310,7 +310,10 @@ mod source_scope_tests {
             );
         }
         assert_ne!(
-            source_scope(&InputSpec::Url("https://github.com/other/repo".into()), policy),
+            source_scope(
+                &InputSpec::Url("https://github.com/other/repo".into()),
+                policy
+            ),
             expected
         );
         assert_eq!(expected.len(), 64);

@@ -111,13 +111,9 @@ async fn list_remote_references(
     kind: Option<String>,
     search: Option<String>,
 ) -> Reply<SourceReferences> {
-    let permit = desktop
-        .library()?
-        .discovery
-        .try_acquire()
-        .ok_or_else(|| {
-            "a remote reference search is already running; retry after it finishes".to_owned()
-        })?;
+    let permit = desktop.library()?.discovery.try_acquire().ok_or_else(|| {
+        "a remote reference search is already running; retry after it finishes".to_owned()
+    })?;
     tauri::async_runtime::spawn_blocking(move || {
         let _permit = permit;
         source_references_matching(
