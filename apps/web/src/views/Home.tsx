@@ -16,6 +16,7 @@ import {
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
 import { useScanJob } from "../lib/useScanJob";
+import { useStoredHistory } from "../lib/useStoredHistory";
 import { REPOSITORY } from "../lib/links";
 import type { RecentEntry } from "../lib/recent";
 import { href, navigate } from "../lib/router";
@@ -307,8 +308,8 @@ function Stored() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [scans, setScans] = useState<ScanSummary[] | null>(null);
+  const history = useStoredHistory(backend);
+  const { id: expandedId, scans } = history;
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -339,18 +340,19 @@ function Stored() {
     setRepositories(await backend.repositories());
   };
 
-  const manageScans = async (repository: RepositorySummary) => {
+  const manageScans = (repository: RepositorySummary) => {
     setError(null);
-    if (expandedId === repository.id) {
-      setExpandedId(null);
-      setScans(null);
-      return;
-    }
-    setExpandedId(repository.id);
-    setScans(null);
+    history.toggle(repository.id);
+  };
+  const openScan = async (repository: RepositorySummary, scan: ScanSummary) => {
     try {
-      const detail = await backend.repository(repository.id);
-      setScans(detail.scans);
+      const dna = await backend.artifact(repository.id, scan.id);
+      open({
+        dna,
+        origin: { kind: "stored", repositoryId: repository.id, name: repository.name },
+        warnings: [],
+      });
+      navigate("/overview");
     } catch (reason) {
       setError(message(reason));
     }
@@ -372,8 +374,7 @@ function Stored() {
       if (dataset?.origin.kind === "stored" && dataset.origin.repositoryId === repository.id) {
         close();
       }
-      setExpandedId(null);
-      setScans(null);
+      history.reset();
       await refresh();
       setNotice(`Deleted stored analyses for ${repository.name}.`);
     } catch (reason) {
@@ -402,10 +403,9 @@ function Stored() {
       const remaining = await backend.repositories();
       setRepositories(remaining);
       if (remaining.some((item) => item.id === repository.id)) {
-        setScans((await backend.repository(repository.id)).scans);
+        await history.refresh(repository.id);
       } else {
-        setExpandedId(null);
-        setScans(null);
+        history.reset();
       }
       setNotice(`Deleted analysis ${scan.id}.`);
     } catch (reason) {
@@ -464,13 +464,29 @@ function Stored() {
               </div>
               {expandedId === repository.id ? (
                 <div aria-label={`History for ${repository.name}`}>
-                  {scans === null ? <p className="muted">Loading history…</p> : null}
+                  {history.loading && scans === null ? (
+                    <p className="muted">Loading history…</p>
+                  ) : null}
+                  {history.error ? <ErrorBox>{history.error}</ErrorBox> : null}
+                  {history.error && scans === null ? (
+                    <button type="button" onClick={() => void history.refresh(repository.id)}>
+                      Retry history
+                    </button>
+                  ) : null}
                   {scans?.length === 0 ? <p className="muted">No saved scans.</p> : null}
                   {scans && scans.length > 0 ? (
                     <ul className="evidence">
                       {scans.map((scan) => (
                         <li key={scan.id}>
                           <code>{scan.id}</code> · {date(scan.generatedAt)} · {scan.profile}{" "}
+                          <button
+                            type="button"
+                            disabled={deleting}
+                            aria-label={`Open stored analysis ${scan.id}`}
+                            onClick={() => void openScan(repository, scan)}
+                          >
+                            Open record
+                          </button>{" "}
                           <button
                             type="button"
                             className="ghost"
@@ -484,8 +500,22 @@ function Stored() {
                       ))}
                     </ul>
                   ) : null}
-                  {scans?.length === 100 ? (
-                    <p className="muted">Showing the 100 most recent scans.</p>
+                  {scans ? (
+                    <p className="muted">
+                      Showing {scans.length} of {repository.scans} saved scans.
+                    </p>
+                  ) : null}
+                  {history.cursor ? (
+                    <button
+                      type="button"
+                      disabled={deleting || history.loading}
+                      onClick={history.more}
+                    >
+                      {history.loading ? "Loading older analyses…" : "Load older analyses"}
+                    </button>
+                  ) : null}
+                  {scans?.length === 100 && !backend.history ? (
+                    <p className="muted">This backend only returns the 100 most recent scans.</p>
                   ) : null}
                 </div>
               ) : null}

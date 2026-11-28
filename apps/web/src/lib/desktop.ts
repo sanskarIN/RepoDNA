@@ -3,9 +3,10 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { checkArtifact, type RepositoryDna } from "@repodna/schema";
-import { checkScanJob, checkScanJobs, checkSourceReferences } from "./backend";
+import { checkHistoryPage, checkScanJob, checkScanJobs, checkSourceReferences } from "./backend";
 import type {
   Backend,
+  HistoryPage,
   JobState,
   ReportOptions,
   RemoteRevision,
@@ -30,6 +31,11 @@ export class DesktopBackend implements Backend {
 
   repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
     return invoke("get_repository", { id });
+  }
+
+  async history(id: string, after?: string): Promise<HistoryPage> {
+    const value = await invoke<unknown>("repository_history", { id, limit: 50, after: after ?? null });
+    return checkHistoryPage(value, id, after);
   }
 
   async artifact(id: string, scan?: string): Promise<RepositoryDna> {

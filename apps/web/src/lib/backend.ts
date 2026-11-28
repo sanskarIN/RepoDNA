@@ -34,6 +34,13 @@ export interface ScanSummary {
   };
 }
 
+/** Bounded native history page with an opaque, repository-specific cursor. */
+export interface HistoryPage {
+  repositoryId: string;
+  scans: ScanSummary[];
+  nextCursor: string | null;
+}
+
 /** Explicit native Git revision selection; omission uses the URL or default branch. */
 export interface RemoteRevision {
   kind: "branch" | "tag" | "commit";
@@ -130,6 +137,7 @@ export interface Backend {
   session(): Promise<Session>;
   repositories(): Promise<RepositorySummary[]>;
   repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }>;
+  history?(id: string, after?: string): Promise<HistoryPage>;
   artifact(id: string, scan?: string): Promise<RepositoryDna>;
   /** Deletes every saved scan and artifact for one repository, not the source code. */
   deleteRepository(id: string): Promise<void>;
@@ -211,6 +219,31 @@ function isScanSummary(value: unknown): value is ScanSummary {
       isCount((value.findings as Record<string, unknown>)[key]),
     )
   );
+}
+
+/** Reject unbounded, malformed, cross-repository or repeating pages. */
+export function checkHistoryPage(value: unknown, id: string, after?: string): HistoryPage {
+  if (
+    !isRecord(value) ||
+    value.repositoryId !== id ||
+    !Array.isArray(value.scans) ||
+    value.scans.length > 100 ||
+    !value.scans.every(isScanSummary) ||
+    new Set(value.scans.map((scan) => scan.id)).size !== value.scans.length ||
+    (value.nextCursor !== null &&
+      (typeof value.nextCursor !== "string" ||
+        value.nextCursor.length === 0 ||
+        value.nextCursor.length > 200 ||
+        value.nextCursor === after ||
+        value.scans.length === 0))
+  ) {
+    throw new BackendError("The backend returned an invalid history page.", 200);
+  }
+  return {
+    repositoryId: id,
+    scans: value.scans,
+    nextCursor: value.nextCursor,
+  };
 }
 
 /** Reject malformed nested progress data before it reaches the UI. */
@@ -379,6 +412,13 @@ export class ServerBackend implements Backend {
       throw new BackendError("The server returned invalid repository details.", 200);
     }
     return value as { repository: RepositorySummary; scans: ScanSummary[] };
+  }
+
+  async history(id: string, after?: string): Promise<HistoryPage> {
+    const params = new URLSearchParams({ limit: "50" });
+    if (after) params.set("after", after);
+    const path = `repositories/${encodeURIComponent(id)}/history?${params.toString()}`;
+    return checkHistoryPage(await this.request<unknown>(path), id, after);
   }
 
   async artifact(id: string, scan?: string): Promise<RepositoryDna> {
