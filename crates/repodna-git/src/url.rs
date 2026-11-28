@@ -1066,5 +1066,4 @@ mod tests {
         // Double slashes do not make an otherwise unsupported route a root.
         assert!(resolve_clone_target("https://github.com/org/project//", PUBLIC).is_err());
     }
-
 }
