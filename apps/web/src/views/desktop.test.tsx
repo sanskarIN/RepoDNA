@@ -151,23 +151,23 @@ describe("desktop remote reference discovery", () => {
     });
     expect(discover).toHaveBeenCalledWith(url);
     fireEvent.change(screen.getByLabelText("Reference type"), { target: { value: "tag" } });
-    fireEvent.change(screen.getByLabelText("Choose a reference"), { target: { value: "feat/audio" } });
+    const choice = screen.getByLabelText("Choose a reference");
+    fireEvent.change(choice, { target: { value: "feat/audio" } });
     fireEvent.click(screen.getByRole("button", { name: "Use selected reference" }));
     expect((screen.getByLabelText("Tag name") as HTMLInputElement).value).toBe("feat/audio");
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
     });
-    expect(startScan).toHaveBeenCalledWith(url, "standard", { kind: "tag", value: "feat/audio" });
+    const selected = { kind: "tag", value: "feat/audio" };
+    expect(startScan).toHaveBeenCalledWith(url, "standard", selected);
   });
 
   it("discards choices when the source changes while discovery is pending", async () => {
     let finish: (value: SourceReferences) => void = () => undefined;
-    const discover = vi.fn(
-      () =>
-        new Promise<SourceReferences>((resolve) => {
-          finish = resolve;
-        }),
-    );
+    const pending = new Promise<SourceReferences>((resolve) => {
+      finish = resolve;
+    });
+    const discover = vi.fn(() => pending);
     desktop(discover);
     window.location.hash = "#/";
     await act(async () => {
@@ -198,15 +198,12 @@ describe("desktop remote reference discovery", () => {
     });
     expect(screen.getByText(/Network unavailable/)).toBeTruthy();
     const revisionKind = screen.getByLabelText("Source revision") as HTMLSelectElement;
+    const analyze = screen.getByRole("button", { name: "Analyze" }) as HTMLButtonElement;
     fireEvent.change(revisionKind, { target: { value: "branch" } });
     fireEvent.change(screen.getByLabelText("Branch name"), { target: { value: "--invalid" } });
-    expect((screen.getByRole("button", { name: "Analyze" }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect(analyze.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Branch name"), { target: { value: "feat/audio" } });
-    expect((screen.getByRole("button", { name: "Analyze" }) as HTMLButtonElement).disabled).toBe(
-      false,
-    );
+    expect(analyze.disabled).toBe(false);
     fireEvent.change(input, { target: { value: "/local/project" } });
     expect(revisionKind.value).toBe("auto");
     expect(revisionKind.disabled).toBe(true);

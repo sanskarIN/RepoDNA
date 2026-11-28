@@ -328,9 +328,8 @@ describe("remote reference listings", () => {
       new Response(JSON.stringify(result), { status: 200 }),
     );
     const input = "https://github.com/org/repo/tree/feat/audio";
-    await expect(new ServerBackend("local-token").listRemoteReferences(input)).resolves.toEqual(
-      result,
-    );
+    const backend = new ServerBackend("local-token");
+    await expect(backend.listRemoteReferences(input)).resolves.toEqual(result);
     const [url, init] = fetchSpy.mock.calls[0] ?? [];
     expect(url).toBe("/api/remote-references");
     expect(init?.method).toBe("POST");
