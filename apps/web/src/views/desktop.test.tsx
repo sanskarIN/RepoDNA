@@ -99,7 +99,7 @@ describe("desktop repository analysis", () => {
       render(<App store={memoryStore()} />);
     });
     const input = await screen.findByLabelText("Repository to analyze");
-    const analyze = screen.getByRole("button", { name: "Analyze", exact: true });
+    const analyze = screen.getByRole("button", { name: "Analyze" });
     const url = "https://github.com/sanskarIN/latebrake/tree/feat/experimental-six-car-runtime";
 
     fireEvent.change(input, { target: { value: url + url } });
