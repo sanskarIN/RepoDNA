@@ -139,6 +139,21 @@ fn rejects_encoded_git_hostnames_before_network_access() {
 }
 
 #[test]
+fn malformed_remote_input_does_not_expose_credentials_in_cli_progress() {
+    let env = Env::new();
+    let url = concat!(
+        "https://github.com/org/repo/tree/feature/runtime",
+        "https://user:synthetic-secret@github.com/org/repo"
+    );
+    let output = env.run(&["analyze", url, "--no-store"]);
+    assert_eq!(code(&output), 3, "{}", stderr(&output));
+    let diagnostic = stderr(&output);
+    assert!(diagnostic.contains("multiple repository URLs"));
+    assert!(!diagnostic.contains("synthetic-secret"));
+    assert!(!stdout(&output).contains("synthetic-secret"));
+}
+
+#[test]
 fn prints_version_help_and_usage_errors() {
     let env = Env::new();
     let version = env.run(&["version"]);
