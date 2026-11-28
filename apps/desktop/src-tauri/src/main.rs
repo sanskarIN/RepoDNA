@@ -12,8 +12,10 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use repodna_app::{
-    AnalyzeOptions, AppPaths, artifact_file_name, report_bundle, requested_revision, write_bundle,
+    AnalyzeOptions, AppPaths, SourceReferences, artifact_file_name, report_bundle,
+    requested_revision, source_references, write_bundle,
 };
+use repodna_core::CancellationToken;
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::ReportOptions;
@@ -96,6 +98,18 @@ fn load_artifact(desktop: State<'_, Desktop>, id: String, scan: Option<String>) 
     let store = &desktop.library()?.store;
     let dna = library::load(store, &id, scan.as_deref(), PrivacyPreset::Local).map_err(message)?;
     serde_json::to_value(dna).map_err(message)
+}
+
+// This is invoked only by an explicit UI action. Keep Git's bounded network
+// operation off the desktop UI thread and never return the submitted URL.
+#[tauri::command]
+async fn list_remote_references(input: String) -> Reply<SourceReferences> {
+    tauri::async_runtime::spawn_blocking(move || {
+        source_references(&input, Default::default(), &CancellationToken::new())
+            .map_err(message)
+    })
+    .await
+    .map_err(message)?
 }
 
 #[tauri::command]
@@ -384,6 +398,7 @@ fn main() {
             delete_scan,
             load_artifact,
             start_scan,
+            list_remote_references,
             get_job,
             cancel_job,
             pick_directory,

@@ -3,7 +3,8 @@
 
 use std::io::Read;
 
-use repodna_app::{AnalyzeOptions, AppPaths, requested_revision};
+use repodna_app::{AnalyzeOptions, AppPaths, ErrorKind, requested_revision, source_references};
+use repodna_core::CancellationToken;
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::text::count;
@@ -168,6 +169,50 @@ fn compare_route(state: &State, target: &Target) -> Reply {
         }
     }
     json(200, &json_comparison(&compare(&artifacts)))
+}
+
+fn remote_references(state: &State, request: &mut Request) -> Reply {
+    if !state.allow_scans {
+        return error(
+            403,
+            "remote reference discovery is turned off for this server (--no-scan)",
+        );
+    }
+    let mut body = String::new();
+    if request
+        .as_reader()
+        .take(MAX_BODY + 1)
+        .read_to_string(&mut body)
+        .is_err()
+        || body.len() as u64 > MAX_BODY
+    {
+        return error(413, "the request body is too large or not UTF-8");
+    }
+    let Ok(value) = serde_json::from_str::<Value>(&body) else {
+        return error(400, "send a JSON object with a remote Git URL in input");
+    };
+    let Some(input) = value
+        .get("input")
+        .and_then(Value::as_str)
+        .filter(|input| !input.trim().is_empty())
+    else {
+        return error(400, "input must be a remote Git URL");
+    };
+    match source_references(
+        input,
+        state.template.fetch.url_policy,
+        &CancellationToken::new(),
+    ) {
+        Ok(listing) => json(200, &json!(listing)),
+        Err(problem) => {
+            let status = if problem.kind == ErrorKind::Input {
+                400
+            } else {
+                502
+            };
+            error(status, &problem.message)
+        }
+    }
 }
 
 fn start_scan(state: &State, request: &mut Request) -> Reply {
@@ -380,6 +425,7 @@ pub fn handle(state: &State, request: &mut Request) -> Reply {
             (Method::Get, ["compare"]) => compare_route(state, &target),
             (Method::Get, ["scans"]) => json(200, &json!(state.jobs.list())),
             (Method::Post, ["scans"]) => start_scan(state, request),
+            (Method::Post, ["remote-references"]) => remote_references(state, request),
             (Method::Get, ["scans", id]) => match state.jobs.get(id) {
                 Some(job) => json(200, &json!(job)),
                 None => error(404, "no such analysis job"),
