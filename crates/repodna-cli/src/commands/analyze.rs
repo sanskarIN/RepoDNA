@@ -4,7 +4,6 @@ use repodna_app::{AnalysisOutcome, AppError, report_bundle, run_analysis, write_
 use repodna_core::confidence::Confidence;
 use repodna_core::finding::highlights;
 use repodna_core::model::artifact::RepositoryDna;
-use repodna_git::url::{UrlPolicy, looks_like_url, sanitize_url, validate_clone_url};
 use repodna_report::{ReportOptions, json_report, markdown_report};
 
 use super::{Ctx, print};
@@ -211,20 +210,7 @@ pub fn summary(
 /// Runs `repodna analyze`.
 pub fn run(ctx: &Ctx, cmd: &AnalyzeCmd) -> Result<(), AppError> {
     let options = ctx.analyze_options(&cmd.input, &cmd.analysis);
-    // Never echo a malformed remote input: even a rejected concatenated URL
-    // can contain credentials in its second authority.
-    let display = if looks_like_url(&cmd.input) {
-        let policy = UrlPolicy {
-            allow_insecure: cmd.analysis.allow_insecure_urls,
-            allow_private_hosts: cmd.analysis.allow_private_hosts,
-        };
-        match validate_clone_url(&cmd.input, policy) {
-            Ok(url) => sanitize_url(&url),
-            Err(_) => "invalid remote repository URL".to_owned(),
-        }
-    } else {
-        cmd.input.clone()
-    };
+    let display = options.display_input();
     ctx.note(&format!(
         "{} {} · analyzing {}",
         ctx.err.bold("RepoDNA"),
