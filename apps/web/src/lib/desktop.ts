@@ -3,6 +3,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { checkArtifact, type RepositoryDna } from "@repodna/schema";
+import { checkSourceReferences } from "./backend";
 import type {
   Backend,
   JobState,
@@ -12,6 +13,7 @@ import type {
   SaveFormat,
   ScanSummary,
   Session,
+  SourceReferences,
 } from "./backend";
 
 export class DesktopBackend implements Backend {
@@ -40,6 +42,10 @@ export class DesktopBackend implements Backend {
 
   async deleteScan(id: string, scan: string): Promise<void> {
     await invoke("delete_scan", { id, scan });
+  }
+
+  async listRemoteReferences(input: string): Promise<SourceReferences> {
+    return checkSourceReferences(await invoke<unknown>("list_remote_references", { input }));
   }
 
   startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {

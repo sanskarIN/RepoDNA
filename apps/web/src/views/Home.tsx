@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { bytes, date, thousands } from "@repodna/visualization";
 import { BrowserScan, useEngine } from "../components/BrowserAnalysis";
+import { RemoteRefPicker } from "../components/RemoteRefPicker";
 import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../components/common";
 import { droppedFolder, isArchive } from "../engine/input";
 import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
 import type { JobState, RemoteRevision, RepositorySummary, ScanSummary } from "../lib/backend";
-import { githubSourceHint, repositoryInputError } from "../lib/github-source";
+import {
+  githubSourceHint,
+  looksLikeRemoteSource,
+  repositoryInputError,
+  validGitRef,
+} from "../lib/github-source";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
 import { REPOSITORY } from "../lib/links";
@@ -90,7 +96,13 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   const running = job?.status === "running";
   const hint = githubSourceHint(input);
   const inputError = repositoryInputError(input);
-  const revisionReady = revisionKind === "auto" || revisionValue.trim().length > 0;
+  const remoteInput = looksLikeRemoteSource(input);
+  const revisionReady =
+    revisionKind === "auto" ||
+    (remoteInput &&
+      (revisionKind === "commit"
+        ? /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(revisionValue.trim())
+        : validGitRef(revisionValue.trim())));
   return (
     <section className="panel" aria-labelledby="scan-title">
       <div className="panel-header">
@@ -117,6 +129,8 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           value={input}
           onChange={(event) => {
             setInput(event.target.value);
+            setRevisionKind("auto");
+            setRevisionValue("");
             setError(null);
           }}
           aria-invalid={inputError ? true : undefined}
@@ -132,7 +146,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             setRevisionKind(event.target.value as RemoteRevision["kind"] | "auto");
             setRevisionValue("");
           }}
-          disabled={running}
+          disabled={running || !remoteInput}
           aria-describedby="scan-revision-help"
         >
           <option value="auto">URL reference / default branch</option>
@@ -173,6 +187,8 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
               const picked = await backend.pickDirectory?.();
               if (picked) {
                 setInput(picked);
+                setRevisionKind("auto");
+                setRevisionValue("");
                 setError(null);
               }
             }}
@@ -215,12 +231,26 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             type="button"
             onClick={() => {
               setInput("");
+              setRevisionKind("auto");
+              setRevisionValue("");
               setError(null);
             }}
           >
             Clear repository input
           </button>
         </div>
+      ) : null}
+      {remoteInput && !inputError && backend.listRemoteReferences ? (
+        <RemoteRefPicker
+          key={input.trim()}
+          input={input.trim()}
+          disabled={running}
+          discover={(value) => backend.listRemoteReferences!(value)}
+          onSelect={(revision) => {
+            setRevisionKind(revision.kind);
+            setRevisionValue(revision.value);
+          }}
+        />
       ) : null}
       <p className="muted" id="scan-revision-help">
         {hint

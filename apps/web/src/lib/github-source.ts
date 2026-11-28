@@ -13,7 +13,7 @@ export interface GitHubSourceHint {
  * Mirror the native Git ref-name rules for a local preview, without running Git.
  * This is only syntax validation; the native backend verifies existence/checkout.
  */
-function validGitRef(reference: string): boolean {
+export function validGitRef(reference: string): boolean {
   return (
     reference.length > 0 &&
     reference !== "@" &&
@@ -100,4 +100,13 @@ export function githubSourceHint(input: string): GitHubSourceHint | null {
   } catch {
     return null;
   }
+}
+
+/** Conservative UI hint; native Git remains authoritative for URL policy. */
+export function looksLikeRemoteSource(input: string): boolean {
+  const value = input.trim();
+  return (
+    /^(?:https?|ssh|git\+ssh|ssh\+git|git):\/\//i.test(value) ||
+    /^[^\s/@:]+@[^\s/:]+\.[^\s/:]+:[^\s]+$/.test(value)
+  );
 }

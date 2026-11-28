@@ -2,6 +2,7 @@
 // nowhere (static hosting: files opened in the browser and the bundled demo only).
 
 import { checkArtifact, type RepositoryDna } from "@repodna/schema";
+import { validGitRef } from "./github-source";
 
 export interface RepositorySummary {
   id: string;
@@ -37,6 +38,52 @@ export interface ScanSummary {
 export interface RemoteRevision {
   kind: "branch" | "tag" | "commit";
   value: string;
+}
+
+/** Remote branches and tags are a snapshot, not immutable checkout promises. */
+export interface SourceReference {
+  kind: "branch" | "tag";
+  name: string;
+  object: string;
+}
+
+export interface SourceReferences {
+  references: SourceReference[];
+  truncated: boolean;
+}
+
+/** Validate both HTTP and native IPC responses at the shared boundary. */
+export function checkSourceReferences(value: unknown): SourceReferences {
+  if (
+    !isRecord(value) ||
+    typeof value.truncated !== "boolean" ||
+    !Array.isArray(value.references) ||
+    value.references.length > 2_000
+  ) {
+    throw new BackendError("Invalid remote reference listing.", 200);
+  }
+  const seen = new Set<string>();
+  const references: SourceReference[] = [];
+  for (const item of value.references) {
+    if (
+      !isRecord(item) ||
+      (item.kind !== "branch" && item.kind !== "tag") ||
+      typeof item.name !== "string" ||
+      item.name.length > 16_384 ||
+      !validGitRef(item.name) ||
+      typeof item.object !== "string" ||
+      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(item.object)
+    ) {
+      throw new BackendError("Invalid remote reference listing.", 200);
+    }
+    const key = item.kind + ":" + item.name;
+    if (seen.has(key)) {
+      throw new BackendError("Duplicate remote reference in listing.", 200);
+    }
+    seen.add(key);
+    references.push({ kind: item.kind, name: item.name, object: item.object });
+  }
+  return { references, truncated: value.truncated };
 }
 
 export interface JobState {
@@ -84,6 +131,8 @@ export interface Backend {
   /** Deletes one saved scan and its artifact. */
   deleteScan(repositoryId: string, scanId: string): Promise<void>;
   startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState>;
+  /** User-requested network discovery, optional for native backends. */
+  listRemoteReferences?(input: string): Promise<SourceReferences>;
   job(id: string): Promise<JobState>;
   cancelJob(id: string): Promise<void>;
   /** A link to a generated report (server only). */
@@ -320,6 +369,15 @@ export class ServerBackend implements Backend {
       `repositories/${encodeURIComponent(repositoryId)}/scans/${encodeURIComponent(scanId)}`,
       { method: "DELETE" },
     );
+  }
+
+  async listRemoteReferences(input: string): Promise<SourceReferences> {
+    const value = await this.request<unknown>("remote-references", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input }),
+    });
+    return checkSourceReferences(value);
   }
 
   async startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {
