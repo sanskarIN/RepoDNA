@@ -5,7 +5,12 @@ import { Chip, CommandBox, ErrorBox, Note, PageHeader, Panel, Select } from "../
 import { DataTable } from "../components/DataTable";
 import type { PrivacyPreset, ReportFormat, ReportTheme, SaveFormat } from "../lib/backend";
 import { useEngine } from "../components/BrowserAnalysis";
-import { renderCard, renderReport } from "../engine/client";
+import { renderCardTask, renderReportTask } from "../engine/client";
+import { useReportOperation } from "../lib/useReportOperation";
+import {
+  asReportTask, createPreview, mapReportTask, nativeSaveGate, releasePreview,
+  type PreviewResource, type ReportTask,
+} from "../lib/reportOperation";
 import { artifactFileName, downloadBlob, useDownload } from "../lib/download";
 import { unitFor } from "../lib/names";
 import { useApp, useDataset } from "../state";
@@ -30,146 +35,94 @@ const FORMATS: [ReportFormat, string, string][] = [
   ["json", "JSON artifact", "Save the analysis as JSON…"],
 ];
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+/** Visible state of a scoped generation or save operation. */
+function OperationNotice<T>({ operation }: { operation: ReturnType<typeof useReportOperation<T>> }) {
+  const { state } = operation;
+  if (state.status === "failed") return <ErrorBox>{state.message}</ErrorBox>;
+  if (state.status === "cancelled") return <p role="status">{state.label} cancelled.</p>;
+  if (state.status !== "running") return null;
+  return (
+    <p role="status">
+      {state.label}…{" "}
+      {state.cancellable ? <button type="button" onClick={operation.cancel}>Cancel</button> : null}
+    </p>
+  );
 }
 
-/** The Project DNA card, rendered by the same code as `repodna card`. */
-function CardPreview({
-  source,
-  render,
-  renderPng,
-  downloads = false,
-  save,
-}: {
-  /** Identifies what `render` renders: the card is rendered again when it changes. */
-  source: string;
-  render: (dark: boolean) => Promise<string>;
-  /** Renders the card as PNG, when it can be downloaded as one. */
-  renderPng?: (dark: boolean) => Promise<Uint8Array<ArrayBuffer>>;
-  /** Offer the card as downloads, in a browser. */
+/** The Project DNA card uses a scoped object URL; stale previews cannot be exported. */
+function CardPreview({ source, render, renderPng, downloads = false, save }: {
+  source: unknown;
+  render: (dark: boolean) => ReportTask<string>;
+  renderPng?: (dark: boolean) => ReportTask<Uint8Array<ArrayBuffer>>;
   downloads?: boolean;
-  /** Saves the card through a save dialog, in the desktop app; resolves to where. */
   save?: (dark: boolean, png: boolean) => Promise<string | null>;
 }) {
   const [dark, setDark] = useState(false);
-  const [url, setUrl] = useState<string | null>(null);
-  const [svg, setSvg] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [download, failure] = useDownload();
-  const [saved, setSaved] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const scope = useMemo(() => ({ source, dark, retry }), [source, dark, retry]);
+  const preview = useReportOperation<PreviewResource>(scope, releasePreview);
+  const action = useReportOperation<string | Uint8Array<ArrayBuffer> | null>(scope);
   const renderer = useRef(render);
   renderer.current = render;
-
+  const launch = useRef(preview.start);
+  launch.current = preview.start;
+  const [download, failure] = useDownload();
   useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    renderer.current(dark).then(
-      (text) => {
-        if (cancelled) {
-          return;
-        }
-        objectUrl = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
-        setSvg(text);
-        setUrl(objectUrl);
-        setError(null);
-      },
-      (reason: unknown) => !cancelled && setError(message(reason)),
-    );
-    return () => {
-      cancelled = true;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [source, dark]);
-
+    launch.current("Rendering card", () => mapReportTask(renderer.current(dark), createPreview));
+  }, [scope, dark]);
+  const ready = preview.state.status === "ready" ? preview.state.value : null;
+  const busy = action.state.status === "running";
   const name = dark ? "dna-card-dark" : "dna-card";
   return (
-    <Panel
-      title="Project DNA card"
-      description="A summary image of this analysis for READMEs, slides, and posts."
-      actions={
-        <button
-          type="button"
-          className="ghost"
-          aria-pressed={dark}
-          onClick={() => setDark((value) => !value)}
-        >
-          {dark ? "Light card" : "Dark card"}
-        </button>
-      }
-    >
-      {error ? <ErrorBox>{error}</ErrorBox> : null}
+    <Panel title="Project DNA card" description="A summary image of this analysis for READMEs, slides, and posts."
+      actions={<button type="button" className="ghost" aria-pressed={dark} disabled={busy}
+        onClick={() => setDark((value) => !value)}>{dark ? "Light card" : "Dark card"}</button>}>
+      <OperationNotice operation={preview} />
+      <OperationNotice operation={action} />
       {failure ? <ErrorBox>{failure}</ErrorBox> : null}
-      {url ? (
-        <img className="card-preview" src={url} alt="Project DNA card for this repository" />
+      {preview.state.status === "failed" || preview.state.status === "cancelled" ? (
+        <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry card</button>
       ) : null}
-      {svg && downloads ? (
+      {ready ? <img className="card-preview" src={ready.url} alt="Project DNA card for this repository" /> : null}
+      {ready && downloads ? (
         <p className="actions">
-          <button type="button" onClick={() => download(`${name}.svg`, svg, "image/svg+xml")}>
-            Download SVG
-          </button>
-          {renderPng ? (
-            <button
-              type="button"
-              onClick={() =>
-                renderPng(dark).then(
-                  (png) => downloadBlob(`${name}.png`, new Blob([png], { type: "image/png" })),
-                  (reason: unknown) => setError(message(reason)),
-                )
-              }
-            >
-              Download PNG
-            </button>
-          ) : null}
+          <button type="button" disabled={busy} onClick={() => download(`${name}.svg`, ready.svg, "image/svg+xml")}>Download SVG</button>
+          {renderPng ? <button type="button" disabled={busy} onClick={() => {
+            action.start("Rendering PNG", () => renderPng(dark), {}, (value) => {
+              if (value instanceof Uint8Array) downloadBlob(`${name}.png`, new Blob([value], { type: "image/png" }));
+            });
+          }}>Download PNG</button> : null}
         </p>
       ) : null}
-      {svg && save ? (
+      {ready && save ? (
         <p className="actions">
           {([false, true] as const).map((png) => (
-            <button
-              key={String(png)}
-              type="button"
-              onClick={() => {
-                setSaved(null);
-                save(dark, png).then(
-                  (path) => setSaved(path),
-                  (reason: unknown) => setError(message(reason)),
-                );
-              }}
-            >
-              {png ? "Save PNG…" : "Save SVG…"}
-            </button>
+            <button key={String(png)} type="button" disabled={busy} onClick={() => {
+              action.start("Saving card", () => asReportTask(save(dark, png)), { cancellable: false, deadlineMs: null });
+            }}>{png ? "Save PNG…" : "Save SVG…"}</button>
           ))}
         </p>
       ) : null}
-      {saved ? <Note>Saved to {saved}</Note> : null}
+      {action.state.status === "ready" && typeof action.state.value === "string" ? <Note>Saved to {action.state.value}</Note> : null}
     </Panel>
   );
 }
 
-function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?: string }) {
+function StoredReports({ repositoryId, scanId, dna }: { repositoryId: string; scanId?: string; dna: RepositoryDna }) {
   const { backend } = useApp();
   const [theme, setTheme] = useState<ReportTheme>("professional");
   const [privacy, setPrivacy] = useState<PrivacyPreset>("local");
-  const [saved, setSaved] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  if (!backend) {
-    return null;
-  }
+  const source = useMemo(() => ({ backend, repositoryId, scanId, dna }), [backend, repositoryId, scanId, dna]);
+  const scope = useMemo(() => ({ source, theme, privacy }), [source, theme, privacy]);
+  const operation = useReportOperation<string | null>(scope);
+  if (!backend) return null;
   const options = { scan: scanId, theme, privacy };
-  const save = async (format: SaveFormat) => {
-    setError(null);
-    setSaved(null);
-    try {
-      const path = await backend.saveReport?.(repositoryId, format, options);
-      if (path) {
-        setSaved(path);
-      }
-    } catch (reason) {
-      setError(message(reason));
-    }
+  const save = (format: SaveFormat) => {
+    const saveReport = backend.saveReport;
+    if (!saveReport) return;
+    operation.start("Saving report", () => asReportTask(nativeSaveGate(backend).run(() =>
+      saveReport.call(backend, repositoryId, format, options),
+    )), { cancellable: false, deadlineMs: null });
   };
   return (
     <>
@@ -193,11 +146,11 @@ function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?
         {backend.saveReport ? (
           <div className="actions">
             {FORMATS.map(([format, , saveLabel]) => (
-              <button key={format} type="button" onClick={() => void save(format)}>
+              <button key={format} type="button" disabled={operation.state.status === "running"} onClick={() => save(format)}>
                 {saveLabel}
               </button>
             ))}
-            <button type="button" onClick={() => void save("bundle")}>
+            <button type="button" disabled={operation.state.status === "running"} onClick={() => save("bundle")}>
               Save the full report folder…
             </button>
           </div>
@@ -216,21 +169,21 @@ function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?
             })}
           </ul>
         )}
-        {saved ? <Note>Saved to {saved}</Note> : null}
-        {error ? <ErrorBox>{error}</ErrorBox> : null}
+        {operation.state.status === "ready" && operation.state.value ? <Note>Saved to {operation.state.value}</Note> : null}
+        <OperationNotice operation={operation} />
         <p className="muted">
           The full report folder (HTML, Markdown, JSON, CSV tables, and the card as SVG and PNG) is
           also available from the command line: <code>repodna report &lt;repository&gt;</code>.
         </p>
       </Panel>
       <CardPreview
-        source={`${repositoryId}:${scanId ?? ""}`}
-        render={(dark) => backend.card(repositoryId, dark, scanId)}
+        source={source}
+        render={(dark) => asReportTask(backend.card(repositoryId, dark, scanId))}
         downloads={!backend.saveCard}
         save={
           backend.saveCard
             ? (dark, png) =>
-                backend.saveCard?.(repositoryId, dark, png, scanId) ?? Promise.resolve(null)
+                nativeSaveGate(backend).run(() => backend.saveCard?.(repositoryId, dark, png, scanId) ?? Promise.resolve(null))
             : undefined
         }
       />
@@ -245,26 +198,15 @@ function StoredReports({ repositoryId, scanId }: { repositoryId: string; scanId?
 function BrowserReports({ dna }: { dna: RepositoryDna }) {
   const [theme, setTheme] = useState<ReportTheme>("professional");
   const [privacy, setPrivacy] = useState<PrivacyPreset>("local");
-  const [making, setMaking] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [download, failure] = useDownload();
   const artifact = useMemo(() => JSON.stringify(dna), [dna]);
+  const scope = useMemo(() => ({ dna, theme, privacy }), [dna, theme, privacy]);
+  const operation = useReportOperation<string>(scope);
   const base = artifactFileName(dna).replace(/\.repodna$/, "");
-  const make = async (format: "html" | "markdown") => {
-    setError(null);
-    setMaking(format);
-    try {
-      const text = await renderReport(artifact, { format, theme, privacy });
-      if (format === "html") {
-        download(`${base}.html`, text, "text/html");
-      } else {
-        download(`${base}.md`, text, "text/markdown");
-      }
-    } catch (reason) {
-      setError(message(reason));
-    } finally {
-      setMaking(null);
-    }
+  const make = (format: "html" | "markdown") => {
+    operation.start(`Making ${format.toUpperCase()} report`, () => renderReportTask(artifact, { format, theme, privacy }), {}, (text) => {
+      download(`${base}.${format === "html" ? "html" : "md"}`, text, format === "html" ? "text/html" : "text/markdown");
+    });
   };
   return (
     <>
@@ -289,11 +231,11 @@ function BrowserReports({ dna }: { dna: RepositoryDna }) {
           />
         </div>
         <div className="actions">
-          <button type="button" disabled={making !== null} onClick={() => void make("html")}>
-            {making === "html" ? "Making the HTML report…" : "Download the HTML report"}
+          <button type="button" disabled={operation.state.status === "running"} onClick={() => make("html")}>
+            Download the HTML report
           </button>
-          <button type="button" disabled={making !== null} onClick={() => void make("markdown")}>
-            {making === "markdown" ? "Making the Markdown report…" : "Download the Markdown report"}
+          <button type="button" disabled={operation.state.status === "running"} onClick={() => make("markdown")}>
+            Download the Markdown report
           </button>
           <button
             type="button"
@@ -308,7 +250,7 @@ function BrowserReports({ dna }: { dna: RepositoryDna }) {
             Download the analysis as loaded
           </button>
         </div>
-        {error ? <ErrorBox>{error}</ErrorBox> : null}
+        <OperationNotice operation={operation} />
         {failure ? <ErrorBox>{failure}</ErrorBox> : null}
         <p className="muted">
           The privacy preset of this file is <strong>{dna.analysisMetadata.privacy.preset}</strong>;
@@ -316,9 +258,9 @@ function BrowserReports({ dna }: { dna: RepositoryDna }) {
         </p>
       </Panel>
       <CardPreview
-        source={dna.analysisMetadata.id}
-        render={(dark) => renderCard(artifact, dark)}
-        renderPng={(dark) => renderCard(artifact, dark, true)}
+        source={dna}
+        render={(dark) => renderCardTask(artifact, dark)}
+        renderPng={(dark) => renderCardTask(artifact, dark, true)}
         downloads
       />
     </>
@@ -339,7 +281,7 @@ export function Reports() {
         Share what RepoDNA found, and see exactly how this analysis was made.
       </PageHeader>
       {origin.kind === "stored" ? (
-        <StoredReports repositoryId={origin.repositoryId} scanId={origin.scanId} />
+        <StoredReports repositoryId={origin.repositoryId} scanId={origin.scanId} dna={dna} />
       ) : engine ? (
         <BrowserReports dna={dna} />
       ) : (

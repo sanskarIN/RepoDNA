@@ -3,6 +3,7 @@
 
 import { checkArtifact, type RepositoryDna } from "@repodna/schema";
 import { validGitRef } from "./github-source";
+import { decodeNativeJson, NATIVE_LIMITS, NativeTransportError, requestNativeText, type NativeTransportOptions } from "./nativeTransport";
 
 export interface RepositorySummary {
   id: string;
@@ -297,6 +298,62 @@ export function checkScanJobs(value: unknown): JobState[] {
   return jobs;
 }
 
+/** Both HTTP and IPC must validate the same response contracts. */
+export function checkSession(value: unknown): Session {
+  if (!isRecord(value) || typeof value.version !== "string" || !value.version || typeof value.allowScans !== "boolean") {
+    throw new BackendError("The server returned an invalid session.", 200);
+  }
+  return { version: value.version, allowScans: value.allowScans };
+}
+
+export function checkRepositories(value: unknown): RepositorySummary[] {
+  if (!Array.isArray(value) || !value.every(isRepositorySummary) || new Set(value.map((item) => item.id)).size !== value.length) {
+    throw new BackendError("The server returned an invalid repository list.", 200);
+  }
+  return value;
+}
+
+export function checkRepository(value: unknown, id: string): { repository: RepositorySummary; scans: ScanSummary[] } {
+  if (!isRecord(value) || !isRepositorySummary(value.repository) || value.repository.id !== id ||
+    !Array.isArray(value.scans) || value.scans.length > 100 || !value.scans.every(isScanSummary) ||
+    new Set(value.scans.map((scan) => scan.id)).size !== value.scans.length) {
+    throw new BackendError("The server returned invalid repository details.", 200);
+  }
+  return { repository: value.repository, scans: value.scans };
+}
+
+export function checkNewScanJob(value: unknown): JobState {
+  if (!isJobState(value, ["running"])) throw new BackendError("The server returned an invalid new scan job.", 200);
+  return value;
+}
+
+export function checkNativeArtifact(value: unknown, scan?: string): RepositoryDna {
+  const artifact = checkArtifact(value).artifact;
+  // Legacy records can have an empty artifact ID, so the exact check is only
+  // possible when the stored artifact declares a run identity.
+  if (scan && artifact.analysisMetadata.id && artifact.analysisMetadata.id !== scan) {
+    throw new BackendError("The backend returned a different stored analysis.", 200);
+  }
+  return artifact;
+}
+
+export function checkSvgCard(value: unknown, status = 200): string {
+  if (typeof value !== "string" || !/^\s*(?:<\?xml[^>]*>\s*)?<svg\b/i.test(value)) {
+    throw new BackendError("The server did not return an SVG card.", status);
+  }
+  return value;
+}
+
+export function checkOptionalPath(value: unknown): string | null {
+  if (value === null || (typeof value === "string" && value.length > 0)) return value;
+  throw new BackendError("The desktop app returned an invalid file dialog result.", 200);
+}
+
+function asBackendError(reason: unknown): never {
+  if (reason instanceof NativeTransportError) throw new BackendError(reason.message, reason.status);
+  throw reason;
+}
+
 const TOKEN_KEY = "repodna-token";
 
 function readStorage(key: string): string | null {
@@ -339,94 +396,48 @@ export function takeToken(): string | null {
 export class ServerBackend implements Backend {
   readonly kind = "server" as const;
 
-  constructor(private readonly token: string | null) {}
+  constructor(
+    private readonly token: string | null,
+    private readonly transport: Pick<NativeTransportOptions, "clock" | "fetcher"> = {},
+  ) {}
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private async request<T>(path: string, init?: RequestInit, limits: NativeTransportOptions = NATIVE_LIMITS.small): Promise<T> {
     const headers = new Headers(init?.headers);
-    if (this.token) {
-      headers.set("X-RepoDNA-Token", this.token);
-    }
-    const response = await fetch(`/api/${path}`, {
-      ...init,
-      headers,
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-    const text = await response.text();
-    let body: unknown = undefined;
+    if (this.token) headers.set("X-RepoDNA-Token", this.token);
     try {
-      body = text ? JSON.parse(text) : undefined;
-    } catch {
-      // Preserve the original HTTP error below, even when a proxy returns HTML.
+      const response = await requestNativeText(`/api/${path}`, { ...init, headers }, { ...limits, ...this.transport });
+      return decodeNativeJson(response, init?.method?.toUpperCase() === "DELETE") as T;
+    } catch (reason) {
+      return asBackendError(reason);
     }
-    if (!response.ok) {
-      const message =
-        body && typeof body === "object" && "error" in body
-          ? String((body as { error: unknown }).error)
-          : `The server answered ${response.status}.`;
-      throw new BackendError(message, response.status);
-    }
-    // A successful status is not proof that a proxy or local server returned valid
-    // API data. Without this check a malformed response surfaces later as an
-    // unrelated undefined-property error.
-    if (body === undefined || body === null) {
-      if (init?.method?.toUpperCase() === "DELETE" && response.status === 204) {
-        return undefined as T;
-      }
-      throw new BackendError("The server returned an invalid JSON response.", response.status);
-    }
-    return body as T;
   }
 
   async session(): Promise<Session> {
-    const value = await this.request<unknown>("session");
-    if (
-      !value ||
-      typeof value !== "object" ||
-      !("version" in value) ||
-      typeof value.version !== "string" ||
-      !("allowScans" in value) ||
-      typeof value.allowScans !== "boolean"
-    ) {
-      throw new BackendError("The server returned an invalid session.", 200);
-    }
-    return value as Session;
+    return checkSession(await this.request<unknown>("session"));
   }
 
   async repositories(): Promise<RepositorySummary[]> {
-    const value = await this.request<unknown>("repositories");
-    if (!Array.isArray(value) || !value.every(isRepositorySummary)) {
-      throw new BackendError("The server returned an invalid repository list.", 200);
-    }
-    return value as RepositorySummary[];
+    return checkRepositories(await this.request<unknown>("repositories", undefined, NATIVE_LIMITS.list));
   }
 
   async repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
-    const value = await this.request<unknown>(`repositories/${encodeURIComponent(id)}`);
-    if (
-      !isRecord(value) ||
-      !isRepositorySummary(value.repository) ||
-      !Array.isArray(value.scans) ||
-      !value.scans.every(isScanSummary)
-    ) {
-      throw new BackendError("The server returned invalid repository details.", 200);
-    }
-    return value as { repository: RepositorySummary; scans: ScanSummary[] };
+    return checkRepository(await this.request<unknown>(`repositories/${encodeURIComponent(id)}`, undefined, NATIVE_LIMITS.list), id);
   }
 
   async history(id: string, after?: string): Promise<HistoryPage> {
     const params = new URLSearchParams({ limit: "50" });
     if (after) params.set("after", after);
     const path = `repositories/${encodeURIComponent(id)}/history?${params.toString()}`;
-    return checkHistoryPage(await this.request<unknown>(path), id, after);
+    return checkHistoryPage(await this.request<unknown>(path, undefined, NATIVE_LIMITS.list), id, after);
   }
 
   async artifact(id: string, scan?: string): Promise<RepositoryDna> {
     const query = scan ? `?scan=${encodeURIComponent(scan)}` : "";
     const value = await this.request<unknown>(
       `repositories/${encodeURIComponent(id)}/artifact${query}`,
+      undefined, NATIVE_LIMITS.artifact,
     );
-    return checkArtifact(value).artifact;
+    return checkNativeArtifact(value, scan);
   }
 
   async deleteRepository(id: string): Promise<void> {
@@ -445,7 +456,7 @@ export class ServerBackend implements Backend {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ input, ...query }),
-    });
+    }, NATIVE_LIMITS.discovery);
     return checkSourceReferences(value);
   }
 
@@ -459,22 +470,16 @@ export class ServerBackend implements Backend {
         ...(revision ? { [revision.kind]: revision.value } : {}),
       }),
     });
-    if (!isJobState(value, ["running"])) {
-      throw new BackendError("The server returned an invalid new scan job.", 200);
-    }
-    return value;
+    return checkNewScanJob(value);
   }
 
   async job(id: string): Promise<JobState> {
     const value = await this.request<unknown>(`scans/${encodeURIComponent(id)}`);
-    if (!isJobState(value, ["running", "completed", "failed", "cancelled"])) {
-      throw new BackendError("The server returned an invalid scan job.", 200);
-    }
-    return value;
+    return checkScanJob(value, id);
   }
 
   async listJobs(): Promise<JobState[]> {
-    return checkScanJobs(await this.request<unknown>("scans"));
+    return checkScanJobs(await this.request<unknown>("scans", undefined, NATIVE_LIMITS.list));
   }
 
   async cancelJob(id: string): Promise<void> {
@@ -507,19 +512,16 @@ export class ServerBackend implements Backend {
     if (this.token) {
       headers.set("X-RepoDNA-Token", this.token);
     }
-    const response = await fetch(
-      `/api/repositories/${encodeURIComponent(id)}/card.svg?${params.toString()}`,
-      { headers, credentials: "same-origin", cache: "no-store" },
-    );
-    if (!response.ok) {
-      throw new BackendError(`The server answered ${response.status}.`, response.status);
+    try {
+      const response = await requestNativeText(
+        `/api/repositories/${encodeURIComponent(id)}/card.svg?${params.toString()}`,
+        { headers }, { ...NATIVE_LIMITS.card, ...this.transport },
+      );
+      if (!response.ok) throw new BackendError(`The server answered ${response.status}.`, response.status);
+      return checkSvgCard(response.text, response.status);
+    } catch (reason) {
+      return asBackendError(reason);
     }
-    const svg = await response.text();
-    // A reverse proxy may return an HTML login page with HTTP 200.
-    if (!/^\s*(?:<\?xml[^>]*>\s*)?<svg\b/i.test(svg)) {
-      throw new BackendError("The server did not return an SVG card.", response.status);
-    }
-    return svg;
   }
 }
 
@@ -556,8 +558,8 @@ export async function detectBackend(): Promise<Detected> {
   }
   const token = takeToken();
   try {
-    const health = await fetch("/api/health", { cache: "no-store" });
-    const body: unknown = health.ok ? await health.json() : null;
+    const health = await requestNativeText("/api/health", {}, { maxBytes: 65_536, deadlineMs: 5_000 });
+    const body = health.ok ? decodeNativeJson(health) : null;
     if (!body || typeof body !== "object" || (body as { status?: unknown }).status !== "ok") {
       return { backend: null, session: null, signInNeeded: false };
     }

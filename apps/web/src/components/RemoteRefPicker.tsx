@@ -1,76 +1,69 @@
-import { useState } from "react";
-import type {
-  RemoteRevision,
-  SourceReference,
-  SourceReferences,
-  SourceRefQuery,
-} from "../lib/backend";
+import { useEffect, useRef, useState } from "react";
+import type { RemoteRevision } from "../lib/backend";
+import {
+  EMPTY_REFERENCES,
+  RemoteReferenceController,
+  referencePage,
+  referenceQueryError,
+  type DiscoverReferences,
+} from "../lib/remoteReferenceController";
 
 interface Props {
   input: string;
-  discover: (input: string, query?: SourceRefQuery) => Promise<SourceReferences>;
+  discover: DiscoverReferences;
   disabled: boolean;
   onSelect: (revision: RemoteRevision) => void;
 }
 
-type Status =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "error"; message: string }
-  | { kind: "ready"; listing: SourceReferences; scope?: SourceRefQuery };
-
-const DISPLAY_LIMIT = 150;
-
-/** Mounted for a specific input. A changed input remounts the picker, so an
- * earlier request cannot populate the new repository's choices. */
+/** A request belongs only to the current input. A previous advertisement is
+ * never mistaken for a complete listing after a narrower search. */
 export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) {
-  const [status, setStatus] = useState<Status>({ kind: "idle" });
-  const [kind, setKind] = useState<SourceReference["kind"]>("branch");
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState("");
+  const [state, setState] = useState(EMPTY_REFERENCES);
+  const controller = useRef<RemoteReferenceController | null>(null);
+  const discoverRef = useRef(discover);
 
-  const load = async (scope?: SourceRefQuery) => {
-    setStatus({ kind: "loading" });
-    setSelected("");
-    try {
-      const listing = scope ? await discover(input, scope) : await discover(input);
-      setStatus({ kind: "ready", listing, scope });
-    } catch (error) {
-      setStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
+  useEffect(() => {
+    discoverRef.current = discover;
+  }, [discover]);
 
-  const listing = status.kind === "ready" ? status.listing : null;
-  const matching = (listing?.references ?? []).filter(
-    (reference) =>
-      reference.kind === kind && reference.name.toLowerCase().includes(query.trim().toLowerCase()),
-  );
-  const scope = status.kind === "ready" ? status.scope : undefined;
-  const visible = matching.slice(0, DISPLAY_LIMIT);
-  const choice = visible.find((reference) => reference.name === selected);
+  useEffect(() => {
+    setState(EMPTY_REFERENCES);
+    const instance = new RemoteReferenceController(
+      input,
+      (value, query) => (query ? discoverRef.current(value, query) : discoverRef.current(value)),
+      setState,
+    );
+    controller.current = instance;
+    return () => {
+      instance.dispose();
+      if (controller.current === instance) controller.current = null;
+    };
+  }, [input]);
 
+  const { listing, scope, loading, error, kind, query, selected } = state;
+  const page = referencePage(state);
+  const queryError = referenceQueryError(query);
+  const locked = disabled || loading;
   return (
     <div className="panel" aria-label="Remote branch and tag discovery">
       <div className="actions">
         <button
           type="button"
-          disabled={disabled || status.kind === "loading"}
-          onClick={() => void load()}
+          disabled={locked}
+          onClick={() => void controller.current?.load()}
         >
-          {status.kind === "loading" ? "Checking remote…" : "Find branches and tags"}
+          {loading ? "Checking remote…" : "Find branches and tags"}
         </button>
       </div>
       <p className="muted">
         Contacts the repository using native Git only when requested. The selected reference is
         verified again during analysis.
       </p>
-      {status.kind === "loading" ? <p role="status">Reading remote references…</p> : null}
-      {status.kind === "error" ? (
+      {loading ? <p role="status">Reading remote references…</p> : null}
+      {error ? (
         <p role="alert">
-          Could not list remote references: {status.message}. Enter a name manually.
+          Could not list remote references: {error}. Enter a name manually.
+          {listing ? " The previous listing is still shown." : ""}
         </p>
       ) : null}
       {listing ? (
@@ -80,11 +73,10 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
             <select
               id="remote-reference-kind"
               value={kind}
-              disabled={disabled}
-              onChange={(event) => {
-                setKind(event.target.value === "tag" ? "tag" : "branch");
-                setSelected("");
-              }}
+              disabled={locked}
+              onChange={(event) =>
+                controller.current?.setKind(event.target.value === "tag" ? "tag" : "branch")
+              }
             >
               <option value="branch">Branches</option>
               <option value="tag">Tags</option>
@@ -93,29 +85,33 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
             <input
               id="remote-reference-filter"
               value={query}
-              disabled={disabled}
+              disabled={locked}
               maxLength={512}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setSelected("");
-              }}
+              aria-invalid={queryError ? true : undefined}
+              aria-describedby={queryError ? "remote-reference-query-error" : undefined}
+              onChange={(event) => controller.current?.setQuery(event.target.value)}
             />
             <button
               type="button"
-              disabled={disabled || new TextEncoder().encode(query.trim()).length > 512}
-              onClick={() => void load({ kind, search: query.trim() })}
+              disabled={locked || queryError !== null}
+              onClick={() => void controller.current?.search()}
             >
               Search remote references
             </button>
+            {queryError ? (
+              <p id="remote-reference-query-error" role="alert">
+                {queryError}
+              </p>
+            ) : null}
             <label htmlFor="remote-reference-choice">Choose a reference</label>
             <select
               id="remote-reference-choice"
               value={selected}
-              disabled={disabled || visible.length === 0}
-              onChange={(event) => setSelected(event.target.value)}
+              disabled={locked || page.references.length === 0}
+              onChange={(event) => controller.current?.select(event.target.value)}
             >
               <option value="">Select a name…</option>
-              {visible.map((reference) => (
+              {page.references.map((reference) => (
                 <option key={reference.name} value={reference.name}>
                   {reference.name}
                 </option>
@@ -123,18 +119,36 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
             </select>
             <button
               type="button"
-              disabled={disabled || !choice}
+              disabled={locked || !page.choice}
               onClick={() => {
-                if (choice) onSelect({ kind: choice.kind, value: choice.name });
+                if (page.choice) onSelect({ kind: page.choice.kind, value: page.choice.name });
               }}
             >
               Use selected reference
             </button>
           </div>
+          {page.pages > 1 ? (
+            <div className="actions" aria-label="Reference pages">
+              <button
+                type="button"
+                disabled={locked || page.page === 0}
+                onClick={() => controller.current?.setPage(page.page - 1)}
+              >
+                Previous references
+              </button>
+              <span>Page {page.page + 1} of {page.pages}</span>
+              <button
+                type="button"
+                disabled={locked || page.page + 1 >= page.pages}
+                onClick={() => controller.current?.setPage(page.page + 1)}
+              >
+                Next references
+              </button>
+            </div>
+          ) : null}
           <p role="status">
-            {matching.length} matching {kind === "branch" ? "branches" : "tags"}.
-            {matching.length > DISPLAY_LIMIT ? " Filter names to see more matches." : ""}
-            {listing.truncated
+            {page.total} matching {kind === "branch" ? "branches" : "tags"}.
+            {!page.complete
               ? " Listing limited; search the remote or enter a name manually."
               : ""}
           </p>
@@ -143,9 +157,9 @@ export function RemoteRefPicker({ input, discover, disabled, onSelect }: Props) 
               Remote search scope: {scope.kind ?? "all"} · {scope.search || "all names"}.
             </p>
           ) : null}
-          {choice ? (
+          {page.choice ? (
             <p className="muted">
-              Advertised object: <code>{choice.object}</code>
+              Advertised object: <code>{page.choice.object}</code>
             </p>
           ) : null}
         </>

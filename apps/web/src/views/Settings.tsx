@@ -1,4 +1,5 @@
 import { SCHEMA_MAJOR, SCHEMA_MINOR } from "@repodna/schema";
+import { ArtifactIntegrityPanel } from "../components/ArtifactIntegrityPanel";
 import { PageHeader, Panel } from "../components/common";
 import { ShortcutTable } from "../components/ShortcutHelp";
 import { RECENT_LIMIT } from "../lib/recent";
@@ -22,6 +23,7 @@ export function Settings() {
     setRemember,
     recent,
     forgetAll,
+    dataset,
   } = useApp();
   return (
     <>
@@ -121,6 +123,7 @@ export function Settings() {
           </dl>
         </Panel>
       </div>
+      <ArtifactIntegrityPanel current={dataset?.dna} />
     </>
   );
 }
