@@ -281,7 +281,7 @@ mod tests {
             "2025-01-01T00:00:00Z",
         );
         repo.tag("release/lightweight", None);
-        repo.git(&["tag", "-a", "release/annotated", "-m", "release"]);
+        repo.tag("release/annotated", Some("2025-01-01T01:00:00Z"));
         repo.write("src/main.rs", "fn main() { println!(\"second\"); }");
         let second = repo.commit(
             "second",
@@ -293,6 +293,7 @@ mod tests {
         repo.git(&["tag", "feature/runtime"]);
         let before = repo.git(&["show-ref"]);
         let annotated_object = repo.git(&["rev-parse", "refs/tags/release/annotated"]);
+        let annotated_object = annotated_object.trim();
         let runner = GitRunner::detect().unwrap().with_timeout(DISCOVERY_TIMEOUT);
         let listing = discover_with_runner(
             &runner,
@@ -318,7 +319,7 @@ mod tests {
         );
         assert_ne!(annotated_object, first);
         assert_eq!(repo.git(&["show-ref"]), before);
-        assert_eq!(repo.git(&["rev-parse", "HEAD"]), second);
+        assert_eq!(repo.git(&["rev-parse", "HEAD"]).trim(), second);
         assert!(repo.git(&["status", "--porcelain"]).is_empty());
     }
 
