@@ -96,7 +96,7 @@ impl Jobs {
         let job = Arc::new(Job {
             state: Mutex::new(JobState {
                 id: format!("job-{number}"),
-                input: options.input.clone(),
+                input: options.display_input(),
                 status: JobStatus::Running,
                 stage: None,
                 stages: Vec::new(),
@@ -237,6 +237,46 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(20));
         }
+    }
+
+    #[test]
+    fn malformed_remote_is_not_exposed_in_job_state_or_failure() {
+        let home = tempfile::tempdir().unwrap();
+        let paths = AppPaths::in_directory(home.path());
+        let options = AnalyzeOptions {
+            input: concat!(
+                "https://github.com/org/repo/tree/feature/runtime",
+                "https://user:synthetic-secret@github.com/org/repo"
+            )
+            .to_owned(),
+            no_store: true,
+            config: ConfigOptions {
+                ignore_user_config: true,
+                ..ConfigOptions::default()
+            },
+            ..AnalyzeOptions::default()
+        };
+        let jobs = Jobs::default();
+        let started = jobs.start(paths, options).unwrap();
+        assert_eq!(started.input, "invalid remote repository URL");
+        assert!(
+            !serde_json::to_string(&started)
+                .unwrap()
+                .contains("synthetic-secret")
+        );
+        let finished = wait(&jobs, &started.id);
+        assert_eq!(finished.status, JobStatus::Failed);
+        assert!(
+            finished
+                .error
+                .as_deref()
+                .unwrap()
+                .contains("multiple repository URLs"),
+            "{:?}",
+            finished.error
+        );
+        let serialized = serde_json::to_string(&jobs.list()).unwrap();
+        assert!(!serialized.contains("synthetic-secret"));
     }
 
     #[test]
