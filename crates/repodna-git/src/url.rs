@@ -596,11 +596,15 @@ mod tests {
         }
         let target = resolve_clone_target(branch, PUBLIC).unwrap();
         assert_eq!(target.repository_url, "https://github.com/sanskarIN/latebrake");
-        assert_eq!(target.branch.as_deref(), Some("feat/experimental-six-car-runtime"));
+        assert_eq!(
+            target.branch.as_deref(),
+            Some("feat/experimental-six-car-runtime")
+        );
         let target = resolve_clone_target(
             "https://github.com/org/repo?next=https://example.org/",
             PUBLIC,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(target.repository_url, "https://github.com/org/repo");
     }
 
