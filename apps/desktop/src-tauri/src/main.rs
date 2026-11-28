@@ -12,8 +12,10 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use repodna_app::{
-    AnalyzeOptions, AppPaths, artifact_file_name, report_bundle, requested_revision, write_bundle,
+    AnalyzeOptions, AppPaths, DiscoveryGate, SourceReferences, artifact_file_name, report_bundle,
+    requested_revision, source_references_matching, write_bundle,
 };
+use repodna_core::CancellationToken;
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::ReportOptions;
@@ -38,6 +40,7 @@ struct Library {
     paths: AppPaths,
     store: Store,
     jobs: Jobs,
+    discovery: DiscoveryGate,
 }
 
 /// The library, or why it could not be opened (shown by the page instead of crashing).
@@ -51,6 +54,7 @@ impl Desktop {
                 paths,
                 store,
                 jobs: Jobs::default(),
+                discovery: DiscoveryGate::default(),
             })
         });
         Self(opened.map_err(|error| format!("Local storage could not be opened: {error}")))
@@ -77,6 +81,17 @@ fn list_repositories(desktop: State<'_, Desktop>) -> Reply<Value> {
 }
 
 #[tauri::command]
+fn repository_history(
+    desktop: State<'_, Desktop>,
+    id: String,
+    limit: usize,
+    after: Option<String>,
+) -> Reply<Value> {
+    library::repository_history(&desktop.library()?.store, &id, limit, after.as_deref())
+        .map_err(message)
+}
+
+#[tauri::command]
 fn get_repository(desktop: State<'_, Desktop>, id: String) -> Reply<Value> {
     library::repository_detail(&desktop.library()?.store, &id).map_err(message)
 }
@@ -96,6 +111,33 @@ fn load_artifact(desktop: State<'_, Desktop>, id: String, scan: Option<String>) 
     let store = &desktop.library()?.store;
     let dna = library::load(store, &id, scan.as_deref(), PrivacyPreset::Local).map_err(message)?;
     serde_json::to_value(dna).map_err(message)
+}
+
+// This is invoked only by an explicit UI action. Keep Git's bounded network
+// operation off the desktop UI thread and never return the submitted URL.
+#[tauri::command]
+async fn list_remote_references(
+    desktop: State<'_, Desktop>,
+    input: String,
+    kind: Option<String>,
+    search: Option<String>,
+) -> Reply<SourceReferences> {
+    let permit = desktop.library()?.discovery.try_acquire().ok_or_else(|| {
+        "a remote reference search is already running; retry after it finishes".to_owned()
+    })?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _permit = permit;
+        source_references_matching(
+            &input,
+            Default::default(),
+            kind.as_deref(),
+            search.as_deref(),
+            &CancellationToken::new(),
+        )
+        .map_err(message)
+    })
+    .await
+    .map_err(message)?
 }
 
 #[tauri::command]
@@ -123,6 +165,11 @@ fn start_scan(
         requested_revision(branch.as_deref(), tag.as_deref(), commit.as_deref())
             .map_err(message)?;
     library.jobs.start(library.paths.clone(), options)
+}
+
+#[tauri::command]
+fn list_jobs(desktop: State<'_, Desktop>) -> Reply<Vec<JobState>> {
+    Ok(desktop.library()?.jobs.list())
 }
 
 #[tauri::command]
@@ -380,11 +427,14 @@ fn main() {
             session,
             list_repositories,
             get_repository,
+            repository_history,
             delete_repository,
             delete_scan,
             load_artifact,
             start_scan,
+            list_remote_references,
             get_job,
+            list_jobs,
             cancel_job,
             pick_directory,
             save_report,

@@ -10,7 +10,9 @@ use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::InputKind;
 use repodna_core::time::Timestamp;
 use repodna_engine::{AnalysisCache, AnalysisRequest, FetchOptions, InputSpec, Progress, analyze};
-use repodna_git::url::{looks_like_url, sanitize_url, validate_clone_url};
+use repodna_git::url::{
+    UrlPolicy, looks_like_url, resolve_clone_target, sanitize_url, validate_clone_url,
+};
 use repodna_plugin::load_enabled;
 use repodna_store::{FindingChanges, RepositoryLocation, ScanRecord, Store};
 
@@ -80,7 +82,18 @@ fn canonical(path: &Path) -> String {
 pub fn repository_location(spec: &InputSpec, dna: &RepositoryDna) -> RepositoryLocation {
     let location = match spec {
         InputSpec::Directory(path) | InputSpec::Archive(path) => canonical(path),
-        InputSpec::Url(url) => sanitize_url(url),
+        InputSpec::Url(url) => {
+            // Analysis already enforced the configured network policy. Here we
+            // only parse the accepted source to group its stored history.
+            let policy = UrlPolicy {
+                allow_private_hosts: true,
+                allow_insecure: true,
+            };
+            resolve_clone_target(url, policy).map_or_else(
+                |_| sanitize_url(url),
+                |target| sanitize_url(&target.repository_url),
+            )
+        }
     };
     RepositoryLocation {
         kind: dna.analysis_metadata.input.kind,
@@ -126,6 +139,11 @@ pub fn run_analysis(
     cancel: &CancellationToken,
 ) -> Result<AnalysisOutcome, AppError> {
     let spec = InputSpec::detect(&options.input);
+    if options.fetch.revision.is_some() && !matches!(&spec, InputSpec::Url(_)) {
+        return Err(AppError::input(
+            "explicit branch, tag and commit selection requires a remote Git URL",
+        ));
+    }
     if options.fetch.revision.is_some() && !matches!(spec, InputSpec::Url(_)) {
         return Err(AppError::input(
             "branch, tag, and commit selection require a remote Git URL",
@@ -219,6 +237,17 @@ pub fn import_artifact(
     if !id.is_empty()
         && let Some(existing) = store.scan(id)?.filter(|scan| &scan.id == id)
     {
+        // A matching ID is not proof that two imported artifacts are identical.
+        // Do not silently return a different repository's stored result.
+        if existing.dna_hash != loaded.artifact.fingerprint.dna_hash
+            || existing.generated_at != loaded.artifact.analysis_metadata.generated_at
+            || existing.profile != loaded.artifact.analysis_metadata.profile
+            || existing.revision != loaded.artifact.analysis_metadata.revision
+        {
+            return Err(AppError::input(
+                "An analysis with this identifier but different metadata is already stored.",
+            ));
+        }
         let mut warnings = loaded.warnings;
         warnings.push("This analysis is already stored, so nothing was imported.".to_owned());
         return Ok((loaded.artifact, existing, warnings));
@@ -359,6 +388,25 @@ mod input_display_tests {
     use super::*;
 
     #[test]
+    fn github_browser_references_share_the_same_stored_repository_identity() {
+        let mut dna = RepositoryDna::new(Default::default(), Default::default());
+        dna.analysis_metadata.input.kind = InputKind::GitUrl;
+        let plain =
+            repository_location(&InputSpec::Url("https://github.com/org/repo".into()), &dna);
+        for input in [
+            "https://github.com/org/repo/tree/feature/runtime",
+            "https://github.com/org/repo/tree/main/src",
+            "https://github.com/org/repo/commit/0123456789abcdef0123456789abcdef01234567",
+            "https://user:synthetic-secret@github.com/org/repo/tree/main",
+        ] {
+            let location = repository_location(&InputSpec::Url(input.into()), &dna);
+            assert_eq!(location, plain);
+            assert_eq!(location.id(), plain.id());
+        }
+        assert_eq!(plain.location, "https://github.com/org/repo");
+    }
+
+    #[test]
     fn display_input_preserves_local_paths_and_redacts_remote_authorities() {
         for (input, expected) in [
             (
@@ -393,6 +441,24 @@ mod input_display_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explicit_remote_revision_cannot_be_silently_ignored_for_a_local_directory() {
+        let home = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        let mut options = options(repo.path());
+        options.fetch.revision = Some(repodna_git::url::RequestedRevision::Branch("main".into()));
+        let result = run_analysis(
+            &AppPaths::in_directory(home.path()),
+            &options,
+            Progress::default(),
+            &CancellationToken::new(),
+        );
+        let error = result.unwrap_err();
+        assert_eq!(error.kind, crate::ErrorKind::Input);
+        assert!(error.message.contains("requires a remote Git URL"));
+    }
+
     use repodna_testkit::write_tree;
 
     fn options(input: &Path) -> AnalyzeOptions {
@@ -485,6 +551,32 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(missing.exit_code(), 3);
+    }
+
+    #[test]
+    fn importing_conflicting_analysis_identity_never_replaces_the_original() {
+        let home = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        write_tree(repo.path(), &[("main.py", "print('hello')\n")]);
+        let paths = AppPaths::in_directory(home.path());
+        let first = run_analysis(
+            &paths,
+            &options(repo.path()),
+            Progress::default(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        let original = first.scan.unwrap();
+        let mut changed = first.dna.clone();
+        changed.fingerprint.dna_hash.push_str("-different");
+        let file = home.path().join("different.repodna");
+        std::fs::write(&file, serde_json::to_string(&changed).unwrap()).unwrap();
+        let error = import_artifact(&paths, &file).unwrap_err();
+        assert_eq!(error.kind, crate::ErrorKind::Input);
+        assert!(error.message.contains("different metadata"));
+        let store = paths.open_store().unwrap();
+        assert_eq!(store.scan(&original.id).unwrap().unwrap(), original);
+        assert_eq!(store.load(&original).unwrap(), first.dna);
     }
 
     #[test]

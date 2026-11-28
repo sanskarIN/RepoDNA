@@ -1,11 +1,12 @@
 //! Analyses started through the API run in background threads; clients poll their state.
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use repodna_app::{AnalyzeOptions, AppPaths, ErrorKind, run_analysis};
 use repodna_core::CancellationToken;
+use repodna_core::hash::to_hex;
 use repodna_core::model::metadata::AnalyzerStatus;
 use repodna_core::time::Timestamp;
 use repodna_engine::{Progress, ProgressEvent};
@@ -13,8 +14,11 @@ use serde::Serialize;
 
 /// Most analyses running at once.
 pub const MAX_RUNNING: usize = 2;
-/// Finished jobs kept for polling.
+/// Total job states retained for polling, including active jobs.
 const KEEP_FINISHED: usize = 50;
+const MAX_WARNINGS: usize = 64;
+const MAX_WARNING_BYTES: usize = 2048;
+const OMITTED_WARNINGS: &str = "Additional analysis warnings were omitted from live job status.";
 
 /// Where a job is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -75,13 +79,21 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 #[derive(Default)]
 pub struct Jobs {
     jobs: Mutex<VecDeque<Arc<Job>>>,
-    next: AtomicU64,
 }
 
 impl Jobs {
     /// Starts analyzing `options.input` in the background. Fails when too many analyses
     /// are already running.
     pub fn start(&self, paths: AppPaths, options: AnalyzeOptions) -> Result<JobState, String> {
+        let input = options.display_input();
+        self.start_worker(input, move |job| run(&job, &paths, &options))
+    }
+
+    fn start_worker(
+        &self,
+        input: String,
+        worker: impl FnOnce(Arc<Job>) + Send + 'static,
+    ) -> Result<JobState, String> {
         let mut jobs = lock(&self.jobs);
         let running = jobs
             .iter()
@@ -92,11 +104,16 @@ impl Jobs {
                 "{running} analyses are already running; try again when one finishes"
             ));
         }
-        let number = self.next.fetch_add(1, Ordering::Relaxed) + 1;
+        // IDs are opaque and unique across process restarts. A stale UI must
+        // never accidentally attach to a different job with the same ordinal.
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes)
+            .map_err(|_| "cannot allocate a unique analysis job identifier".to_owned())?;
+        let id = format!("job-{}", to_hex(&bytes));
         let job = Arc::new(Job {
             state: Mutex::new(JobState {
-                id: format!("job-{number}"),
-                input: options.display_input(),
+                id,
+                input,
                 status: JobStatus::Running,
                 stage: None,
                 stages: Vec::new(),
@@ -111,7 +128,28 @@ impl Jobs {
             }),
             cancel: CancellationToken::new(),
         });
-        jobs.push_back(Arc::clone(&job));
+        let initial = lock(&job.state).clone();
+        let worker_job = Arc::clone(&job);
+        std::thread::Builder::new()
+            .name("repodna-analysis".to_owned())
+            .spawn(move || {
+                let result = catch_unwind(AssertUnwindSafe(|| worker(Arc::clone(&worker_job))));
+                // A panicking worker or one that returns without finalizing must
+                // not permanently consume one of the limited scan slots.
+                let mut state = lock(&worker_job.state);
+                if state.status == JobStatus::Running {
+                    state.status = JobStatus::Failed;
+                    state.stage = None;
+                    state.finished_at = Some(Timestamp::now());
+                    state.error = Some(if result.is_err() {
+                        "The analysis worker stopped unexpectedly.".to_owned()
+                    } else {
+                        "The analysis worker returned without a result.".to_owned()
+                    });
+                }
+            })
+            .map_err(|error| format!("cannot start an analysis worker: {error}"))?;
+        jobs.push_back(job);
         while jobs.len() > KEEP_FINISHED {
             match jobs
                 .iter()
@@ -123,9 +161,6 @@ impl Jobs {
                 None => break,
             }
         }
-        drop(jobs);
-        let initial = lock(&job.state).clone();
-        std::thread::spawn(move || run(&job, &paths, &options));
         Ok(initial)
     }
 
@@ -169,10 +204,39 @@ impl Jobs {
     }
 }
 
+/// Job polling exposes a bounded summary. Full analysis warnings still belong
+/// to the analysis result, not an ever-growing progress response.
+fn record_warning(warnings: &mut Vec<String>, text: &str) {
+    if warnings.last().is_some_and(|last| last == OMITTED_WARNINGS) {
+        return;
+    }
+    let text = if text.len() > MAX_WARNING_BYTES {
+        let mut end = MAX_WARNING_BYTES - 3;
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}...", &text[..end])
+    } else {
+        text.to_owned()
+    };
+    if warnings.contains(&text) {
+        return;
+    }
+    // Reserve one slot for the explicit omission notice.
+    if warnings.len() == MAX_WARNINGS - 1 {
+        warnings.push(OMITTED_WARNINGS.to_owned());
+    } else {
+        warnings.push(text);
+    }
+}
+
 fn run(job: &Arc<Job>, paths: &AppPaths, options: &AnalyzeOptions) {
     let observer = Arc::clone(job);
     let progress = Progress::new(move |event| {
         let mut state = lock(&observer.state);
+        if state.status != JobStatus::Running {
+            return;
+        }
         match event {
             ProgressEvent::StageStarted(stage) => {
                 state.stage = Some(stage.label().to_owned());
@@ -193,7 +257,7 @@ fn run(job: &Arc<Job>, paths: &AppPaths, options: &AnalyzeOptions) {
                 }
                 state.stage = None;
             }
-            ProgressEvent::Message(text) => state.warnings.push(text.clone()),
+            ProgressEvent::Message(text) => record_warning(&mut state.warnings, text),
         }
     });
     let result = run_analysis(paths, options, progress, &job.cancel);
@@ -203,7 +267,9 @@ fn run(job: &Arc<Job>, paths: &AppPaths, options: &AnalyzeOptions) {
     match result {
         Ok(outcome) => {
             state.status = JobStatus::Completed;
-            state.warnings.extend(outcome.warnings);
+            for warning in outcome.warnings {
+                record_warning(&mut state.warnings, &warning);
+            }
             if let Some(scan) = outcome.scan {
                 state.repository_id = Some(scan.repository_id);
                 state.scan_id = Some(scan.id);
@@ -237,6 +303,108 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(20));
         }
+    }
+
+    #[test]
+    fn panicking_and_unfinalized_workers_release_their_slots() {
+        let jobs = Jobs::default();
+        let first = jobs
+            .start_worker("first".to_owned(), |_| panic!("synthetic worker panic"))
+            .unwrap();
+        let first = wait(&jobs, &first.id);
+        assert_eq!(first.status, JobStatus::Failed);
+        assert!(first.finished_at.is_some());
+        assert_eq!(
+            first.error.as_deref(),
+            Some("The analysis worker stopped unexpectedly.")
+        );
+        let second = jobs.start_worker("second".to_owned(), |_| {}).unwrap();
+        let second = wait(&jobs, &second.id);
+        assert_eq!(second.status, JobStatus::Failed);
+        assert_eq!(
+            second.error.as_deref(),
+            Some("The analysis worker returned without a result.")
+        );
+        assert_ne!(first.id, second.id);
+    }
+
+    #[test]
+    fn concurrency_limit_and_cancel_do_not_evict_running_workers() {
+        use std::sync::mpsc;
+
+        let jobs = Jobs::default();
+        let (release_first, first_gate) = mpsc::channel();
+        let (release_second, second_gate) = mpsc::channel();
+        let first = jobs
+            .start_worker("first".to_owned(), move |job| {
+                first_gate.recv().unwrap();
+                assert!(job.cancel.is_cancelled());
+            })
+            .unwrap();
+        let second = jobs
+            .start_worker("second".to_owned(), move |_| {
+                second_gate.recv().unwrap();
+            })
+            .unwrap();
+        let error = jobs.start_worker("third".to_owned(), |_| {}).unwrap_err();
+        assert!(error.contains("already running"));
+        assert!(jobs.cancel(&first.id));
+        assert_eq!(jobs.get(&first.id).unwrap().status, JobStatus::Running);
+        assert_eq!(jobs.list().len(), MAX_RUNNING);
+        release_first.send(()).unwrap();
+        release_second.send(()).unwrap();
+        assert_eq!(wait(&jobs, &first.id).status, JobStatus::Failed);
+        assert_eq!(wait(&jobs, &second.id).status, JobStatus::Failed);
+        let next = jobs.start_worker("next".to_owned(), |_| {}).unwrap();
+        assert_eq!(wait(&jobs, &next.id).status, JobStatus::Failed);
+    }
+
+    #[test]
+    fn independent_registries_do_not_reuse_job_ids() {
+        let first = Jobs::default();
+        let second = Jobs::default();
+        let a = first.start_worker("one".to_owned(), |_| {}).unwrap();
+        let b = second.start_worker("two".to_owned(), |_| {}).unwrap();
+        assert_ne!(a.id, b.id);
+        assert!(first.get(&b.id).is_none());
+        assert!(second.get(&a.id).is_none());
+        assert!(a.id.starts_with("job-"));
+        assert_eq!(a.id.len(), 36);
+    }
+
+    #[test]
+    fn retains_bounded_unique_warning_text_with_valid_unicode() {
+        let mut warnings = Vec::new();
+        let long = "界".repeat(MAX_WARNING_BYTES);
+        record_warning(&mut warnings, &long);
+        record_warning(&mut warnings, &long);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].len() <= MAX_WARNING_BYTES);
+        assert!(warnings[0].ends_with("..."));
+        for index in 0..MAX_WARNINGS * 2 {
+            record_warning(&mut warnings, &format!("warning {index}"));
+        }
+        assert_eq!(warnings.len(), MAX_WARNINGS);
+        assert_eq!(warnings.last().map(String::as_str), Some(OMITTED_WARNINGS));
+        let snapshot = warnings.clone();
+        record_warning(&mut warnings, "one more");
+        assert_eq!(warnings, snapshot);
+    }
+
+    #[test]
+    fn bounded_history_removes_oldest_finished_job() {
+        let jobs = Jobs::default();
+        let mut ids = Vec::new();
+        for index in 0..KEEP_FINISHED + 3 {
+            let job = jobs.start_worker(format!("job {index}"), |_| {}).unwrap();
+            assert_eq!(wait(&jobs, &job.id).status, JobStatus::Failed);
+            ids.push(job.id);
+        }
+        assert_eq!(jobs.list().len(), KEEP_FINISHED);
+        assert!(jobs.get(&ids[0]).is_none());
+        assert!(jobs.get(&ids[2]).is_none());
+        assert!(jobs.get(&ids[3]).is_some());
+        assert_eq!(jobs.list()[0].id, *ids.last().unwrap());
     }
 
     #[test]

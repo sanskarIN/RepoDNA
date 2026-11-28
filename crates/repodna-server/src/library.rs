@@ -8,7 +8,7 @@ use std::fmt;
 use repodna_core::config::{PrivacyPreset, ReportTheme};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_report::{ReportOptions, apply_privacy, html_report, json_report, markdown_report};
-use repodna_store::{RepositoryRecord, ScanRecord, Store, StoreError};
+use repodna_store::{HistoryCursor, RepositoryRecord, ScanRecord, Store, StoreError};
 use serde_json::{Value, json};
 
 /// Why a stored analysis could not be loaded.
@@ -18,6 +18,8 @@ pub enum LookupError {
     NoRepository(String),
     /// The repository has no analysis with the requested identifier.
     NoScan,
+    /// An invalid history request.
+    InvalidHistory(String),
     /// Local storage failed.
     Storage(StoreError),
 }
@@ -27,6 +29,7 @@ impl fmt::Display for LookupError {
         match self {
             Self::NoRepository(query) => write!(f, "no stored repository matches `{query}`"),
             Self::NoScan => f.write_str("no stored analysis matches"),
+            Self::InvalidHistory(message) => f.write_str(message),
             Self::Storage(error) => write!(f, "local storage failed: {error}"),
         }
     }
@@ -94,6 +97,32 @@ pub fn repository_detail(store: &Store, query: &str) -> Result<Value, LookupErro
     Ok(json!({
         "repository": repository_json(&repository),
         "scans": scans.iter().map(scan_json).collect::<Vec<_>>(),
+    }))
+}
+
+/// A bounded page of saved analyses for one exact repository.
+pub fn repository_history(
+    store: &Store,
+    id: &str,
+    limit: usize,
+    after: Option<&str>,
+) -> Result<Value, LookupError> {
+    let repository = find_repository(store, id)?;
+    if repository.id != id {
+        return Err(LookupError::NoRepository(id.to_owned()));
+    }
+    let invalid = |error: StoreError| match error {
+        StoreError::Invalid(message) => LookupError::InvalidHistory(message),
+        error => LookupError::Storage(error),
+    };
+    let cursor = after.map(HistoryCursor::decode).transpose().map_err(invalid)?;
+    let page = store
+        .history_page(&repository.id, limit, cursor.as_ref())
+        .map_err(invalid)?;
+    Ok(json!({
+        "repositoryId": repository.id,
+        "scans": page.scans.iter().map(scan_json).collect::<Vec<_>>(),
+        "nextCursor": page.next.map(|cursor| cursor.encode()),
     }))
 }
 

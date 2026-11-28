@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { parseArtifact } from "@repodna/schema";
 import { App } from "../App";
-import { detectBackend, type Backend } from "../lib/backend";
+import { detectBackend, type Backend, type SourceReferences } from "../lib/backend";
 import { memoryStore } from "../lib/recent";
 import type { Dataset } from "../state";
 import demoText from "../../public/demo/repodna.json?raw";
@@ -15,7 +15,7 @@ vi.mock("../lib/backend", async (original) => ({
   detectBackend: vi.fn(),
 }));
 
-function desktop() {
+function desktop(listRemoteReferences?: Backend["listRemoteReferences"]) {
   const saveReport = vi.fn(async () => "/home/me/repodna-repodna-2026-09-26.html");
   const saveCard = vi.fn(async () => "/home/me/repodna-repodna-2026-09-26-card-dark.png");
   const startScan = vi.fn(async () => {
@@ -31,6 +31,7 @@ function desktop() {
     saveReport,
     saveCard,
     startScan,
+    listRemoteReferences,
   } as unknown as Backend;
   vi.mocked(detectBackend).mockResolvedValue({
     backend,
@@ -121,5 +122,125 @@ describe("desktop repository analysis", () => {
       fireEvent.click(analyze);
     });
     expect(startScan).toHaveBeenCalledWith(url, "standard", undefined);
+  });
+});
+
+describe("desktop remote reference discovery", () => {
+  const url = "https://github.com/org/repo";
+  const listing: SourceReferences = {
+    references: [
+      { kind: "branch", name: "main", object: "a".repeat(40) },
+      { kind: "branch", name: "feat/audio", object: "b".repeat(40) },
+      { kind: "tag", name: "feat/audio", object: "c".repeat(40) },
+    ],
+    truncated: true,
+  };
+
+  it("only contacts the remote on request and uses the selected typed reference", async () => {
+    const discover = vi.fn(async () => listing);
+    const { startScan } = desktop(discover);
+    window.location.hash = "#/";
+    await act(async () => {
+      render(<App store={memoryStore()} />);
+    });
+    const input = await screen.findByLabelText("Repository to analyze");
+    fireEvent.change(input, { target: { value: url } });
+    expect(discover).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Find branches and tags" }));
+    });
+    expect(discover).toHaveBeenCalledWith(url);
+    fireEvent.change(screen.getByLabelText("Reference type"), { target: { value: "tag" } });
+    const choice = screen.getByLabelText("Choose a reference");
+    fireEvent.change(choice, { target: { value: "feat/audio" } });
+    fireEvent.click(screen.getByRole("button", { name: "Use selected reference" }));
+    expect((screen.getByLabelText("Tag name") as HTMLInputElement).value).toBe("feat/audio");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    });
+    const selected = { kind: "tag", value: "feat/audio" };
+    expect(startScan).toHaveBeenCalledWith(url, "standard", selected);
+  });
+
+  it("queries beyond the initial truncated listing only on explicit request", async () => {
+    const discover = vi.fn(async () => listing);
+    discover
+      .mockResolvedValueOnce({ references: listing.references.slice(0, 2), truncated: true })
+      .mockResolvedValueOnce({ references: [listing.references[2]!], truncated: false });
+    const { startScan } = desktop(discover);
+    window.location.hash = "#/";
+    await act(async () => {
+      render(<App store={memoryStore()} />);
+    });
+    const input = await screen.findByLabelText("Repository to analyze");
+    fireEvent.change(input, { target: { value: url } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Find branches and tags" }));
+    });
+    const kind = screen.getByLabelText("Reference type");
+    const filter = screen.getByLabelText("Filter names");
+    fireEvent.change(kind, { target: { value: "tag" } });
+    fireEvent.change(filter, { target: { value: "audio" } });
+    expect(discover).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Search remote references" }));
+    });
+    expect(discover).toHaveBeenLastCalledWith(url, { kind: "tag", search: "audio" });
+    const choice = screen.getByLabelText("Choose a reference");
+    fireEvent.change(choice, { target: { value: "feat/audio" } });
+    fireEvent.click(screen.getByRole("button", { name: "Use selected reference" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    });
+    const revision = { kind: "tag", value: "feat/audio" };
+    expect(startScan).toHaveBeenCalledWith(url, "standard", revision);
+  });
+
+  it("discards choices when the source changes while discovery is pending", async () => {
+    let finish: (value: SourceReferences) => void = () => undefined;
+    const pending = new Promise<SourceReferences>((resolve) => {
+      finish = resolve;
+    });
+    const discover = vi.fn(() => pending);
+    desktop(discover);
+    window.location.hash = "#/";
+    await act(async () => {
+      render(<App store={memoryStore()} />);
+    });
+    const input = await screen.findByLabelText("Repository to analyze");
+    fireEvent.change(input, { target: { value: url } });
+    fireEvent.click(screen.getByRole("button", { name: "Find branches and tags" }));
+    fireEvent.change(input, { target: { value: "https://github.com/other/project" } });
+    await act(async () => finish(listing));
+    expect(screen.queryByLabelText("Choose a reference")).toBeNull();
+    expect(discover).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps manual selection usable when listing fails and resets it for local input", async () => {
+    const discover = vi.fn(async () => {
+      throw new Error("Network unavailable");
+    });
+    desktop(discover);
+    window.location.hash = "#/";
+    await act(async () => {
+      render(<App store={memoryStore()} />);
+    });
+    const input = await screen.findByLabelText("Repository to analyze");
+    fireEvent.change(input, { target: { value: url } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Find branches and tags" }));
+    });
+    expect(screen.getByText(/Network unavailable/)).toBeTruthy();
+    const revisionKind = screen.getByLabelText("Source revision") as HTMLSelectElement;
+    const analyze = screen.getByRole("button", { name: "Analyze" }) as HTMLButtonElement;
+    fireEvent.change(revisionKind, { target: { value: "branch" } });
+    fireEvent.change(screen.getByLabelText("Branch name"), { target: { value: "--invalid" } });
+    expect(analyze.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Branch name"), { target: { value: "feat/audio" } });
+    expect(analyze.disabled).toBe(false);
+    fireEvent.change(input, { target: { value: "/local/project" } });
+    expect(revisionKind.value).toBe("auto");
+    expect(revisionKind.disabled).toBe(true);
+    expect(screen.queryByLabelText("Branch name")).toBeNull();
   });
 });

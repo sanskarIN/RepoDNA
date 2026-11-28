@@ -16,6 +16,11 @@ tag and commit analysis and counts-only exports remain development-only.
 
 ### Added
 
+- Discover bounded remote branch and tag choices on explicit request through
+  native Git, with a searchable desktop/local-server picker and a
+  `remote-refs` command. The listing is a snapshot, not a verified checkout;
+  manual reference selection remains available for omitted names.
+
 - Report exact worst, expected and best retrieval metrics under equal-score
   evidence ordering for frozen native ranker evaluations; no runtime scoring
   or checkpoint format change (#305).

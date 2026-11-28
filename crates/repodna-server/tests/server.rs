@@ -86,13 +86,21 @@ struct Running {
 
 impl Running {
     fn start(paths: AppPaths, web_dir: Option<std::path::PathBuf>) -> Self {
+        Self::start_with_scans(paths, web_dir, true)
+    }
+
+    fn start_with_scans(
+        paths: AppPaths,
+        web_dir: Option<std::path::PathBuf>,
+        allow_scans: bool,
+    ) -> Self {
         let server = Arc::new(
             Server::bind(
                 paths,
                 ServerOptions {
                     port: 0,
                     web_dir,
-                    allow_scans: true,
+                    allow_scans,
                     template: AnalyzeOptions {
                         config: ConfigOptions {
                             ignore_user_config: true,
@@ -336,6 +344,62 @@ fn protects_the_api_and_serves_analyses() {
 }
 
 #[test]
+fn repository_history_pages_enforce_authentication_identity_and_limits() {
+    let (_home, _source, paths) = analyzed_home();
+    let store = paths.open_store().unwrap();
+    let repository = store.repositories().unwrap().remove(0);
+    let original = store.scans(&repository.id, 1).unwrap().remove(0);
+    let dna = store.load(&original).unwrap();
+    let location = repodna_store::RepositoryLocation {
+        kind: repository.kind,
+        location: repository.location.clone(),
+    };
+    for id in ["history-a", "history-b", "history-c"] {
+        let mut copy = dna.clone();
+        copy.analysis_metadata.id = id.to_owned();
+        store.record(&copy, &location).unwrap();
+    }
+    let running = Running::start(paths, None);
+    let address = running.address();
+    let token = running.server.token().to_owned();
+    let auth = [("X-RepoDNA-Token", token.as_str())];
+    let endpoint = format!("/api/repositories/{}/history", repository.id);
+    assert_eq!(send(address, "GET", &endpoint, &[], "").status, 401);
+    for query in ["?limit=0", "?limit=101", "?limit=-1", "?after=invalid"] {
+        let reply = send(address, "GET", &format!("{endpoint}{query}"), &auth, "");
+        assert_eq!(reply.status, 400, "{}", reply.body);
+    }
+    let first = send(address, "GET", &format!("{endpoint}?limit=2"), &auth, "");
+    assert_eq!(first.status, 200, "{}", first.body);
+    let first = first.json();
+    assert_eq!(first["repositoryId"], repository.id);
+    assert_eq!(first["scans"].as_array().unwrap().len(), 2);
+    let cursor = first["nextCursor"].as_str().unwrap();
+    let second = send(
+        address,
+        "GET",
+        &format!("{endpoint}?limit=2&after={cursor}"),
+        &auth,
+        "",
+    );
+    assert_eq!(second.status, 200, "{}", second.body);
+    let second = second.json();
+    assert!(second["nextCursor"].is_null());
+    let ids = first["scans"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .chain(second["scans"].as_array().unwrap())
+        .map(|scan| scan["id"].as_str().unwrap())
+        .collect::<std::collections::HashSet<_>>();
+    assert_eq!(ids.len(), 4);
+    let foreign = format!("{endpoint}?after=v1:000000000000:0:history-a");
+    assert_eq!(send(address, "GET", &foreign, &auth, "").status, 400);
+    let alias = format!("/api/repositories/{}/history", repository.name);
+    assert_eq!(send(address, "GET", &alias, &auth, "").status, 404);
+}
+
+#[test]
 fn deleting_saved_scans_requires_authentication_and_exact_ownership() {
     let (_home, source, paths) = analyzed_home();
     let store = paths.open_store().unwrap();
@@ -476,4 +540,49 @@ fn serves_a_web_interface_directory() {
         send(address, "GET", "/assets/missing.js", &[], "").status,
         404
     );
+}
+
+#[test]
+fn remote_reference_endpoint_enforces_session_origin_and_url_policy() {
+    let home = tempfile::tempdir().expect("home");
+    let paths = AppPaths::in_directory(home.path());
+    let running = Running::start(paths.clone(), None);
+    let address = running.address();
+    let token = running.server.token();
+    let auth = [("X-RepoDNA-Token", token)];
+    let evil = [
+        ("X-RepoDNA-Token", token),
+        ("Origin", "https://attacker.example"),
+    ];
+    let endpoint = "/api/remote-references";
+    let invalid = r#"{"input":"https://127.0.0.1/org/repo"}"#;
+    assert_eq!(send(address, "POST", endpoint, &[], invalid).status, 401);
+    assert_eq!(send(address, "POST", endpoint, &evil, invalid).status, 403);
+    for body in [
+        invalid,
+        r#"{"input":"/local/project"}"#,
+        r#"{"input":""}"#,
+        r#"{"input":false}"#,
+        r#"{"input":"https://github.com/org/repo","kind":false}"#,
+        r#"{"input":"https://github.com/org/repo","kind":"commit"}"#,
+        r#"{"input":"https://github.com/org/repo","search":123}"#,
+        r#"{"input":"https://github.com/org/repo","search":"a\u0000b"}"#,
+        r#"{"input":"https://github.com/org/repohttps://user:synthetic-secret@github.com/a/b"}"#,
+        "{",
+    ] {
+        let response = send(address, "POST", endpoint, &auth, body);
+        assert_eq!(response.status, 400, "{}", response.body);
+        assert!(!response.body.contains("synthetic-secret"));
+    }
+    let oversized = "x".repeat(65 * 1024);
+    assert_eq!(
+        send(address, "POST", endpoint, &auth, &oversized).status,
+        413
+    );
+    drop(running);
+
+    let disabled = Running::start_with_scans(paths, None, false);
+    let address = disabled.address();
+    let auth = [("X-RepoDNA-Token", disabled.server.token())];
+    assert_eq!(send(address, "POST", endpoint, &auth, invalid).status, 403);
 }

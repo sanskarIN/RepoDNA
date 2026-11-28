@@ -8,6 +8,7 @@ pub mod doctor;
 pub mod explain;
 pub mod manage;
 pub mod plugins;
+pub mod remote_refs;
 pub mod report;
 pub mod serve;
 pub mod views;

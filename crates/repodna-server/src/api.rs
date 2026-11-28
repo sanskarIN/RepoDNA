@@ -3,7 +3,11 @@
 
 use std::io::Read;
 
-use repodna_app::{AnalyzeOptions, AppPaths, requested_revision};
+use repodna_app::{
+    AnalyzeOptions, AppPaths, DiscoveryGate, ErrorKind, requested_revision,
+    source_references_matching,
+};
+use repodna_core::CancellationToken;
 use repodna_core::config::{AnalysisProfile, PrivacyPreset};
 use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::text::count;
@@ -40,6 +44,8 @@ pub struct State {
     pub assets: Assets,
     /// Background analyses.
     pub jobs: Jobs,
+    /// Limit concurrent discovery requests to one per server.
+    pub discovery: DiscoveryGate,
     /// Allow starting analyses through the API.
     pub allow_scans: bool,
     /// Configuration for analyses started through the API.
@@ -83,6 +89,7 @@ impl State {
 fn lookup_error(failure: &LookupError) -> Reply {
     match failure {
         LookupError::NoRepository(_) | LookupError::NoScan => error(404, &failure.to_string()),
+        LookupError::InvalidHistory(_) => error(400, &failure.to_string()),
         LookupError::Storage(_) => error(500, &failure.to_string()),
     }
 }
@@ -168,6 +175,71 @@ fn compare_route(state: &State, target: &Target) -> Reply {
         }
     }
     json(200, &json_comparison(&compare(&artifacts)))
+}
+
+fn remote_references(state: &State, request: &mut Request) -> Reply {
+    if !state.allow_scans {
+        return error(
+            403,
+            "remote reference discovery is turned off for this server (--no-scan)",
+        );
+    }
+    let mut body = String::new();
+    if request
+        .as_reader()
+        .take(MAX_BODY + 1)
+        .read_to_string(&mut body)
+        .is_err()
+        || body.len() as u64 > MAX_BODY
+    {
+        return error(413, "the request body is too large or not UTF-8");
+    }
+    let Ok(value) = serde_json::from_str::<Value>(&body) else {
+        return error(400, "send a JSON object with a remote Git URL in input");
+    };
+    let Some(input) = value
+        .get("input")
+        .and_then(Value::as_str)
+        .filter(|input| !input.trim().is_empty())
+    else {
+        return error(400, "input must be a remote Git URL");
+    };
+    let optional_text = |key: &str| match value.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(text)) => Ok(Some(text.as_str())),
+        _ => Err(error(400, "reference kind and search must be strings")),
+    };
+    let kind = match optional_text("kind") {
+        Ok(kind) => kind,
+        Err(reply) => return reply,
+    };
+    let search = match optional_text("search") {
+        Ok(search) => search,
+        Err(reply) => return reply,
+    };
+    let Some(_permit) = state.discovery.try_acquire() else {
+        return error(
+            429,
+            "a remote reference search is already running; retry after it finishes",
+        );
+    };
+    match source_references_matching(
+        input,
+        state.template.fetch.url_policy,
+        kind,
+        search,
+        &CancellationToken::new(),
+    ) {
+        Ok(listing) => json(200, &json!(listing)),
+        Err(problem) => {
+            let status = if problem.kind == ErrorKind::Input {
+                400
+            } else {
+                502
+            };
+            error(status, &problem.message)
+        }
+    }
 }
 
 fn start_scan(state: &State, request: &mut Request) -> Reply {
@@ -345,6 +417,16 @@ pub fn handle(state: &State, request: &mut Request) -> Reply {
                     Err(failure) => lookup_error(&failure),
                 }
             }
+            (Method::Get, ["repositories", id, "history"]) => {
+                let limit = match target.param("limit").unwrap_or("50").parse::<usize>() {
+                    Ok(limit) => limit,
+                    Err(_) => return error(400, "invalid history limit"),
+                };
+                match library::repository_history(&state.store, id, limit, target.param("after")) {
+                    Ok(page) => json(200, &page),
+                    Err(failure) => lookup_error(&failure),
+                }
+            }
             (Method::Get, ["repositories", query, "artifact"]) => match load(state, query, &target)
             {
                 Ok((dna, _)) => json(200, &json!(dna)),
@@ -380,6 +462,7 @@ pub fn handle(state: &State, request: &mut Request) -> Reply {
             (Method::Get, ["compare"]) => compare_route(state, &target),
             (Method::Get, ["scans"]) => json(200, &json!(state.jobs.list())),
             (Method::Post, ["scans"]) => start_scan(state, request),
+            (Method::Post, ["remote-references"]) => remote_references(state, request),
             (Method::Get, ["scans", id]) => match state.jobs.get(id) {
                 Some(job) => json(200, &json!(job)),
                 None => error(404, "no such analysis job"),

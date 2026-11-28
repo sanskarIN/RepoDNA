@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ServerBackend, takeToken } from "./backend";
+import {
+  checkHistoryPage,
+  checkScanJob,
+  checkScanJobs,
+  checkSourceReferences,
+  ServerBackend,
+  takeToken,
+} from "./backend";
 
 const originalUrl = window.location.href;
 
@@ -293,5 +300,122 @@ describe("explicit native Git revision requests", () => {
     expect(JSON.parse(spy.mock.calls[1]?.[1]?.body as string).commit).toBe(
       "0123456789abcdef0123456789abcdef01234567",
     );
+  });
+});
+
+describe("remote reference listings", () => {
+  const branch = { kind: "branch", name: "feat/audio", object: "a".repeat(40) };
+  const tag = { kind: "tag", name: "feat/audio", object: "b".repeat(64) };
+
+  it("preserves same-named branches and tags with separate identities", () => {
+    expect(checkSourceReferences({ references: [branch, tag], truncated: true })).toEqual({
+      references: [branch, tag],
+      truncated: true,
+    });
+  });
+
+  it("rejects malformed objects, duplicate namespace/name pairs and excessive results", () => {
+    for (const value of [
+      null,
+      { references: [], truncated: "false" },
+      { references: [{ ...branch, object: "short" }], truncated: false },
+      { references: [{ ...branch, kind: "commit" }], truncated: false },
+      { references: [{ ...branch, name: "--flag" }], truncated: false },
+      { references: [{ ...branch, name: "a/../b" }], truncated: false },
+      { references: [branch, branch], truncated: false },
+      { references: Array(2001).fill(branch), truncated: true },
+    ]) {
+      expect(() => checkSourceReferences(value)).toThrow(/remote reference/i);
+    }
+  });
+
+  it("sends native search parameters separately from the repository URL", async () => {
+    const result = { references: [tag], truncated: false };
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(result), { status: 200 }));
+    const input = "https://github.com/org/repo";
+    const query = { kind: "tag" as const, search: "audio" };
+    const backend = new ServerBackend("local-token");
+    await expect(backend.listRemoteReferences(input, query)).resolves.toEqual(result);
+    const [url, init] = spy.mock.calls[0] ?? [];
+    expect(url).toBe("/api/remote-references");
+    expect(JSON.parse(String(init?.body))).toEqual({ input, ...query });
+  });
+
+  it("uses an authenticated POST body and never puts the URL in the API path", async () => {
+    const result = { references: [branch], truncated: false };
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(result), { status: 200 }));
+    const input = "https://github.com/org/repo/tree/feat/audio";
+    const backend = new ServerBackend("local-token");
+    await expect(backend.listRemoteReferences(input)).resolves.toEqual(result);
+    const [url, init] = fetchSpy.mock.calls[0] ?? [];
+    expect(url).toBe("/api/remote-references");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ input });
+    expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
+  });
+});
+
+describe("native analysis recovery", () => {
+  it("validates distinct job identities and rejects malformed or oversized lists", () => {
+    const completed = { ...validJob, id: "job-2", status: "completed" };
+    expect(checkScanJobs([validJob, completed])).toEqual([validJob, completed]);
+    expect(checkScanJobs([])).toEqual([]);
+    expect(() => checkScanJobs([validJob, validJob])).toThrow(/duplicate scan job IDs/);
+    expect(() => checkScanJobs(Array(51).fill(validJob))).toThrow(/invalid scan job list/);
+    const invalid = { ...validJob, status: "unknown" };
+    expect(() => checkScanJobs([validJob, invalid])).toThrow(/invalid scan job/);
+    expect(() => checkScanJob(validJob, "wrong-id")).toThrow(/invalid scan job/);
+  });
+
+  it("lists native jobs through the authenticated scans endpoint", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify([validJob]), { status: 200 }));
+    const backend = new ServerBackend("local-token");
+    await expect(backend.listJobs()).resolves.toEqual([validJob]);
+    const [url, init] = spy.mock.calls[0] ?? [];
+    expect(url).toBe("/api/scans");
+    expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
+  });
+});
+
+describe("paginated stored history", () => {
+  it("accepts a bounded page with the requested repository identity", () => {
+    const page = { repositoryId: "repo-1", scans: [validScan], nextCursor: "next" };
+    expect(checkHistoryPage(page, "repo-1")).toEqual(page);
+    expect(checkHistoryPage({ ...page, scans: [], nextCursor: null }, "repo-1").scans).toEqual([]);
+  });
+
+  it("rejects malformed, duplicate and nonadvancing history pages", () => {
+    const page = { repositoryId: "repo-1", scans: [validScan], nextCursor: "next" };
+    for (const invalid of [
+      { ...page, repositoryId: "repo-2" },
+      { ...page, scans: [validScan, validScan] },
+      { ...page, scans: Array.from({ length: 101 }, (_, i) => ({ ...validScan, id: String(i) })) },
+      { ...page, scans: [], nextCursor: "next" },
+      { ...page, nextCursor: "" },
+      { ...page, nextCursor: "x".repeat(201) },
+      { ...page, nextCursor: undefined },
+      { ...page, scans: [{ ...validScan, files: -1 }] },
+    ]) {
+      expect(() => checkHistoryPage(invalid, "repo-1")).toThrow(/invalid history page/);
+    }
+    expect(() => checkHistoryPage(page, "repo-1", "next")).toThrow(/invalid history page/);
+  });
+
+  it("encodes the history cursor and authenticates the exact repository request", async () => {
+    const page = { repositoryId: "repo /1", scans: [validScan], nextCursor: null };
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(page), { status: 200 }));
+    const backend = new ServerBackend("local-token");
+    await expect(backend.history("repo /1", "v1:a:123:scan")).resolves.toEqual(page);
+    const [url, init] = spy.mock.calls[0] ?? [];
+    expect(url).toBe("/api/repositories/repo%20%2F1/history?limit=50&after=v1%3Aa%3A123%3Ascan");
+    expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
   });
 });

@@ -3,8 +3,10 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { checkArtifact, type RepositoryDna } from "@repodna/schema";
+import { checkHistoryPage, checkScanJob, checkScanJobs, checkSourceReferences } from "./backend";
 import type {
   Backend,
+  HistoryPage,
   JobState,
   ReportOptions,
   RemoteRevision,
@@ -12,6 +14,8 @@ import type {
   SaveFormat,
   ScanSummary,
   Session,
+  SourceReferences,
+  SourceRefQuery,
 } from "./backend";
 
 export class DesktopBackend implements Backend {
@@ -29,6 +33,11 @@ export class DesktopBackend implements Backend {
     return invoke("get_repository", { id });
   }
 
+  async history(id: string, after?: string): Promise<HistoryPage> {
+    const value = await invoke<unknown>("repository_history", { id, limit: 50, after: after ?? null });
+    return checkHistoryPage(value, id, after);
+  }
+
   async artifact(id: string, scan?: string): Promise<RepositoryDna> {
     const value = await invoke<unknown>("load_artifact", { id, scan: scan ?? null });
     return checkArtifact(value).artifact;
@@ -42,6 +51,16 @@ export class DesktopBackend implements Backend {
     await invoke("delete_scan", { id, scan });
   }
 
+  async listRemoteReferences(input: string, query?: SourceRefQuery): Promise<SourceReferences> {
+    return checkSourceReferences(
+      await invoke<unknown>("list_remote_references", {
+        input,
+        kind: query?.kind ?? null,
+        search: query?.search ?? null,
+      }),
+    );
+  }
+
   startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {
     return invoke<JobState>("start_scan", {
       input,
@@ -52,8 +71,12 @@ export class DesktopBackend implements Backend {
     });
   }
 
-  job(id: string): Promise<JobState> {
-    return invoke<JobState>("get_job", { id });
+  async job(id: string): Promise<JobState> {
+    return checkScanJob(await invoke<unknown>("get_job", { id }), id);
+  }
+
+  async listJobs(): Promise<JobState[]> {
+    return checkScanJobs(await invoke<unknown>("list_jobs"));
   }
 
   async cancelJob(id: string): Promise<void> {

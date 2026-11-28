@@ -14,6 +14,7 @@ pub mod error;
 pub mod explain;
 pub mod export;
 pub mod paths;
+pub mod source;
 
 pub use analysis::{
     AnalysisOutcome, AnalyzeOptions, Loaded, Source, Target, import_artifact, load_stored,
@@ -27,6 +28,10 @@ pub use export::{
     write_file,
 };
 pub use paths::AppPaths;
+pub use source::{
+    DiscoveryGate, DiscoveryPermit, SourceReference, SourceReferences, source_references,
+    source_references_matching,
+};
 
 /// An explicit source revision selected by the user.
 pub use repodna_git::url::RequestedRevision;

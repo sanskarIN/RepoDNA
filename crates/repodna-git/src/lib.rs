@@ -10,6 +10,7 @@ pub mod error;
 pub mod history;
 pub mod log;
 pub mod refs;
+pub mod remote_refs;
 pub mod runner;
 pub mod tree;
 pub mod url;

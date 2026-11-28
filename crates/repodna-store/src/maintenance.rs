@@ -13,7 +13,7 @@ use repodna_core::io::read_artifact;
 use repodna_core::time::Timestamp;
 
 use crate::cache::CacheStats;
-use crate::store::{REPOSITORY_FILE, parse_kind};
+use crate::store::{REPOSITORY_FILE, checked_artifact_name, parse_kind};
 use crate::{RepositoryLocation, Store, StoreError, StorePaths};
 
 /// What the store holds.
@@ -76,7 +76,7 @@ fn artifact_files(paths: &StorePaths) -> Vec<(PathBuf, String)> {
     };
     for repository in repositories.flatten() {
         let directory = repository.path();
-        if !directory.is_dir() {
+        if !repository.file_type().is_ok_and(|kind| kind.is_dir()) {
             continue;
         }
         let Ok(entries) = fs::read_dir(&directory) else {
@@ -84,7 +84,11 @@ fn artifact_files(paths: &StorePaths) -> Vec<(PathBuf, String)> {
         };
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().into_owned();
-            if name.ends_with(".json") && name != REPOSITORY_FILE && !name.starts_with('.') {
+            if entry.file_type().is_ok_and(|kind| kind.is_file())
+                && name.ends_with(".json")
+                && name != REPOSITORY_FILE
+                && !name.starts_with('.')
+            {
                 let relative = format!(
                     "artifacts/{}/{name}",
                     repository.file_name().to_string_lossy()
@@ -98,7 +102,15 @@ fn artifact_files(paths: &StorePaths) -> Vec<(PathBuf, String)> {
 }
 
 fn read_location(directory: &Path) -> Option<(RepositoryLocation, String)> {
-    let text = fs::read_to_string(directory.join(REPOSITORY_FILE)).ok()?;
+    let descriptor = directory.join(REPOSITORY_FILE);
+    if !fs::symlink_metadata(&descriptor)
+        .ok()?
+        .file_type()
+        .is_file()
+    {
+        return None;
+    }
+    let text = fs::read_to_string(descriptor).ok()?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
     let location = RepositoryLocation {
         kind: parse_kind(value.get("kind")?.as_str()?),
@@ -158,7 +170,7 @@ impl Store {
     /// stored artifacts that are not indexed. An empty list means the store is healthy.
     pub fn check(&self) -> Result<Vec<String>, StoreError> {
         let mut problems = Vec::new();
-        let indexed: Vec<(String, String)> = {
+        let indexed: Vec<(String, String, String)> = {
             let connection = self.lock();
             let mut integrity = connection.prepare("PRAGMA integrity_check")?;
             for row in integrity.query_map([], |row| row.get::<_, String>(0))? {
@@ -167,12 +179,19 @@ impl Store {
                     problems.push(format!("Database integrity: {row}"));
                 }
             }
-            let mut scans = connection.prepare("SELECT id, artifact FROM scans ORDER BY id")?;
+            let mut scans =
+                connection.prepare("SELECT id, repository_id, artifact FROM scans ORDER BY id")?;
             scans
-                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
                 .collect::<Result<_, _>>()?
         };
-        for (id, artifact) in &indexed {
+        for (id, repository, artifact) in &indexed {
+            if checked_artifact_name(repository, id).as_ref().ok() != Some(artifact) {
+                problems.push(format!(
+                    "The artifact path of scan {id} does not match its identity."
+                ));
+                continue;
+            }
             if !self.paths.home().join(artifact).is_file() {
                 problems.push(format!(
                     "The artifact of scan {id} is missing ({artifact})."
@@ -181,7 +200,7 @@ impl Store {
         }
         let known: HashSet<&str> = indexed
             .iter()
-            .map(|(_, artifact)| artifact.as_str())
+            .map(|(_, _, artifact)| artifact.as_str())
             .collect();
         let unindexed = artifact_files(&self.paths)
             .iter()
@@ -216,8 +235,19 @@ impl Store {
                     } else {
                         loaded.artifact.analysis_metadata.id.clone()
                     };
-                    self.index(&loaded.artifact, &location, relative, scan_id)?;
-                    indexed += 1;
+                    if checked_artifact_name(&location.id(), &scan_id)
+                        .as_ref()
+                        .ok()
+                        != Some(&relative)
+                    {
+                        skipped.push(relative);
+                        continue;
+                    }
+                    match self.index(&loaded.artifact, &location, relative.clone(), scan_id) {
+                        Ok(_) => indexed += 1,
+                        Err(StoreError::Invalid(_)) => skipped.push(relative),
+                        Err(error) => return Err(error),
+                    }
                 }
                 Err(_) => skipped.push(relative),
             }
@@ -320,6 +350,23 @@ mod tests {
         let problems = store.check().unwrap();
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("missing"));
+    }
+
+    #[test]
+    fn repair_skips_mismatched_artifact_identity_and_continues() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(StorePaths::new(dir.path())).unwrap();
+        let scan = store
+            .record(&artifact("valid-id", 1, &[]), &location())
+            .unwrap();
+        let path = store.artifact_path(&scan);
+        fs::copy(&path, path.with_file_name("wrong-id.json")).unwrap();
+        let report = store.rebuild_index().unwrap();
+        assert_eq!(report.0, 1);
+        assert_eq!(report.1.len(), 1);
+        assert!(report.1[0].ends_with("/wrong-id.json"));
+        assert!(path.with_file_name("wrong-id.json").is_file());
+        assert_eq!(store.scans(&location().id(), 10).unwrap().len(), 1);
     }
 
     #[test]

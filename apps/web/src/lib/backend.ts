@@ -2,6 +2,7 @@
 // nowhere (static hosting: files opened in the browser and the bundled demo only).
 
 import { checkArtifact, type RepositoryDna } from "@repodna/schema";
+import { validGitRef } from "./github-source";
 
 export interface RepositorySummary {
   id: string;
@@ -33,10 +34,68 @@ export interface ScanSummary {
   };
 }
 
+/** Bounded native history page with an opaque, repository-specific cursor. */
+export interface HistoryPage {
+  repositoryId: string;
+  scans: ScanSummary[];
+  nextCursor: string | null;
+}
+
 /** Explicit native Git revision selection; omission uses the URL or default branch. */
 export interface RemoteRevision {
   kind: "branch" | "tag" | "commit";
   value: string;
+}
+
+/** Remote branches and tags are a snapshot, not immutable checkout promises. */
+export interface SourceReference {
+  kind: "branch" | "tag";
+  name: string;
+  object: string;
+}
+
+export interface SourceRefQuery {
+  kind?: "branch" | "tag";
+  search?: string;
+}
+
+export interface SourceReferences {
+  references: SourceReference[];
+  truncated: boolean;
+}
+
+/** Validate both HTTP and native IPC responses at the shared boundary. */
+export function checkSourceReferences(value: unknown): SourceReferences {
+  if (
+    !isRecord(value) ||
+    typeof value.truncated !== "boolean" ||
+    !Array.isArray(value.references) ||
+    value.references.length > 2_000
+  ) {
+    throw new BackendError("Invalid remote reference listing.", 200);
+  }
+  const seen = new Set<string>();
+  const references: SourceReference[] = [];
+  for (const item of value.references) {
+    if (
+      !isRecord(item) ||
+      (item.kind !== "branch" && item.kind !== "tag") ||
+      typeof item.name !== "string" ||
+      item.name.length > 16_384 ||
+      !validGitRef(item.name) ||
+      typeof item.object !== "string" ||
+      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(item.object)
+    ) {
+      throw new BackendError("Invalid remote reference listing.", 200);
+    }
+    const key = item.kind + ":" + item.name;
+    if (seen.has(key)) {
+      throw new BackendError("Duplicate remote reference in listing.", 200);
+    }
+    seen.add(key);
+    references.push({ kind: item.kind, name: item.name, object: item.object });
+  }
+  return { references, truncated: value.truncated };
 }
 
 export interface JobState {
@@ -78,13 +137,18 @@ export interface Backend {
   session(): Promise<Session>;
   repositories(): Promise<RepositorySummary[]>;
   repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }>;
+  history?(id: string, after?: string): Promise<HistoryPage>;
   artifact(id: string, scan?: string): Promise<RepositoryDna>;
   /** Deletes every saved scan and artifact for one repository, not the source code. */
   deleteRepository(id: string): Promise<void>;
   /** Deletes one saved scan and its artifact. */
   deleteScan(repositoryId: string, scanId: string): Promise<void>;
   startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState>;
+  /** User-requested network discovery, optional for native backends. */
+  listRemoteReferences?(input: string, query?: SourceRefQuery): Promise<SourceReferences>;
   job(id: string): Promise<JobState>;
+  /** Recent native jobs available for reattaching to an analysis. */
+  listJobs?(): Promise<JobState[]>;
   cancelJob(id: string): Promise<void>;
   /** A link to a generated report (server only). */
   reportUrl(id: string, format: ReportFormat, options?: ReportOptions): string | null;
@@ -157,6 +221,31 @@ function isScanSummary(value: unknown): value is ScanSummary {
   );
 }
 
+/** Reject unbounded, malformed, cross-repository or repeating pages. */
+export function checkHistoryPage(value: unknown, id: string, after?: string): HistoryPage {
+  if (
+    !isRecord(value) ||
+    value.repositoryId !== id ||
+    !Array.isArray(value.scans) ||
+    value.scans.length > 100 ||
+    !value.scans.every(isScanSummary) ||
+    new Set(value.scans.map((scan) => scan.id)).size !== value.scans.length ||
+    (value.nextCursor !== null &&
+      (typeof value.nextCursor !== "string" ||
+        value.nextCursor.length === 0 ||
+        value.nextCursor.length > 200 ||
+        value.nextCursor === after ||
+        value.scans.length === 0))
+  ) {
+    throw new BackendError("The backend returned an invalid history page.", 200);
+  }
+  return {
+    repositoryId: id,
+    scans: value.scans,
+    nextCursor: value.nextCursor,
+  };
+}
+
 /** Reject malformed nested progress data before it reaches the UI. */
 function isJobState(value: unknown, allowed: readonly JobState["status"][]): value is JobState {
   if (!isRecord(value)) return false;
@@ -184,6 +273,28 @@ function isJobState(value: unknown, allowed: readonly JobState["status"][]): val
     typeof value.startedAt === "string" &&
     isNullableString(value.finishedAt)
   );
+}
+
+const JOB_STATUSES = ["running", "completed", "failed", "cancelled"] as const;
+
+/** Validate a native job and, when supplied, the requested identity. */
+export function checkScanJob(value: unknown, id?: string): JobState {
+  if (!isJobState(value, JOB_STATUSES) || (id !== undefined && value.id !== id)) {
+    throw new BackendError("The backend returned an invalid scan job.", 200);
+  }
+  return value;
+}
+
+/** Keep list validation bounded and reject duplicate job identities. */
+export function checkScanJobs(value: unknown): JobState[] {
+  if (!Array.isArray(value) || value.length > 50) {
+    throw new BackendError("The backend returned an invalid scan job list.", 200);
+  }
+  const jobs = value.map((item: unknown) => checkScanJob(item));
+  if (new Set(jobs.map((job) => job.id)).size !== jobs.length) {
+    throw new BackendError("The backend returned duplicate scan job IDs.", 200);
+  }
+  return jobs;
 }
 
 const TOKEN_KEY = "repodna-token";
@@ -303,6 +414,13 @@ export class ServerBackend implements Backend {
     return value as { repository: RepositorySummary; scans: ScanSummary[] };
   }
 
+  async history(id: string, after?: string): Promise<HistoryPage> {
+    const params = new URLSearchParams({ limit: "50" });
+    if (after) params.set("after", after);
+    const path = `repositories/${encodeURIComponent(id)}/history?${params.toString()}`;
+    return checkHistoryPage(await this.request<unknown>(path), id, after);
+  }
+
   async artifact(id: string, scan?: string): Promise<RepositoryDna> {
     const query = scan ? `?scan=${encodeURIComponent(scan)}` : "";
     const value = await this.request<unknown>(
@@ -320,6 +438,15 @@ export class ServerBackend implements Backend {
       `repositories/${encodeURIComponent(repositoryId)}/scans/${encodeURIComponent(scanId)}`,
       { method: "DELETE" },
     );
+  }
+
+  async listRemoteReferences(input: string, query?: SourceRefQuery): Promise<SourceReferences> {
+    const value = await this.request<unknown>("remote-references", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input, ...query }),
+    });
+    return checkSourceReferences(value);
   }
 
   async startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {
@@ -344,6 +471,10 @@ export class ServerBackend implements Backend {
       throw new BackendError("The server returned an invalid scan job.", 200);
     }
     return value;
+  }
+
+  async listJobs(): Promise<JobState[]> {
+    return checkScanJobs(await this.request<unknown>("scans"));
   }
 
   async cancelJob(id: string): Promise<void> {

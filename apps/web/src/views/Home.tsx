@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { bytes, date, thousands } from "@repodna/visualization";
 import { BrowserScan, useEngine } from "../components/BrowserAnalysis";
+import { RemoteRefPicker } from "../components/RemoteRefPicker";
+import { ScanRecovery } from "../components/ScanRecovery";
 import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../components/common";
 import { droppedFolder, isArchive } from "../engine/input";
 import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
-import type { JobState, RemoteRevision, RepositorySummary, ScanSummary } from "../lib/backend";
-import { githubSourceHint, repositoryInputError } from "../lib/github-source";
+import type { RemoteRevision, RepositorySummary, ScanSummary } from "../lib/backend";
+import {
+  githubSourceHint,
+  looksLikeRemoteSource,
+  repositoryInputError,
+  validGitRef,
+} from "../lib/github-source";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
+import { useScanJob } from "../lib/useScanJob";
+import { useStoredHistory } from "../lib/useStoredHistory";
 import { REPOSITORY } from "../lib/links";
 import type { RecentEntry } from "../lib/recent";
 import { href, navigate } from "../lib/router";
@@ -34,63 +43,35 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   const [profile, setProfile] = useState("standard");
   const [revisionKind, setRevisionKind] = useState<RemoteRevision["kind"] | "auto">("auto");
   const [revisionValue, setRevisionValue] = useState("");
-  const [job, setJob] = useState<JobState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const timer = useRef<number | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timer.current !== null) {
-        window.clearTimeout(timer.current);
-      }
-    },
-    [],
-  );
+  const scan = useScanJob(backend, onDone);
 
   if (!backend || !session?.allowScans) {
     return null;
   }
 
-  const poll = (id: string) => {
-    timer.current = window.setTimeout(async () => {
-      try {
-        const next = await backend.job(id);
-        setJob(next);
-        if (next.status === "running") {
-          poll(id);
-        } else if (next.status === "completed" && next.repositoryId) {
-          onDone(next.repositoryId, next.scanId ?? undefined);
-        } else if (next.status === "failed") {
-          setError(next.error ?? "The analysis failed.");
-        }
-      } catch (reason) {
-        setError(message(reason));
-      }
-    }, 400);
-  };
-
-  const start = async () => {
+  const start = () => {
     setError(null);
     const invalidInput = repositoryInputError(input);
     if (invalidInput) {
       setError(invalidInput);
       return;
     }
-    try {
-      const revision =
-        revisionKind === "auto" ? undefined : { kind: revisionKind, value: revisionValue.trim() };
-      const started = await backend.startScan(input.trim(), profile, revision);
-      setJob(started);
-      poll(started.id);
-    } catch (reason) {
-      setError(message(reason));
-    }
+    const revision =
+      revisionKind === "auto" ? undefined : { kind: revisionKind, value: revisionValue.trim() };
+    void scan.start(input.trim(), profile, revision);
   };
 
-  const running = job?.status === "running";
+  const { job, busy: running } = scan;
   const hint = githubSourceHint(input);
   const inputError = repositoryInputError(input);
-  const revisionReady = revisionKind === "auto" || revisionValue.trim().length > 0;
+  const remoteInput = looksLikeRemoteSource(input);
+  const revisionReady =
+    revisionKind === "auto" ||
+    (remoteInput &&
+      (revisionKind === "commit"
+        ? /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(revisionValue.trim())
+        : validGitRef(revisionValue.trim())));
   return (
     <section className="panel" aria-labelledby="scan-title">
       <div className="panel-header">
@@ -104,7 +85,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         onSubmit={(event) => {
           event.preventDefault();
           if (input.trim() && !inputError && revisionReady && !running) {
-            void start();
+            start();
           }
         }}
       >
@@ -115,8 +96,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           id="scan-input"
           type="text"
           value={input}
+          disabled={running}
           onChange={(event) => {
             setInput(event.target.value);
+            setRevisionKind("auto");
+            setRevisionValue("");
             setError(null);
           }}
           aria-invalid={inputError ? true : undefined}
@@ -132,7 +116,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             setRevisionKind(event.target.value as RemoteRevision["kind"] | "auto");
             setRevisionValue("");
           }}
-          disabled={running}
+          disabled={running || !remoteInput}
           aria-describedby="scan-revision-help"
         >
           <option value="auto">URL reference / default branch</option>
@@ -169,11 +153,18 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         {backend.pickDirectory ? (
           <button
             type="button"
+            disabled={running}
             onClick={async () => {
-              const picked = await backend.pickDirectory?.();
-              if (picked) {
-                setInput(picked);
-                setError(null);
+              try {
+                const picked = await backend.pickDirectory?.();
+                if (picked) {
+                  setInput(picked);
+                  setRevisionKind("auto");
+                  setRevisionValue("");
+                  setError(null);
+                }
+              } catch (reason) {
+                setError(message(reason));
               }
             }}
           >
@@ -186,6 +177,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
         <select
           id="scan-profile"
           value={profile}
+          disabled={running}
           aria-describedby="scan-profile-help"
           onChange={(event) => setProfile(event.target.value)}
         >
@@ -200,11 +192,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           className="primary"
           disabled={!input.trim() || !!inputError || !revisionReady || running}
         >
-          {running ? "Analyzing…" : "Analyze"}
+          {scan.starting ? "Starting…" : running ? "Analyzing…" : "Analyze"}
         </button>
         {running && job ? (
-          <button type="button" onClick={() => void backend.cancelJob(job.id)}>
-            Stop
+          <button type="button" disabled={scan.cancelling} onClick={() => void scan.stop()}>
+            {scan.cancelling ? "Stopping…" : "Stop"}
           </button>
         ) : null}
       </form>
@@ -215,12 +207,30 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             type="button"
             onClick={() => {
               setInput("");
+              setRevisionKind("auto");
+              setRevisionValue("");
               setError(null);
             }}
           >
             Clear repository input
           </button>
         </div>
+      ) : null}
+      {remoteInput && !inputError && backend.listRemoteReferences ? (
+        <RemoteRefPicker
+          key={input.trim()}
+          input={input.trim()}
+          disabled={running}
+          discover={(value, query) =>
+            query
+              ? backend.listRemoteReferences!(value, query)
+              : backend.listRemoteReferences!(value)
+          }
+          onSelect={(revision) => {
+            setRevisionKind(revision.kind);
+            setRevisionValue(revision.value);
+          }}
+        />
       ) : null}
       <p className="muted" id="scan-revision-help">
         {hint
@@ -252,9 +262,39 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             ) : null}
           </ul>
           {job.status === "cancelled" ? <Note>The analysis was stopped.</Note> : null}
+          {job.warnings.length ? (
+            <ul className="evidence">
+              {job.warnings.map((warning, index) => (
+                <li key={index}>{warning}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
-      {error ? <ErrorBox>{error}</ErrorBox> : null}
+      {backend.listJobs ? (
+        <ScanRecovery
+          load={() => backend.listJobs!()}
+          onChoose={(id) => {
+            setError(null);
+            void scan.attach(id);
+          }}
+          disabled={running}
+        />
+      ) : null}
+      {scan.pollError ? (
+        <div role="status">
+          <p>
+            {scan.paused ? "Progress updates paused." : "Retrying progress updates."} The analysis
+            may still be running: {scan.pollError}
+          </p>
+          {scan.paused ? (
+            <button type="button" onClick={scan.resume}>
+              Resume progress updates
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {error || scan.error ? <ErrorBox>{error ?? scan.error}</ErrorBox> : null}
     </section>
   );
 }
@@ -268,8 +308,8 @@ function Stored() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [scans, setScans] = useState<ScanSummary[] | null>(null);
+  const history = useStoredHistory(backend);
+  const { id: expandedId, scans } = history;
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -300,18 +340,19 @@ function Stored() {
     setRepositories(await backend.repositories());
   };
 
-  const manageScans = async (repository: RepositorySummary) => {
+  const manageScans = (repository: RepositorySummary) => {
     setError(null);
-    if (expandedId === repository.id) {
-      setExpandedId(null);
-      setScans(null);
-      return;
-    }
-    setExpandedId(repository.id);
-    setScans(null);
+    history.toggle(repository.id);
+  };
+  const openScan = async (repository: RepositorySummary, scan: ScanSummary) => {
     try {
-      const detail = await backend.repository(repository.id);
-      setScans(detail.scans);
+      const dna = await backend.artifact(repository.id, scan.id);
+      open({
+        dna,
+        origin: { kind: "stored", repositoryId: repository.id, name: repository.name },
+        warnings: [],
+      });
+      navigate("/overview");
     } catch (reason) {
       setError(message(reason));
     }
@@ -333,8 +374,7 @@ function Stored() {
       if (dataset?.origin.kind === "stored" && dataset.origin.repositoryId === repository.id) {
         close();
       }
-      setExpandedId(null);
-      setScans(null);
+      history.reset();
       await refresh();
       setNotice(`Deleted stored analyses for ${repository.name}.`);
     } catch (reason) {
@@ -363,10 +403,9 @@ function Stored() {
       const remaining = await backend.repositories();
       setRepositories(remaining);
       if (remaining.some((item) => item.id === repository.id)) {
-        setScans((await backend.repository(repository.id)).scans);
+        await history.refresh(repository.id);
       } else {
-        setExpandedId(null);
-        setScans(null);
+        history.reset();
       }
       setNotice(`Deleted analysis ${scan.id}.`);
     } catch (reason) {
@@ -425,13 +464,29 @@ function Stored() {
               </div>
               {expandedId === repository.id ? (
                 <div aria-label={`History for ${repository.name}`}>
-                  {scans === null ? <p className="muted">Loading history…</p> : null}
+                  {history.loading && scans === null ? (
+                    <p className="muted">Loading history…</p>
+                  ) : null}
+                  {history.error ? <ErrorBox>{history.error}</ErrorBox> : null}
+                  {history.error && scans === null ? (
+                    <button type="button" onClick={() => void history.refresh(repository.id)}>
+                      Retry history
+                    </button>
+                  ) : null}
                   {scans?.length === 0 ? <p className="muted">No saved scans.</p> : null}
                   {scans && scans.length > 0 ? (
                     <ul className="evidence">
                       {scans.map((scan) => (
                         <li key={scan.id}>
                           <code>{scan.id}</code> · {date(scan.generatedAt)} · {scan.profile}{" "}
+                          <button
+                            type="button"
+                            disabled={deleting}
+                            aria-label={`Open stored analysis ${scan.id}`}
+                            onClick={() => void openScan(repository, scan)}
+                          >
+                            Open record
+                          </button>{" "}
                           <button
                             type="button"
                             className="ghost"
@@ -445,8 +500,22 @@ function Stored() {
                       ))}
                     </ul>
                   ) : null}
-                  {scans?.length === 100 ? (
-                    <p className="muted">Showing the 100 most recent scans.</p>
+                  {scans ? (
+                    <p className="muted">
+                      Showing {scans.length} of {repository.scans} saved scans.
+                    </p>
+                  ) : null}
+                  {history.cursor ? (
+                    <button
+                      type="button"
+                      disabled={deleting || history.loading}
+                      onClick={history.more}
+                    >
+                      {history.loading ? "Loading older analyses…" : "Load older analyses"}
+                    </button>
+                  ) : null}
+                  {scans?.length === 100 && !backend.history ? (
+                    <p className="muted">This backend only returns the 100 most recent scans.</p>
                   ) : null}
                 </div>
               ) : null}
