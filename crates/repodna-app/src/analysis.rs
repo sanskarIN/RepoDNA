@@ -10,7 +10,7 @@ use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::InputKind;
 use repodna_core::time::Timestamp;
 use repodna_engine::{AnalysisCache, AnalysisRequest, FetchOptions, InputSpec, Progress, analyze};
-use repodna_git::url::{looks_like_url, sanitize_url, validate_clone_url};
+use repodna_git::url::{UrlPolicy, looks_like_url, resolve_clone_target, sanitize_url, validate_clone_url};
 use repodna_plugin::load_enabled;
 use repodna_store::{FindingChanges, RepositoryLocation, ScanRecord, Store};
 
@@ -80,7 +80,18 @@ fn canonical(path: &Path) -> String {
 pub fn repository_location(spec: &InputSpec, dna: &RepositoryDna) -> RepositoryLocation {
     let location = match spec {
         InputSpec::Directory(path) | InputSpec::Archive(path) => canonical(path),
-        InputSpec::Url(url) => sanitize_url(url),
+        InputSpec::Url(url) => {
+            // Analysis already enforced the configured network policy. Here we
+            // only parse the accepted source to group its stored history.
+            let policy = UrlPolicy {
+                allow_private_hosts: true,
+                allow_insecure: true,
+            };
+            resolve_clone_target(url, policy).map_or_else(
+                |_| sanitize_url(url),
+                |target| sanitize_url(&target.repository_url),
+            )
+        }
     };
     RepositoryLocation {
         kind: dna.analysis_metadata.input.kind,
@@ -362,6 +373,27 @@ pub fn load_target(
 #[cfg(test)]
 mod input_display_tests {
     use super::*;
+
+    #[test]
+    fn github_browser_references_share_the_same_stored_repository_identity() {
+        let mut dna = RepositoryDna::new(Default::default(), Default::default());
+        dna.analysis_metadata.input.kind = InputKind::GitUrl;
+        let plain = repository_location(
+            &InputSpec::Url("https://github.com/org/repo".into()),
+            &dna,
+        );
+        for input in [
+            "https://github.com/org/repo/tree/feature/runtime",
+            "https://github.com/org/repo/tree/main/src",
+            "https://github.com/org/repo/commit/0123456789abcdef0123456789abcdef01234567",
+            "https://user:synthetic-secret@github.com/org/repo/tree/main",
+        ] {
+            let location = repository_location(&InputSpec::Url(input.into()), &dna);
+            assert_eq!(location, plain);
+            assert_eq!(location.id(), plain.id());
+        }
+        assert_eq!(plain.location, "https://github.com/org/repo");
+    }
 
     #[test]
     fn display_input_preserves_local_paths_and_redacts_remote_authorities() {

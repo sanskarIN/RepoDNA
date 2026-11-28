@@ -228,7 +228,9 @@ impl Store {
                     } else {
                         loaded.artifact.analysis_metadata.id.clone()
                     };
-                    if checked_artifact_name(&location.id(), &scan_id).as_ref().ok() != Some(&relative) {
+                    if checked_artifact_name(&location.id(), &scan_id).as_ref().ok()
+                        != Some(&relative)
+                    {
                         skipped.push(relative);
                         continue;
                     }

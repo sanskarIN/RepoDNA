@@ -179,9 +179,18 @@ pub(crate) fn valid_scan_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 128
         && id.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-        && !["CON", "PRN", "AUX", "NUL", "COM0", "COM1", "COM2", "COM3", "COM4", "COM5",
-            "COM6", "COM7", "COM8", "COM9", "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
-            "LPT6", "LPT7", "LPT8", "LPT9"].contains(&id.to_ascii_uppercase().as_str())
+        && !is_reserved_windows_name(id)
+}
+
+fn is_reserved_windows_name(id: &str) -> bool {
+    let upper = id.to_ascii_uppercase();
+    matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || upper.strip_prefix("COM").is_some_and(single_digit)
+        || upper.strip_prefix("LPT").is_some_and(single_digit)
+}
+
+fn single_digit(value: &str) -> bool {
+    value.len() == 1 && value.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 pub(crate) fn checked_artifact_name(
@@ -528,25 +537,7 @@ impl Store {
 
     /// A scan by identifier (or a unique prefix of at least four characters).
     pub fn scan(&self, id: &str) -> Result<Option<ScanRecord>, StoreError> {
-        let connection = self.lock();
-        let mut statement =
-            connection.prepare(&format!("SELECT {SCAN_COLUMNS} FROM scans WHERE id = ?1"))?;
-        if let Some(scan) = statement.query_row([id], scan_from_row).optional()? {
-            return Ok(Some(scan));
-        }
-        if id.len() < 4 {
-            return Ok(None);
-        }
-        let mut statement = connection.prepare(&format!(
-            "SELECT {SCAN_COLUMNS} FROM scans WHERE substr(id, 1, length(?1)) = ?1 LIMIT 2"
-        ))?;
-        let matches: Vec<ScanRecord> = statement
-            .query_map([id], scan_from_row)?
-            .collect::<Result<_, _>>()?;
-        Ok(match <[ScanRecord; 1]>::try_from(matches) {
-            Ok([scan]) => Some(scan),
-            Err(_) => None,
-        })
+        scan_in(&self.lock(), id)
     }
 
     fn validate_artifact_path(&self, scan: &ScanRecord) -> Result<(), StoreError> {
@@ -598,12 +589,12 @@ impl Store {
     /// Removes a scan, its artifact, and an empty repository record. Updates the
     /// repository's date range when other scans remain.
     pub fn delete_scan(&self, id: &str) -> Result<bool, StoreError> {
-        let Some(scan) = self.scan(id)? else {
+        let mut connection = self.lock();
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let Some(scan) = scan_in(&transaction, id)? else {
             return Ok(false);
         };
         self.validate_artifact_path(&scan)?;
-        let mut connection = self.lock();
-        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         transaction.execute("DELETE FROM scans WHERE id = ?1", [&scan.id])?;
         let remaining: i64 = transaction.query_row(
             "SELECT COUNT(*) FROM scans WHERE repository_id = ?1",
@@ -656,6 +647,27 @@ impl Store {
         transaction.commit()?;
         Ok(removed > 0)
     }
+}
+
+fn scan_in(connection: &Connection, id: &str) -> Result<Option<ScanRecord>, StoreError> {
+    let mut statement =
+        connection.prepare(&format!("SELECT {SCAN_COLUMNS} FROM scans WHERE id = ?1"))?;
+    if let Some(scan) = statement.query_row([id], scan_from_row).optional()? {
+        return Ok(Some(scan));
+    }
+    if id.len() < 4 {
+        return Ok(None);
+    }
+    let mut statement = connection.prepare(&format!(
+        "SELECT {SCAN_COLUMNS} FROM scans WHERE substr(id, 1, length(?1)) = ?1 LIMIT 2"
+    ))?;
+    let matches: Vec<ScanRecord> = statement
+        .query_map([id], scan_from_row)?
+        .collect::<Result<_, _>>()?;
+    Ok(match <[ScanRecord; 1]>::try_from(matches) {
+        Ok([scan]) => Some(scan),
+        Err(_) => None,
+    })
 }
 
 fn remove_descriptor_if_empty(directory: &Path) -> Result<(), StoreError> {
