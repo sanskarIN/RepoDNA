@@ -68,6 +68,8 @@ CREATE TABLE cache_entries (
     last_used_at INTEGER NOT NULL
 );
 CREATE INDEX cache_by_use ON cache_entries(last_used_at);
+", r"
+CREATE INDEX scans_history_keyset ON scans(repository_id, generated_at DESC, id DESC);
 "];
 
 /// The newest schema version this build understands.

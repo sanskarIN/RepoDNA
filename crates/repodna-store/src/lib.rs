@@ -23,5 +23,6 @@ pub use maintenance::{RepairReport, ResetReport, StoreStats, repair, reset};
 pub use paths::{StorePaths, config_file, data_home};
 
 pub use store::{
-    FindingChanges, RepositoryLocation, RepositoryRecord, ScanRecord, Store, StoredFinding,
+    FindingChanges, HistoryCursor, HistoryPage, MAX_HISTORY_PAGE, RepositoryLocation,
+    RepositoryRecord, ScanRecord, Store, StoredFinding,
 };

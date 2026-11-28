@@ -101,6 +101,56 @@ pub struct ScanRecord {
     pub artifact_bytes: u64,
 }
 
+/// Maximum number of history entries returned in a single page.
+pub const MAX_HISTORY_PAGE: usize = 100;
+
+/// A position in a repository's history, independent of the continued
+/// existence of the boundary scan. IDs break ties deterministically.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HistoryCursor {
+    repository_id: String,
+    generated_at: i64,
+    scan_id: String,
+}
+
+impl HistoryCursor {
+    /// Decode the versioned transport representation.
+    pub fn decode(value: &str) -> Result<Self, StoreError> {
+        let fields: Vec<&str> = value.split(':').collect();
+        if fields.len() != 4
+            || fields[0] != "v1"
+            || checked_artifact_name(fields[1], fields[3]).is_err()
+        {
+            return Err(StoreError::Invalid("invalid history cursor".into()));
+        }
+        let generated_at = fields[2]
+            .parse::<i64>()
+            .map_err(|_| StoreError::Invalid("invalid history cursor timestamp".into()))?;
+        Ok(Self {
+            repository_id: fields[1].into(),
+            generated_at,
+            scan_id: fields[3].into(),
+        })
+    }
+
+    /// Encode a bounded cursor for HTTP or native IPC.
+    pub fn encode(&self) -> String {
+        format!(
+            "v1:{}:{}:{}",
+            self.repository_id, self.generated_at, self.scan_id
+        )
+    }
+}
+
+/// An ordered, bounded window into stored analysis history.
+#[derive(Debug, Clone)]
+pub struct HistoryPage {
+    /// Newest scans first, with descending identifier as a timestamp tie-breaker.
+    pub scans: Vec<ScanRecord>,
+    /// Position after this page, absent when no older rows remain.
+    pub next: Option<HistoryCursor>,
+}
+
 /// A finding as indexed in the store.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredFinding {
@@ -541,6 +591,58 @@ impl Store {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// Keyset pagination over repository history. New scans above the cursor
+    /// do not shift subsequent pages. A deleted boundary remains usable.
+    pub fn history_page(
+        &self,
+        repository_id: &str,
+        limit: usize,
+        after: Option<&HistoryCursor>,
+    ) -> Result<HistoryPage, StoreError> {
+        if !(1..=MAX_HISTORY_PAGE).contains(&limit) {
+            return Err(StoreError::Invalid("history limit must be 1 to 100".into()));
+        }
+        if after.is_some_and(|cursor| cursor.repository_id != repository_id) {
+            return Err(StoreError::Invalid(
+                "history cursor belongs to a different repository".into(),
+            ));
+        }
+        let connection = self.lock();
+        let mut scans: Vec<ScanRecord> = if let Some(cursor) = after {
+            let mut statement = connection.prepare(&format!(
+                "SELECT {SCAN_COLUMNS} FROM scans WHERE repository_id = ?1
+                 AND (generated_at, id) < (?2, ?3)
+                 ORDER BY generated_at DESC, id DESC LIMIT ?4"
+            ))?;
+            statement
+                .query_map(
+                    params![repository_id, cursor.generated_at, cursor.scan_id, count(limit + 1)],
+                    scan_from_row,
+                )?
+                .collect::<Result<_, _>>()?
+        } else {
+            let mut statement = connection.prepare(&format!(
+                "SELECT {SCAN_COLUMNS} FROM scans WHERE repository_id = ?1
+                 ORDER BY generated_at DESC, id DESC LIMIT ?2"
+            ))?;
+            statement
+                .query_map(params![repository_id, count(limit + 1)], scan_from_row)?
+                .collect::<Result<_, _>>()?
+        };
+        let more = scans.len() > limit;
+        scans.truncate(limit);
+        let next = if more {
+            scans.last().map(|scan| HistoryCursor {
+                repository_id: repository_id.to_owned(),
+                generated_at: scan.generated_at.unix(),
+                scan_id: scan.id.clone(),
+            })
+        } else {
+            None
+        };
+        Ok(HistoryPage { scans, next })
+    }
+
     /// A scan by identifier (or a unique prefix of at least four characters).
     pub fn scan(&self, id: &str) -> Result<Option<ScanRecord>, StoreError> {
         scan_in(&self.lock(), id)
@@ -834,6 +936,48 @@ pub(crate) mod tests {
         assert_eq!(changes.added.len(), 1);
         assert_eq!(changes.added[0].title, "c.rs is large");
         assert_eq!(changes.resolved[0].title, "a.rs is large");
+    }
+
+    #[test]
+    fn history_pages_are_stable_under_insertions_and_deleted_boundaries() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(StorePaths::new(dir.path())).unwrap();
+        let repo = location().id();
+        for id in ["scan-a", "scan-b", "scan-c", "scan-d", "scan-e"] {
+            store.record(&artifact(id, 3, &[]), &location()).unwrap();
+        }
+        let first = store.history_page(&repo, 2, None).unwrap();
+        let ids = |page: &HistoryPage| {
+            page.scans.iter().map(|scan| scan.id.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(ids(&first), ["scan-e", "scan-d"]);
+        let cursor = HistoryCursor::decode(&first.next.unwrap().encode()).unwrap();
+        store.delete_scan("scan-d").unwrap();
+        store.record(&artifact("scan-f", 4, &[]), &location()).unwrap();
+        let second = store.history_page(&repo, 2, Some(&cursor)).unwrap();
+        assert_eq!(ids(&second), ["scan-c", "scan-b"]);
+        let third = store.history_page(&repo, 2, second.next.as_ref()).unwrap();
+        assert_eq!(ids(&third), ["scan-a"]);
+        assert!(third.next.is_none());
+        assert!(store.history_page(&repo, 0, None).is_err());
+        assert!(store.history_page(&repo, 101, None).is_err());
+        assert!(store.history_page("different", 2, Some(&cursor)).is_err());
+    }
+
+    #[test]
+    fn history_cursor_rejects_invalid_transport_values() {
+        for value in [
+            "",
+            "v2:abcdef123456:0:scan-a",
+            "v1:bad:0:scan-a",
+            "v1:abcdef123456:NaN:scan-a",
+            "v1:abcdef123456:0:../file",
+            "v1:abcdef123456:0:scan-a:extra",
+        ] {
+            assert!(HistoryCursor::decode(value).is_err(), "{value}");
+        }
+        let value = "v1:abcdef123456:-123:scan-a";
+        assert_eq!(HistoryCursor::decode(value).unwrap().encode(), value);
     }
 
     #[test]

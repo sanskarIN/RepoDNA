@@ -89,6 +89,7 @@ impl State {
 fn lookup_error(failure: &LookupError) -> Reply {
     match failure {
         LookupError::NoRepository(_) | LookupError::NoScan => error(404, &failure.to_string()),
+        LookupError::InvalidHistory(_) => error(400, &failure.to_string()),
         LookupError::Storage(_) => error(500, &failure.to_string()),
     }
 }
@@ -413,6 +414,16 @@ pub fn handle(state: &State, request: &mut Request) -> Reply {
             (Method::Get, ["repositories", query]) => {
                 match library::repository_detail(&state.store, query) {
                     Ok(detail) => json(200, &detail),
+                    Err(failure) => lookup_error(&failure),
+                }
+            }
+            (Method::Get, ["repositories", id, "history"]) => {
+                let limit = match target.param("limit").unwrap_or("50").parse::<usize>() {
+                    Ok(limit) => limit,
+                    Err(_) => return error(400, "invalid history limit"),
+                };
+                match library::repository_history(&state.store, id, limit, target.param("after")) {
+                    Ok(page) => json(200, &page),
                     Err(failure) => lookup_error(&failure),
                 }
             }

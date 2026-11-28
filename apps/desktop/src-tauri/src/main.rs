@@ -81,6 +81,17 @@ fn list_repositories(desktop: State<'_, Desktop>) -> Reply<Value> {
 }
 
 #[tauri::command]
+fn repository_history(
+    desktop: State<'_, Desktop>,
+    id: String,
+    limit: usize,
+    after: Option<String>,
+) -> Reply<Value> {
+    library::repository_history(&desktop.library()?.store, &id, limit, after.as_deref())
+        .map_err(message)
+}
+
+#[tauri::command]
 fn get_repository(desktop: State<'_, Desktop>, id: String) -> Reply<Value> {
     library::repository_detail(&desktop.library()?.store, &id).map_err(message)
 }
@@ -416,6 +427,7 @@ fn main() {
             session,
             list_repositories,
             get_repository,
+            repository_history,
             delete_repository,
             delete_scan,
             load_artifact,
