@@ -52,7 +52,8 @@ pub(crate) fn source_scope(spec: &InputSpec, policy: UrlPolicy) -> String {
                 "archive"
             };
             let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-            hash.str_field(kind).field(canonical.as_os_str().as_encoded_bytes());
+            hash.str_field(kind)
+                .field(canonical.as_os_str().as_encoded_bytes());
         }
         InputSpec::Url(url) => {
             let source = resolve_clone_target(url, policy).map_or_else(
@@ -269,6 +270,7 @@ pub fn prepare_input(
                     kind: InputKind::Archive,
                     display: file_name,
                 },
+                verified_revision: None,
                 name,
                 network_used: false,
                 notes,
@@ -302,7 +304,10 @@ mod source_scope_tests {
             "https://github.com/org/repo/commit/0123456789abcdef0123456789abcdef01234567",
             "https://user:synthetic-secret@github.com/org/repo/tree/main",
         ] {
-            assert_eq!(source_scope(&InputSpec::Url(url.to_owned()), policy), expected);
+            assert_eq!(
+                source_scope(&InputSpec::Url(url.to_owned()), policy),
+                expected
+            );
         }
         assert_ne!(
             source_scope(&InputSpec::Url("https://github.com/other/repo".into()), policy),

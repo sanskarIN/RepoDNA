@@ -133,3 +133,18 @@ SOURCE_DATE_EPOCH=1790000000 repodna analyze . --reproducible --no-store --forma
 The artifact records the RepoDNA version, schema version, analyzers, configuration hash,
 and privacy preset in `analysisMetadata`, and the DNA fingerprint and hash in
 `fingerprint`.
+
+
+### Analysis identity and content fingerprints (development)
+
+The native analysis identifier and the repository DNA fingerprint serve different
+purposes. A fingerprint identifies discovered file content; identical copies can
+share it. New native analysis identifiers use a 128-bit digest of length-framed
+source, fingerprint, reference time, configuration, profile, known revision and
+clone depth. GitHub browser references use the cloneable repository URL as their
+source, with credentials removed. Local paths are canonicalized and hashed; the
+identifier is not an anonymization guarantee. Reproducible runs remain stable
+for the same source and settings, not necessarily across relocated copies. Old
+stored identifiers remain readable; the new identifier does not rewrite existing
+history. A verified remote checkout revision is recorded even when the selected
+profile does not run the Git history analyzer.

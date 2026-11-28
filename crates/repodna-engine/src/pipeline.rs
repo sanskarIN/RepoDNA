@@ -926,7 +926,12 @@ pub fn analyze(
         .str_field(&config_hash)
         .str_field(config.analysis.profile.id())
         .str_field(revision.as_deref().unwrap_or(""))
-        .str_field(&request.fetch.clone_depth.map_or_else(String::new, |depth| depth.to_string()));
+        .str_field(
+            &request
+                .fetch
+                .clone_depth
+                .map_or_else(String::new, |depth| depth.to_string()),
+        );
     let run_id = identity.finish_hex()[..32].to_owned();
     let partial = recorder.runs.iter().any(|run| {
         matches!(
