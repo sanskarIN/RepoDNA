@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use repodna_core::cancel::CancellationToken;
 use repodna_core::model::metadata::{InputInfo, InputKind};
 use repodna_discovery::{ArchiveLimits, ExtractedArchive, detect_archive, extract};
-use repodna_git::url::{UrlPolicy, looks_like_url, parse_remote, sanitize_url};
+use repodna_git::url::{UrlPolicy, looks_like_url, parse_remote, resolve_clone_target, sanitize_url};
 use repodna_git::{CloneOptions, GitRunner, clone_repository, repository_root};
 use tempfile::TempDir;
 
@@ -146,6 +146,7 @@ pub fn prepare_input(
             })
         }
         InputSpec::Url(url) => {
+            let target = resolve_clone_target(url, options.url_policy)?;
             let git = git.ok_or(EngineError::Git(repodna_git::GitError::NotInstalled))?;
             let directory = tempfile::Builder::new()
                 .prefix("repodna-clone-")
@@ -162,12 +163,23 @@ pub fn prepare_input(
                 },
                 cancel,
             )?;
-            let remote = parse_remote(url);
+            let remote = parse_remote(&target.repository_url);
             let name = remote
                 .name
                 .clone()
                 .unwrap_or_else(|| "repository".to_owned());
             let mut notes = Vec::new();
+            if let Some(candidate) = &target.branch {
+                notes.push(github_tree_selection_note(candidate));
+            } else if target.commit.is_some() {
+                notes.push("Checked out the exact commit requested by the GitHub commit URL (detached HEAD).".to_owned());
+            }
+            let checked_out = git.text(
+                &destination,
+                &["rev-parse", "--verify", "HEAD^{commit}"],
+                cancel,
+            )?;
+            notes.push(format!("Verified remote checkout: {checked_out}."));
             if let Some(depth) = options.clone_depth {
                 notes.push(format!(
                     "The repository was cloned with --depth {depth}; history analysis covers only those commits."
@@ -226,6 +238,15 @@ pub fn prepare_input(
     }
 }
 
+/// Describe an ambiguous GitHub tree link without claiming its entire path
+/// is the ref. A link like /tree/main/docs may resolve to branch main and
+/// directory docs; the checkout itself is verified separately.
+fn github_tree_selection_note(candidate: &str) -> String {
+    format!(
+        "GitHub tree URL requested {candidate}. RepoDNA resolves slash-containing paths against advertised branches and tags and verifies any trailing directory; the full repository is analyzed."
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,6 +266,15 @@ mod tests {
             InputSpec::detect(archive.to_str().unwrap()),
             InputSpec::Archive(_)
         ));
+    }
+
+    #[test]
+    fn github_tree_note_does_not_claim_a_directory_suffix_is_a_ref() {
+        let note = github_tree_selection_note("main/docs");
+        assert!(note.contains("requested main/docs"));
+        assert!(note.contains("advertised branches and tags"));
+        assert!(note.contains("full repository"));
+        assert!(!note.contains("Checked out GitHub branch or tag main/docs"));
     }
 
     #[test]
