@@ -5,6 +5,7 @@ import { CommandBox, ErrorBox, ExternalLink, Note, SearchBox } from "../componen
 import { droppedFolder, isArchive } from "../engine/input";
 import { analyze, analyzeDroppedFolder, profile } from "../engine/session";
 import type { JobState, RepositorySummary, ScanSummary } from "../lib/backend";
+import { githubSourceHint, repositoryInputError } from "../lib/github-source";
 import { demoIndex, loadDemo, type DemoEntry } from "../lib/demo";
 import { useOpenFile } from "../lib/openFile";
 import { REPOSITORY } from "../lib/links";
@@ -68,6 +69,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
 
   const start = async () => {
     setError(null);
+    const invalidInput = repositoryInputError(input);
+    if (invalidInput) {
+      setError(invalidInput);
+      return;
+    }
     try {
       const started = await backend.startScan(input.trim(), profile);
       setJob(started);
@@ -78,19 +84,21 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
   };
 
   const running = job?.status === "running";
+  const hint = githubSourceHint(input);
+  const inputError = repositoryInputError(input);
   return (
     <section className="panel" aria-labelledby="scan-title">
       <div className="panel-header">
         <div>
           <h2 id="scan-title">Analyze a repository</h2>
-          <p>A local directory, a .zip or .tar.gz archive, or a Git URL. Nothing is uploaded.</p>
+          <p>Analyze a directory, archive, Git URL, or GitHub branch URL. Nothing is uploaded.</p>
         </div>
       </div>
       <form
         className="filters"
         onSubmit={(event) => {
           event.preventDefault();
-          if (input.trim() && !running) {
+          if (input.trim() && !inputError && !running) {
             void start();
           }
         }}
@@ -102,7 +110,12 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           id="scan-input"
           type="text"
           value={input}
-          onChange={(event) => setInput(event.target.value)}
+          onChange={(event) => {
+            setInput(event.target.value);
+            setError(null);
+          }}
+          aria-invalid={inputError ? true : undefined}
+          aria-describedby={inputError ? "scan-input-error" : undefined}
           placeholder="/path/to/repository or https://github.com/owner/repo"
           style={{ flex: "1 1 320px" }}
         />
@@ -113,6 +126,7 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
               const picked = await backend.pickDirectory?.();
               if (picked) {
                 setInput(picked);
+                setError(null);
               }
             }}
           >
@@ -134,7 +148,11 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
             </option>
           ))}
         </select>
-        <button type="submit" className="primary" disabled={!input.trim() || running}>
+        <button
+          type="submit"
+          className="primary"
+          disabled={!input.trim() || !!inputError || running}
+        >
           {running ? "Analyzing…" : "Analyze"}
         </button>
         {running && job ? (
@@ -143,6 +161,26 @@ function ScanForm({ onDone }: { onDone: (repositoryId: string, scanId?: string) 
           </button>
         ) : null}
       </form>
+      {inputError ? (
+        <div id="scan-input-error" role="alert">
+          <p>{inputError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setInput("");
+              setError(null);
+            }}
+          >
+            Clear repository input
+          </button>
+        </div>
+      ) : null}
+      {hint ? (
+        <p className="muted">
+          {`GitHub ${hint.repository}: ${hint.kind === "tree" ? "branch or tag candidate" : "commit candidate"} ${hint.reference}.`}{" "}
+          RepoDNA verifies the requested revision and analyzes the whole repository.
+        </p>
+      ) : null}
       <p className="muted" id="scan-profile-help">
         {PROFILES.find(([id]) => id === profile)?.[2]}
       </p>

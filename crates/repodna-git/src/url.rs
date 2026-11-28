@@ -180,6 +180,206 @@ pub fn parse_remote(url: &str) -> ParsedRemote {
     }
 }
 
+/// A cloneable remote and an optional selected GitHub branch or tag.
+///
+/// GitHub's `/tree/<ref>` pages are browser links, not Git clone URLs.
+/// A branch name can contain slashes. The clone layer resolves the longest
+/// advertised ref prefix and verifies any trailing directory after checkout.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloneTarget {
+    /// Git repository URL, without a GitHub browser route.
+    pub repository_url: String,
+    /// Branch or tag to check out, when the input is a GitHub tree URL.
+    pub branch: Option<String>,
+    /// Exact commit selected by a GitHub `/commit/<sha>` browser URL.
+    pub commit: Option<String>,
+}
+
+/// A user-selected remote revision, independent of the browser URL.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RequestedRevision {
+    /// A branch that should remain attached to HEAD.
+    Branch(String),
+    /// A tag to check out at detached HEAD.
+    Tag(String),
+    /// A full-length commit identifier to check out at detached HEAD.
+    Commit(String),
+}
+
+impl RequestedRevision {
+    /// Reject malformed and option-like Git references before starting Git.
+    pub fn validate(&self) -> Result<(), GitError> {
+        let valid = match self {
+            Self::Branch(name) | Self::Tag(name) => valid_github_ref(name),
+            Self::Commit(sha) => valid_commit_sha(sha),
+        };
+        if valid {
+            Ok(())
+        } else {
+            Err(GitError::InvalidUrl(
+                "invalid branch, tag, or full commit SHA selection".to_owned(),
+            ))
+        }
+    }
+}
+
+/// Accept full SHA-1 and SHA-256 commit identifiers, not ambiguous short hashes.
+fn valid_commit_sha(sha: &str) -> bool {
+    matches!(sha.len(), 40 | 64) && sha.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+/// Decode percent escapes in the branch part of a GitHub browser URL once.
+fn decode_github_ref(input: &str) -> Option<String> {
+    let bytes = input.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut position = 0;
+    while position < bytes.len() {
+        if bytes[position] == b'%' {
+            let high = (*bytes.get(position + 1)? as char).to_digit(16)?;
+            let low = (*bytes.get(position + 2)? as char).to_digit(16)?;
+            decoded.push(((high << 4) | low) as u8);
+            position += 3;
+        } else {
+            decoded.push(bytes[position]);
+            position += 1;
+        }
+    }
+    String::from_utf8(decoded).ok()
+}
+
+/// Git ref-name rules needed to reject malformed and option-like selections
+/// before invoking Git. Git still performs its own authoritative validation.
+fn valid_github_ref(reference: &str) -> bool {
+    !reference.is_empty()
+        && reference != "@"
+        && !reference.starts_with('-')
+        && !reference.ends_with('/')
+        && !reference.ends_with('.')
+        && !reference.contains("..")
+        && !reference.contains("@{")
+        && !reference
+            .split('/')
+            .any(|part| part.is_empty() || part.starts_with('.') || part.ends_with(".lock"))
+        && !reference.chars().any(|ch| {
+            ch.is_control()
+                || ch.is_whitespace()
+                || matches!(ch, '\\' | '~' | '^' | ':' | '?' | '*' | '[')
+        })
+}
+
+/// A /tree/ path can be a Git ref followed by a directory. Accept safe
+/// directory components (including .github and percent-encoded spaces) while
+/// retaining strict ref-name validation for advertised refs and explicit
+/// branch/tag selectors. Never accept dot traversal or control characters.
+fn valid_github_tree_candidate(candidate: &str) -> bool {
+    if valid_github_ref(candidate) {
+        return true;
+    }
+    let Some((first, _)) = candidate.split_once('/') else {
+        return false;
+    };
+    valid_github_ref(first)
+        && candidate.split('/').all(|component| {
+            !component.is_empty()
+                && component != "."
+                && component != ".."
+                && !component.chars().any(|ch| {
+                    ch.is_control() || matches!(ch, '\\' | '~' | '^' | ':' | '?' | '*' | '[')
+                })
+        })
+}
+
+/// Convert an allowed GitHub `/tree/<branch>` browser URL into a cloneable
+/// repository URL plus a requested checkout. Ordinary Git remotes are unchanged.
+///
+/// Ambiguous slash-containing paths are resolved later against advertised
+/// branch/tag names, then any directory suffix is verified after checkout.
+pub fn resolve_clone_target(input: &str, policy: UrlPolicy) -> Result<CloneTarget, GitError> {
+    let url = validate_clone_url(input, policy)?;
+    let Some(parts) = split(&url) else {
+        return Err(GitError::InvalidUrl(sanitize_url(&url)));
+    };
+    let ordinary = || CloneTarget {
+        repository_url: url.clone(),
+        branch: None,
+        commit: None,
+    };
+
+    if !matches!(parts.scheme.as_deref(), Some("https" | "http"))
+        || !matches!(
+            parts.host.to_ascii_lowercase().as_str(),
+            "github.com" | "www.github.com"
+        )
+    {
+        return Ok(ordinary());
+    }
+
+    // Treat browser navigation on GitHub repository roots as decoration, not
+    // as part of a Git remote. Keep other hosts and transports unchanged.
+    let browser_path = parts.path.split(['?', '#']).next().unwrap_or(parts.path);
+    let segments: Vec<&str> = browser_path.split('/').collect();
+    // A repository-root link may end with one slash. Paths beneath the
+    // repository, however, are GitHub browser routes, not cloneable remotes.
+    if segments.len() < 3 || (segments.len() == 3 && segments[2].is_empty()) {
+        if segments.len() >= 2 && !segments[0].is_empty() && !segments[1].is_empty() {
+            return Ok(CloneTarget {
+                repository_url: url.split(['?', '#']).next().unwrap_or(&url).to_owned(),
+                branch: None,
+                commit: None,
+            });
+        }
+        return Ok(ordinary());
+    }
+    let invalid = |reason: &str| GitError::InvalidUrl(format!("{} ({reason})", sanitize_url(&url)));
+    if segments[2] == "commit" {
+        if segments.len() != 4 || !valid_commit_sha(segments[3]) {
+            return Err(invalid("GitHub commit URL must contain a full commit SHA"));
+        }
+        let Some(prefix) = url.strip_suffix(parts.path) else {
+            return Err(invalid("could not resolve GitHub repository URL"));
+        };
+        return Ok(CloneTarget {
+            repository_url: format!("{prefix}{}/{}", segments[0], segments[1]),
+            branch: None,
+            commit: Some(segments[3].to_ascii_lowercase()),
+        });
+    }
+    if segments[2] == "blob" {
+        return Err(invalid(
+            "GitHub file URL; supply a repository URL or a /tree/<branch> page",
+        ));
+    }
+    if segments[2] != "tree" {
+        return Err(invalid(
+            "GitHub browser page URL; supply the repository root or a /tree/<branch> page",
+        ));
+    }
+    if segments.len() < 4
+        || segments[0].is_empty()
+        || segments[1].is_empty()
+        || segments[3].is_empty()
+    {
+        return Err(invalid("GitHub tree URL is missing a branch or tag"));
+    }
+    // GitHub browser URLs can have a single trailing slash. Remove only
+    // that route separator before decoding; encoded trailing slashes still
+    // belong to the ref and must pass Git's normal ref-name validation.
+    let raw_branch = segments[3..].join("/");
+    let raw_branch = raw_branch.strip_suffix('/').unwrap_or(&raw_branch);
+    let branch = decode_github_ref(raw_branch)
+        .filter(|reference| valid_github_tree_candidate(reference))
+        .ok_or_else(|| invalid("invalid GitHub branch, tag, or directory in tree URL"))?;
+
+    let Some(prefix) = url.strip_suffix(parts.path) else {
+        return Err(invalid("could not resolve GitHub repository URL"));
+    };
+    Ok(CloneTarget {
+        repository_url: format!("{prefix}{}/{}", segments[0], segments[1]),
+        branch: Some(branch),
+        commit: None,
+    })
+}
+
 fn is_private_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
@@ -259,6 +459,18 @@ pub fn validate_clone_url(input: &str, policy: UrlPolicy) -> Result<String, GitE
     };
     if url.is_empty() {
         return reject("empty");
+    }
+    // A pasted browser URL can be accidentally appended to an existing URL.
+    // Check before formatting any error: sanitizing only the first authority
+    // would leave credentials from a second URL exposed in diagnostics.
+    // Query/fragment parameters may legitimately contain another URL.
+    if let Some((_, remainder)) = without_query(url).split_once("://")
+        && remainder.contains("://")
+    {
+        return Err(GitError::InvalidUrl(
+            "multiple repository URLs detected; clear the input and paste one repository or branch URL"
+                .to_owned(),
+        ));
     }
     if url.starts_with('-') {
         return reject("looks like a command-line option");
@@ -523,5 +735,339 @@ mod tests {
         assert!(!looks_like_url("./project"));
         assert!(!looks_like_url("C:\\project"));
         assert!(!looks_like_url("project:backup"));
+    }
+
+    #[test]
+    fn parses_real_sonumio_branch_and_full_commit_urls() {
+        let target = resolve_clone_target(
+            "https://github.com/sanskarIN/sonumio/tree/feat/initial-audio-platform",
+            PUBLIC,
+        )
+        .unwrap();
+        assert_eq!(
+            target.repository_url,
+            "https://github.com/sanskarIN/sonumio"
+        );
+        assert_eq!(
+            target.branch.as_deref(),
+            Some("feat/initial-audio-platform")
+        );
+        assert_eq!(target.commit, None);
+
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        let target = resolve_clone_target(
+            &format!("https://github.com/org/repo/commit/{sha}?diff=split#files"),
+            PUBLIC,
+        )
+        .unwrap();
+        assert_eq!(target.repository_url, "https://github.com/org/repo");
+        assert_eq!(target.commit.as_deref(), Some(sha));
+        for bad in [
+            "https://github.com/org/repo/commit/main",
+            "https://github.com/org/repo/commit/1234/extra",
+        ] {
+            assert!(resolve_clone_target(bad, PUBLIC).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn explicit_revision_validation_rejects_options_and_ambiguous_shas() {
+        for valid in [
+            RequestedRevision::Branch("feat/initial-audio-platform".into()),
+            RequestedRevision::Tag("v1.5.0".into()),
+            RequestedRevision::Commit("0123456789abcdef0123456789abcdef01234567".into()),
+        ] {
+            valid.validate().unwrap();
+        }
+        for invalid in [
+            RequestedRevision::Branch("--upload-pack=sh".into()),
+            RequestedRevision::Tag("a..b".into()),
+            RequestedRevision::Commit("0123456".into()),
+        ] {
+            assert!(invalid.validate().is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_concatenated_remote_urls_without_echoing_credentials() {
+        let branch =
+            "https://github.com/sanskarIN/latebrake/tree/feat/experimental-six-car-runtime";
+        for bad in [
+            format!("{branch}{branch}"),
+            format!("{branch} {branch}"),
+            "https://github.com/org/repo.githttps://user:secret@github.com/org/other".to_owned(),
+            "https://github.com/org/repo.gitssh://git@other.example.org/repo".to_owned(),
+        ] {
+            let error = resolve_clone_target(&bad, PUBLIC).unwrap_err().to_string();
+            assert!(error.contains("multiple repository URLs"), "{error}");
+            assert!(!error.contains("secret"), "{error}");
+            assert!(!error.contains("github.com"), "{error}");
+        }
+        let target = resolve_clone_target(branch, PUBLIC).unwrap();
+        assert_eq!(
+            target.repository_url,
+            "https://github.com/sanskarIN/latebrake"
+        );
+        assert_eq!(
+            target.branch.as_deref(),
+            Some("feat/experimental-six-car-runtime")
+        );
+        let target = resolve_clone_target(
+            "https://github.com/org/repo?next=https://example.org/",
+            PUBLIC,
+        )
+        .unwrap();
+        assert_eq!(target.repository_url, "https://github.com/org/repo");
+    }
+
+    #[test]
+    fn github_root_browser_links_strip_navigation_suffixes() {
+        for (input, expected) in [
+            (
+                "https://github.com/org/repo?tab=readme",
+                "https://github.com/org/repo",
+            ),
+            (
+                "https://github.com/org/repo/#readme",
+                "https://github.com/org/repo/",
+            ),
+            (
+                "https://github.com/org/repo.git?tab=code#readme",
+                "https://github.com/org/repo.git",
+            ),
+            (
+                "https://www.github.com/org/repo?tab=actions#summary",
+                "https://www.github.com/org/repo",
+            ),
+            ("https://github.com/org/repo", "https://github.com/org/repo"),
+            (
+                "https://github.com/org/repo/",
+                "https://github.com/org/repo/",
+            ),
+        ] {
+            let target = resolve_clone_target(input, PUBLIC).unwrap();
+            assert_eq!(target.repository_url, expected, "{input}");
+            assert!(target.branch.is_none(), "{input}");
+        }
+
+        // Other providers and non-browser transports are Git remotes, not
+        // GitHub browser navigation. Never rewrite their input.
+        for input in [
+            "https://gitlab.com/org/repo?tab=readme",
+            "git@github.com:org/repo.git",
+            "ssh://git@github.com/org/repo.git",
+        ] {
+            assert_eq!(
+                resolve_clone_target(input, PUBLIC).unwrap().repository_url,
+                input
+            );
+        }
+
+        // Browser subpages remain invalid rather than being mistaken for roots.
+        assert!(
+            resolve_clone_target("https://github.com/org/repo/issues?tab=readme", PUBLIC).is_err()
+        );
+    }
+
+    #[test]
+    fn github_tree_links_select_exact_requested_branch() {
+        let cases = [
+            (
+                "https://github.com/sanskarIN/RepoDNA/tree/release-v1.4.0-development",
+                "https://github.com/sanskarIN/RepoDNA",
+                "release-v1.4.0-development",
+            ),
+            (
+                "https://github.com/org/project/tree/feature/branch-with-slashes",
+                "https://github.com/org/project",
+                "feature/branch-with-slashes",
+            ),
+            (
+                "https://github.com/org/project/tree/feature%2Fnew-ui",
+                "https://github.com/org/project",
+                "feature/new-ui",
+            ),
+            (
+                "https://github.com/org/project/tree/main/",
+                "https://github.com/org/project",
+                "main",
+            ),
+            (
+                "https://github.com/org/project/tree/feature/new-ui/",
+                "https://github.com/org/project",
+                "feature/new-ui",
+            ),
+            (
+                "https://github.com/org/project/tree/fix%2fparser?tab=readme",
+                "https://github.com/org/project",
+                "fix/parser",
+            ),
+            (
+                "https://www.github.com/org/project/tree/main#readme",
+                "https://www.github.com/org/project",
+                "main",
+            ),
+        ];
+        for (url, expected_repository, expected_branch) in cases {
+            let target = resolve_clone_target(url, PUBLIC).unwrap();
+            assert_eq!(target.repository_url, expected_repository, "{url}");
+            assert_eq!(target.branch.as_deref(), Some(expected_branch), "{url}");
+            let remote = parse_remote(&target.repository_url);
+            assert_eq!(
+                remote.name.as_deref(),
+                Some(if url.contains("RepoDNA") {
+                    "RepoDNA"
+                } else {
+                    "project"
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn github_tree_urls_reject_malformed_and_option_like_refs() {
+        for url in [
+            "https://github.com/org/repo/tree/",
+            "https://github.com/org/repo/tree",
+            "https://github.com/org/repo/tree/%00",
+            "https://github.com/org/repo/tree/%2D%2Dupload-pack%3Dcmd",
+            "https://github.com/org/repo/tree/main%0Aevil",
+            "https://github.com/org/repo/tree/a%2E%2Eb",
+            "https://github.com/org/repo/tree/a//b",
+            "https://github.com/org/repo/tree/main//",
+            "https://github.com/org/repo/tree/main%2F",
+            "https://github.com/org/repo/tree/a%GG",
+            "https://github.com/org/repo/tree/a.lock",
+            "https://github.com/org/repo/tree/.hidden",
+            "https://github.com/org/repo/blob/main/src/lib.rs",
+        ] {
+            assert!(
+                matches!(
+                    resolve_clone_target(url, PUBLIC),
+                    Err(GitError::InvalidUrl(_))
+                ),
+                "unexpectedly accepted {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn github_tree_urls_allow_safe_directory_components_but_not_traversal() {
+        for (url, expected) in [
+            (
+                "https://github.com/org/repo/tree/main/.github",
+                "main/.github",
+            ),
+            (
+                "https://github.com/org/repo/tree/main/docs/design%20notes",
+                "main/docs/design notes",
+            ),
+            (
+                "https://github.com/org/repo/tree/feat/new-ui/.github/workflows",
+                "feat/new-ui/.github/workflows",
+            ),
+            (
+                "https://github.com/org/repo/tree/main/docs/said%20%22hello%22",
+                "main/docs/said \"hello\"",
+            ),
+            (
+                "https://github.com/org/repo/tree/main/config.lock",
+                "main/config.lock",
+            ),
+        ] {
+            let target = resolve_clone_target(url, PUBLIC).unwrap();
+            assert_eq!(target.branch.as_deref(), Some(expected), "{url}");
+            assert_eq!(target.repository_url, "https://github.com/org/repo");
+        }
+
+        for url in [
+            "https://github.com/org/repo/tree/main/%2E",
+            "https://github.com/org/repo/tree/main/%2E%2E",
+            "https://github.com/org/repo/tree/main/%2E%2E/secrets",
+            "https://github.com/org/repo/tree/main/.%2Fsrc",
+            "https://github.com/org/repo/tree/main/%00",
+            "https://github.com/org/repo/tree/main/%5Cescaped",
+            "https://github.com/org/repo/tree/main/%2A",
+        ] {
+            assert!(resolve_clone_target(url, PUBLIC).is_err(), "{url}");
+        }
+    }
+
+    #[test]
+    fn clone_url_policy_still_applies_to_browser_links() {
+        assert!(resolve_clone_target("http://github.com/org/repo/tree/main", PUBLIC).is_err());
+        assert!(resolve_clone_target("https://127.0.0.1/org/repo/tree/main", PUBLIC).is_err());
+        assert_eq!(
+            resolve_clone_target(
+                "http://github.com/org/repo/tree/main",
+                UrlPolicy {
+                    allow_insecure: true,
+                    ..PUBLIC
+                }
+            )
+            .unwrap()
+            .branch
+            .as_deref(),
+            Some("main")
+        );
+        let credentialed = resolve_clone_target(
+            "https://user:example-password@github.com/org/repo/tree/main",
+            PUBLIC,
+        )
+        .unwrap();
+        assert_eq!(
+            sanitize_url(&credentialed.repository_url),
+            "https://github.com/org/repo"
+        );
+        assert_eq!(credentialed.branch.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn plain_remotes_are_not_rewritten() {
+        for url in [
+            "https://github.com/org/repo",
+            "https://github.com/org/repo.git",
+            "git@github.com:org/repo.git",
+            "ssh://git@github.com/org/repo.git",
+            "https://gitlab.com/group/repo/tree/feature",
+            "https://example.com/org/repo/tree/main",
+        ] {
+            let target = resolve_clone_target(url, PUBLIC).unwrap();
+            assert_eq!(target.repository_url, url);
+            assert_eq!(target.branch, None);
+        }
+    }
+
+    #[test]
+    fn github_browser_routes_cannot_be_used_as_clone_targets() {
+        for url in [
+            "https://github.com/org/project/pull/123",
+            "https://github.com/org/project/issues/456",
+            "https://github.com/org/project/actions/runs/123",
+            "https://github.com/org/project/releases/tag/v1.0.0",
+            "https://github.com/org/project/compare/main...feature",
+        ] {
+            let error = resolve_clone_target(url, PUBLIC).unwrap_err();
+            assert!(
+                error.to_string().contains("GitHub browser page URL"),
+                "{url}: {error}"
+            );
+        }
+        let error = resolve_clone_target("https://github.com/org/project/commit/abc123", PUBLIC)
+            .unwrap_err();
+        assert!(error.to_string().contains("full commit SHA"));
+
+        // A single trailing slash is normal on repository-root links.
+        for url in [
+            "https://github.com/org/project",
+            "https://github.com/org/project/",
+            "https://github.com/org/project.git/",
+        ] {
+            let target = resolve_clone_target(url, PUBLIC).unwrap();
+            assert_eq!(target.repository_url, url);
+            assert!(target.branch.is_none());
+        }
+        // Double slashes do not make an otherwise unsupported route a root.
+        assert!(resolve_clone_target("https://github.com/org/project//", PUBLIC).is_err());
     }
 }

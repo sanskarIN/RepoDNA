@@ -10,7 +10,7 @@ use repodna_core::model::artifact::RepositoryDna;
 use repodna_core::model::metadata::InputKind;
 use repodna_core::time::Timestamp;
 use repodna_engine::{AnalysisCache, AnalysisRequest, FetchOptions, InputSpec, Progress, analyze};
-use repodna_git::url::{looks_like_url, sanitize_url};
+use repodna_git::url::{looks_like_url, sanitize_url, validate_clone_url};
 use repodna_plugin::load_enabled;
 use repodna_store::{FindingChanges, RepositoryLocation, ScanRecord, Store};
 
@@ -34,6 +34,22 @@ pub struct AnalyzeOptions {
     pub reproducible: bool,
     /// Time the analysis is measured against (defaults to now or `SOURCE_DATE_EPOCH`).
     pub reference_time: Option<Timestamp>,
+}
+
+impl AnalyzeOptions {
+    /// Display the submitted input without disclosing remote credentials.
+    /// Invalid URLs are represented by a fixed label rather than partially
+    /// sanitized text, which could contain another pasted URL's authority.
+    pub fn display_input(&self) -> String {
+        if looks_like_url(&self.input) {
+            match validate_clone_url(&self.input, self.fetch.url_policy) {
+                Ok(url) => sanitize_url(&url),
+                Err(_) => "invalid remote repository URL".to_owned(),
+            }
+        } else {
+            self.input.clone()
+        }
+    }
 }
 
 /// A finished analysis.
@@ -329,6 +345,42 @@ pub fn load_target(
                 dna,
                 source: Source::Stored(Box::new(scan)),
             })
+        }
+    }
+}
+
+#[cfg(test)]
+mod input_display_tests {
+    use super::*;
+
+    #[test]
+    fn display_input_preserves_local_paths_and_redacts_remote_authorities() {
+        for (input, expected) in [
+            (
+                "C:\\Users\\developer\\project",
+                "C:\\Users\\developer\\project",
+            ),
+            ("/home/dev/my repository", "/home/dev/my repository"),
+            (
+                "https://user:synthetic-secret@github.com/org/repo?token=hidden#private",
+                "https://github.com/org/repo",
+            ),
+            (
+                "https://github.com/org/repohttps://user:synthetic-secret@github.com/a/b",
+                "invalid remote repository URL",
+            ),
+            (
+                "https://%6cocalhost/org/repo",
+                "invalid remote repository URL",
+            ),
+            ("git@github.com:org/repo.git", "git@github.com:org/repo.git"),
+        ] {
+            let options = AnalyzeOptions {
+                input: input.to_owned(),
+                ..AnalyzeOptions::default()
+            };
+            assert_eq!(options.display_input(), expected);
+            assert_eq!(options.input, input);
         }
     }
 }

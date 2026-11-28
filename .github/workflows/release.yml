@@ -784,6 +784,60 @@ jobs:
           & $exe analyze $sample --profile quick --no-store --quiet
           if ($LASTEXITCODE -ne 0) { throw "Native CLI analysis failed: $LASTEXITCODE" }
           Write-Output "Native Windows $native CLI launch and local analysis passed."
+      - name: Reproduce the reported LateBrake branch URL on native Windows
+        # This live, mutable external ref is only a v1.5.6 qualification fixture.
+        # Do not make future releases depend on the lifetime of this branch.
+        if: startsWith(github.ref_name, 'release/v1.5.6-')
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path 'trial-unpacked' "repodna-$env:VERSION-$env:TARGET/repodna.exe"
+          $remote = 'https://github.com/sanskarIN/latebrake.git'
+          $branch = 'refs/heads/feat/experimental-six-car-runtime'
+          $url = 'https://github.com/sanskarIN/latebrake/tree/feat/experimental-six-car-runtime'
+          function Get-AdvertisedRevision {
+            $listing = & git ls-remote --exit-code --heads -- $remote $branch
+            if ($LASTEXITCODE -ne 0 -or @($listing).Count -ne 1) {
+              throw 'LateBrake qualification branch is unavailable'
+            }
+            $parts = $listing -split "`t"
+            if ($parts.Count -ne 2 -or $parts[1] -cne $branch -or $parts[0] -notmatch '^[0-9a-f]{40}$') {
+              throw 'Unexpected Git branch advertisement'
+            }
+            return $parts[0]
+          }
+          $env:REPODNA_HOME = Join-Path $env:RUNNER_TEMP 'repodna-remote-release-smoke'
+          $verified = $false
+          # A concurrently updated branch invalidates the comparison, not the build.
+          # Repeat only this specific race, never a failure on a stable advertised ref.
+          for ($attempt = 1; $attempt -le 5; $attempt++) {
+            $before = Get-AdvertisedRevision
+            $json = & $exe analyze $url --profile standard --clone-depth 1 --max-commits 1 --no-store --no-user-config --no-project-config --format json --quiet
+            $analysisExit = $LASTEXITCODE
+            $after = Get-AdvertisedRevision
+            if ($before -cne $after) {
+              Write-Warning "LateBrake moved during trial attempt $attempt; repeating against the current branch."
+              continue
+            }
+            if ($analysisExit -ne 0) { throw "Remote branch analysis failed: $analysisExit" }
+            $artifact = ($json -join "`n") | ConvertFrom-Json
+            if ($artifact.tool.version -cne $env:VERSION -or
+                $artifact.identity.name -ine 'latebrake' -or
+                $artifact.analysisMetadata.input.kind -cne 'git-url' -or
+                $artifact.analysisMetadata.revision -cne $before -or
+                $artifact.structure.totalFiles -le 0) {
+              throw 'Branch analysis artifact does not match the advertised revision, repository or version'
+            }
+            Write-Output "Verified LateBrake branch checkout $before on packaged native CLI."
+            $verified = $true
+            break
+          }
+          if (-not $verified) {
+            throw 'LateBrake branch changed on all five qualification attempts; no stable verification obtained'
+          }
       # These smoke tests exercise the actual x64/ARM64 Windows executables.
       # They do not install or launch the GUI desktop app.
 

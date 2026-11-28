@@ -23,6 +23,23 @@ CI, checkouts are often shallow (`fetch-depth: 1`); fetch the full history
 `--allow-insecure-urls`, and hosts on private networks need `--allow-private-hosts`.
 `ext::` and local transports are always refused.
 
+**Git reports exit code 128 for a GitHub branch link.** In RepoDNA 1.5.6,
+paste one repository or GitHub browser URL into **Open or analyze**. For example,
+`https://github.com/owner/repo/tree/feature/example` selects the longest
+advertised branch or tag matching that path. If the URL also names a directory,
+RepoDNA verifies that directory exists, but analyzes the entire repository.
+The app shows a local reference preview; existence is checked by native Git
+when analysis starts. A full commit URL (`/commit/<full-sha>`) requests an exact
+commit that must be reachable from fetched references. Use full history if a
+shallow clone cannot reach it.
+
+**Multiple repository URLs detected.** Select **Clear repository input**, or
+replace the entire input field, and paste one URL. RepoDNA rejects concatenated
+links before starting Git rather than guessing which one was intended. GitHub
+file, issue, pull request, and other navigation links are not repository
+sources. If remote cloning still fails, verify Git access and the branch
+name, or clone the desired branch using Git and choose the local folder.
+
 **A private repository cannot be cloned.** RepoDNA never lets Git prompt for credentials.
 Use a URL your Git can access without prompting (for example an SSH URL with a key in your
 agent, or a credential helper), or clone the repository yourself and analyze the directory.
