@@ -6,6 +6,24 @@ All notable changes to RepoDNA are documented in this file. The format is based 
 
 ## [Unreleased]
 
+## [1.5.6] - 2026-11-30
+
+A focused maintenance update based on v1.5.5.
+
+### Highlights
+
+- Analyze GitHub branch, tag and full commit browser links directly using native Git.
+- Detect concatenated repository URLs before cloning and provide an accessible
+  clear-input action without echoing credentials in the duplicate-input error.
+
+### Fixed
+
+- Resolve slash-containing GitHub tree links against advertised references,
+  verify any trailing directory, and verify the checked-out commit.
+- Preserve repository identity when analyzing a GitHub browser link.
+- Reject unsupported GitHub browser routes rather than passing them to Git.
+
+
 ## [1.5.5] - 2026-11-28
 
 A focused maintenance update based on the published v1.5.4 source.
