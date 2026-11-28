@@ -7,7 +7,7 @@ import {
   analyze,
   cancel,
   dismiss,
-  fail,
+  consumeFinished,
   profile,
   setProfile,
   useBrowserAnalysis,
@@ -267,21 +267,18 @@ export function BrowserAnalysisOpener() {
     if (analysis.phase !== "finished") {
       return;
     }
-    try {
-      const loaded = parseArtifact(analysis.text);
+    const opened = consumeFinished(analysis, (file) => {
+      const loaded = parseArtifact(file.text);
       open(
         {
           dna: loaded.artifact,
-          origin: { kind: "file", name: analysis.name },
+          origin: { kind: "file", name: file.name },
           warnings: loaded.warnings,
         },
-        { text: analysis.text, size: analysis.size },
+        { text: file.text, size: file.size },
       );
-      dismiss();
-      navigate("/overview");
-    } catch (error) {
-      fail(analysis.name, error instanceof Error ? error.message : String(error));
-    }
+    });
+    if (opened) navigate("/overview");
   }, [analysis, open]);
   return null;
 }

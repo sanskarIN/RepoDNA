@@ -3,6 +3,7 @@
 
 import { keep } from "@repodna/wasm";
 import type { InputFile } from "./protocol";
+import { addFileBytes, enumerateFolder, type FolderTraversalOptions } from "./folderTraversal";
 
 export { keep };
 
@@ -40,7 +41,9 @@ export function folderFromList(list: ArrayLike<File>): AnalysisInput | null {
   let name = "";
   let hasRoot: boolean | null = null;
   let bytes = 0;
-  for (const file of Array.from(list)) {
+  for (let index = 0; index < list.length; index += 1) {
+    const file = list[index];
+    if (!file) return null;
     const relative = file.webkitRelativePath || file.name;
     if (!safeRelativePath(relative)) return null;
     const slash = relative.indexOf("/");
@@ -59,65 +62,24 @@ export function folderFromList(list: ArrayLike<File>): AnalysisInput | null {
       if (seen.has(path)) return null;
       seen.add(path);
       files.push({ path, file });
-      bytes += file.size;
+      try {
+        bytes = addFileBytes(bytes, file.size);
+      } catch {
+        return null;
+      }
     }
   }
   return files.length > 0 ? { kind: "folder", name: name || "repository", files, bytes } : null;
 }
 
-function entries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
-  return new Promise((resolve, reject) => reader.readEntries(resolve, reject));
-}
-
-function file(entry: FileSystemFileEntry): Promise<File> {
-  return new Promise((resolve, reject) => entry.file(resolve, reject));
-}
-
-/**
- * The files of a dropped folder. `onCount` hears how many files were found so far, since a
- * large folder takes a moment to list.
- */
+/** Lists a dropped folder without unbounded parallel reads. The optional abort
+ * signal stops enumeration itself, rather than merely ignoring its final result. */
 export async function folderFromEntry(
   folder: FileSystemDirectoryEntry,
   onCount?: (files: number) => void,
+  options?: FolderTraversalOptions,
 ): Promise<AnalysisInput | null> {
-  const files: InputFile[] = [];
-  const seen = new Set<string>();
-  let bytes = 0;
-  const walk = async (directory: FileSystemDirectoryEntry, prefix: string): Promise<void> => {
-    const reader = directory.createReader();
-    // A reader gives a directory's entries in batches until it gives none.
-    for (let batch = await entries(reader); batch.length > 0; batch = await entries(reader)) {
-      const found = await Promise.all(
-        batch.map(async (entry) => {
-          const path = prefix + entry.name;
-          if (!safeRelativePath(path)) {
-            throw new Error("The dropped folder contains an unsafe path.");
-          }
-          if (!keep(path)) {
-            return null;
-          }
-          if (entry.isDirectory) {
-            await walk(entry as FileSystemDirectoryEntry, `${path}/`);
-            return null;
-          }
-          return entry.isFile ? { path, file: await file(entry as FileSystemFileEntry) } : null;
-        }),
-      );
-      for (const input of found) {
-        if (input) {
-          if (seen.has(input.path)) {
-            throw new Error("The dropped folder contains duplicate file paths.");
-          }
-          seen.add(input.path);
-          files.push(input);
-          bytes += input.file.size;
-        }
-      }
-      onCount?.(files.length);
-    }
-  };
-  await walk(folder, "");
+  const { files, bytes } = await enumerateFolder(folder, keep, onCount, options);
   return files.length > 0 ? { kind: "folder", name: folder.name, files, bytes } : null;
 }
 

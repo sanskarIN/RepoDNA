@@ -2,8 +2,20 @@
 // Rust core through Tauri commands instead of HTTP.
 
 import { invoke } from "@tauri-apps/api/core";
-import { checkArtifact, type RepositoryDna } from "@repodna/schema";
-import { checkHistoryPage, checkScanJob, checkScanJobs, checkSourceReferences } from "./backend";
+import type { RepositoryDna } from "@repodna/schema";
+import {
+  checkHistoryPage,
+  checkNativeArtifact,
+  checkNewScanJob,
+  checkOptionalPath,
+  checkRepositories,
+  checkRepository,
+  checkScanJob,
+  checkScanJobs,
+  checkSession,
+  checkSourceReferences,
+  checkSvgCard,
+} from "./backend";
 import type {
   Backend,
   HistoryPage,
@@ -21,39 +33,41 @@ import type {
 export class DesktopBackend implements Backend {
   readonly kind = "desktop" as const;
 
-  session(): Promise<Session> {
-    return invoke<Session>("session");
+  constructor(private readonly call: typeof invoke = invoke) {}
+
+  async session(): Promise<Session> {
+    return checkSession(await this.call<unknown>("session"));
   }
 
-  repositories(): Promise<RepositorySummary[]> {
-    return invoke<RepositorySummary[]>("list_repositories");
+  async repositories(): Promise<RepositorySummary[]> {
+    return checkRepositories(await this.call<unknown>("list_repositories"));
   }
 
-  repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
-    return invoke("get_repository", { id });
+  async repository(id: string): Promise<{ repository: RepositorySummary; scans: ScanSummary[] }> {
+    return checkRepository(await this.call<unknown>("get_repository", { id }), id);
   }
 
   async history(id: string, after?: string): Promise<HistoryPage> {
-    const value = await invoke<unknown>("repository_history", { id, limit: 50, after: after ?? null });
+    const value = await this.call<unknown>("repository_history", { id, limit: 50, after: after ?? null });
     return checkHistoryPage(value, id, after);
   }
 
   async artifact(id: string, scan?: string): Promise<RepositoryDna> {
-    const value = await invoke<unknown>("load_artifact", { id, scan: scan ?? null });
-    return checkArtifact(value).artifact;
+    const value = await this.call<unknown>("load_artifact", { id, scan: scan ?? null });
+    return checkNativeArtifact(value, scan);
   }
 
   async deleteRepository(id: string): Promise<void> {
-    await invoke("delete_repository", { id });
+    await this.call("delete_repository", { id });
   }
 
   async deleteScan(id: string, scan: string): Promise<void> {
-    await invoke("delete_scan", { id, scan });
+    await this.call("delete_scan", { id, scan });
   }
 
   async listRemoteReferences(input: string, query?: SourceRefQuery): Promise<SourceReferences> {
     return checkSourceReferences(
-      await invoke<unknown>("list_remote_references", {
+      await this.call<unknown>("list_remote_references", {
         input,
         kind: query?.kind ?? null,
         search: query?.search ?? null,
@@ -61,60 +75,60 @@ export class DesktopBackend implements Backend {
     );
   }
 
-  startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {
-    return invoke<JobState>("start_scan", {
+  async startScan(input: string, profile?: string, revision?: RemoteRevision): Promise<JobState> {
+    return checkNewScanJob(await this.call<unknown>("start_scan", {
       input,
       profile: profile ?? null,
       branch: revision?.kind === "branch" ? revision.value : null,
       tag: revision?.kind === "tag" ? revision.value : null,
       commit: revision?.kind === "commit" ? revision.value : null,
-    });
+    }));
   }
 
   async job(id: string): Promise<JobState> {
-    return checkScanJob(await invoke<unknown>("get_job", { id }), id);
+    return checkScanJob(await this.call<unknown>("get_job", { id }), id);
   }
 
   async listJobs(): Promise<JobState[]> {
-    return checkScanJobs(await invoke<unknown>("list_jobs"));
+    return checkScanJobs(await this.call<unknown>("list_jobs"));
   }
 
   async cancelJob(id: string): Promise<void> {
-    await invoke("cancel_job", { id });
+    await this.call("cancel_job", { id });
   }
 
   reportUrl(): null {
     return null;
   }
 
-  card(id: string, dark: boolean, scan?: string): Promise<string> {
-    return invoke<string>("render_card", { id, dark, scan: scan ?? null });
+  async card(id: string, dark: boolean, scan?: string): Promise<string> {
+    return checkSvgCard(await this.call<unknown>("render_card", { id, dark, scan: scan ?? null }));
   }
 
-  pickDirectory(): Promise<string | null> {
-    return invoke<string | null>("pick_directory");
+  async pickDirectory(): Promise<string | null> {
+    return checkOptionalPath(await this.call<unknown>("pick_directory"));
   }
 
-  saveReport(id: string, format: SaveFormat, options: ReportOptions = {}): Promise<string | null> {
-    return invoke<string | null>("save_report", {
+  async saveReport(id: string, format: SaveFormat, options: ReportOptions = {}): Promise<string | null> {
+    return checkOptionalPath(await this.call<unknown>("save_report", {
       id,
       format,
       scan: options.scan ?? null,
       theme: options.theme ?? null,
       privacy: options.privacy ?? null,
-    });
+    }));
   }
 
-  saveCard(id: string, dark: boolean, png: boolean, scan?: string): Promise<string | null> {
-    return invoke<string | null>("save_card", { id, dark, png, scan: scan ?? null });
+  async saveCard(id: string, dark: boolean, png: boolean, scan?: string): Promise<string | null> {
+    return checkOptionalPath(await this.call<unknown>("save_card", { id, dark, png, scan: scan ?? null }));
   }
 
   async openExternal(url: string): Promise<void> {
-    await invoke("open_link", { url });
+    await this.call("open_link", { url });
   }
 }
 
 /** Saves a file the page made through a save dialog: where it was saved, or null if not. */
-export function saveFile(name: string, text: string): Promise<string | null> {
-  return invoke<string | null>("save_file", { name, text });
+export async function saveFile(name: string, text: string): Promise<string | null> {
+  return checkOptionalPath(await invoke<unknown>("save_file", { name, text }));
 }

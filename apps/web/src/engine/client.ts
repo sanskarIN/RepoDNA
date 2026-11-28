@@ -2,181 +2,36 @@
 // archive the user chooses, and reports and cards of an analysis, without a server. The
 // files are read in the browser and never uploaded.
 
-import type {
-  EngineReply,
-  Profile,
-  EngineRequest,
-  InputFile,
-  ProgressEvent,
-  ReportRequest,
-} from "./protocol";
+import type { Profile, InputFile, ProgressEvent, ReportRequest } from "./protocol";
+import { WorkerQueue, type WorkerBody, type WorkerOutput, type WorkerTask } from "./workerQueue";
 
+export { CancelledError } from "./workerQueue";
 export type { InputFile, Profile, ProgressEvent, ReportRequest } from "./protocol";
 
-/** Where the program and its description are, next to the page. */
-const DIRECTORY = "engine/";
+import { EngineCatalog, type EngineInfo } from "./engineCatalog";
+export { isInfo, type EngineInfo } from "./engineCatalog";
 
-/** What `engine/engine.json` says about the program. */
-export interface EngineInfo {
-  version: string;
-  bytes: number;
-}
+const catalog = new EngineCatalog();
 
-export function isInfo(value: unknown): value is EngineInfo {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const info = value as Record<string, unknown>;
-  return (
-    typeof info.version === "string" &&
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(info.version) &&
-    typeof info.bytes === "number" &&
-    Number.isSafeInteger(info.bytes) &&
-    info.bytes > 0
-  );
-}
-
-let info: Promise<EngineInfo | null> | null = null;
-// The version from `engine.json`, which keeps a cached program of another version from
-// being used.
-let version = "";
-
-/**
- * The program this build of the web interface comes with, or null when it has none: the
- * interface that `repodna serve` and the desktop app show analyzes on the machine instead.
- */
+/** The program this interface comes with, or null when unavailable. */
 export function engineInfo(): Promise<EngineInfo | null> {
-  info ??= fetch(new URL(`${DIRECTORY}engine.json`, document.baseURI), { cache: "no-cache" })
-    .then((response) => (response.ok ? response.json() : null))
-    .then((value: unknown) => {
-      if (!isInfo(value)) {
-        return null;
-      }
-      version = value.version;
-      return value;
-    })
-    .catch(() => null)
-    .then((result) => {
-      // Offline or transient HTTP failures must not be cached permanently:
-      // users can reconnect and retry analysis without reloading the entire page.
-      if (result === null) info = null;
-      return result;
-    });
-  return info;
-}
-
-/** The error of a request that was cancelled. */
-export class CancelledError extends Error {
-  override name = "CancelledError";
-  constructor() {
-    super("Cancelled.");
-  }
+  return catalog.load(document.baseURI);
 }
 
 /** A request in progress, and the way to stop it. */
-export interface EngineTask<T> {
-  result: Promise<T>;
-  cancel(): void;
-}
+export type EngineTask<T> = WorkerTask<T>;
+type Output = WorkerOutput;
 
-/** What the worker made: text, or the bytes of an image, and their size in bytes. */
-interface Output {
-  output: string | Uint8Array<ArrayBuffer>;
-  size: number;
-}
-
-interface Pending {
-  resolve(output: Output): void;
-  reject(error: Error): void;
-  onProgress?: (event: ProgressEvent) => void;
-}
-
-let worker: Worker | null = null;
-let nextId = 1;
-const pending = new Map<number, Pending>();
-
-/** Stops the worker and every request it was working on. */
-function stop(error: Error): void {
-  worker?.terminate();
-  worker = null;
-  for (const request of pending.values()) {
-    request.reject(error);
-  }
-  pending.clear();
-}
-
-function started(): Worker {
-  if (worker) {
-    return worker;
-  }
-  const created = new Worker(new URL("./worker.ts", import.meta.url), {
+const queue = new WorkerQueue({
+  create: () => new Worker(new URL("./worker.ts", import.meta.url), {
     type: "module",
     name: "RepoDNA analysis",
-  });
-  created.onmessage = (event: MessageEvent<EngineReply>) => {
-    const reply = event.data;
-    const request = pending.get(reply.id);
-    if (!request) {
-      return;
-    }
-    if (reply.kind === "progress") {
-      try {
-        request.onProgress?.(reply.progress);
-      } catch {
-        // A UI progress handler must not break message delivery from the analysis
-        // worker. The final result still needs to be received and resolved.
-      }
-      return;
-    }
-    pending.delete(reply.id);
-    if (reply.kind === "done") {
-      request.resolve({ output: reply.output, size: reply.size });
-    } else {
-      request.reject(new Error(reply.message));
-    }
-  };
-  created.onerror = (event) => {
-    event.preventDefault();
-    stop(new Error(event.message || "RepoDNA's analysis program stopped unexpectedly."));
-  };
-  worker = created;
-  return created;
-}
+  }),
+});
 
-type Body = EngineRequest extends infer R
-  ? R extends unknown
-    ? Omit<R, "id" | "wasm">
-    : never
-  : never;
-
-function request(body: Body, onProgress?: (event: ProgressEvent) => void): EngineTask<Output> {
-  const id = nextId++;
-  let rejectPending: (error: Error) => void = () => {};
-  const result = new Promise<Output>((resolve, reject) => {
-    rejectPending = reject;
-    pending.set(id, { resolve, reject, onProgress });
-  });
-  const wasm = new URL(
-    `${DIRECTORY}repodna.wasm?v=${encodeURIComponent(version)}`,
-    document.baseURI,
-  ).href;
-  try {
-    started().postMessage({ ...body, id, wasm } as EngineRequest);
-  } catch (error) {
-    // Worker construction or structured cloning can fail synchronously (for
-    // example when the browser refuses a transferred file). Reject the task
-    // rather than leaving a permanently pending request behind.
-    pending.delete(id);
-    const reason = error instanceof Error ? error : new Error(String(error));
-    // The promise is already returned as the task's result to the caller.
-    rejectPending(reason);
-  }
-  return {
-    result,
-    cancel: () => {
-      if (pending.has(id)) {
-        stop(new CancelledError());
-      }
-    },
-  };
+function request(body: WorkerBody, onProgress?: (event: ProgressEvent) => void): EngineTask<Output> {
+  const wasm = catalog.wasmUrl(document.baseURI);
+  return queue.request(body, wasm, onProgress);
 }
 
 /** A finished analysis: the `.repodna` file's text, and its size in bytes. */
@@ -219,22 +74,23 @@ export function analyzeArchive(
 }
 
 /** A report of the analysis `artifact` (its JSON text), as `repodna report` makes it. */
-export async function renderReport(artifact: string, options: ReportRequest): Promise<string> {
-  return text(await request({ kind: "report", artifact, ...options }).result);
+export function renderReportTask(artifact: string, options: ReportRequest): EngineTask<string> {
+  const task = request({ kind: "report", artifact, ...options });
+  return { result: task.result.then(text), cancel: task.cancel };
+}
+export function renderReport(artifact: string, options: ReportRequest): Promise<string> {
+  return renderReportTask(artifact, options).result;
 }
 
 /** The Project DNA card of the analysis `artifact`, as SVG markup or PNG bytes. */
-export function renderCard(
-  artifact: string,
-  dark: boolean,
-  png: true,
-): Promise<Uint8Array<ArrayBuffer>>;
+export function renderCardTask(artifact: string, dark: boolean, png: true): EngineTask<Uint8Array<ArrayBuffer>>;
+export function renderCardTask(artifact: string, dark: boolean, png?: false): EngineTask<string>;
+export function renderCardTask(artifact: string, dark: boolean, png = false): EngineTask<string | Uint8Array<ArrayBuffer>> {
+  const task = request({ kind: "card", artifact, dark, png });
+  return { result: task.result.then(({ output }) => output), cancel: task.cancel };
+}
+export function renderCard(artifact: string, dark: boolean, png: true): Promise<Uint8Array<ArrayBuffer>>;
 export function renderCard(artifact: string, dark: boolean, png?: false): Promise<string>;
-export async function renderCard(
-  artifact: string,
-  dark: boolean,
-  png = false,
-): Promise<string | Uint8Array<ArrayBuffer>> {
-  const { output } = await request({ kind: "card", artifact, dark, png }).result;
-  return output;
+export function renderCard(artifact: string, dark: boolean, png = false): Promise<string | Uint8Array<ArrayBuffer>> {
+  return png ? renderCardTask(artifact, dark, true).result : renderCardTask(artifact, dark, false).result;
 }
