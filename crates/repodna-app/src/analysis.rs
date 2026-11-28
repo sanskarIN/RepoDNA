@@ -398,6 +398,24 @@ mod input_display_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explicit_remote_revision_cannot_be_silently_ignored_for_a_local_directory() {
+        let home = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        let mut options = options(repo.path());
+        options.fetch.revision = Some(repodna_git::url::RequestedRevision::Branch("main".into()));
+        let result = run_analysis(
+            &AppPaths::in_directory(home.path()),
+            &options,
+            Progress::default(),
+            &CancellationToken::new(),
+        );
+        let error = result.unwrap_err();
+        assert_eq!(error.kind, crate::ErrorKind::Input);
+        assert!(error.message.contains("requires a remote Git URL"));
+    }
+
     use repodna_testkit::write_tree;
 
     fn options(input: &Path) -> AnalyzeOptions {

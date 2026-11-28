@@ -86,13 +86,21 @@ struct Running {
 
 impl Running {
     fn start(paths: AppPaths, web_dir: Option<std::path::PathBuf>) -> Self {
+        Self::start_with_scans(paths, web_dir, true)
+    }
+
+    fn start_with_scans(
+        paths: AppPaths,
+        web_dir: Option<std::path::PathBuf>,
+        allow_scans: bool,
+    ) -> Self {
         let server = Arc::new(
             Server::bind(
                 paths,
                 ServerOptions {
                     port: 0,
                     web_dir,
-                    allow_scans: true,
+                    allow_scans,
                     template: AnalyzeOptions {
                         config: ConfigOptions {
                             ignore_user_config: true,
@@ -476,4 +484,42 @@ fn serves_a_web_interface_directory() {
         send(address, "GET", "/assets/missing.js", &[], "").status,
         404
     );
+}
+
+#[test]
+fn remote_reference_endpoint_enforces_session_origin_and_url_policy() {
+    let home = tempfile::tempdir().expect("home");
+    let paths = AppPaths::in_directory(home.path());
+    let running = Running::start(paths.clone(), None);
+    let address = running.address();
+    let token = running.server.token();
+    let auth = [("X-RepoDNA-Token", token)];
+    let evil = [
+        ("X-RepoDNA-Token", token),
+        ("Origin", "https://attacker.example"),
+    ];
+    let endpoint = "/api/remote-references";
+    let invalid = r#"{"input":"https://127.0.0.1/org/repo"}"#;
+    assert_eq!(send(address, "POST", endpoint, &[], invalid).status, 401);
+    assert_eq!(send(address, "POST", endpoint, &evil, invalid).status, 403);
+    for body in [
+        invalid,
+        r#"{"input":"/local/project"}"#,
+        r#"{"input":""}"#,
+        r#"{"input":false}"#,
+        r#"{"input":"https://github.com/org/repohttps://user:synthetic-secret@github.com/a/b"}"#,
+        "{",
+    ] {
+        let response = send(address, "POST", endpoint, &auth, body);
+        assert_eq!(response.status, 400, "{}", response.body);
+        assert!(!response.body.contains("synthetic-secret"));
+    }
+    let oversized = "x".repeat(65 * 1024);
+    assert_eq!(send(address, "POST", endpoint, &auth, &oversized).status, 413);
+    drop(running);
+
+    let disabled = Running::start_with_scans(paths, None, false);
+    let address = disabled.address();
+    let auth = [("X-RepoDNA-Token", disabled.server.token())];
+    assert_eq!(send(address, "POST", endpoint, &auth, invalid).status, 403);
 }

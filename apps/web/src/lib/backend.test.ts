@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ServerBackend, takeToken } from "./backend";
+import { checkSourceReferences, ServerBackend, takeToken } from "./backend";
 
 const originalUrl = window.location.href;
 
@@ -293,5 +293,46 @@ describe("explicit native Git revision requests", () => {
     expect(JSON.parse(spy.mock.calls[1]?.[1]?.body as string).commit).toBe(
       "0123456789abcdef0123456789abcdef01234567",
     );
+  });
+});
+
+describe("remote reference listings", () => {
+  const branch = { kind: "branch", name: "feat/audio", object: "a".repeat(40) };
+  const tag = { kind: "tag", name: "feat/audio", object: "b".repeat(64) };
+
+  it("preserves same-named branches and tags with separate identities", () => {
+    expect(checkSourceReferences({ references: [branch, tag], truncated: true })).toEqual({
+      references: [branch, tag],
+      truncated: true,
+    });
+  });
+
+  it("rejects malformed objects, duplicate namespace/name pairs and excessive results", () => {
+    for (const value of [
+      null,
+      { references: [], truncated: "false" },
+      { references: [{ ...branch, object: "short" }], truncated: false },
+      { references: [{ ...branch, kind: "commit" }], truncated: false },
+      { references: [{ ...branch, name: "--flag" }], truncated: false },
+      { references: [{ ...branch, name: "a/../b" }], truncated: false },
+      { references: [branch, branch], truncated: false },
+      { references: Array(2001).fill(branch), truncated: true },
+    ]) {
+      expect(() => checkSourceReferences(value)).toThrow(/remote reference/i);
+    }
+  });
+
+  it("uses an authenticated POST body and never puts the URL in the API path", async () => {
+    const result = { references: [branch], truncated: false };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(result), { status: 200 }),
+    );
+    const input = "https://github.com/org/repo/tree/feat/audio";
+    await expect(new ServerBackend("local-token").listRemoteReferences(input)).resolves.toEqual(result);
+    const [url, init] = fetchSpy.mock.calls[0] ?? [];
+    expect(url).toBe("/api/remote-references");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ input });
+    expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
   });
 });
