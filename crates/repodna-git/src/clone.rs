@@ -122,7 +122,7 @@ fn select_remote_ref(
         total = total.saturating_add(size);
         if size > MAX_REMOTE_REF_LINE || total > MAX_REMOTE_REFS {
             return Err(GitError::Parse(
-                "remote reference discovery exceeded its size limit; use --branch or --tag explicitly"
+                "remote reference discovery exceeded its size limit; clone the desired branch locally and analyze its folder"
                     .to_owned(),
             ));
         }
@@ -165,7 +165,7 @@ fn discover_tree_ref(
     )?;
     selected.ok_or_else(|| {
         GitError::InvalidUrl(
-            "the GitHub /tree/ path does not match an advertised branch or tag; use a branch-root URL or select --branch/--tag explicitly"
+            "the GitHub /tree/ path does not match an advertised branch or tag; verify the branch-root URL"
                 .to_owned(),
         )
     })
