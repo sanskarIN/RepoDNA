@@ -156,6 +156,20 @@ describe("native analysis lifecycle", () => {
     unmount();
   });
 
+  it("reports an error opening a completed result without starting another scan", async () => {
+    const service = backend();
+    const done = vi.fn(async () => {
+      throw new Error("saved result unavailable");
+    });
+    service.job.mockResolvedValueOnce({ ...job("completed"), repositoryId: "repo-1" });
+    const { result, unmount } = renderHook(() => useScanJob(service, done));
+    await act(async () => result.current.attach("job-1"));
+    expect(result.current.error).toBe("saved result unavailable");
+    expect(result.current.busy).toBe(false);
+    expect(service.startScan).not.toHaveBeenCalled();
+    unmount();
+  });
+
   it("rejects a stale recovery entry with a mismatched job identity", async () => {
     const service = backend();
     service.job.mockResolvedValueOnce(job("running", "wrong-job"));

@@ -77,7 +77,15 @@ export function useScanJob(
     setCancelling(false);
     if (next.status === "completed") {
       if (next.repositoryId) {
-        void openResult.current(next.repositoryId, next.scanId ?? undefined);
+        const repositoryId = next.repositoryId;
+        const open = async () => {
+          try {
+            await openResult.current(repositoryId, next.scanId ?? undefined);
+          } catch (reason) {
+            if (mounted.current && active.current === null) setError(message(reason));
+          }
+        };
+        void open();
       } else {
         setError(
           "Analysis finished but no saved result is available. Check its warnings or local storage.",
@@ -151,8 +159,7 @@ export function useScanJob(
   const start = (input: string, profile: string, revision?: RemoteRevision) =>
     backend ? launch(() => backend.startScan(input, profile, revision)) : Promise.resolve();
 
-  const attach = (id: string) =>
-    backend ? launch(() => backend.job(id), id) : Promise.resolve();
+  const attach = (id: string) => (backend ? launch(() => backend.job(id), id) : Promise.resolve());
 
   const resume = () => {
     const scan = active.current;

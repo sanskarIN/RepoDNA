@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { checkSourceReferences, ServerBackend, takeToken } from "./backend";
+import { checkScanJob, checkScanJobs, checkSourceReferences, ServerBackend, takeToken } from "./backend";
 
 const originalUrl = window.location.href;
 
@@ -334,6 +334,31 @@ describe("remote reference listings", () => {
     expect(url).toBe("/api/remote-references");
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual({ input });
+    expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
+  });
+});
+
+describe("native analysis recovery", () => {
+  it("validates distinct job identities and rejects malformed or oversized lists", () => {
+    const completed = { ...validJob, id: "job-2", status: "completed" };
+    expect(checkScanJobs([validJob, completed])).toEqual([validJob, completed]);
+    expect(checkScanJobs([])).toEqual([]);
+    expect(() => checkScanJobs([validJob, validJob])).toThrow(/duplicate scan job IDs/);
+    expect(() => checkScanJobs(Array(51).fill(validJob))).toThrow(/invalid scan job list/);
+    expect(() => checkScanJobs([validJob, { ...validJob, status: "unknown" }])).toThrow(
+      /invalid scan job/,
+    );
+    expect(() => checkScanJob(validJob, "wrong-id")).toThrow(/invalid scan job/);
+  });
+
+  it("lists native jobs through the authenticated scans endpoint", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([validJob]), { status: 200 }),
+    );
+    const backend = new ServerBackend("local-token");
+    await expect(backend.listJobs()).resolves.toEqual([validJob]);
+    const [url, init] = spy.mock.calls[0] ?? [];
+    expect(url).toBe("/api/scans");
     expect((init?.headers as Headers).get("X-RepoDNA-Token")).toBe("local-token");
   });
 });
