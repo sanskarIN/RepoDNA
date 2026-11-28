@@ -235,6 +235,17 @@ pub fn import_artifact(
     if !id.is_empty()
         && let Some(existing) = store.scan(id)?.filter(|scan| &scan.id == id)
     {
+        // A matching ID is not proof that two imported artifacts are identical.
+        // Do not silently return a different repository's stored result.
+        if existing.dna_hash != loaded.artifact.fingerprint.dna_hash
+            || existing.generated_at != loaded.artifact.analysis_metadata.generated_at
+            || existing.profile != loaded.artifact.analysis_metadata.profile
+            || existing.revision != loaded.artifact.analysis_metadata.revision
+        {
+            return Err(AppError::input(
+                "An analysis with this identifier but different metadata is already stored.",
+            ));
+        }
         let mut warnings = loaded.warnings;
         warnings.push("This analysis is already stored, so nothing was imported.".to_owned());
         return Ok((loaded.artifact, existing, warnings));
@@ -540,6 +551,32 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(missing.exit_code(), 3);
+    }
+
+    #[test]
+    fn importing_conflicting_analysis_identity_never_replaces_the_original() {
+        let home = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        write_tree(repo.path(), &[("main.py", "print('hello')\n")]);
+        let paths = AppPaths::in_directory(home.path());
+        let first = run_analysis(
+            &paths,
+            &options(repo.path()),
+            Progress::default(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        let original = first.scan.unwrap();
+        let mut changed = first.dna.clone();
+        changed.fingerprint.dna_hash.push_str("-different");
+        let file = home.path().join("different.repodna");
+        std::fs::write(&file, serde_json::to_string(&changed).unwrap()).unwrap();
+        let error = import_artifact(&paths, &file).unwrap_err();
+        assert_eq!(error.kind, crate::ErrorKind::Input);
+        assert!(error.message.contains("different metadata"));
+        let store = paths.open_store().unwrap();
+        assert_eq!(store.scan(&original.id).unwrap().unwrap(), original);
+        assert_eq!(store.load(&original).unwrap(), first.dna);
     }
 
     #[test]
